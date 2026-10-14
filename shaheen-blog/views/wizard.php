@@ -31,7 +31,6 @@ $d = array(
     'status'      => $post ? $post->post_status : 'draft',
     'url'         => $post ? get_permalink($pid) : '',
 );
-$kw = array_pad(array_values($d['keywords']), 3, '');
 $cats = get_terms(array('taxonomy' => 'sb_category', 'hide_empty' => false, 'orderby' => 'term_id'));
 $costs = array();
 foreach (array_keys(sb_feature_labels()) as $f) {
@@ -92,12 +91,11 @@ foreach (array_keys(sb_feature_labels()) as $f) {
         <!-- Step 2 -->
         <section class="sba-step" data-step="2" hidden>
             <h2>ধাপ ২: কীওয়ার্ড</h2>
-            <p class="sba-muted">২-৩টি মূল কীওয়ার্ড দিন। AI শিরোনাম, সাবটাইটেল, আর্টিকেল ও মেটা বর্ণনায় এগুলো ব্যবহার করবে।</p>
-            <div class="sba-row">
-                <label>কীওয়ার্ড ১ *<input type="text" class="f-kw" value="<?php echo esc_attr($kw[0]); ?>" placeholder="যেমন: ক্যাডেট কলেজ"></label>
-                <label>কীওয়ার্ড ২ *<input type="text" class="f-kw" value="<?php echo esc_attr($kw[1]); ?>" placeholder="যেমন: ভর্তি প্রস্তুতি"></label>
-                <label>কীওয়ার্ড ৩ <small>(ঐচ্ছিক)</small><input type="text" class="f-kw" value="<?php echo esc_attr($kw[2]); ?>" placeholder="যেমন: মডেল টেস্ট"></label>
-            </div>
+            <p class="sba-muted">মূল কীওয়ার্ডগুলো কমা দিয়ে লিখুন। AI শিরোনাম, সাবটাইটেল, আর্টিকেল ও মেটা বর্ণনায় এগুলো ব্যবহার করবে।</p>
+            <label>কীওয়ার্ড * <small>(কমা দিয়ে আলাদা করুন, কমপক্ষে ২টি, বেশিও দিতে পারেন)</small>
+                <input type="text" id="f-kw" value="<?php echo esc_attr(implode(', ', array_filter($d['keywords']))); ?>" placeholder="যেমন: ক্যাডেট কলেজ, ভর্তি প্রস্তুতি, মডেল টেস্ট">
+            </label>
+            <div id="kw-chips" class="sba-chips"></div>
             <label>বিষয়/প্রসঙ্গ <small>(ঐচ্ছিক, AI-কে দিকনির্দেশনা)</small>
                 <input type="text" id="f-topic" value="<?php echo esc_attr($d['topic']); ?>" placeholder="যেমন: ষষ্ঠ শ্রেণির অভিভাবকদের জন্য">
             </label>

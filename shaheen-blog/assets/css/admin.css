@@ -60,3 +60,8 @@
 .sba-actions a{margin-right:10px}
 .sba-table{margin-top:8px}
 @media(max-width:600px){.sba-review{grid-template-columns:1fr}.sba-nav{flex-wrap:wrap}}
+.sba-chips{display:flex;flex-wrap:wrap;gap:6px;margin:-6px 0 14px}
+.sba-chips span{background:#edf7ee;border:1px solid #b9dfc0;border-radius:99px;padding:2px 10px;font-size:13px}
+.sba-toast{display:none;position:fixed;top:44px;right:20px;z-index:100000;max-width:360px;padding:12px 16px;border-radius:8px;background:#1d2327;color:#fff;box-shadow:0 4px 16px rgba(0,0,0,.25)}
+.sba-toast--err{background:#b32d2e}.sba-toast--ok{background:#0a7a34}
+.sba-lock{max-width:420px}

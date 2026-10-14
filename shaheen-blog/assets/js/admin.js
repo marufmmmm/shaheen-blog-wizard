@@ -23,7 +23,14 @@
       } else if (v !== undefined && v !== null) { fd.append(k, v); }
     });
     return fetch(SB.ajax, { method: 'POST', credentials: 'same-origin', body: fd })
-      .then(function (r) { return r.json(); })
+      .catch(function () { throw new Error('ইন্টারনেট সংযোগে সমস্যা হয়েছে।'); })
+      .then(function (r) {
+        return r.text().then(function (t) {
+          try { return JSON.parse(t); } catch (e) {
+            throw new Error('সার্ভার থেকে সঠিক উত্তর আসেনি (HTTP ' + r.status + ')। সময় শেষ হয়ে থাকতে পারে, আবার চেষ্টা করুন।');
+          }
+        });
+      })
       .then(function (j) {
         if (j && j.data && j.data.balance) updateBalance(j.data.balance);
         if (!j || !j.success) throw new Error((j && j.data && j.data.message) || 'কিছু একটা ভুল হয়েছে।');
@@ -103,6 +110,19 @@
     });
   }
 
+  /* ---------------- settings PIN ---------------- */
+  var pinGo = $('#pin-go');
+  if (pinGo) {
+    var tryPin = function () {
+      post('sb_unlock', { pin: $('#pin').value }).then(function () { location.reload(); })
+        .catch(function (e) { say($('#pin-msg'), e.message, 'err'); });
+    };
+    pinGo.addEventListener('click', tryPin);
+    $('#pin').addEventListener('keydown', function (e) { if (e.key === 'Enter') tryPin(); });
+  }
+  var pinLock = $('#pin-lock');
+  if (pinLock) pinLock.addEventListener('click', function () { post('sb_lock', {}).then(function () { location.reload(); }); });
+
   /* ---------------- wizard ---------------- */
   var form = $('#sb-form');
   if (!form) return;
@@ -122,7 +142,20 @@
     var t = $('#sb_content'); if (t) t.value = html;
   }
   function keywords() {
-    return $$('.f-kw').map(function (i) { return i.value.trim(); }).filter(Boolean);
+    var seen = {};
+    return val('#f-kw').split(/[,،，\n]+/).map(function (x) { return x.trim(); })
+      .filter(function (x) { if (!x || seen[x]) return false; seen[x] = 1; return true; }).slice(0, 10);
+  }
+  function chips() {
+    var box = $('#kw-chips'); box.innerHTML = '';
+    keywords().forEach(function (k) { var c = document.createElement('span'); c.textContent = k; box.appendChild(c); });
+  }
+  $('#f-kw').addEventListener('input', chips); chips();
+  function toast(text, kind) {
+    var t = $('#sb-toast');
+    if (!t) { t = document.createElement('div'); t.id = 'sb-toast'; document.body.appendChild(t); }
+    t.className = 'sba-toast' + (kind ? ' sba-toast--' + kind : ''); t.textContent = text; t.style.display = 'block';
+    clearTimeout(t._h); t._h = setTimeout(function () { t.style.display = 'none'; }, 6000);
   }
   function val(id) { var e = $(id); return e ? e.value : ''; }
 
@@ -208,19 +241,20 @@
     btn.addEventListener('click', function () {
       var f = btn.dataset.ai;
       if ((f === 'headlines' || f === 'subtitle' || f === 'meta' || f === 'article') && keywords().length < 2) {
-        show(2); say(msg, 'AI ব্যবহারের আগে কমপক্ষে ২টি কীওয়ার্ড দিন।', 'err'); return;
+        toast('আগে ধাপ ২-এ কমা দিয়ে কমপক্ষে ২টি কীওয়ার্ড লিখুন।', 'err'); say(msg, 'কীওয়ার্ড দিন (ধাপ ২)।', 'err'); return;
       }
-      if (f === 'headlines' || f === 'subtitle') {
-        if (!val('#f-title').trim() && !val('#f-topic').trim()) { /* keywords suffice */ }
+      if (f !== 'headlines' && !val('#f-title').trim()) { toast('আগে ধাপ ১-এ শিরোনাম লিখুন।', 'err'); return; }
+      if (f === 'summary' && editorContent().replace(/<[^>]+>/g, '').trim().length < 80) {
+        toast('সামারি মূল পোস্ট থেকে তৈরি হয়। আগে আর্টিকেল লিখুন বা তৈরি করুন।', 'err'); return;
       }
       var cost = SB.costs[f];
-      if (SB.balance.remaining < cost) { say(msg, 'ক্রেডিট যথেষ্ট নয়। প্রয়োজন ' + fmt(cost) + ', আছে ' + fmt(SB.balance.remaining) + '।', 'err'); return; }
-      var old = btn.innerHTML; btn.disabled = true; btn.textContent = '⏳ তৈরি হচ্ছে…';
+      if (SB.balance.remaining < cost) { toast('ক্রেডিট যথেষ্ট নয়। প্রয়োজন ' + fmt(cost) + ', আছে ' + fmt(SB.balance.remaining) + '।', 'err'); return; }
+      var old = btn.innerHTML; btn.disabled = true; btn.textContent = '⏳ তৈরি হচ্ছে… (আর্টিকেলে ১ মিনিট লাগতে পারে)';
       say(msg, '');
       post('sb_ai', aiPayload(f)).then(function (d) {
         applyAI(f, d.result);
-        say(msg, '✓ হয়েছে। ' + fmt(d.cost) + ' ক্রেডিট কেটেছে।', 'ok');
-      }).catch(function (e) { say(msg, e.message, 'err'); })
+        say(msg, '✓ হয়েছে। ' + fmt(d.cost) + ' ক্রেডিট কেটেছে।', 'ok'); toast('✓ হয়েছে। ' + fmt(d.cost) + ' ক্রেডিট কেটেছে।', 'ok');
+      }).catch(function (e) { say(msg, e.message, 'err'); toast(e.message, 'err'); })
         .then(function () { btn.disabled = false; btn.innerHTML = old; });
     });
   });

@@ -5,9 +5,20 @@ if (!defined('ABSPATH')) {
 $s = function ($k) { return sb_get($k); };
 $has_key = (bool) sb_get('api_key');
 $users = get_users(array('capability' => 'edit_posts', 'number' => 200));
-?>
+if (!SB_Lock::is_unlocked()) : ?>
 <div class="wrap sba">
     <h1>সেটিংস</h1>
+    <div class="sba-card sba-lock">
+        <h2>🔒 সেটিংস লক করা</h2>
+        <p class="sba-muted">চালিয়ে যেতে PIN দিন। হিন্ট: <strong><?php echo esc_html(SB_Lock::HINT); ?></strong></p>
+        <p><input type="password" id="pin" inputmode="numeric" maxlength="12" autocomplete="off" placeholder="PIN" style="max-width:200px">
+           <button type="button" class="button button-primary" id="pin-go">আনলক</button></p>
+        <p id="pin-msg" class="sba-msg"></p>
+    </div>
+</div>
+<?php return; endif; ?>
+<div class="wrap sba">
+    <h1>সেটিংস <button type="button" class="button" id="pin-lock" style="margin-left:10px">🔒 লক করুন</button></h1>
     <?php if (!empty($_GET['saved'])) : // phpcs:ignore WordPress.Security.NonceVerification ?>
         <div class="notice notice-success is-dismissible"><p>সেটিংস সেভ হয়েছে।</p></div>
     <?php endif; ?>

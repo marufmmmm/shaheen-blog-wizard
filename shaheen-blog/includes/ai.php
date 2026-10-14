@@ -85,7 +85,7 @@ class SB_AI {
                 if (mb_strlen($body) < 80) {
                     return new WP_Error('sb_short', 'সামারি বানাতে আগে আর্টিকেলের লেখা দিন বা তৈরি করুন।');
                 }
-                $user = "নিচের আর্টিকেলের একটি সংক্ষিপ্ত সামারি লেখো (প্রায় ১০০ থেকে ১৫০ শব্দ)। শুধু সামারি দাও।\n\nশিরোনাম: {$title}\n\n" . mb_substr($body, 0, 6000);
+                $user = "নিচের মূল পোস্টটি (আর্টিকেল) পড়ে তার ভিত্তিতে একটি সংক্ষিপ্ত সামারি লেখো (প্রায় ১০০ থেকে ১৫০ শব্দ)। শুধু আর্টিকেলে যা আছে তা-ই সংক্ষেপে বলবে, নতুন তথ্য যোগ করবে না। শুধু সামারি দাও।\n\nশিরোনাম: {$title}\n\n" . mb_substr($body, 0, 6000);
                 $max = 500;
                 break;
 
@@ -106,8 +106,11 @@ class SB_AI {
             $body['response_format'] = array('type' => 'json_object');
         }
 
+        if (function_exists('set_time_limit')) {
+            @set_time_limit(180); // phpcs:ignore
+        }
         $resp = wp_remote_post(self::ENDPOINT, array(
-            'timeout' => 120,
+            'timeout' => 150,
             'headers' => array(
                 'Authorization' => 'Bearer ' . $key,
                 'Content-Type'  => 'application/json',

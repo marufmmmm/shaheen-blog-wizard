@@ -24,6 +24,7 @@ require_once SB_PATH . 'includes/post-types.php';
 require_once SB_PATH . 'includes/credits.php';
 require_once SB_PATH . 'includes/ai.php';
 require_once SB_PATH . 'includes/ajax.php';
+require_once SB_PATH . 'includes/lock.php';
 require_once SB_PATH . 'includes/frontend.php';
 require_once SB_PATH . 'includes/demo.php';
 if (is_admin()) {

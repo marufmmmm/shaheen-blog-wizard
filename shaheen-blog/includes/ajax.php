@@ -53,7 +53,7 @@ function sb_ajax_ai() {
         'topic'    => sanitize_text_field(sb_req('topic')),
         'excerpt'  => sanitize_textarea_field(sb_req('excerpt')),
         'content'  => wp_kses_post(sb_req('content')),
-        'keywords' => sb_req_list('keywords', 5),
+        'keywords' => sb_req_list('keywords', 10),
         'length'   => sanitize_key(sb_req('length', 'medium')),
     );
     $result = SB_AI::generate($feature, $ctx);
@@ -129,7 +129,7 @@ function sb_ajax_save_post() {
     update_post_meta($id, '_sb_meta_desc', sanitize_textarea_field(sb_req('meta_desc')));
     update_post_meta($id, '_sb_summary', sanitize_textarea_field(sb_req('summary')));
     update_post_meta($id, '_sb_author_name', sanitize_text_field(sb_req('author_name')));
-    update_post_meta($id, '_sb_keywords', sb_req_list('keywords', 5));
+    update_post_meta($id, '_sb_keywords', sb_req_list('keywords', 10));
     update_post_meta($id, '_sb_topic', sanitize_text_field(sb_req('topic')));
 
     $faq = array();
@@ -216,6 +216,9 @@ function sb_ajax_delete_category() {
 add_action('wp_ajax_sb_delete_demo', 'sb_ajax_delete_demo');
 function sb_ajax_delete_demo() {
     sb_ajax_guard('manage_options');
+    if (!SB_Lock::is_unlocked()) {
+        wp_send_json_error(array('message' => 'আগে সেটিংসে PIN দিয়ে আনলক করুন।'), 403);
+    }
     $ids = get_posts(array(
         'post_type' => 'sb_post', 'post_status' => 'any', 'numberposts' => -1,
         'fields' => 'ids', 'meta_key' => '_sb_demo', 'meta_value' => '1',
@@ -229,6 +232,9 @@ function sb_ajax_delete_demo() {
 add_action('wp_ajax_sb_set_subscription', 'sb_ajax_set_subscription');
 function sb_ajax_set_subscription() {
     sb_ajax_guard('manage_options');
+    if (!SB_Lock::is_unlocked()) {
+        wp_send_json_error(array('message' => 'আগে সেটিংসে PIN দিয়ে আনলক করুন।'), 403);
+    }
     $uid = (int) sb_req('user_id', 0);
     if (!$uid || !get_userdata($uid)) {
         wp_send_json_error(array('message' => 'ইউজার পাওয়া যায়নি।'));

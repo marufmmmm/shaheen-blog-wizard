@@ -88,6 +88,9 @@ function sb_handle_save_settings() {
         wp_die('অনুমতি নেই।', 403);
     }
     check_admin_referer('sb_save_settings');
+    if (!SB_Lock::is_unlocked()) {
+        wp_die('সেটিংস লক করা আছে। PIN দিয়ে আনলক করুন।', 403);
+    }
 
     $in = function ($k, $d = '') {
         return isset($_POST[$k]) ? wp_unslash($_POST[$k]) : $d; // phpcs:ignore WordPress.Security.NonceVerification
