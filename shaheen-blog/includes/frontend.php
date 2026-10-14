@@ -25,8 +25,8 @@ function sb_enqueue_front($with_js) {
         array(),
         null
     );
-    wp_enqueue_style('sb-blog', SB_URL . 'assets/css/blog.css', array('sb-fonts'), SB_VERSION);
-    wp_enqueue_script('sb-blog', SB_URL . 'assets/js/blog.js', array(), SB_VERSION, true);
+    wp_enqueue_style('sb-blog', SB_URL . 'assets/css/blog.css', array('sb-fonts'), SB_VERSION . '.' . filemtime(SB_PATH . 'assets/css/blog.css'));
+    wp_enqueue_script('sb-blog', SB_URL . 'assets/js/blog.js', array(), SB_VERSION . '.' . filemtime(SB_PATH . 'assets/js/blog.js'), true);
 }
 
 add_filter('body_class', 'sb_body_class');

@@ -30,8 +30,8 @@ function sb_admin_assets() {
         array(),
         null
     );
-    wp_enqueue_style('sb-admin', SB_URL . 'assets/css/admin.css', array('sb-fonts'), SB_VERSION);
-    wp_enqueue_script('sb-admin', SB_URL . 'assets/js/admin.js', array(), SB_VERSION, true);
+    wp_enqueue_style('sb-admin', SB_URL . 'assets/css/admin.css', array('sb-fonts'), SB_VERSION . '.' . filemtime(SB_PATH . 'assets/css/admin.css'));
+    wp_enqueue_script('sb-admin', SB_URL . 'assets/js/admin.js', array(), SB_VERSION . '.' . filemtime(SB_PATH . 'assets/js/admin.js'), true);
 
     if ($page === 'sb-new') {
         wp_enqueue_media();

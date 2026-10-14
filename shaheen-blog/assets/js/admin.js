@@ -143,7 +143,7 @@
   }
   function keywords() {
     var seen = {};
-    return val('#f-kw').split(/[,،，\n]+/).map(function (x) { return x.trim(); })
+    return val('#f-kw').split(/[,،，;；|।\n]+/).map(function (x) { return x.trim(); })
       .filter(function (x) { if (!x || seen[x]) return false; seen[x] = 1; return true; }).slice(0, 10);
   }
   function chips() {
@@ -161,7 +161,7 @@
 
   function validate(s) {
     if (s === 1 && !val('#f-title').trim()) return 'শিরোনাম লিখুন।';
-    if (s === 2 && !postId && keywords().length < 2) return 'কমপক্ষে ২টি কীওয়ার্ড দিন।';
+    if (s === 2 && !postId && keywords().length < 2) return 'কমপক্ষে ২টি কীওয়ার্ড দিন, প্রতিটির মাঝে কমা (,) দিন। এখন পাওয়া গেছে: ' + bn(keywords().length) + 'টি।';
     return '';
   }
 
