@@ -1,0 +1,606 @@
+<!DOCTYPE html>
+<html lang="bn">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Shaheen Blog Wizard - Test Version</title>
+    <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            padding: 20px;
+        }
+
+        .container {
+            max-width: 700px;
+            margin: 0 auto;
+            background: white;
+            border-radius: 12px;
+            box-shadow: 0 20px 60px rgba(0,0,0,0.3);
+            padding: 40px;
+        }
+
+        h1 {
+            color: #333;
+            margin-bottom: 10px;
+            text-align: center;
+        }
+
+        .subtitle {
+            color: #666;
+            text-align: center;
+            margin-bottom: 30px;
+            font-size: 14px;
+        }
+
+        .progress {
+            margin-bottom: 30px;
+        }
+
+        .progress-bar {
+            width: 100%;
+            height: 8px;
+            background: #eee;
+            border-radius: 4px;
+            overflow: hidden;
+            margin-top: 10px;
+        }
+
+        .progress-fill {
+            height: 100%;
+            background: #f5a623;
+            transition: width 0.3s;
+        }
+
+        .progress-text {
+            font-size: 24px;
+            font-weight: bold;
+            color: #f5a623;
+            text-align: center;
+        }
+
+        .page {
+            display: none;
+        }
+
+        .page.active {
+            display: block;
+            animation: fadeIn 0.3s;
+        }
+
+        @keyframes fadeIn {
+            from { opacity: 0; }
+            to { opacity: 1; }
+        }
+
+        .form-group {
+            margin-bottom: 20px;
+        }
+
+        label {
+            display: block;
+            font-weight: 600;
+            margin-bottom: 8px;
+            color: #333;
+        }
+
+        input[type="text"],
+        input[type="password"],
+        textarea,
+        select {
+            width: 100%;
+            padding: 12px;
+            border: 1px solid #ddd;
+            border-radius: 6px;
+            font-size: 14px;
+            font-family: inherit;
+            transition: border-color 0.3s;
+        }
+
+        input[type="text"]:focus,
+        textarea:focus,
+        select:focus {
+            outline: none;
+            border-color: #f5a623;
+            box-shadow: 0 0 0 3px rgba(245, 166, 35, 0.1);
+        }
+
+        textarea {
+            min-height: 120px;
+            resize: vertical;
+        }
+
+        .tags-container {
+            margin-top: 10px;
+            display: flex;
+            flex-wrap: wrap;
+            gap: 8px;
+        }
+
+        .tag {
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+            background: #f5a623;
+            color: white;
+            padding: 6px 12px;
+            border-radius: 20px;
+            font-size: 13px;
+        }
+
+        .tag button {
+            background: none;
+            border: none;
+            color: white;
+            cursor: pointer;
+            font-weight: bold;
+            padding: 0;
+        }
+
+        .categories {
+            display: grid;
+            grid-template-columns: repeat(2, 1fr);
+            gap: 12px;
+        }
+
+        .category-label {
+            display: flex;
+            align-items: center;
+            padding: 12px;
+            border: 2px solid #ddd;
+            border-radius: 6px;
+            cursor: pointer;
+            transition: all 0.3s;
+        }
+
+        .category-label:hover {
+            border-color: #f5a623;
+            background: #fff9f0;
+        }
+
+        .category-label input[type="checkbox"] {
+            margin-right: 10px;
+            cursor: pointer;
+            width: 18px;
+            height: 18px;
+        }
+
+        .checkbox-wrapper {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            margin-bottom: 15px;
+        }
+
+        .checkbox-wrapper input[type="checkbox"] {
+            width: auto;
+            padding: 0;
+            border: none;
+            cursor: pointer;
+        }
+
+        .buttons {
+            display: flex;
+            gap: 10px;
+            margin-top: 40px;
+            justify-content: space-between;
+        }
+
+        button {
+            padding: 12px 24px;
+            border: none;
+            border-radius: 6px;
+            font-size: 14px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.3s;
+        }
+
+        .btn-prev {
+            background: #ddd;
+            color: #333;
+        }
+
+        .btn-prev:hover {
+            background: #ccc;
+        }
+
+        .btn-next {
+            background: #f5a623;
+            color: white;
+        }
+
+        .btn-next:hover {
+            background: #d68910;
+        }
+
+        .btn-submit {
+            background: #28a745;
+            color: white;
+            width: 100%;
+        }
+
+        .btn-submit:hover {
+            background: #218838;
+        }
+
+        .btn-generate {
+            background: #0066cc;
+            color: white;
+            width: auto;
+        }
+
+        .btn-generate:hover {
+            background: #0052a3;
+        }
+
+        .review-item {
+            margin-bottom: 15px;
+            padding-bottom: 15px;
+            border-bottom: 1px solid #eee;
+        }
+
+        .review-item strong {
+            color: #333;
+        }
+
+        .review-item span {
+            color: #666;
+        }
+
+        .hidden {
+            display: none !important;
+        }
+
+        .success-message {
+            background: #d4edda;
+            border: 1px solid #c3e6cb;
+            color: #155724;
+            padding: 15px;
+            border-radius: 6px;
+            margin-bottom: 20px;
+            display: none;
+        }
+
+        .error-message {
+            background: #f8d7da;
+            border: 1px solid #f5c6cb;
+            color: #721c24;
+            padding: 15px;
+            border-radius: 6px;
+            margin-bottom: 20px;
+            display: none;
+        }
+
+        .small-text {
+            color: #999;
+            font-size: 12px;
+            margin-top: 4px;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>✍️ Shaheen Blog Wizard</h1>
+        <p class="subtitle">পৃষ্ঠা-ভিত্তিক ব্লগ পোস্ট সৃষ্টিকারী</p>
+
+        <div class="success-message" id="success"></div>
+        <div class="error-message" id="error"></div>
+
+        <div class="progress">
+            <div class="progress-text" id="pageNum">পৃষ্ঠা 1 / 5</div>
+            <div class="progress-bar">
+                <div class="progress-fill" id="progressFill" style="width: 20%;"></div>
+            </div>
+        </div>
+
+        <!-- PAGE 1: BASIC INFO -->
+        <div class="page active" id="page1">
+            <h2>পৃষ্ঠা 1: মূল তথ্য</h2>
+            <div class="form-group">
+                <label for="title">ব্লগ শিরোনাম *</label>
+                <input type="text" id="title" placeholder="আপনার ব্লগ পোস্টের শিরোনাম লিখুন">
+                <p class="small-text">কমপক্ষে 5 অক্ষর প্রয়োজন</p>
+            </div>
+            <div class="form-group">
+                <label for="description">বর্ণনা *</label>
+                <textarea id="description" placeholder="আপনার ব্লগ পোস্টের বর্ণনা লিখুন..."></textarea>
+                <p class="small-text">কমপক্ষে 20 অক্ষর প্রয়োজন</p>
+            </div>
+        </div>
+
+        <!-- PAGE 2: KEYWORDS -->
+        <div class="page" id="page2">
+            <h2>পৃষ্ঠা 2: কীওয়ার্ড এবং বিষয়</h2>
+            <div class="form-group">
+                <label for="keyword">কীওয়ার্ড (এন্টার দিয়ে যোগ করুন) *</label>
+                <input type="text" id="keyword" placeholder="যেমন: শিক্ষা - এন্টার চাপুন">
+                <div class="tags-container" id="keywordsList"></div>
+            </div>
+            <div class="form-group">
+                <label for="topic">বিষয়গুলি (এন্টার দিয়ে যোগ করুন)</label>
+                <input type="text" id="topic" placeholder="যেমন: ডিজিটাল রূপান্তর - এন্টার চাপুন">
+                <div class="tags-container" id="topicsList"></div>
+            </div>
+            <div class="form-group">
+                <label for="style">লেখার ধরন</label>
+                <select id="style">
+                    <option value="formal">আনুষ্ঠানিক (পেশাদার এবং তথ্যপূর্ণ)</option>
+                    <option value="casual">নৈমিত্তিক (বন্ধুত্বপূর্ণ)</option>
+                </select>
+            </div>
+            <div class="form-group">
+                <label for="length">নিবন্ধের দৈর্ঘ্য</label>
+                <select id="length">
+                    <option value="short">ছোট (300-500 শব্দ)</option>
+                    <option value="medium" selected>মধ্যম (500-1000 শব্দ)</option>
+                    <option value="long">দীর্ঘ (1000+ শব্দ)</option>
+                </select>
+            </div>
+            <button class="btn-generate" id="generateBtn">🤖 বর্ণনা তৈরি করুন (AI)</button>
+        </div>
+
+        <!-- PAGE 3: CATEGORIES -->
+        <div class="page" id="page3">
+            <h2>পৃষ্ঠা 3: ক্যাটেগরি নির্বাচন</h2>
+            <p style="margin-bottom: 20px; color: #666;">আপনার পোস্টের জন্য ক্যাটেগরি বেছে নিন:</p>
+            <div class="categories" id="categoriesList"></div>
+        </div>
+
+        <!-- PAGE 4: SUMMARY & FAQ -->
+        <div class="page" id="page4">
+            <h2>পৃষ্ঠা 4: সারসংক্ষেপ এবং FAQ</h2>
+            <div class="form-group">
+                <div class="checkbox-wrapper">
+                    <input type="checkbox" id="includeSummary">
+                    <label for="includeSummary" style="margin: 0;">সারসংক্ষেপ যোগ করুন</label>
+                </div>
+                <textarea id="summary" placeholder="আপনার পোস্টের মূল পয়েন্টগুলির সারসংক্ষেপ..." class="hidden"></textarea>
+            </div>
+            <div class="form-group">
+                <div class="checkbox-wrapper">
+                    <input type="checkbox" id="includeFaq">
+                    <label for="includeFaq" style="margin: 0;">FAQ যোগ করুন</label>
+                </div>
+                <textarea id="faq" placeholder="সাধারণ প্রশ্ন এবং উত্তর..." class="hidden"></textarea>
+            </div>
+        </div>
+
+        <!-- PAGE 5: REVIEW -->
+        <div class="page" id="page5">
+            <h2>পৃষ্ঠা 5: পর্যালোচনা এবং প্রকাশ করুন</h2>
+            <div id="reviewContent" style="background: #f9f9f9; padding: 20px; border-radius: 6px;"></div>
+        </div>
+
+        <!-- BUTTONS -->
+        <div class="buttons">
+            <button class="btn-prev hidden" id="prevBtn">← পূর্ববর্তী</button>
+            <button class="btn-next" id="nextBtn">পরবর্তী →</button>
+            <button class="btn-submit hidden" id="submitBtn">✅ প্রকাশ করুন (ডেমো)</button>
+        </div>
+    </div>
+
+    <script>
+        const wizard = {
+            currentPage: 1,
+            formData: {
+                keywords: [],
+                topics: [],
+                categories: []
+            },
+            categories: ['সংবাদ', 'শিক্ষা', 'প্রযুক্তি', 'অনুষ্ঠান', 'ঘোষণা'],
+
+            init() {
+                console.log('✅ Wizard initialized');
+                this.renderCategories();
+                this.bindEvents();
+            },
+
+            bindEvents() {
+                // Keyword input
+                $('#keyword').on('keypress', (e) => {
+                    if (e.which === 13) {
+                        e.preventDefault();
+                        const val = $('#keyword').val().trim();
+                        if (val) {
+                            this.formData.keywords.push(val);
+                            $('#keyword').val('');
+                            this.renderKeywords();
+                        }
+                    }
+                });
+
+                // Topic input
+                $('#topic').on('keypress', (e) => {
+                    if (e.which === 13) {
+                        e.preventDefault();
+                        const val = $('#topic').val().trim();
+                        if (val) {
+                            this.formData.topics.push(val);
+                            $('#topic').val('');
+                            this.renderTopics();
+                        }
+                    }
+                });
+
+                // Remove tag
+                $(document).on('click', '.remove-tag', (e) => {
+                    const idx = $(e.target).data('idx');
+                    const type = $(e.target).data('type');
+                    if (type === 'keyword') {
+                        this.formData.keywords.splice(idx, 1);
+                        this.renderKeywords();
+                    } else {
+                        this.formData.topics.splice(idx, 1);
+                        this.renderTopics();
+                    }
+                });
+
+                // Categories
+                $(document).on('change', '.category-check', (e) => {
+                    this.formData.categories = $('.category-check:checked').map((_, el) => $(el).val()).get();
+                });
+
+                // Summary/FAQ toggle
+                $('#includeSummary').on('change', function() {
+                    $('#summary').toggleClass('hidden', !this.checked);
+                });
+                $('#includeFaq').on('change', function() {
+                    $('#faq').toggleClass('hidden', !this.checked);
+                });
+
+                // Navigation
+                $('#nextBtn').on('click', () => this.nextPage());
+                $('#prevBtn').on('click', () => this.prevPage());
+                $('#submitBtn').on('click', () => this.submit());
+                $('#generateBtn').on('click', () => this.generateDescription());
+            },
+
+            renderKeywords() {
+                let html = this.formData.keywords.map((kw, idx) =>
+                    `<div class="tag">${kw} <button type="button" class="remove-tag" data-idx="${idx}" data-type="keyword">×</button></div>`
+                ).join('');
+                $('#keywordsList').html(html || '<span style="color: #999;">কোনো কীওয়ার্ড যোগ করা হয়নি</span>');
+            },
+
+            renderTopics() {
+                let html = this.formData.topics.map((topic, idx) =>
+                    `<div class="tag">${topic} <button type="button" class="remove-tag" data-idx="${idx}" data-type="topic">×</button></div>`
+                ).join('');
+                $('#topicsList').html(html || '<span style="color: #999;">কোনো বিষয় যোগ করা হয়নি</span>');
+            },
+
+            renderCategories() {
+                let html = this.categories.map(cat => `
+                    <label class="category-label">
+                        <input type="checkbox" class="category-check" value="${cat}">
+                        ${cat}
+                    </label>
+                `).join('');
+                $('#categoriesList').html(html);
+            },
+
+            showPage(num) {
+                $('.page').removeClass('active');
+                $(`#page${num}`).addClass('active');
+
+                const width = (num / 5) * 100;
+                $('#progressFill').css('width', width + '%');
+                $('#pageNum').text(`পৃষ্ঠা ${num} / 5`);
+
+                $('#prevBtn').toggleClass('hidden', num === 1);
+                $('#nextBtn').toggleClass('hidden', num === 5);
+                $('#submitBtn').toggleClass('hidden', num !== 5);
+            },
+
+            validatePage() {
+                if (this.currentPage === 1) {
+                    const title = $('#title').val().trim();
+                    const desc = $('#description').val().trim();
+                    if (title.length < 5) {
+                        this.showError('শিরোনাম কমপক্ষে 5 অক্ষর হতে হবে');
+                        return false;
+                    }
+                    if (desc.length < 20) {
+                        this.showError('বর্ণনা কমপক্ষে 20 অক্ষর হতে হবে');
+                        return false;
+                    }
+                    this.formData.title = title;
+                    this.formData.description = desc;
+                }
+                if (this.currentPage === 2) {
+                    if (this.formData.keywords.length === 0) {
+                        this.showError('কমপক্ষে একটি কীওয়ার্ড যোগ করুন');
+                        return false;
+                    }
+                    this.formData.style = $('#style').val();
+                    this.formData.length = $('#length').val();
+                }
+                if (this.currentPage === 3) {
+                    if (this.formData.categories.length === 0) {
+                        this.showError('কমপক্ষে একটি ক্যাটেগরি বেছে নিন');
+                        return false;
+                    }
+                }
+                if (this.currentPage === 4) {
+                    this.formData.includeSummary = $('#includeSummary').is(':checked');
+                    this.formData.summary = $('#summary').val();
+                    this.formData.includeFaq = $('#includeFaq').is(':checked');
+                    this.formData.faq = $('#faq').val();
+                }
+                return true;
+            },
+
+            nextPage() {
+                if (this.validatePage()) {
+                    if (this.currentPage === 4) {
+                        this.renderReview();
+                    }
+                    this.currentPage++;
+                    this.showPage(this.currentPage);
+                }
+            },
+
+            prevPage() {
+                this.currentPage--;
+                this.showPage(this.currentPage);
+            },
+
+            renderReview() {
+                let html = `
+                    <div class="review-item">
+                        <strong>শিরোনাম:</strong><br>
+                        <span>${this.formData.title}</span>
+                    </div>
+                    <div class="review-item">
+                        <strong>বর্ণনা:</strong><br>
+                        <span>${this.formData.description.substring(0, 100)}...</span>
+                    </div>
+                    <div class="review-item">
+                        <strong>কীওয়ার্ড:</strong><br>
+                        <span>${this.formData.keywords.join(', ')}</span>
+                    </div>
+                    <div class="review-item">
+                        <strong>ক্যাটেগরি:</strong><br>
+                        <span>${this.formData.categories.join(', ')}</span>
+                    </div>
+                `;
+                $('#reviewContent').html(html);
+            },
+
+            generateDescription() {
+                this.showSuccess('✅ AI বর্ণনা তৈরি করা হয়েছে (ডেমো)');
+            },
+
+            submit() {
+                console.log('📤 Form Data:', this.formData);
+                this.showSuccess('✅ পোস্ট সফলভাবে সংরক্ষিত হয়েছে! (ডেমো মোড)');
+            },
+
+            showError(msg) {
+                $('#error').text(msg).show();
+                setTimeout(() => $('#error').hide(), 3000);
+            },
+
+            showSuccess(msg) {
+                $('#success').text(msg).show();
+                setTimeout(() => $('#success').hide(), 3000);
+            }
+        };
+
+        // Initialize on load
+        $(document).ready(() => {
+            wizard.init();
+            wizard.showPage(1);
+        });
+    </script>
+</body>
+</html>
