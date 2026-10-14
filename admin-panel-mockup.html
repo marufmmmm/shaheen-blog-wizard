@@ -1,0 +1,843 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Shaheen Blog Admin Panel</title>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+
+        :root {
+            --primary: #2d5016;
+            --primary-light: #3d7c1f;
+            --accent: #d4af37;
+            --bg: #f8f7f4;
+            --card-bg: #ffffff;
+            --text: #333333;
+            --border: #e0e0e0;
+            --success: #27ae60;
+            --warning: #f39c12;
+            --danger: #e74c3c;
+        }
+
+        body {
+            background: var(--bg);
+            color: var(--text);
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            line-height: 1.6;
+        }
+
+        .container {
+            display: flex;
+            height: 100vh;
+            gap: 0;
+        }
+
+        /* SIDEBAR */
+        .sidebar {
+            width: 280px;
+            background: var(--primary);
+            color: white;
+            padding: 20px;
+            overflow-y: auto;
+            box-shadow: 2px 0 10px rgba(0,0,0,0.1);
+        }
+
+        .logo {
+            font-size: 20px;
+            font-weight: bold;
+            margin-bottom: 30px;
+            padding-bottom: 15px;
+            border-bottom: 2px solid var(--accent);
+            color: var(--accent);
+        }
+
+        .menu-item {
+            padding: 12px 15px;
+            margin: 8px 0;
+            border-radius: 6px;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            border-left: 3px solid transparent;
+            font-size: 14px;
+        }
+
+        .menu-item:hover {
+            background: rgba(255,255,255,0.1);
+            border-left-color: var(--accent);
+        }
+
+        .menu-item.active {
+            background: var(--accent);
+            color: var(--primary);
+            font-weight: bold;
+            border-left-color: var(--accent);
+        }
+
+        .menu-item span {
+            margin-right: 10px;
+        }
+
+        /* MAIN CONTENT */
+        .main-content {
+            flex: 1;
+            overflow-y: auto;
+            padding: 30px;
+        }
+
+        .header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 30px;
+            padding-bottom: 20px;
+            border-bottom: 2px solid var(--border);
+        }
+
+        h1 {
+            font-size: 28px;
+            color: var(--primary);
+        }
+
+        .header-buttons {
+            display: flex;
+            gap: 10px;
+        }
+
+        .btn {
+            padding: 10px 20px;
+            border: none;
+            border-radius: 6px;
+            cursor: pointer;
+            font-weight: 600;
+            transition: all 0.3s ease;
+            font-size: 14px;
+        }
+
+        .btn-primary {
+            background: var(--primary-light);
+            color: white;
+        }
+
+        .btn-primary:hover {
+            background: var(--primary);
+            transform: translateY(-2px);
+            box-shadow: 0 4px 12px rgba(45, 80, 22, 0.3);
+        }
+
+        .btn-secondary {
+            background: var(--accent);
+            color: var(--primary);
+        }
+
+        .btn-secondary:hover {
+            background: #e5c158;
+            transform: translateY(-2px);
+        }
+
+        /* SECTIONS */
+        .section {
+            display: none;
+        }
+
+        .section.active {
+            display: block;
+        }
+
+        /* CARDS */
+        .card {
+            background: var(--card-bg);
+            border: 1px solid var(--border);
+            border-radius: 8px;
+            padding: 20px;
+            margin-bottom: 20px;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.05);
+        }
+
+        .card h2 {
+            font-size: 18px;
+            margin-bottom: 15px;
+            color: var(--primary);
+            border-bottom: 2px solid var(--accent);
+            padding-bottom: 10px;
+        }
+
+        /* FORM ELEMENTS */
+        .form-group {
+            margin-bottom: 18px;
+        }
+
+        label {
+            display: block;
+            margin-bottom: 6px;
+            font-weight: 600;
+            color: var(--text);
+            font-size: 14px;
+        }
+
+        input, textarea, select {
+            width: 100%;
+            padding: 10px 12px;
+            border: 1px solid var(--border);
+            border-radius: 6px;
+            font-family: inherit;
+            font-size: 14px;
+        }
+
+        textarea {
+            min-height: 100px;
+            resize: vertical;
+        }
+
+        /* GRID LAYOUT */
+        .two-col {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 20px;
+        }
+
+        /* AI FEATURES GRID */
+        .ai-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+            gap: 15px;
+            margin-top: 15px;
+        }
+
+        .ai-feature {
+            background: linear-gradient(135deg, var(--primary-light), var(--primary));
+            color: white;
+            padding: 15px;
+            border-radius: 8px;
+            text-align: center;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            border: 2px solid transparent;
+        }
+
+        .ai-feature:hover {
+            transform: translateY(-4px);
+            box-shadow: 0 8px 20px rgba(45, 80, 22, 0.3);
+            border-color: var(--accent);
+        }
+
+        .ai-feature.selected {
+            border-color: var(--accent);
+            box-shadow: 0 0 15px rgba(212, 175, 55, 0.5);
+        }
+
+        .ai-feature-icon {
+            font-size: 24px;
+            margin-bottom: 8px;
+        }
+
+        .ai-feature-name {
+            font-weight: 600;
+            margin-bottom: 5px;
+            font-size: 13px;
+        }
+
+        .ai-feature-cost {
+            font-size: 12px;
+            opacity: 0.8;
+        }
+
+        /* STATS */
+        .stats-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 15px;
+            margin-bottom: 25px;
+        }
+
+        .stat-card {
+            background: linear-gradient(135deg, var(--primary-light), var(--primary));
+            color: white;
+            padding: 20px;
+            border-radius: 8px;
+            text-align: center;
+        }
+
+        .stat-number {
+            font-size: 32px;
+            font-weight: bold;
+            margin-bottom: 5px;
+        }
+
+        .stat-label {
+            font-size: 14px;
+            opacity: 0.9;
+        }
+
+        /* TABLE */
+        .table-container {
+            overflow-x: auto;
+        }
+
+        table {
+            width: 100%;
+            border-collapse: collapse;
+        }
+
+        th, td {
+            padding: 12px;
+            text-align: left;
+            border-bottom: 1px solid var(--border);
+        }
+
+        th {
+            background: var(--primary);
+            color: white;
+            font-weight: 600;
+        }
+
+        tr:hover {
+            background: var(--bg);
+        }
+
+        .action-btns {
+            display: flex;
+            gap: 8px;
+        }
+
+        .btn-small {
+            padding: 6px 12px;
+            font-size: 12px;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+
+        .btn-edit {
+            background: var(--primary-light);
+            color: white;
+        }
+
+        .btn-delete {
+            background: var(--danger);
+            color: white;
+        }
+
+        .badge {
+            display: inline-block;
+            padding: 4px 10px;
+            border-radius: 20px;
+            font-size: 12px;
+            font-weight: 600;
+        }
+
+        .badge-green {
+            background: #d4edda;
+            color: #155724;
+        }
+
+        .badge-orange {
+            background: #fff3cd;
+            color: #856404;
+        }
+
+        /* PROGRESS */
+        .progress-bar {
+            background: var(--border);
+            border-radius: 10px;
+            height: 10px;
+            overflow: hidden;
+            margin-top: 8px;
+        }
+
+        .progress-fill {
+            background: linear-gradient(90deg, var(--success), var(--primary-light));
+            height: 100%;
+            width: 75%;
+            border-radius: 10px;
+        }
+
+        .credit-info {
+            background: linear-gradient(135deg, var(--primary-light), var(--primary));
+            color: white;
+            padding: 20px;
+            border-radius: 8px;
+            margin-bottom: 25px;
+        }
+
+        .credit-row {
+            display: flex;
+            justify-content: space-between;
+            margin-bottom: 10px;
+            font-size: 14px;
+        }
+
+        /* WIZARD STEPS */
+        .wizard-steps {
+            display: flex;
+            justify-content: space-between;
+            margin-bottom: 30px;
+        }
+
+        .step {
+            flex: 1;
+            text-align: center;
+            position: relative;
+        }
+
+        .step::after {
+            content: '';
+            position: absolute;
+            top: 20px;
+            left: 50%;
+            width: 100%;
+            height: 2px;
+            background: var(--border);
+            z-index: 0;
+        }
+
+        .step:last-child::after {
+            display: none;
+        }
+
+        .step-circle {
+            width: 40px;
+            height: 40px;
+            border-radius: 50%;
+            background: var(--border);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            margin: 0 auto 10px;
+            font-weight: bold;
+            color: var(--text);
+            z-index: 1;
+            position: relative;
+        }
+
+        .step.active .step-circle {
+            background: var(--primary-light);
+            color: white;
+        }
+
+        .step.completed .step-circle {
+            background: var(--success);
+            color: white;
+        }
+
+        .step-label {
+            font-size: 13px;
+            color: var(--text);
+            margin-top: 5px;
+        }
+
+        .wizard-page {
+            display: none;
+        }
+
+        .wizard-page.active {
+            display: block;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <!-- SIDEBAR -->
+        <div class="sidebar">
+            <div class="logo">📚 Blog Manager</div>
+            <div class="menu-item active" onclick="switchSection('dashboard', this)">
+                <span>📊</span> Dashboard
+            </div>
+            <div class="menu-item" onclick="switchSection('create-post', this)">
+                <span>✍️</span> Create Post
+            </div>
+            <div class="menu-item" onclick="switchSection('all-posts', this)">
+                <span>📋</span> All Posts
+            </div>
+            <div class="menu-item" onclick="switchSection('categories', this)">
+                <span>📂</span> Categories
+            </div>
+            <div class="menu-item" onclick="switchSection('settings', this)">
+                <span>⚙️</span> Settings
+            </div>
+        </div>
+
+        <!-- MAIN CONTENT -->
+        <div class="main-content">
+
+            <!-- DASHBOARD SECTION -->
+            <div class="section active" id="dashboard">
+                <div class="header">
+                    <h1>📊 Dashboard</h1>
+                    <div class="header-buttons">
+                        <button class="btn btn-primary" onclick="switchSection('create-post', document.querySelector('[onclick*=\"create-post\"]'))">+ New Post</button>
+                    </div>
+                </div>
+
+                <!-- STATS -->
+                <div class="stats-grid">
+                    <div class="stat-card">
+                        <div class="stat-number">24</div>
+                        <div class="stat-label">Total Posts</div>
+                    </div>
+                    <div class="stat-card">
+                        <div class="stat-number">8</div>
+                        <div class="stat-label">Categories</div>
+                    </div>
+                    <div class="stat-card">
+                        <div class="stat-number">15,200</div>
+                        <div class="stat-label">Credits Used</div>
+                    </div>
+                </div>
+
+                <!-- CREDIT INFO -->
+                <div class="credit-info">
+                    <div class="credit-row">
+                        <span>Monthly Credits Used:</span>
+                        <strong>15,200 / 20,000</strong>
+                    </div>
+                    <div class="progress-bar">
+                        <div class="progress-fill"></div>
+                    </div>
+                    <div class="credit-row" style="margin-top: 10px; font-size: 13px;">
+                        <span>Remaining this month:</span>
+                        <strong>4,800 credits</strong>
+                    </div>
+                </div>
+
+                <!-- RECENT POSTS -->
+                <div class="card">
+                    <h2>📰 Recent Posts</h2>
+                    <div class="table-container">
+                        <table>
+                            <thead>
+                                <tr>
+                                    <th>Title</th>
+                                    <th>Category</th>
+                                    <th>Status</th>
+                                    <th>Date</th>
+                                    <th>Actions</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                <tr>
+                                    <td><strong>ডিজিটাল শিক্ষার ভবিষ্যৎ</strong></td>
+                                    <td>প্রযুক্তি</td>
+                                    <td><span class="badge badge-green">Published</span></td>
+                                    <td>Oct 14, 2026</td>
+                                    <td><div class="action-btns"><button class="btn-small btn-edit">Edit</button><button class="btn-small btn-delete">Delete</button></div></td>
+                                </tr>
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+
+            <!-- CREATE POST SECTION -->
+            <div class="section" id="create-post">
+                <div class="header">
+                    <h1>✍️ Create New Post</h1>
+                </div>
+
+                <!-- WIZARD STEPS -->
+                <div class="wizard-steps">
+                    <div class="step active" id="step-indicator-1">
+                        <div class="step-circle">1</div>
+                        <div class="step-label">Basic Info</div>
+                    </div>
+                    <div class="step" id="step-indicator-2">
+                        <div class="step-circle">2</div>
+                        <div class="step-label">Category</div>
+                    </div>
+                    <div class="step" id="step-indicator-3">
+                        <div class="step-circle">3</div>
+                        <div class="step-label">AI Content</div>
+                    </div>
+                    <div class="step" id="step-indicator-4">
+                        <div class="step-circle">4</div>
+                        <div class="step-label">Review</div>
+                    </div>
+                </div>
+
+                <!-- STEP 1: BASIC INFO -->
+                <div class="card wizard-page active" id="wizard-page-1">
+                    <h2>📋 Step 1: Basic Information</h2>
+
+                    <div class="form-group">
+                        <label>📝 Post Title (Required)</label>
+                        <input type="text" id="post-title" placeholder="Enter an engaging title...">
+                    </div>
+
+                    <div class="form-group">
+                        <label>📄 Excerpt / Description (Required)</label>
+                        <textarea id="post-excerpt" placeholder="2-3 sentence summary for SEO and preview..."></textarea>
+                    </div>
+
+                    <div class="form-group">
+                        <label>🖼️ Featured Image (Required)</label>
+                        <input type="file" id="post-image" accept="image/*">
+                        <small style="color: #666; margin-top: 5px; display: block;">Image preview will show here</small>
+                    </div>
+
+                    <div class="two-col">
+                        <div class="form-group">
+                            <label>✍️ Author</label>
+                            <input type="text" id="post-author" placeholder="Author name" value="Md. Maruf Hossain">
+                        </div>
+                        <div class="form-group">
+                            <label>📅 Publish Date</label>
+                            <input type="date" id="post-date" value="2026-10-14">
+                        </div>
+                    </div>
+
+                    <div style="display: flex; gap: 10px; margin-top: 25px;">
+                        <button class="btn btn-primary" onclick="wizardNext(1)">Next Step →</button>
+                        <button class="btn btn-secondary" onclick="alert('Draft saved!')">Save as Draft</button>
+                    </div>
+                </div>
+
+                <!-- STEP 2: CATEGORY -->
+                <div class="card wizard-page" id="wizard-page-2">
+                    <h2>📂 Step 2: Category & Settings</h2>
+
+                    <div class="form-group">
+                        <label>📂 Select Category (Required)</label>
+                        <select id="post-category">
+                            <option value="">-- Choose Category --</option>
+                            <option value="tech">প্রযুক্তি (Technology)</option>
+                            <option value="health">সুস্বাস্থ্য (Health)</option>
+                            <option value="exam">পরীক্ষা (Examination)</option>
+                            <option value="career">ক্যারিয়ার (Career)</option>
+                            <option value="lifestyle">জীবনযাপন (Lifestyle)</option>
+                        </select>
+                    </div>
+
+                    <div style="margin-top: 30px; padding-top: 20px; border-top: 1px solid var(--border);">
+                        <h3 style="margin-bottom: 15px; color: var(--primary);">🎨 Blog Display Settings</h3>
+
+                        <div class="form-group">
+                            <label>
+                                <input type="checkbox" checked> Show in Main Blog Feed
+                            </label>
+                        </div>
+
+                        <div class="form-group">
+                            <label>
+                                <input type="checkbox" checked> Allow Comments
+                            </label>
+                        </div>
+
+                        <div class="form-group">
+                            <label>
+                                <input type="checkbox"> Featured Post (Show at top)
+                            </label>
+                        </div>
+                    </div>
+
+                    <div style="display: flex; gap: 10px; margin-top: 25px;">
+                        <button class="btn btn-primary" onclick="wizardNext(2)">Next Step →</button>
+                        <button class="btn btn-secondary" onclick="wizardPrev(2)">← Back</button>
+                    </div>
+                </div>
+
+                <!-- STEP 3: AI CONTENT -->
+                <div class="card wizard-page" id="wizard-page-3">
+                    <h2>🤖 Step 3: AI Content Generation (Optional)</h2>
+                    <p style="margin-bottom: 20px; color: #666;">Select AI features to generate content. Costs shown in credits.</p>
+
+                    <div class="ai-grid">
+                        <div class="ai-feature" id="ai-headlines" onclick="selectAI(this, 'headlines', 50)">
+                            <div class="ai-feature-icon">📰</div>
+                            <div class="ai-feature-name">Headlines</div>
+                            <div class="ai-feature-cost">50 💳</div>
+                        </div>
+                        <div class="ai-feature" id="ai-subtitle" onclick="selectAI(this, 'subtitle', 30)">
+                            <div class="ai-feature-icon">✨</div>
+                            <div class="ai-feature-name">Subtitle</div>
+                            <div class="ai-feature-cost">30 💳</div>
+                        </div>
+                        <div class="ai-feature" id="ai-meta" onclick="selectAI(this, 'meta', 20)">
+                            <div class="ai-feature-icon">🔍</div>
+                            <div class="ai-feature-name">Meta Description</div>
+                            <div class="ai-feature-cost">20 💳</div>
+                        </div>
+                        <div class="ai-feature" id="ai-article" onclick="selectAI(this, 'article', 180)">
+                            <div class="ai-feature-icon">📄</div>
+                            <div class="ai-feature-name">Full Article</div>
+                            <div class="ai-feature-cost">180 💳</div>
+                        </div>
+                        <div class="ai-feature" id="ai-summary" onclick="selectAI(this, 'summary', 80)">
+                            <div class="ai-feature-icon">📝</div>
+                            <div class="ai-feature-name">Summary</div>
+                            <div class="ai-feature-cost">80 💳</div>
+                        </div>
+                    </div>
+
+                    <div style="margin-top: 25px; padding: 15px; background: var(--bg); border-radius: 6px; border: 1px solid var(--border);">
+                        <p style="color: #666; font-size: 14px;">
+                            <strong>Total Credits:</strong> <span id="total-credits">0</span> 💳<br>
+                            <strong>Remaining Credits:</strong> 4,800 / 20,000
+                        </p>
+                    </div>
+
+                    <div style="display: flex; gap: 10px; margin-top: 25px;">
+                        <button class="btn btn-primary" onclick="wizardNext(3)">Next Step →</button>
+                        <button class="btn btn-secondary" onclick="wizardPrev(3)">← Back</button>
+                    </div>
+                </div>
+
+                <!-- STEP 4: REVIEW -->
+                <div class="card wizard-page" id="wizard-page-4">
+                    <h2>✅ Step 4: Review & Publish</h2>
+
+                    <div style="background: var(--bg); padding: 15px; border-radius: 6px; margin-bottom: 20px;">
+                        <div class="credit-row" style="margin-bottom: 10px;">
+                            <span><strong>Post Title:</strong></span>
+                            <span id="review-title">-</span>
+                        </div>
+                        <div class="credit-row" style="margin-bottom: 10px;">
+                            <span><strong>Category:</strong></span>
+                            <span id="review-category">-</span>
+                        </div>
+                        <div class="credit-row" style="margin-bottom: 10px;">
+                            <span><strong>Author:</strong></span>
+                            <span id="review-author">-</span>
+                        </div>
+                        <div class="credit-row" style="margin-bottom: 10px;">
+                            <span><strong>Date:</strong></span>
+                            <span id="review-date">-</span>
+                        </div>
+                        <div class="credit-row">
+                            <span><strong>AI Credits Used:</strong></span>
+                            <span id="review-credits">0 💳</span>
+                        </div>
+                    </div>
+
+                    <div style="background: #d4edda; padding: 15px; border-radius: 6px; border: 1px solid #c3e6cb; margin-bottom: 20px;">
+                        <strong style="color: #155724;">✅ Ready to Publish</strong>
+                        <p style="color: #155724; font-size: 14px; margin-top: 5px;">All required fields filled. Click Publish to go live!</p>
+                    </div>
+
+                    <div style="display: flex; gap: 10px;">
+                        <button class="btn btn-primary" onclick="alert('🎉 Post published successfully!')">🚀 Publish Post</button>
+                        <button class="btn btn-secondary" onclick="wizardPrev(4)">← Back</button>
+                    </div>
+                </div>
+            </div>
+
+            <!-- ALL POSTS SECTION -->
+            <div class="section" id="all-posts">
+                <div class="header">
+                    <h1>📋 All Posts</h1>
+                </div>
+
+                <div class="card">
+                    <p style="color: #666;">All Posts will be displayed here...</p>
+                </div>
+            </div>
+
+            <!-- CATEGORIES SECTION -->
+            <div class="section" id="categories">
+                <div class="header">
+                    <h1>📂 Manage Categories</h1>
+                </div>
+
+                <div class="card">
+                    <p style="color: #666;">Category Management will be displayed here...</p>
+                </div>
+            </div>
+
+            <!-- SETTINGS SECTION -->
+            <div class="section" id="settings">
+                <div class="header">
+                    <h1>⚙️ Settings</h1>
+                </div>
+
+                <div class="card">
+                    <p style="color: #666;">Settings will be displayed here...</p>
+                </div>
+            </div>
+
+        </div>
+    </div>
+
+    <script>
+        let selectedAI = {};
+        let totalCredits = 0;
+
+        function switchSection(sectionId, element) {
+            // Hide all sections
+            document.querySelectorAll('.section').forEach(s => s.classList.remove('active'));
+            // Hide all menu items active state
+            document.querySelectorAll('.menu-item').forEach(m => m.classList.remove('active'));
+
+            // Show selected section
+            document.getElementById(sectionId).classList.add('active');
+
+            // Mark menu as active
+            if (element) element.classList.add('active');
+        }
+
+        function wizardNext(step) {
+            // Validate current step
+            if (step === 1) {
+                const title = document.getElementById('post-title').value;
+                const excerpt = document.getElementById('post-excerpt').value;
+                const image = document.getElementById('post-image').value;
+
+                if (!title || !excerpt || !image) {
+                    alert('❌ Please fill all required fields!');
+                    return;
+                }
+            } else if (step === 2) {
+                const category = document.getElementById('post-category').value;
+                if (!category) {
+                    alert('❌ Please select a category!');
+                    return;
+                }
+            }
+
+            // Hide current step
+            document.getElementById(`wizard-page-${step}`).classList.remove('active');
+            // Show next step
+            document.getElementById(`wizard-page-${step + 1}`).classList.add('active');
+
+            // Update progress indicators
+            document.getElementById(`step-indicator-${step}`).classList.remove('active');
+            document.getElementById(`step-indicator-${step}`).classList.add('completed');
+            document.getElementById(`step-indicator-${step + 1}`).classList.add('active');
+
+            // Fill review page if going to step 4
+            if (step === 3) {
+                document.getElementById('review-title').textContent = document.getElementById('post-title').value || '-';
+                document.getElementById('review-category').textContent = document.getElementById('post-category').value || '-';
+                document.getElementById('review-author').textContent = document.getElementById('post-author').value || '-';
+                document.getElementById('review-date').textContent = document.getElementById('post-date').value || '-';
+                document.getElementById('review-credits').textContent = totalCredits + ' 💳';
+            }
+        }
+
+        function wizardPrev(step) {
+            // Hide current step
+            document.getElementById(`wizard-page-${step}`).classList.remove('active');
+            // Show previous step
+            document.getElementById(`wizard-page-${step - 1}`).classList.add('active');
+
+            // Update progress indicators
+            document.getElementById(`step-indicator-${step}`).classList.remove('active');
+            document.getElementById(`step-indicator-${step}`).classList.remove('completed');
+            document.getElementById(`step-indicator-${step - 1}`).classList.add('active');
+        }
+
+        function selectAI(element, type, cost) {
+            element.classList.toggle('selected');
+
+            if (element.classList.contains('selected')) {
+                selectedAI[type] = cost;
+            } else {
+                delete selectedAI[type];
+            }
+
+            // Recalculate total credits
+            totalCredits = Object.values(selectedAI).reduce((a, b) => a + b, 0);
+            document.getElementById('total-credits').textContent = totalCredits;
+        }
+    </script>
+</body>
+</html>
