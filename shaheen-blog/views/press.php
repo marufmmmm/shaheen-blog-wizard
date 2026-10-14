@@ -3,12 +3,14 @@ if (!defined('ABSPATH')) {
     exit;
 }
 $eid = isset($_GET['edit']) ? (int) $_GET['edit'] : 0; // phpcs:ignore WordPress.Security.NonceVerification
-$e = array('id' => 0, 'title' => '', 'paper' => '', 'url' => '', 'date' => wp_date('Y-m-d'), 'cat' => 0);
+$e = array('id' => 0, 'title' => '', 'paper' => '', 'url' => '', 'date' => wp_date('Y-m-d'), 'cat' => 0, 'excerpt' => '', 'image_id' => 0, 'image_url' => '');
 if ($eid && get_post_type($eid) === 'sb_post' && sb_is_press($eid) && current_user_can('edit_post', $eid)) {
     $t = get_the_terms($eid, 'sb_category');
     $e = array('id' => $eid, 'title' => get_the_title($eid), 'paper' => get_post_meta($eid, '_sb_press_paper', true),
         'url' => get_post_meta($eid, '_sb_press_url', true), 'date' => get_the_date('Y-m-d', $eid),
-        'cat' => (!empty($t) && !is_wp_error($t)) ? (int) $t[0]->term_id : 0);
+        'cat' => (!empty($t) && !is_wp_error($t)) ? (int) $t[0]->term_id : 0,
+        'excerpt' => get_post_field('post_excerpt', $eid), 'image_id' => (int) get_post_thumbnail_id($eid),
+        'image_url' => (string) get_the_post_thumbnail_url($eid, 'medium'));
 }
 $cats = get_terms(array('taxonomy' => 'sb_category', 'hide_empty' => false, 'orderby' => 'term_id'));
 $items = get_posts(array('post_type' => 'sb_post', 'post_status' => 'any', 'numberposts' => 100,
@@ -23,6 +25,7 @@ $items = get_posts(array('post_type' => 'sb_post', 'post_status' => 'any', 'numb
             <h2><?php echo $e['id'] ? 'সংবাদ এডিট' : 'নতুন সংবাদ যোগ করুন'; ?></h2>
             <input type="hidden" id="pr-id" value="<?php echo (int) $e['id']; ?>">
             <label>সংবাদের শিরোনাম *<input type="text" id="pr-title" value="<?php echo esc_attr($e['title']); ?>"></label>
+            <label>সংক্ষিপ্ত বর্ণনা <small>(কার্ডে শিরোনামের নিচে দেখাবে, ২-৩ লাইন)</small><textarea id="pr-excerpt" rows="3"><?php echo esc_textarea($e['excerpt']); ?></textarea></label>
             <label>পত্রিকার নাম *<input type="text" id="pr-paper" value="<?php echo esc_attr($e['paper']); ?>" placeholder="যেমন: প্রথম আলো"></label>
             <label>সংবাদের লিংক *<input type="text" id="pr-url" value="<?php echo esc_attr($e['url']); ?>" placeholder="https://…"></label>
             <div class="sba-row">
@@ -35,6 +38,12 @@ $items = get_posts(array('post_type' => 'sb_post', 'post_status' => 'any', 'numb
                         <?php endforeach; endif; ?>
                     </select>
                 </label>
+            </div>
+            <div class="sba-image-box">
+                <img id="pr-img" src="<?php echo esc_url($e['image_url']); ?>" alt="" <?php echo $e['image_url'] ? '' : 'hidden'; ?>>
+                <input type="hidden" id="pr-image-id" value="<?php echo (int) $e['image_id']; ?>">
+                <div class="sba-image-actions"><button type="button" class="button" id="pr-pick">ছবি / কাটিং বেছে নিন</button>
+                    <button type="button" class="button-link-delete" id="pr-unpick" <?php echo $e['image_url'] ? '' : 'hidden'; ?>>ছবি সরান</button></div>
             </div>
             <p><button type="button" class="button button-primary" id="pr-save">💾 সেভ করুন</button>
                <?php if ($e['id']) : ?><a class="button" href="<?php echo esc_url(admin_url('admin.php?page=sb-press')); ?>">নতুন যোগ</a><?php endif; ?>

@@ -15,6 +15,8 @@ function sb_defaults() {
         'cost_article'   => 180,
         'cost_summary'   => 80,
         'cost_research'  => 50,
+        'cost_rewrite'   => 150,
+        'style_note'     => 'প্রচলিত চলিত ভাষায় লিখবে। কঠিন, সাধু বা বইয়ের মতো ভারী শব্দ এড়িয়ে প্রতিদিনের সহজ শব্দ ব্যবহার করবে। যেখানে জনপ্রিয় ইংরেজি শব্দ (যেমন: ক্লাস, কোচিং, অনলাইন) বেশি চলে সেখানে সেটাই লিখবে।',
         'model_article'  => '',
         'top_offset'     => 0,
         'content_width'  => 0,
@@ -50,7 +52,7 @@ function sb_save_settings(array $new) {
 /** Feature => credit cost. */
 /** Model for a feature: article may use its own (better) model. */
 function sb_model_for($feature) {
-    $m = $feature === 'article' ? trim((string) sb_get('model_article')) : '';
+    $m = ($feature === 'article' || $feature === 'rewrite') ? trim((string) sb_get('model_article')) : '';
     return $m !== '' ? $m : sb_get('model');
 }
 
@@ -61,6 +63,7 @@ function sb_feature_cost($feature) {
         'meta'      => 'cost_meta',
         'article'   => 'cost_article',
         'summary'   => 'cost_summary',
+        'rewrite'   => 'cost_rewrite',
     );
     return isset($map[$feature]) ? max(0, (int) sb_get($map[$feature])) : 0;
 }
@@ -162,6 +165,7 @@ function sb_feature_labels() {
         'meta'      => 'মেটা বর্ণনা (SEO)',
         'article'   => 'সম্পূর্ণ আর্টিকেল',
         'summary'   => 'সামারি',
+        'rewrite'   => 'কপি করা লেখা নতুন করে লেখা',
     );
 }
 

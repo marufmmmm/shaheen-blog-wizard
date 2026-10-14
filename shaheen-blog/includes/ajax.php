@@ -58,6 +58,7 @@ function sb_ajax_ai() {
         'keywords' => sb_req_list('keywords', 10),
         'length'   => sanitize_key(sb_req('length', 'medium')),
         'research' => $research,
+        'source'   => sanitize_textarea_field(sb_req('source')),
     );
     $result = SB_AI::generate($feature, $ctx);
     if (is_wp_error($result)) {
@@ -68,7 +69,7 @@ function sb_ajax_ai() {
     if ($research && !empty($result['researched'])) {
         $cost += max(0, (int) sb_get('cost_research'));   // web search really ran
     }
-    if ($feature === 'article') {
+    if ($feature === 'article' || $feature === 'rewrite') {
         preg_match_all('/\[তথ্য দরকার:[^\]]*\]/u', $result['text'], $m);
         $result['missing'] = array_values(array_unique($m[0]));
     }
@@ -170,6 +171,7 @@ function sb_ajax_save_post() {
     }
     update_post_meta($id, '_sb_related', array_values(array_unique($rel)));
     update_post_meta($id, '_sb_blocks', sb_clean_blocks(isset($_POST['blocks']) ? wp_unslash($_POST['blocks']) : array()));
+    update_post_meta($id, '_sb_block_ids', array_values(array_filter(sb_req_list('block_ids', 20), function ($x) { return preg_match('/^[a-z0-9]{6,20}$/', $x); })));
     update_post_meta($id, '_sb_no_global', sb_req('no_global') === '1' ? 1 : 0);
     sb_init_views($id);
 
@@ -312,7 +314,8 @@ function sb_ajax_save_press() {
     if ($id && (get_post_type($id) !== 'sb_post' || !current_user_can('edit_post', $id))) {
         wp_send_json_error(array('message' => 'অনুমতি নেই।'), 403);
     }
-    $arr = array('post_type' => 'sb_post', 'post_title' => $title, 'post_status' => 'publish');
+    $arr = array('post_type' => 'sb_post', 'post_title' => $title, 'post_status' => 'publish',
+        'post_excerpt' => sanitize_textarea_field(sb_req('excerpt')));
     if (preg_match('/^\d{4}-\d{2}-\d{2}$/', $date)) {
         $arr['post_date'] = $date . ' ' . ($date >= wp_date('Y-m-d') ? wp_date('H:i:s') : '12:00:00');
         $arr['post_date_gmt'] = get_gmt_from_date($arr['post_date']);
@@ -337,7 +340,7 @@ function sb_ajax_save_press() {
     $term = (int) sb_req('category', 0);
     wp_set_object_terms($id, ($term && term_exists($term, 'sb_category')) ? array($term) : array(), 'sb_category');
     $img = (int) sb_req('image_id', 0);
-    if ($img && get_post_type($img) === 'attachment') {
+    if ($img && get_post_type($img) === 'attachment' && current_user_can('edit_post', $img)) {
         set_post_thumbnail($id, $img);
     } elseif (!$img) {
         delete_post_thumbnail($id);

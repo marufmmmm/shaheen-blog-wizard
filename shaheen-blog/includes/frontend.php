@@ -115,11 +115,7 @@ function sb_card_html($post_id, $hidden = false) {
         </div>
         <div class="blog-content">
             <h3 class="blog-title"><?php echo esc_html($title); ?></h3>
-            <?php if ($press) : ?>
-                <p class="blog-excerpt">📰 <?php echo esc_html($paper); ?> · সংবাদটি পড়তে ক্লিক করুন ↗</p>
-            <?php else : ?>
-                <p class="blog-excerpt"><?php echo esc_html($excerpt); ?></p>
-            <?php endif; ?>
+            <p class="blog-excerpt"><?php echo esc_html($excerpt !== '' ? $excerpt : ($press ? 'সংবাদটি পড়তে ক্লিক করুন ↗' : '')); ?></p>
             <div class="blog-meta">
                 <span class="blog-author"><?php echo $press ? '📰 ' . esc_html($paper) : '✍️ ' . esc_html(sb_author_name($post_id)); ?></span>
                 <span class="blog-date"><?php echo esc_html(sb_bn_date(get_post_time('U', false, $post_id), false)); ?></span>

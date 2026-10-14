@@ -29,6 +29,9 @@ function sb_clean_blocks($raw, $max = 8) {
             'btn'       => sanitize_text_field(isset($b['btn']) ? $b['btn'] : ''),
             'url'       => $url,
             'pos'       => in_array($pos, array('start', 'middle', 'end'), true) ? $pos : 'middle',
+            'name'      => sanitize_text_field(isset($b['name']) ? $b['name'] : ''),
+            'auto'      => !empty($b['auto']) ? 1 : 0,
+            'id'        => (isset($b['id']) && preg_match('/^[a-z0-9]{6,20}$/', $b['id'])) ? $b['id'] : strtolower(wp_generate_password(10, false, false)),
         );
         if (!$clean['show_text'] && !$clean['show_btn']) {
             continue;
@@ -93,14 +96,35 @@ function sb_inject_blocks($html, array $blocks) {
     return $html . $by['end'];
 }
 
-function sb_post_blocks($post_id) {
-    $mine = get_post_meta($post_id, '_sb_blocks', true);
-    $all = array();
-    if (!get_post_meta($post_id, '_sb_no_global', true)) {
-        $g = get_option('sb_global_blocks', array());
-        $all = is_array($g) ? $g : array();
+/** The saved block library (each block has id, name, auto). Older saves get ids/auto filled in. */
+function sb_block_library() {
+    $g = get_option('sb_global_blocks', array());
+    if (!is_array($g)) {
+        return array();
     }
-    return array_merge($all, is_array($mine) ? $mine : array());
+    foreach ($g as $i => $b) {
+        if (empty($b['id'])) {
+            $g[$i]['id'] = strtolower(wp_generate_password(10, false, false));
+            $g[$i]['auto'] = 1;
+            $g[$i]['name'] = isset($b['name']) && $b['name'] !== '' ? $b['name'] : 'ব্লক ' . ($i + 1);
+        }
+    }
+    return $g;
+}
+
+/** Blocks for one post: library blocks ticked for it, auto ones, and the post's own blocks. */
+function sb_post_blocks($post_id) {
+    $picked = get_post_meta($post_id, '_sb_block_ids', true);
+    $picked = is_array($picked) ? $picked : array();
+    $skip_auto = (bool) get_post_meta($post_id, '_sb_no_global', true);
+    $out = array();
+    foreach (sb_block_library() as $b) {
+        if (in_array($b['id'], $picked, true) || (!$skip_auto && !empty($b['auto']))) {
+            $out[] = $b;
+        }
+    }
+    $mine = get_post_meta($post_id, '_sb_blocks', true);
+    return array_merge($out, is_array($mine) ? $mine : array());
 }
 
 /* ----- saving global blocks (admin page) ----- */

@@ -37,6 +37,8 @@ if (!SB_Lock::is_unlocked()) : ?>
                 <input type="text" name="model" value="<?php echo esc_attr($s('model')); ?>">
                 <small>শিরোনাম, সাবটাইটেল, মেটা ও সামারির জন্য। প্রস্তাবিত: gpt-4o-mini (সস্তা ও দ্রুত)</small>
             </label>
+            <label>লেখার ভাষা ও স্টাইল নির্দেশনা <small>(সব AI লেখায় মানা হবে)</small>
+                <textarea name="style_note" rows="3"><?php echo esc_textarea($s('style_note')); ?></textarea></label>
             <label>আর্টিকেলের জন্য আলাদা মডেল <small>(ফাঁকা = উপরের মডেলই)</small>
                 <input type="text" name="model_article" list="sb-models" value="<?php echo esc_attr($s('model_article')); ?>" placeholder="যেমন: gpt-4.1-mini">
                 <datalist id="sb-models"><option value="gpt-4o-mini"><option value="gpt-4.1-mini"><option value="gpt-5-mini"><option value="gpt-4.1"><option value="gpt-5.4-mini"></datalist>

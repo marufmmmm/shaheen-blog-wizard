@@ -24,6 +24,7 @@ $d = array(
     'keywords'    => $post ? (array) get_post_meta($pid, '_sb_keywords', true) : array(),
     'topic'       => $post ? get_post_meta($pid, '_sb_topic', true) : '',
     'blocks'      => $post ? (array) get_post_meta($pid, '_sb_blocks', true) : array(),
+    'block_ids'   => $post ? (array) get_post_meta($pid, '_sb_block_ids', true) : array(),
     'no_global'   => $post ? (int) get_post_meta($pid, '_sb_no_global', true) : 0,
     'related'     => $post ? array_map(function ($rid) { return array('id' => (int) $rid, 'title' => get_the_title($rid)); }, array_filter((array) get_post_meta($pid, '_sb_related', true))) : array(),
     'faq'         => $post ? (array) get_post_meta($pid, '_sb_faq', true) : array(),
@@ -39,6 +40,7 @@ $costs = array();
 foreach (array_keys(sb_feature_labels()) as $f) {
     $costs[$f] = sb_feature_cost($f);
 }
+$costs['research'] = max(0, (int) sb_get('cost_research'));
 ?>
 <div class="wrap sba">
     <h1><?php echo $post ? 'পোস্ট এডিট করুন' : 'নতুন পোস্ট তৈরি করুন'; ?></h1>
@@ -134,9 +136,12 @@ foreach (array_keys(sb_feature_labels()) as $f) {
 
             <h3>📢 পোস্টের মাঝে বাটন / টেক্সট / লিংক ব্লক <small>(ঐচ্ছিক, বিজ্ঞাপন বা লিংকের জন্য)</small></h3>
             <p class="sba-muted">চেকবক্স দিয়ে বেছে নিন: শুধু টেক্সট, শুধু বাটন, টেক্সট + বাটন, অথবা টেক্সটে ক্লিক করলে লিংকে যাবে।</p>
+            <div class="sba-blkpick"><strong>📚 লাইব্রেরি থেকে বাছুন:</strong> <span id="blk-pick"></span>
+                <small class="sba-muted"> (<a href="<?php echo esc_url(admin_url('admin.php?page=sb-blocks')); ?>" target="_blank">ব্লক লাইব্রেরি</a>-তে আগে ব্লক বানিয়ে রাখুন)</small></div>
+            <p class="sba-muted">অথবা শুধু এই পোস্টের জন্য নতুন ব্লক:</p>
             <div id="blk-list"></div>
-            <button type="button" class="button" id="blk-add">+ ব্লক যোগ করুন</button>
-            <label class="sba-inline-check" style="margin-top:10px"><input type="checkbox" id="no-global"> এই পোস্টে "সব পোস্টের ব্লক" দেখাবো না</label>
+            <button type="button" class="button" id="blk-add">+ নতুন ব্লক যোগ করুন</button>
+            <label class="sba-inline-check" style="margin-top:10px"><input type="checkbox" id="no-global"> লাইব্রেরির "সব পোস্টে অটো" ব্লকগুলো এই পোস্টে দেখাবো না</label>
 
             <h3>সচরাচর জিজ্ঞাসা (FAQ) <small>ঐচ্ছিক</small></h3>
             <div id="faq-list"></div>
@@ -166,6 +171,13 @@ foreach (array_keys(sb_feature_labels()) as $f) {
                     <button type="button" class="button" data-ai="meta">🤖 তৈরি করুন <em>(<?php echo esc_html(sb_bn_digits($costs['meta'])); ?>)</em></button></div>
                 <textarea id="f-meta" rows="2"><?php echo esc_textarea($d['meta_desc']); ?></textarea>
                 <small class="sba-muted">গুগলে দেখানোর জন্য ১২০-১৬০ অক্ষর ভালো। <span id="meta-count"></span></small>
+            </div>
+
+            <div class="sba-ai">
+                <div class="sba-ai-head"><h3>📋 কপি করা লেখা নতুন করে লেখা</h3>
+                    <button type="button" class="button" data-ai="rewrite">🤖 নতুন করে লিখুন <em>(<?php echo esc_html(sb_bn_digits($costs['rewrite'])); ?>)</em></button></div>
+                <textarea id="f-source" rows="6" placeholder="অন্য উৎস থেকে কপি করা লেখা এখানে পেস্ট করুন। AI এটি বুঝে নিজের ভাষায়, প্রচলিত বাংলায় নতুন করে লিখে নিচের আর্টিকেল বক্সে বসাবে।"></textarea>
+                <small class="sba-muted">অন্যের লেখার তথ্য নতুন ভাষায় লেখা হয়, তবে অন্যের লেখা হুবহু বা সামান্য বদলে ছাপলে কপিরাইট ও গুগলের স্প্যাম নীতির ঝুঁকি থাকে। প্রকাশের আগে তথ্য যাচাই করুন, দরকারে সূত্র উল্লেখ করুন।</small>
             </div>
 
             <div class="sba-ai">

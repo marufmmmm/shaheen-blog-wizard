@@ -91,10 +91,20 @@
   /* ---------------- press coverage ---------------- */
   var prSave = $('#pr-save');
   if (prSave) {
+    $('#pr-pick').addEventListener('click', function () {
+      if (!window.wp || !wp.media) return;
+      var fr = wp.media({ title: 'সংবাদের ছবি', library: { type: 'image' }, multiple: false });
+      fr.on('select', function () {
+        var a = fr.state().get('selection').first().toJSON();
+        $('#pr-image-id').value = a.id; var im = $('#pr-img'); im.src = (a.sizes && a.sizes.medium) ? a.sizes.medium.url : a.url; im.hidden = false; $('#pr-unpick').hidden = false;
+      });
+      fr.open();
+    });
+    $('#pr-unpick').addEventListener('click', function () { $('#pr-image-id').value = 0; $('#pr-img').hidden = true; this.hidden = true; });
     prSave.addEventListener('click', function () {
       post('sb_save_press', {
         id: $('#pr-id').value, title: $('#pr-title').value, paper: $('#pr-paper').value, url: $('#pr-url').value,
-        date: $('#pr-date').value, category: $('#pr-cat').value
+        date: $('#pr-date').value, category: $('#pr-cat').value, excerpt: $('#pr-excerpt').value, image_id: $('#pr-image-id').value
       }).then(function (d) {
         say($('#msg'), '✓ সেভ হয়েছে', 'ok');
         location.href = location.pathname + '?page=sb-press';
@@ -125,13 +135,16 @@
   }
 
   /* ---------------- link / ad blocks ---------------- */
-  function blockEditor(listEl, data) {
+  function blockEditor(listEl, data, lib) {
     var rows = [];
     function row(b) {
       b = b || {};
       var d = document.createElement('div'); d.className = 'sba-blk';
+      d.dataset.id = b.id || '';
       d.innerHTML =
+        (lib ? '<label>ব্লকের নাম (শুধু আপনার চেনার জন্য)<input type="text" class="b-name" placeholder="যেমন: ক্যাডেট ভর্তি বাটন"></label>' : '') +
         '<div class="sba-blk-top"><label class="sba-inline-check"><input type="checkbox" class="b-on"> চালু</label>' +
+        (lib ? '<label class="sba-inline-check"><input type="checkbox" class="b-auto"> সব পোস্টে অটো দেখাবে</label>' : '') +
         '<select class="b-pos"><option value="start">প্রথম অনুচ্ছেদের পর</option><option value="middle">লেখার মাঝখানে</option><option value="end">লেখার শেষে</option></select>' +
         '<button type="button" class="button-link-delete b-del">মুছুন</button></div>' +
         '<div class="sba-blk-checks">' +
@@ -151,6 +164,7 @@
       q('.b-lt').checked = !!Number(b.link_text || 0);
       q('.b-nt').checked = b.new_tab === undefined ? true : !!Number(b.new_tab);
       q('.b-lb').checked = !!Number(b.label || 0);
+      if (lib) { q('.b-name').value = b.name || ''; q('.b-auto').checked = !!Number(b.auto || 0); }
       q('.b-text').value = b.text || ''; q('.b-btn').value = b.btn || ''; q('.b-url').value = b.url || '';
       function vis() {
         q('.b-text-wrap').style.display = q('.b-st').checked ? '' : 'none';
@@ -169,14 +183,15 @@
           var q = function (s) { return d.querySelector(s); };
           return { on: q('.b-on').checked ? 1 : 0, pos: q('.b-pos').value, show_text: q('.b-st').checked ? 1 : 0,
             show_btn: q('.b-sb').checked ? 1 : 0, link_text: q('.b-lt').checked ? 1 : 0, new_tab: q('.b-nt').checked ? 1 : 0,
-            label: q('.b-lb').checked ? 1 : 0, text: q('.b-text').value, btn: q('.b-btn').value, url: q('.b-url').value };
+            label: q('.b-lb').checked ? 1 : 0, text: q('.b-text').value, btn: q('.b-btn').value, url: q('.b-url').value,
+            id: d.dataset.id, name: lib ? q('.b-name').value : '', auto: lib && q('.b-auto').checked ? 1 : 0 };
         });
       }
     };
   }
   var gList = $('#gblk-list');
   if (gList) {
-    var gEd = blockEditor(gList, SB.gblocks);
+    var gEd = blockEditor(gList, SB.gblocks, true);
     $('#gblk-add').addEventListener('click', function () { gEd.add(); });
     $('#gblk-save').addEventListener('click', function () {
       var bl = gEd.get(), bad = bl.filter(function (b) { return (b.show_btn || b.link_text) && !b.url.trim(); });
@@ -303,6 +318,15 @@
   }
 
   var pEd = blockEditor($('#blk-list'), P.blocks || []);
+  var pickBox = $('#blk-pick'), picked = (P.block_ids || []).slice();
+  if (!SB.gblocks.length) { pickBox.textContent = 'লাইব্রেরিতে এখনো কোনো ব্লক নেই।'; }
+  SB.gblocks.forEach(function (b) {
+    var l = document.createElement('label'), c = document.createElement('input'); c.type = 'checkbox'; c.value = b.id; c.checked = picked.indexOf(b.id) > -1;
+    c.addEventListener('change', function () { var i = picked.indexOf(b.id); if (c.checked && i < 0) picked.push(b.id); if (!c.checked && i > -1) picked.splice(i, 1); });
+    l.className = 'sba-inline-check'; l.style.marginRight = '14px';
+    l.appendChild(c); l.appendChild(document.createTextNode(' ' + (b.name || (b.text || b.btn || 'ব্লক')) + (Number(b.auto) ? ' (অটো)' : '')));
+    pickBox.appendChild(l);
+  });
   $('#blk-add').addEventListener('click', function () { pEd.add(); });
   $('#no-global').checked = !!Number(P.no_global || 0);
 
@@ -343,16 +367,19 @@
     return {
       feature: feature, post_id: postId, title: val('#f-title'), topic: val('#f-topic'), excerpt: val('#f-excerpt'),
       content: editorContent(), keywords: keywords(), length: val('#f-length'),
+      source: val('#f-source'),
       research: ($('#f-research') && $('#f-research').checked) ? '1' : '0'
     };
   }
   $$('[data-ai]').forEach(function (btn) {
     btn.addEventListener('click', function () {
       var f = btn.dataset.ai;
-      if ((f === 'headlines' || f === 'subtitle' || f === 'meta' || f === 'article') && keywords().length < 2) {
+      if (f === 'rewrite') {
+        if (val('#f-source').trim().length < 200) { toast('আগে কপি করা লেখা (কমপক্ষে ২০০ অক্ষর) পেস্ট করুন।', 'err'); return; }
+      } else if ((f === 'headlines' || f === 'subtitle' || f === 'meta' || f === 'article') && keywords().length < 2) {
         toast('আগে ধাপ ২-এ কমা দিয়ে কমপক্ষে ২টি কীওয়ার্ড লিখুন।', 'err'); say(msg, 'কীওয়ার্ড দিন (ধাপ ২)।', 'err'); return;
       }
-      if (f !== 'headlines' && !val('#f-title').trim()) { toast('আগে ধাপ ১-এ শিরোনাম লিখুন।', 'err'); return; }
+      if (f !== 'headlines' && f !== 'rewrite' && !val('#f-title').trim()) { toast('আগে ধাপ ১-এ শিরোনাম লিখুন।', 'err'); return; }
       if (f === 'summary' && editorContent().replace(/<[^>]+>/g, '').trim().length < 80) {
         toast('সামারি মূল পোস্ট থেকে তৈরি হয়। আগে আর্টিকেল লিখুন বা তৈরি করুন।', 'err'); return;
       }
@@ -383,7 +410,7 @@
       });
     } else if (f === 'subtitle') { $('#f-subtitle').value = r.text; }
     else if (f === 'meta') { $('#f-meta').value = r.text; metaCount(); }
-    else if (f === 'article') {
+    else if (f === 'article' || f === 'rewrite') {
       setEditorContent(r.text);
       var sb = $('#article-sources'), mb = $('#article-missing');
       sb.innerHTML = ''; mb.innerHTML = '';
@@ -427,7 +454,7 @@
       id: postId, title: val('#f-title'), slug: val('#f-slug'), excerpt: val('#f-excerpt'), content: editorContent(),
       subtitle: val('#f-subtitle'), meta_desc: val('#f-meta'), summary: val('#f-summary'), author_name: val('#f-author'),
       date: val('#f-date'), topic: val('#f-topic'), keywords: keywords(), category: val('#f-category'),
-      image_id: imgId, faq: faqData(), related: rel.map(function (r) { return r.id; }), blocks: pEd.get(), no_global: $('#no-global').checked ? '1' : '0', status: st ? st.value : 'draft'
+      image_id: imgId, faq: faqData(), related: rel.map(function (r) { return r.id; }), blocks: pEd.get(), block_ids: picked, no_global: $('#no-global').checked ? '1' : '0', status: st ? st.value : 'draft'
     }).then(function (d) {
       postId = d.id;
       var box = $('#save-result');

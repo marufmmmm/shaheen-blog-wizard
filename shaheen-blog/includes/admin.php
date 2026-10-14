@@ -9,7 +9,7 @@ function sb_admin_menu() {
     add_submenu_page('sb-dashboard', 'ড্যাশবোর্ড', 'ড্যাশবোর্ড', 'edit_posts', 'sb-dashboard', 'sb_page_dashboard');
     add_submenu_page('sb-dashboard', 'নতুন পোস্ট', 'নতুন পোস্ট', 'edit_posts', 'sb-new', 'sb_page_new');
     add_submenu_page('sb-dashboard', 'সংবাদপত্রে শাহীন', '📰 সংবাদপত্রে শাহীন', 'edit_posts', 'sb-press', 'sb_page_press');
-    add_submenu_page('sb-dashboard', 'বিজ্ঞাপন/লিংক ব্লক', '📢 সব পোস্টের ব্লক', 'manage_options', 'sb-blocks', 'sb_page_blocks');
+    add_submenu_page('sb-dashboard', 'বিজ্ঞাপন/লিংক ব্লক', '📚 ব্লক লাইব্রেরি', 'manage_options', 'sb-blocks', 'sb_page_blocks');
     add_submenu_page('sb-dashboard', 'সব পোস্ট', 'সব পোস্ট', 'edit_posts', 'sb-posts', 'sb_page_posts');
     add_submenu_page('sb-dashboard', 'ক্যাটাগরি', 'ক্যাটাগরি', 'manage_categories', 'sb-categories', 'sb_page_categories');
     add_submenu_page('sb-dashboard', 'সেটিংস', 'সেটিংস', 'manage_options', 'sb-settings', 'sb_page_settings');
@@ -35,7 +35,7 @@ function sb_admin_assets() {
     wp_enqueue_style('sb-admin', SB_URL . 'assets/css/admin.css', array('sb-fonts'), SB_VERSION . '.' . filemtime(SB_PATH . 'assets/css/admin.css'));
     wp_enqueue_script('sb-admin', SB_URL . 'assets/js/admin.js', array(), SB_VERSION . '.' . filemtime(SB_PATH . 'assets/js/admin.js'), true);
 
-    if ($page === 'sb-new') {
+    if ($page === 'sb-new' || $page === 'sb-press') {
         wp_enqueue_media();
     }
 
@@ -59,7 +59,7 @@ function sb_admin_assets() {
         'labels'  => sb_feature_labels(),
         'cats'    => $cats,
         'page'    => $page,
-        'gblocks' => (array) get_option('sb_global_blocks', array()),
+        'gblocks' => sb_block_library(),
         'postsUrl' => admin_url('admin.php?page=sb-posts'),
     ));
 }
@@ -115,11 +115,12 @@ function sb_handle_save_settings() {
         'content_width' => max(0, min(1600, (int) $in('content_width', 0))),
         'top_offset'    => max(-300, min(300, (int) $in('top_offset', 0))),
         'model_article' => sanitize_text_field($in('model_article')),
+        'style_note'    => sanitize_textarea_field($in('style_note')),
         'cost_research' => max(0, (int) $in('cost_research', 50)),
         'site_urls'     => sanitize_textarea_field($in('site_urls')),
         'about'         => sanitize_textarea_field($in('about')),
     );
-    foreach (array('headlines', 'subtitle', 'meta', 'article', 'summary') as $f) {
+    foreach (array('headlines', 'subtitle', 'meta', 'article', 'summary', 'rewrite') as $f) {
         $new['cost_' . $f] = max(0, (int) $in('cost_' . $f, 0));
     }
     // API key: keep the saved one unless a new one is typed or removal is ticked.
