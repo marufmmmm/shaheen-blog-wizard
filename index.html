@@ -3,8 +3,12 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Shaheen Blog Wizard - Test Version</title>
-    <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
+    <title>শাহীন স্কুল ও ক্যাডেট কোচিং | Shaheen Education Family</title>
+    <meta name="description" content="শাহীন শিক্ষা পরিবারের ব্লগ - স্কুলে ভর্তি, ক্যাডেট কলেজ ভর্তি প্রস্তুতি, শিক্ষাবিষয়ক পরামর্শ এবং পরীক্ষার প্রস্তুতির জন্য সর্বশেষ তথ্য।">
+    <meta name="keywords" content="শাহীন স্কুল, ক্যাডেট কোচিং, ভর্তি পরীক্ষা, শিক্ষা ব্লগ, স্কুল ভর্তি, ক্যাডেট কলেজ প্রস্তুতি, শাহীন শিক্ষা পরিবার">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600;700&family=Playfair+Display:wght@700&display=swap" rel="stylesheet">
     <style>
         * {
             margin: 0;
@@ -12,595 +16,764 @@
             box-sizing: border-box;
         }
 
+        :root {
+            --primary: #0d2e1c;
+            --primary-light: #1a6b3e;
+            --accent: #22a84f;
+            --light: #f8fafb;
+            --text: #1a1a1a;
+            --text-light: #666666;
+            --border: #dfe6e9;
+        }
+
         body {
-            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
-            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-            min-height: 100vh;
-            padding: 20px;
+            font-family: 'Poppins', sans-serif;
+            color: var(--text);
+            background: var(--light);
+            line-height: 1.6;
         }
 
-        .container {
-            max-width: 700px;
+        /* ========== হেডার ========== */
+        .blog-header {
+            background: linear-gradient(135deg, var(--primary) 0%, var(--primary-light) 100%);
+            color: white;
+            padding: 80px 30px;
+            text-align: center;
+            box-shadow: 0 10px 40px rgba(13, 46, 28, 0.2);
+        }
+
+        .header-content {
+            max-width: 1200px;
             margin: 0 auto;
-            background: white;
-            border-radius: 12px;
-            box-shadow: 0 20px 60px rgba(0,0,0,0.3);
-            padding: 40px;
         }
 
-        h1 {
-            color: #333;
-            margin-bottom: 10px;
-            text-align: center;
-        }
-
-        .subtitle {
-            color: #666;
-            text-align: center;
-            margin-bottom: 30px;
-            font-size: 14px;
-        }
-
-        .progress {
-            margin-bottom: 30px;
-        }
-
-        .progress-bar {
-            width: 100%;
-            height: 8px;
-            background: #eee;
-            border-radius: 4px;
-            overflow: hidden;
-            margin-top: 10px;
-        }
-
-        .progress-fill {
-            height: 100%;
-            background: #f5a623;
-            transition: width 0.3s;
-        }
-
-        .progress-text {
-            font-size: 24px;
-            font-weight: bold;
-            color: #f5a623;
-            text-align: center;
-        }
-
-        .page {
-            display: none;
-        }
-
-        .page.active {
-            display: block;
-            animation: fadeIn 0.3s;
-        }
-
-        @keyframes fadeIn {
-            from { opacity: 0; }
-            to { opacity: 1; }
-        }
-
-        .form-group {
+        .blog-header h1 {
+            font-family: 'Playfair Display', serif;
+            font-size: 3rem;
+            font-weight: 700;
             margin-bottom: 20px;
+            text-shadow: 0 2px 10px rgba(0, 0, 0, 0.2);
         }
 
-        label {
-            display: block;
-            font-weight: 600;
-            margin-bottom: 8px;
-            color: #333;
+        .blog-header p {
+            font-size: 1.2rem;
+            color: rgba(255, 255, 255, 0.9);
+            max-width: 600px;
+            margin: 0 auto;
+            font-weight: 300;
         }
 
-        input[type="text"],
-        input[type="password"],
-        textarea,
-        select {
-            width: 100%;
-            padding: 12px;
-            border: 1px solid #ddd;
-            border-radius: 6px;
+        /* ========== পরিচিতি সেকশন ========== */
+        .intro-section {
+            background: white;
+            padding: 50px 30px;
+            border-bottom: 2px solid var(--border);
+        }
+
+        .intro-container {
+            max-width: 1200px;
+            margin: 0 auto;
+            text-align: center;
+        }
+
+        .intro-section p {
+            font-size: 16px;
+            color: var(--text);
+            line-height: 1.8;
+            max-width: 900px;
+            margin: 0 auto;
+            font-weight: 500;
+        }
+
+        /* ========== মূল কন্টেন্ট ========== */
+        .blog-container {
+            max-width: 1400px;
+            margin: 0 auto;
+            padding: 60px 30px;
+        }
+
+        /* সার্চ এবং ফিল্টার */
+        .filter-section {
+            margin-bottom: 50px;
+            text-align: center;
+        }
+
+        .section-title {
+            font-family: 'Playfair Display', serif;
+            font-size: 32px;
+            font-weight: 700;
+            margin-bottom: 10px;
+            color: var(--primary);
+            position: relative;
+            display: inline-block;
+        }
+
+        .section-title::after {
+            content: '';
+            position: absolute;
+            bottom: -10px;
+            left: 50%;
+            transform: translateX(-50%);
+            width: 60px;
+            height: 4px;
+            background: linear-gradient(90deg, var(--primary-light), var(--accent));
+            border-radius: 2px;
+        }
+
+        .search-container {
+            display: flex;
+            gap: 8px;
+            justify-content: center;
+            margin-bottom: 30px;
+        }
+
+        #searchInput {
+            padding: 12px 20px;
+            border: 2px solid var(--border);
+            border-radius: 25px;
+            width: 280px;
             font-size: 14px;
-            font-family: inherit;
-            transition: border-color 0.3s;
+            font-family: 'Poppins', sans-serif;
+            transition: all 0.3s;
         }
 
-        input[type="text"]:focus,
-        textarea:focus,
-        select:focus {
+        #searchInput:focus {
             outline: none;
-            border-color: #f5a623;
-            box-shadow: 0 0 0 3px rgba(245, 166, 35, 0.1);
+            border-color: var(--primary-light);
+            box-shadow: 0 0 0 3px rgba(26, 107, 62, 0.1);
         }
 
-        textarea {
-            min-height: 120px;
-            resize: vertical;
+        .search-btn {
+            padding: 12px 20px;
+            background: var(--primary-light);
+            color: white;
+            border: none;
+            border-radius: 25px;
+            cursor: pointer;
+            font-weight: bold;
+            transition: all 0.3s;
+            font-family: 'Poppins', sans-serif;
         }
 
-        .tags-container {
-            margin-top: 10px;
+        .search-btn:hover {
+            background: var(--accent);
+            transform: translateY(-2px);
+        }
+
+        .category-filter {
             display: flex;
             flex-wrap: wrap;
-            gap: 8px;
-        }
-
-        .tag {
-            display: inline-flex;
-            align-items: center;
-            gap: 6px;
-            background: #f5a623;
-            color: white;
-            padding: 6px 12px;
-            border-radius: 20px;
-            font-size: 13px;
-        }
-
-        .tag button {
-            background: none;
-            border: none;
-            color: white;
-            cursor: pointer;
-            font-weight: bold;
-            padding: 0;
-        }
-
-        .categories {
-            display: grid;
-            grid-template-columns: repeat(2, 1fr);
             gap: 12px;
+            justify-content: center;
+            margin-top: 40px;
         }
 
-        .category-label {
-            display: flex;
-            align-items: center;
-            padding: 12px;
-            border: 2px solid #ddd;
-            border-radius: 6px;
+        .category-btn {
+            padding: 10px 22px;
+            border: 2px solid var(--border);
+            background: white;
+            color: var(--text);
+            border-radius: 25px;
             cursor: pointer;
             transition: all 0.3s;
-        }
-
-        .category-label:hover {
-            border-color: #f5a623;
-            background: #fff9f0;
-        }
-
-        .category-label input[type="checkbox"] {
-            margin-right: 10px;
-            cursor: pointer;
-            width: 18px;
-            height: 18px;
-        }
-
-        .checkbox-wrapper {
-            display: flex;
-            align-items: center;
-            gap: 10px;
-            margin-bottom: 15px;
-        }
-
-        .checkbox-wrapper input[type="checkbox"] {
-            width: auto;
-            padding: 0;
-            border: none;
-            cursor: pointer;
-        }
-
-        .buttons {
-            display: flex;
-            gap: 10px;
-            margin-top: 40px;
-            justify-content: space-between;
-        }
-
-        button {
-            padding: 12px 24px;
-            border: none;
-            border-radius: 6px;
             font-size: 14px;
             font-weight: 600;
+            font-family: 'Poppins', sans-serif;
+            position: relative;
+            overflow: hidden;
+        }
+
+        .category-btn::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: -100%;
+            width: 100%;
+            height: 100%;
+            background: var(--primary-light);
+            transition: left 0.3s;
+            z-index: -1;
+        }
+
+        .category-btn:hover {
+            border-color: var(--primary-light);
+            color: white;
+            transform: translateY(-2px);
+            box-shadow: 0 5px 15px rgba(26, 107, 62, 0.2);
+        }
+
+        .category-btn:hover::before {
+            left: 0;
+        }
+
+        .category-btn.active {
+            background: var(--primary-light);
+            color: white;
+            border-color: var(--primary-light);
+            box-shadow: 0 8px 20px rgba(26, 107, 62, 0.3);
+        }
+
+        /* ব্লগ গ্রিড */
+        .blog-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
+            gap: 35px;
+            margin: 60px 0;
+        }
+
+        .blog-card {
+            background: white;
+            border-radius: 15px;
+            overflow: hidden;
+            box-shadow: 0 5px 20px rgba(0, 0, 0, 0.08);
+            transition: all 0.4s cubic-bezier(0.25, 0.46, 0.45, 0.94);
             cursor: pointer;
+            display: flex;
+            flex-direction: column;
+            height: 100%;
+            position: relative;
+        }
+
+        .blog-card::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            height: 4px;
+            background: linear-gradient(90deg, var(--primary-light), var(--accent));
+            transform: scaleX(0);
+            transform-origin: left;
+            transition: transform 0.4s;
+            z-index: 10;
+        }
+
+        .blog-card:hover {
+            transform: translateY(-12px) scale(1.02);
+            box-shadow: 0 15px 40px rgba(0, 0, 0, 0.15);
+        }
+
+        .blog-card:hover::before {
+            transform: scaleX(1);
+        }
+
+        .blog-image-container {
+            position: relative;
+            height: 220px;
+            overflow: hidden;
+            background: linear-gradient(135deg, #e0e0e0, #f5f5f5);
+        }
+
+        .blog-image {
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
+            transition: transform 0.4s;
+        }
+
+        .blog-card:hover .blog-image {
+            transform: scale(1.1);
+        }
+
+        .blog-category {
+            position: absolute;
+            top: 15px;
+            left: 15px;
+            background: linear-gradient(135deg, var(--primary-light), var(--accent));
+            color: white;
+            padding: 6px 14px;
+            border-radius: 20px;
+            font-size: 11px;
+            font-weight: 700;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            box-shadow: 0 4px 12px rgba(26, 107, 62, 0.3);
+            z-index: 2;
+        }
+
+        .blog-content {
+            padding: 25px;
+            display: flex;
+            flex-direction: column;
+            flex-grow: 1;
+        }
+
+        .blog-title {
+            font-family: 'Playfair Display', serif;
+            font-size: 20px;
+            font-weight: 700;
+            margin-bottom: 12px;
+            color: var(--primary);
+            line-height: 1.4;
+            transition: color 0.3s;
+        }
+
+        .blog-card:hover .blog-title {
+            color: var(--accent);
+        }
+
+        .blog-excerpt {
+            font-size: 14px;
+            color: var(--text-light);
+            margin-bottom: 18px;
+            flex-grow: 1;
+            line-height: 1.6;
+        }
+
+        .blog-meta {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            font-size: 12px;
+            color: var(--text-light);
+            border-top: 1px solid var(--border);
+            padding-top: 15px;
+        }
+
+        .blog-author {
+            font-weight: 600;
+            display: flex;
+            align-items: center;
+            gap: 6px;
+        }
+
+        .blog-date {
+            color: var(--primary-light);
+            font-weight: 600;
+        }
+
+        /* পেজিনেশন */
+        .pagination {
+            display: flex;
+            justify-content: center;
+            gap: 8px;
+            margin: 60px 0;
+            flex-wrap: wrap;
+            align-items: center;
+        }
+
+        .pagination button {
+            padding: 12px 16px;
+            border: 2px solid var(--border);
+            background: white;
+            color: var(--text);
+            border-radius: 8px;
+            cursor: pointer;
+            transition: all 0.3s;
+            font-weight: 600;
+            font-size: 14px;
+            font-family: 'Poppins', sans-serif;
+            min-width: 45px;
+        }
+
+        .pagination button:hover:not(:disabled) {
+            border-color: var(--primary-light);
+            color: var(--primary-light);
+            background: rgba(26, 107, 62, 0.05);
+            transform: translateY(-2px);
+        }
+
+        .pagination button.active {
+            background: var(--primary-light);
+            color: white;
+            border-color: var(--primary-light);
+            box-shadow: 0 5px 15px rgba(26, 107, 62, 0.3);
+        }
+
+        .pagination button:disabled {
+            opacity: 0.4;
+            cursor: not-allowed;
+        }
+
+        /* খালি স্টেট */
+        .empty-state {
+            text-align: center;
+            padding: 80px 20px;
+            grid-column: 1 / -1;
+        }
+
+        .empty-state h3 {
+            font-size: 24px;
+            margin-bottom: 15px;
+            color: var(--primary);
+        }
+
+        .empty-state p {
+            color: var(--text-light);
+            font-size: 16px;
+        }
+
+        /* ========== ফুটার ========== */
+        .blog-footer {
+            background: linear-gradient(135deg, var(--primary) 0%, var(--primary-light) 100%);
+            color: white;
+            padding: 60px 30px 40px;
+            margin-top: 100px;
+            border-top: 3px solid var(--accent);
+        }
+
+        .footer-content {
+            max-width: 1400px;
+            margin: 0 auto;
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+            gap: 40px;
+            margin-bottom: 40px;
+        }
+
+        .footer-section h3 {
+            font-family: 'Playfair Display', serif;
+            font-size: 18px;
+            margin-bottom: 20px;
+            color: var(--accent);
+            position: relative;
+            padding-bottom: 12px;
+        }
+
+        .footer-section h3::after {
+            content: '';
+            position: absolute;
+            bottom: 0;
+            left: 0;
+            width: 40px;
+            height: 3px;
+            background: var(--accent);
+            border-radius: 2px;
+        }
+
+        .footer-section p, .footer-section a {
+            font-size: 14px;
+            color: rgba(255, 255, 255, 0.8);
+            line-height: 1.8;
+            margin: 0;
+        }
+
+        .footer-section a {
+            text-decoration: none;
+            display: block;
             transition: all 0.3s;
         }
 
-        .btn-prev {
-            background: #ddd;
-            color: #333;
+        .footer-section a:hover {
+            color: var(--accent);
+            padding-left: 5px;
         }
 
-        .btn-prev:hover {
-            background: #ccc;
+        .footer-social {
+            display: flex;
+            gap: 15px;
+            margin-top: 15px;
         }
 
-        .btn-next {
-            background: #f5a623;
+        .social-link {
+            width: 40px;
+            height: 40px;
+            background: rgba(34, 168, 79, 0.2);
+            border: 2px solid var(--accent);
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            text-decoration: none;
+            color: var(--accent);
+            transition: all 0.3s;
+            font-size: 18px;
+        }
+
+        .social-link:hover {
+            background: var(--accent);
             color: white;
+            transform: translateY(-3px);
         }
 
-        .btn-next:hover {
-            background: #d68910;
+        .footer-bottom {
+            max-width: 1400px;
+            margin: 0 auto;
+            text-align: center;
+            padding-top: 30px;
+            border-top: 1px solid rgba(34, 168, 79, 0.2);
+            color: rgba(255, 255, 255, 0.7);
+            font-size: 14px;
         }
 
-        .btn-submit {
-            background: #28a745;
-            color: white;
-            width: 100%;
-        }
+        /* রেসপন্সিভ */
+        @media (max-width: 768px) {
+            .blog-header {
+                padding: 50px 20px;
+            }
 
-        .btn-submit:hover {
-            background: #218838;
-        }
+            .blog-header h1 {
+                font-size: 2rem;
+            }
 
-        .btn-generate {
-            background: #0066cc;
-            color: white;
-            width: auto;
-        }
+            .blog-header p {
+                font-size: 1rem;
+            }
 
-        .btn-generate:hover {
-            background: #0052a3;
-        }
+            .blog-grid {
+                grid-template-columns: 1fr;
+                gap: 25px;
+            }
 
-        .review-item {
-            margin-bottom: 15px;
-            padding-bottom: 15px;
-            border-bottom: 1px solid #eee;
-        }
+            .blog-container {
+                padding: 40px 20px;
+            }
 
-        .review-item strong {
-            color: #333;
-        }
+            #searchInput {
+                width: 100%;
+            }
 
-        .review-item span {
-            color: #666;
-        }
+            .search-container {
+                flex-direction: column;
+            }
 
-        .hidden {
-            display: none !important;
-        }
+            .category-btn {
+                padding: 8px 16px;
+                font-size: 12px;
+            }
 
-        .success-message {
-            background: #d4edda;
-            border: 1px solid #c3e6cb;
-            color: #155724;
-            padding: 15px;
-            border-radius: 6px;
-            margin-bottom: 20px;
-            display: none;
-        }
+            .blog-footer {
+                padding: 40px 20px 30px;
+            }
 
-        .error-message {
-            background: #f8d7da;
-            border: 1px solid #f5c6cb;
-            color: #721c24;
-            padding: 15px;
-            border-radius: 6px;
-            margin-bottom: 20px;
-            display: none;
-        }
-
-        .small-text {
-            color: #999;
-            font-size: 12px;
-            margin-top: 4px;
+            .footer-content {
+                gap: 30px;
+            }
         }
     </style>
 </head>
 <body>
-    <div class="container">
-        <h1>✍️ Shaheen Blog Wizard</h1>
-        <p class="subtitle">পৃষ্ঠা-ভিত্তিক ব্লগ পোস্ট সৃষ্টিকারী</p>
+    <!-- হেডার -->
+    <header class="blog-header">
+        <div class="header-content">
+            <h1>📚 শাহীন স্কুল, ক্যাডেট কোচিং ও শিক্ষাবিষয়ক তথ্য</h1>
+        </div>
+    </header>
 
-        <div class="success-message" id="success"></div>
-        <div class="error-message" id="error"></div>
+    <!-- পরিচিতি সেকশন -->
+    <section class="intro-section">
+        <div class="intro-container">
+            <p>শাহীন শিক্ষা পরিবারের ব্লগে স্বাগতম। এখানে স্কুলে ভর্তি, ক্যাডেট কলেজ ভর্তি প্রস্তুতি, শিক্ষাবিষয়ক পরামর্শ, পরীক্ষার প্রস্তুতি, একাডেমিক কার্যক্রম এবং শাহীন স্কুল ও ক্যাডেট কোচিং সম্পর্কিত গুরুত্বপূর্ণ তথ্য প্রকাশ করা হয়। শিক্ষার্থী ও অভিভাবকদের সঠিক সিদ্ধান্ত নিতে সহায়তা করাই আমাদের লক্ষ্য।</p>
+        </div>
+    </section>
 
-        <div class="progress">
-            <div class="progress-text" id="pageNum">পৃষ্ঠা 1 / 5</div>
-            <div class="progress-bar">
-                <div class="progress-fill" id="progressFill" style="width: 20%;"></div>
+    <!-- মূল কন্টেন্ট -->
+    <div class="blog-container">
+        <!-- সার্চ সেকশন -->
+        <div class="search-container">
+            <input type="text" id="searchInput" placeholder="শিক্ষা, প্রযুক্তি এবং আপডেট খুঁজুন...">
+            <button class="search-btn" onclick="handleSearch()">🔍</button>
+        </div>
+
+        <!-- ফিল্টার সেকশন -->
+        <section class="filter-section">
+            <h2 class="section-title">📂 বিভাগ অনুসারে ব্রাউজ করুন</h2>
+            <div class="category-filter">
+                <button class="category-btn active" onclick="filterByCategory('all')">সব</button>
+                <button class="category-btn" onclick="filterByCategory('news')">📰 সংবাদ</button>
+                <button class="category-btn" onclick="filterByCategory('education')">📚 শিক্ষা</button>
+                <button class="category-btn" onclick="filterByCategory('technology')">💻 প্রযুক্তি</button>
+                <button class="category-btn" onclick="filterByCategory('event')">🎉 অনুষ্ঠান</button>
+                <button class="category-btn" onclick="filterByCategory('announcement')">📢 ঘোষণা</button>
+            </div>
+        </section>
+
+        <!-- ব্লগ গ্রিড -->
+        <div id="postsContainer" class="blog-grid">
+            <div class="empty-state" style="grid-column: 1 / -1;">
+                <p style="font-size: 40px; margin-bottom: 20px;">⏳</p>
+                <p>লোড হচ্ছে...</p>
             </div>
         </div>
 
-        <!-- PAGE 1: BASIC INFO -->
-        <div class="page active" id="page1">
-            <h2>পৃষ্ঠা 1: মূল তথ্য</h2>
-            <div class="form-group">
-                <label for="title">ব্লগ শিরোনাম *</label>
-                <input type="text" id="title" placeholder="আপনার ব্লগ পোস্টের শিরোনাম লিখুন">
-                <p class="small-text">কমপক্ষে 5 অক্ষর প্রয়োজন</p>
-            </div>
-            <div class="form-group">
-                <label for="description">বর্ণনা *</label>
-                <textarea id="description" placeholder="আপনার ব্লগ পোস্টের বর্ণনা লিখুন..."></textarea>
-                <p class="small-text">কমপক্ষে 20 অক্ষর প্রয়োজন</p>
-            </div>
-        </div>
-
-        <!-- PAGE 2: KEYWORDS -->
-        <div class="page" id="page2">
-            <h2>পৃষ্ঠা 2: কীওয়ার্ড এবং বিষয়</h2>
-            <div class="form-group">
-                <label for="keyword">কীওয়ার্ড (এন্টার দিয়ে যোগ করুন) *</label>
-                <input type="text" id="keyword" placeholder="যেমন: শিক্ষা - এন্টার চাপুন">
-                <div class="tags-container" id="keywordsList"></div>
-            </div>
-            <div class="form-group">
-                <label for="topic">বিষয়গুলি (এন্টার দিয়ে যোগ করুন)</label>
-                <input type="text" id="topic" placeholder="যেমন: ডিজিটাল রূপান্তর - এন্টার চাপুন">
-                <div class="tags-container" id="topicsList"></div>
-            </div>
-            <div class="form-group">
-                <label for="style">লেখার ধরন</label>
-                <select id="style">
-                    <option value="formal">আনুষ্ঠানিক (পেশাদার এবং তথ্যপূর্ণ)</option>
-                    <option value="casual">নৈমিত্তিক (বন্ধুত্বপূর্ণ)</option>
-                </select>
-            </div>
-            <div class="form-group">
-                <label for="length">নিবন্ধের দৈর্ঘ্য</label>
-                <select id="length">
-                    <option value="short">ছোট (300-500 শব্দ)</option>
-                    <option value="medium" selected>মধ্যম (500-1000 শব্দ)</option>
-                    <option value="long">দীর্ঘ (1000+ শব্দ)</option>
-                </select>
-            </div>
-            <button class="btn-generate" id="generateBtn">🤖 বর্ণনা তৈরি করুন (AI)</button>
-        </div>
-
-        <!-- PAGE 3: CATEGORIES -->
-        <div class="page" id="page3">
-            <h2>পৃষ্ঠা 3: ক্যাটেগরি নির্বাচন</h2>
-            <p style="margin-bottom: 20px; color: #666;">আপনার পোস্টের জন্য ক্যাটেগরি বেছে নিন:</p>
-            <div class="categories" id="categoriesList"></div>
-        </div>
-
-        <!-- PAGE 4: SUMMARY & FAQ -->
-        <div class="page" id="page4">
-            <h2>পৃষ্ঠা 4: সারসংক্ষেপ এবং FAQ</h2>
-            <div class="form-group">
-                <div class="checkbox-wrapper">
-                    <input type="checkbox" id="includeSummary">
-                    <label for="includeSummary" style="margin: 0;">সারসংক্ষেপ যোগ করুন</label>
-                </div>
-                <textarea id="summary" placeholder="আপনার পোস্টের মূল পয়েন্টগুলির সারসংক্ষেপ..." class="hidden"></textarea>
-            </div>
-            <div class="form-group">
-                <div class="checkbox-wrapper">
-                    <input type="checkbox" id="includeFaq">
-                    <label for="includeFaq" style="margin: 0;">FAQ যোগ করুন</label>
-                </div>
-                <textarea id="faq" placeholder="সাধারণ প্রশ্ন এবং উত্তর..." class="hidden"></textarea>
-            </div>
-        </div>
-
-        <!-- PAGE 5: REVIEW -->
-        <div class="page" id="page5">
-            <h2>পৃষ্ঠা 5: পর্যালোচনা এবং প্রকাশ করুন</h2>
-            <div id="reviewContent" style="background: #f9f9f9; padding: 20px; border-radius: 6px;"></div>
-        </div>
-
-        <!-- BUTTONS -->
-        <div class="buttons">
-            <button class="btn-prev hidden" id="prevBtn">← পূর্ববর্তী</button>
-            <button class="btn-next" id="nextBtn">পরবর্তী →</button>
-            <button class="btn-submit hidden" id="submitBtn">✅ প্রকাশ করুন (ডেমো)</button>
+        <!-- পেজিনেশন -->
+        <div class="pagination">
+            <button id="prevBtn" onclick="previousPage()">← আগে</button>
+            <span id="pageNumbers"></span>
+            <button id="nextBtn" onclick="nextPage()">পরে →</button>
         </div>
     </div>
 
+
     <script>
-        const wizard = {
-            currentPage: 1,
-            formData: {
-                keywords: [],
-                topics: [],
-                categories: []
+        const samplePosts = [
+            {
+                id: 1,
+                title: "ডিজিটাল যুগে শিক্ষার রূপান্তর",
+                excerpt: "প্রযুক্তি ব্যবহার করে শিক্ষার্থীদের জন্য আরও কার্যকর শেখার পরিবেশ তৈরি করা যায়।",
+                category: "education",
+                category_bn: "শিক্ষা",
+                author: "ড. আবদুল করিম",
+                date: "2026-10-10",
+                image: "https://images.unsplash.com/photo-1509062522246-3755977927d7?w=500&h=300&fit=crop"
             },
-            categories: ['সংবাদ', 'শিক্ষা', 'প্রযুক্তি', 'অনুষ্ঠান', 'ঘোষণা'],
-
-            init() {
-                console.log('✅ Wizard initialized');
-                this.renderCategories();
-                this.bindEvents();
+            {
+                id: 2,
+                title: "কৃত্রিম বুদ্ধিমত্তা শিক্ষায় নতুন সম্ভাবনা",
+                excerpt: "কৃত্রিম বুদ্ধিমত্তা শিক্ষার্থীদের ব্যক্তিগত শেখার অভিজ্ঞতা প্রদান করতে পারে।",
+                category: "technology",
+                category_bn: "প্রযুক্তি",
+                author: "প্রফেসর রহিম আহমেদ",
+                date: "2026-10-08",
+                image: "https://images.unsplash.com/photo-1516321318423-f06f70504504?w=500&h=300&fit=crop"
             },
-
-            bindEvents() {
-                // Keyword input
-                $('#keyword').on('keypress', (e) => {
-                    if (e.which === 13) {
-                        e.preventDefault();
-                        const val = $('#keyword').val().trim();
-                        if (val) {
-                            this.formData.keywords.push(val);
-                            $('#keyword').val('');
-                            this.renderKeywords();
-                        }
-                    }
-                });
-
-                // Topic input
-                $('#topic').on('keypress', (e) => {
-                    if (e.which === 13) {
-                        e.preventDefault();
-                        const val = $('#topic').val().trim();
-                        if (val) {
-                            this.formData.topics.push(val);
-                            $('#topic').val('');
-                            this.renderTopics();
-                        }
-                    }
-                });
-
-                // Remove tag
-                $(document).on('click', '.remove-tag', (e) => {
-                    const idx = $(e.target).data('idx');
-                    const type = $(e.target).data('type');
-                    if (type === 'keyword') {
-                        this.formData.keywords.splice(idx, 1);
-                        this.renderKeywords();
-                    } else {
-                        this.formData.topics.splice(idx, 1);
-                        this.renderTopics();
-                    }
-                });
-
-                // Categories
-                $(document).on('change', '.category-check', (e) => {
-                    this.formData.categories = $('.category-check:checked').map((_, el) => $(el).val()).get();
-                });
-
-                // Summary/FAQ toggle
-                $('#includeSummary').on('change', function() {
-                    $('#summary').toggleClass('hidden', !this.checked);
-                });
-                $('#includeFaq').on('change', function() {
-                    $('#faq').toggleClass('hidden', !this.checked);
-                });
-
-                // Navigation
-                $('#nextBtn').on('click', () => this.nextPage());
-                $('#prevBtn').on('click', () => this.prevPage());
-                $('#submitBtn').on('click', () => this.submit());
-                $('#generateBtn').on('click', () => this.generateDescription());
+            {
+                id: 3,
+                title: "२०२६ সালের শাহিন ভর্তি পরীক্ষা নোটিস",
+                excerpt: "আসন্ন ভর্তি পরীক্ষার তারিখ এবং নিয়মকানুন সম্পর্কে বিস্তারিত তথ্য।",
+                category: "announcement",
+                category_bn: "ঘোষণা",
+                author: "অ্যাডমিনিস্ট্রেশন",
+                date: "2026-10-12",
+                image: "https://images.unsplash.com/photo-1427504494785-cdvaca05b37b?w=500&h=300&fit=crop"
             },
-
-            renderKeywords() {
-                let html = this.formData.keywords.map((kw, idx) =>
-                    `<div class="tag">${kw} <button type="button" class="remove-tag" data-idx="${idx}" data-type="keyword">×</button></div>`
-                ).join('');
-                $('#keywordsList').html(html || '<span style="color: #999;">কোনো কীওয়ার্ড যোগ করা হয়নি</span>');
+            {
+                id: 4,
+                title: "শাহিন বিজ্ঞান উৎসব २०२६",
+                excerpt: "শিক্ষার্থীদের বৈজ্ঞানিক দক্ষতা প্রদর্শনের জন্য এই বছর বিশাল আয়োজন।",
+                category: "event",
+                category_bn: "অনুষ্ঠান",
+                author: "বিজ্ঞান বিভাগ",
+                date: "2026-10-09",
+                image: "https://images.unsplash.com/photo-1552664730-d307ca884978?w=500&h=300&fit=crop"
             },
-
-            renderTopics() {
-                let html = this.formData.topics.map((topic, idx) =>
-                    `<div class="tag">${topic} <button type="button" class="remove-tag" data-idx="${idx}" data-type="topic">×</button></div>`
-                ).join('');
-                $('#topicsList').html(html || '<span style="color: #999;">কোনো বিষয় যোগ করা হয়নি</span>');
+            {
+                id: 5,
+                title: "অনলাইন শিক্ষায় সফলতার গল্প",
+                excerpt: "কীভাবে আমাদের শিক্ষার্থীরা অনলাইন মাধ্যমে সফল হয়েছে তার অভিজ্ঞতা।",
+                category: "news",
+                category_bn: "সংবাদ",
+                author: "আলমগীর হোসেন",
+                date: "2026-10-07",
+                image: "https://images.unsplash.com/photo-1516321318423-f06f70504504?w=500&h=300&fit=crop"
             },
-
-            renderCategories() {
-                let html = this.categories.map(cat => `
-                    <label class="category-label">
-                        <input type="checkbox" class="category-check" value="${cat}">
-                        ${cat}
-                    </label>
-                `).join('');
-                $('#categoriesList').html(html);
+            {
+                id: 6,
+                title: "শাহিনের নতুন ল্যাব ইনস্টলেশন",
+                excerpt: "অত্যাধুনিক বিজ্ঞান ল্যাব এখন আমাদের সকল ক্যাম্পাসে উপলব্ধ।",
+                category: "news",
+                category_bn: "সংবাদ",
+                author: "ফ্যাসিলিটি ম্যানেজমেন্ট",
+                date: "2026-10-05",
+                image: "https://images.unsplash.com/photo-1530112570cd-fef3c3d21aef?w=500&h=300&fit=crop"
             },
-
-            showPage(num) {
-                $('.page').removeClass('active');
-                $(`#page${num}`).addClass('active');
-
-                const width = (num / 5) * 100;
-                $('#progressFill').css('width', width + '%');
-                $('#pageNum').text(`পৃষ্ঠা ${num} / 5`);
-
-                $('#prevBtn').toggleClass('hidden', num === 1);
-                $('#nextBtn').toggleClass('hidden', num === 5);
-                $('#submitBtn').toggleClass('hidden', num !== 5);
+            {
+                id: 7,
+                title: "শিক্ষার্থী মানসিক স্বাস্থ্য সচেতনতা",
+                excerpt: "মানসিক সুস্থতা শিক্ষায় সমান গুরুত্বপূর্ণ - আমাদের নতুন উদ্যোগ।",
+                category: "education",
+                category_bn: "শিক্ষা",
+                author: "কাউন্সেলিং টিম",
+                date: "2026-10-06",
+                image: "https://images.unsplash.com/photo-1552664730-d307ca884978?w=500&h=300&fit=crop"
             },
-
-            validatePage() {
-                if (this.currentPage === 1) {
-                    const title = $('#title').val().trim();
-                    const desc = $('#description').val().trim();
-                    if (title.length < 5) {
-                        this.showError('শিরোনাম কমপক্ষে 5 অক্ষর হতে হবে');
-                        return false;
-                    }
-                    if (desc.length < 20) {
-                        this.showError('বর্ণনা কমপক্ষে 20 অক্ষর হতে হবে');
-                        return false;
-                    }
-                    this.formData.title = title;
-                    this.formData.description = desc;
-                }
-                if (this.currentPage === 2) {
-                    if (this.formData.keywords.length === 0) {
-                        this.showError('কমপক্ষে একটি কীওয়ার্ড যোগ করুন');
-                        return false;
-                    }
-                    this.formData.style = $('#style').val();
-                    this.formData.length = $('#length').val();
-                }
-                if (this.currentPage === 3) {
-                    if (this.formData.categories.length === 0) {
-                        this.showError('কমপক্ষে একটি ক্যাটেগরি বেছে নিন');
-                        return false;
-                    }
-                }
-                if (this.currentPage === 4) {
-                    this.formData.includeSummary = $('#includeSummary').is(':checked');
-                    this.formData.summary = $('#summary').val();
-                    this.formData.includeFaq = $('#includeFaq').is(':checked');
-                    this.formData.faq = $('#faq').val();
-                }
-                return true;
-            },
-
-            nextPage() {
-                if (this.validatePage()) {
-                    if (this.currentPage === 4) {
-                        this.renderReview();
-                    }
-                    this.currentPage++;
-                    this.showPage(this.currentPage);
-                }
-            },
-
-            prevPage() {
-                this.currentPage--;
-                this.showPage(this.currentPage);
-            },
-
-            renderReview() {
-                let html = `
-                    <div class="review-item">
-                        <strong>শিরোনাম:</strong><br>
-                        <span>${this.formData.title}</span>
-                    </div>
-                    <div class="review-item">
-                        <strong>বর্ণনা:</strong><br>
-                        <span>${this.formData.description.substring(0, 100)}...</span>
-                    </div>
-                    <div class="review-item">
-                        <strong>কীওয়ার্ড:</strong><br>
-                        <span>${this.formData.keywords.join(', ')}</span>
-                    </div>
-                    <div class="review-item">
-                        <strong>ক্যাটেগরি:</strong><br>
-                        <span>${this.formData.categories.join(', ')}</span>
-                    </div>
-                `;
-                $('#reviewContent').html(html);
-            },
-
-            generateDescription() {
-                this.showSuccess('✅ AI বর্ণনা তৈরি করা হয়েছে (ডেমো)');
-            },
-
-            submit() {
-                console.log('📤 Form Data:', this.formData);
-                this.showSuccess('✅ পোস্ট সফলভাবে সংরক্ষিত হয়েছে! (ডেমো মোড)');
-            },
-
-            showError(msg) {
-                $('#error').text(msg).show();
-                setTimeout(() => $('#error').hide(), 3000);
-            },
-
-            showSuccess(msg) {
-                $('#success').text(msg).show();
-                setTimeout(() => $('#success').hide(), 3000);
+            {
+                id: 8,
+                title: "ক্লাউড প্রযুক্তিতে শিক্ষার ভবিষ্যৎ",
+                excerpt: "ক্লাউড ভিত্তিক শেখার প্ল্যাটফর্ম শিক্ষায় বৈপ্লবিক পরিবর্তন আনতে চলেছে।",
+                category: "technology",
+                category_bn: "প্রযুক্তি",
+                author: "আইটি ডিরেক্টর",
+                date: "2026-10-04",
+                image: "https://images.unsplash.com/photo-1454165804606-c3d57bc86b40?w=500&h=300&fit=crop"
             }
-        };
+        ];
 
-        // Initialize on load
-        $(document).ready(() => {
-            wizard.init();
-            wizard.showPage(1);
+        let currentPage = 1;
+        const postsPerPage = 12;
+        let filteredPosts = [...samplePosts];
+        let currentFilter = 'all';
+
+        document.addEventListener('DOMContentLoaded', () => {
+            displayPosts();
         });
+
+        function formatBengaliDate(dateString) {
+            const months = ['জানুয়ারি', 'ফেব্রুয়ারি', 'মার্চ', 'এপ্রিল', 'মে', 'জুন', 'জুলাই', 'আগস্ট', 'সেপ্টেম্বর', 'অক্টোবর', 'নভেম্বর', 'ডিসেম্বর'];
+            const date = new Date(dateString);
+            const day = date.getDate();
+            const month = months[date.getMonth()];
+            return `${day} ${month}`;
+        }
+
+        function filterByCategory(category) {
+            currentFilter = category;
+            currentPage = 1;
+            document.getElementById('searchInput').value = '';
+            document.querySelectorAll('.category-btn').forEach(btn => btn.classList.remove('active'));
+            event.target.classList.add('active');
+            filteredPosts = category === 'all' ? [...samplePosts] : samplePosts.filter(post => post.category === category);
+            displayPosts();
+        }
+
+        function handleSearch() {
+            const searchTerm = document.getElementById('searchInput').value.toLowerCase();
+            currentPage = 1;
+            document.querySelectorAll('.category-btn').forEach(btn => btn.classList.remove('active'));
+            document.querySelector('.category-btn').classList.add('active');
+            filteredPosts = samplePosts.filter(post =>
+                post.title.toLowerCase().includes(searchTerm) ||
+                post.excerpt.toLowerCase().includes(searchTerm)
+            );
+            displayPosts();
+        }
+
+        document.addEventListener('DOMContentLoaded', () => {
+            const searchInput = document.getElementById('searchInput');
+            if (searchInput) {
+                searchInput.addEventListener('keypress', (e) => {
+                    if (e.key === 'Enter') handleSearch();
+                });
+            }
+        });
+
+        function displayPosts() {
+            const container = document.getElementById('postsContainer');
+            const startIndex = (currentPage - 1) * postsPerPage;
+            const endIndex = startIndex + postsPerPage;
+            const paginatedPosts = filteredPosts.slice(startIndex, endIndex);
+
+            if (paginatedPosts.length === 0) {
+                container.innerHTML = '<div class="empty-state" style="grid-column: 1 / -1;"><p style="font-size: 40px; margin-bottom: 20px;">📭</p><h3>কোনো পোস্ট পাওয়া যায়নি</h3><p>অন্য শ্রেণী চেষ্টা করুন</p></div>';
+                document.getElementById('pageNumbers').innerHTML = '';
+                document.getElementById('prevBtn').disabled = true;
+                document.getElementById('nextBtn').disabled = true;
+                return;
+            }
+
+            container.innerHTML = paginatedPosts.map(post => `
+                <div class="blog-card">
+                    <div class="blog-image-container">
+                        <img src="${post.image}" alt="${post.title}" class="blog-image">
+                        <span class="blog-category">${post.category_bn}</span>
+                    </div>
+                    <div class="blog-content">
+                        <h3 class="blog-title">${post.title}</h3>
+                        <p class="blog-excerpt">${post.excerpt}</p>
+                        <div class="blog-meta">
+                            <span class="blog-author">✍️ ${post.author}</span>
+                            <span class="blog-date">${formatBengaliDate(post.date)}</span>
+                        </div>
+                    </div>
+                </div>
+            `).join('');
+
+            updatePagination();
+        }
+
+        function updatePagination() {
+            const totalPages = Math.ceil(filteredPosts.length / postsPerPage);
+            const pageNumbers = document.getElementById('pageNumbers');
+            document.getElementById('prevBtn').disabled = currentPage === 1;
+            document.getElementById('nextBtn').disabled = currentPage === totalPages;
+            pageNumbers.innerHTML = Array.from({length: totalPages}, (_, i) => i + 1)
+                .map(page => `<button onclick="goToPage(${page})" class="${page === currentPage ? 'active' : ''}">${page}</button>`)
+                .join('');
+        }
+
+        function previousPage() { if (currentPage > 1) { currentPage--; displayPosts(); } }
+        function nextPage() { const totalPages = Math.ceil(filteredPosts.length / postsPerPage); if (currentPage < totalPages) { currentPage++; displayPosts(); } }
+        function goToPage(page) { currentPage = page; displayPosts(); }
     </script>
 </body>
 </html>
