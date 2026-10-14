@@ -124,6 +124,68 @@
     });
   }
 
+  /* ---------------- link / ad blocks ---------------- */
+  function blockEditor(listEl, data) {
+    var rows = [];
+    function row(b) {
+      b = b || {};
+      var d = document.createElement('div'); d.className = 'sba-blk';
+      d.innerHTML =
+        '<div class="sba-blk-top"><label class="sba-inline-check"><input type="checkbox" class="b-on"> চালু</label>' +
+        '<select class="b-pos"><option value="start">প্রথম অনুচ্ছেদের পর</option><option value="middle">লেখার মাঝখানে</option><option value="end">লেখার শেষে</option></select>' +
+        '<button type="button" class="button-link-delete b-del">মুছুন</button></div>' +
+        '<div class="sba-blk-checks">' +
+        '<label class="sba-inline-check"><input type="checkbox" class="b-st"> টেক্সট</label>' +
+        '<label class="sba-inline-check"><input type="checkbox" class="b-sb"> বাটন</label>' +
+        '<label class="sba-inline-check"><input type="checkbox" class="b-lt"> টেক্সটে ক্লিক করলে লিংকে যাবে</label>' +
+        '<label class="sba-inline-check"><input type="checkbox" class="b-nt"> নতুন ট্যাবে খুলবে</label>' +
+        '<label class="sba-inline-check"><input type="checkbox" class="b-lb"> "বিজ্ঞাপন" লেবেল</label></div>' +
+        '<label class="b-text-wrap">টেক্সট<input type="text" class="b-text" placeholder="যেমন: ক্যাডেট ভর্তি চলছে, আজই আবেদন করুন"></label>' +
+        '<label class="b-btn-wrap">বাটনের লেখা<input type="text" class="b-btn" placeholder="যেমন: আবেদন করুন"></label>' +
+        '<label>লিংক (URL)<input type="text" class="b-url" placeholder="https://…"></label>';
+      var q = function (s) { return d.querySelector(s); };
+      q('.b-on').checked = b.on === undefined ? true : !!Number(b.on);
+      q('.b-pos').value = b.pos || 'middle';
+      q('.b-st').checked = b.show_text === undefined ? true : !!Number(b.show_text);
+      q('.b-sb').checked = !!Number(b.show_btn || 0);
+      q('.b-lt').checked = !!Number(b.link_text || 0);
+      q('.b-nt').checked = b.new_tab === undefined ? true : !!Number(b.new_tab);
+      q('.b-lb').checked = !!Number(b.label || 0);
+      q('.b-text').value = b.text || ''; q('.b-btn').value = b.btn || ''; q('.b-url').value = b.url || '';
+      function vis() {
+        q('.b-text-wrap').style.display = q('.b-st').checked ? '' : 'none';
+        q('.b-btn-wrap').style.display = q('.b-sb').checked ? '' : 'none';
+        q('.b-lt').parentNode.style.display = q('.b-st').checked ? '' : 'none';
+      }
+      ['.b-st', '.b-sb'].forEach(function (s) { q(s).addEventListener('change', vis); }); vis();
+      q('.b-del').addEventListener('click', function () { d.remove(); rows = rows.filter(function (x) { return x !== d; }); });
+      listEl.appendChild(d); rows.push(d);
+    }
+    (data || []).forEach(row);
+    return {
+      add: function () { row(); },
+      get: function () {
+        return rows.filter(function (d) { return d.isConnected; }).map(function (d) {
+          var q = function (s) { return d.querySelector(s); };
+          return { on: q('.b-on').checked ? 1 : 0, pos: q('.b-pos').value, show_text: q('.b-st').checked ? 1 : 0,
+            show_btn: q('.b-sb').checked ? 1 : 0, link_text: q('.b-lt').checked ? 1 : 0, new_tab: q('.b-nt').checked ? 1 : 0,
+            label: q('.b-lb').checked ? 1 : 0, text: q('.b-text').value, btn: q('.b-btn').value, url: q('.b-url').value };
+        });
+      }
+    };
+  }
+  var gList = $('#gblk-list');
+  if (gList) {
+    var gEd = blockEditor(gList, SB.gblocks);
+    $('#gblk-add').addEventListener('click', function () { gEd.add(); });
+    $('#gblk-save').addEventListener('click', function () {
+      var bl = gEd.get(), bad = bl.filter(function (b) { return (b.show_btn || b.link_text) && !b.url.trim(); });
+      if (bad.length) { say($('#msg'), 'বাটন বা ক্লিকযোগ্য টেক্সটের জন্য লিংক দিন।', 'err'); return; }
+      post('sb_save_global_blocks', { blocks: bl }).then(function () { say($('#msg'), '✓ সেভ হয়েছে', 'ok'); })
+        .catch(function (e) { say($('#msg'), e.message, 'err'); });
+    });
+  }
+
   /* ---------------- settings PIN ---------------- */
   var pinGo = $('#pin-go');
   if (pinGo) {
@@ -239,6 +301,10 @@
       });
     });
   }
+
+  var pEd = blockEditor($('#blk-list'), P.blocks || []);
+  $('#blk-add').addEventListener('click', function () { pEd.add(); });
+  $('#no-global').checked = !!Number(P.no_global || 0);
 
   /* related posts/pages picker */
   var rel = (P.related || []).slice();
@@ -361,7 +427,7 @@
       id: postId, title: val('#f-title'), slug: val('#f-slug'), excerpt: val('#f-excerpt'), content: editorContent(),
       subtitle: val('#f-subtitle'), meta_desc: val('#f-meta'), summary: val('#f-summary'), author_name: val('#f-author'),
       date: val('#f-date'), topic: val('#f-topic'), keywords: keywords(), category: val('#f-category'),
-      image_id: imgId, faq: faqData(), related: rel.map(function (r) { return r.id; }), status: st ? st.value : 'draft'
+      image_id: imgId, faq: faqData(), related: rel.map(function (r) { return r.id; }), blocks: pEd.get(), no_global: $('#no-global').checked ? '1' : '0', status: st ? st.value : 'draft'
     }).then(function (d) {
       postId = d.id;
       var box = $('#save-result');

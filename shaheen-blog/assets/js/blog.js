@@ -102,13 +102,16 @@
             });
             if (best) { roots.forEach(function (r) { r.style.setProperty('--shb-w', best + 'px'); }); }
         }
-        // 2) no empty band between header and our first block
-        var first = roots[0];
+        // 2) no empty band between header and our first block (blog page and single posts only)
+        var first = roots[0], off = parseInt(first.getAttribute('data-offset'), 10) || 0;
         first.style.marginTop = '0px';
-        if (hdr) {
+        var mt = 0;
+        if (hdr && first.getAttribute('data-gapfix') === '1') {
             var gap = first.getBoundingClientRect().top - hdr.getBoundingClientRect().bottom;
-            if (gap > 1 && gap < 400) { first.style.marginTop = (-Math.round(gap)) + 'px'; }
+            if (gap > 1 && gap < 400) { mt = -Math.round(gap); }
         }
+        mt += (first.getAttribute('data-gapfix') === '1') ? off : 0;
+        if (mt) { first.style.marginTop = mt + 'px'; }
     }
     function scheduleAlign() {
         align();

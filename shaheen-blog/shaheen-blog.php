@@ -14,7 +14,7 @@ if (!defined('ABSPATH')) {
     exit;
 }
 
-define('SB_VERSION', '2.1.0');
+define('SB_VERSION', '2.2.0');
 define('SB_FILE', __FILE__);
 define('SB_PATH', plugin_dir_path(__FILE__));
 define('SB_URL', plugin_dir_url(__FILE__));
@@ -26,6 +26,7 @@ require_once SB_PATH . 'includes/know.php';
 require_once SB_PATH . 'includes/ai.php';
 require_once SB_PATH . 'includes/ajax.php';
 require_once SB_PATH . 'includes/lock.php';
+require_once SB_PATH . 'includes/blocks.php';
 require_once SB_PATH . 'includes/frontend.php';
 require_once SB_PATH . 'includes/demo.php';
 if (is_admin()) {

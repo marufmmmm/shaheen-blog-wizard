@@ -35,7 +35,12 @@ if (!SB_Lock::is_unlocked()) : ?>
             <?php if ($has_key) : ?><label class="sba-inline-check"><input type="checkbox" name="remove_key" value="1"> সংরক্ষিত কী মুছে ফেলুন</label><?php endif; ?>
             <label>মডেল
                 <input type="text" name="model" value="<?php echo esc_attr($s('model')); ?>">
-                <small>প্রস্তাবিত: gpt-4o-mini (সস্তা ও দ্রুত)</small>
+                <small>শিরোনাম, সাবটাইটেল, মেটা ও সামারির জন্য। প্রস্তাবিত: gpt-4o-mini (সস্তা ও দ্রুত)</small>
+            </label>
+            <label>আর্টিকেলের জন্য আলাদা মডেল <small>(ফাঁকা = উপরের মডেলই)</small>
+                <input type="text" name="model_article" list="sb-models" value="<?php echo esc_attr($s('model_article')); ?>" placeholder="যেমন: gpt-4.1-mini">
+                <datalist id="sb-models"><option value="gpt-4o-mini"><option value="gpt-4.1-mini"><option value="gpt-5-mini"><option value="gpt-4.1"><option value="gpt-5.4-mini"></datalist>
+                <small>ভালো মানের বাংলা লেখার জন্য আর্টিকেলে শক্তিশালী মডেল দিতে পারেন। খরচ মডেলভেদে অনেক বদলায়।</small>
             </label>
         </div>
 
@@ -49,6 +54,17 @@ if (!SB_Lock::is_unlocked()) : ?>
                 <?php foreach (sb_feature_labels() as $f => $label) : ?>
                     <label><?php echo esc_html($label); ?><input type="number" min="0" name="cost_<?php echo esc_attr($f); ?>" value="<?php echo esc_attr($s('cost_' . $f)); ?>"></label>
                 <?php endforeach; ?>
+            </div>
+        </div>
+
+        <div class="sba-card">
+            <h2>📐 মাপ — ব্লগ পেজ, হোম পেজ ও সব পোস্টের জন্য একসাথে</h2>
+            <p class="sba-muted">এখানে একবার বদলালে ব্লগ পেজ, <code>[shaheen_blog]</code> শর্টকোড বসানো যেকোনো পেজ (হোম পেজ সহ) এবং সব পোস্ট পেজের কনটেন্টের প্রস্থ একসাথে বদলে যাবে।</p>
+            <div class="sba-row">
+                <label>কনটেন্টের প্রস্থ (px) <small>(০ = থিমের হেডারের মাপে নিজে মিলবে। যেমন: ১১৪০, ১২০০)</small>
+                    <input type="number" min="0" max="1600" name="content_width" value="<?php echo esc_attr($s('content_width')); ?>"></label>
+                <label>হেডারের নিচের ফাঁকা সমন্বয় (px) <small>(০ = নিজে ঠিক হবে; আরও ফাঁকা চাইলে +, কমাতে −)</small>
+                    <input type="number" min="-300" max="300" name="top_offset" value="<?php echo esc_attr($s('top_offset')); ?>"></label>
             </div>
         </div>
 
@@ -70,8 +86,6 @@ if (!SB_Lock::is_unlocked()) : ?>
             <label>পরিচিতি লেখা<textarea name="intro" rows="4"><?php echo esc_textarea($s('intro')); ?></textarea></label>
             <label class="sba-inline-check"><input type="checkbox" name="show_intro" value="1" <?php checked($s('show_intro')); ?>> পরিচিতি লেখা দেখান</label>
             <label>প্রতিবারে কতটি পোস্ট দেখাবে<input type="number" min="3" max="50" name="per_page" value="<?php echo esc_attr($s('per_page')); ?>"></label>
-            <label>কনটেন্টের প্রস্থ (px) <small>(০ = থিমের হেডারের মাপ অনুযায়ী নিজে নিজে মিলবে। বেশিরভাগ ক্ষেত্রে ০ রাখুন)</small>
-                <input type="number" min="0" max="1600" name="content_width" value="<?php echo esc_attr($s('content_width')); ?>"></label>
             <label class="sba-inline-check"><input type="checkbox" name="full_width" value="1" <?php checked($s('full_width')); ?>> পুরো-প্রস্থ (full width) ডিজাইন</label>
             <label class="sba-inline-check"><input type="checkbox" name="hide_theme_title" value="1" <?php checked($s('hide_theme_title')); ?>> থিমের নিজস্ব পেজ শিরোনাম লুকান</label>
         </div>

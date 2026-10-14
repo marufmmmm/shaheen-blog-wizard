@@ -23,6 +23,8 @@ $d = array(
     'author_name' => $post ? get_post_meta($pid, '_sb_author_name', true) : '',
     'keywords'    => $post ? (array) get_post_meta($pid, '_sb_keywords', true) : array(),
     'topic'       => $post ? get_post_meta($pid, '_sb_topic', true) : '',
+    'blocks'      => $post ? (array) get_post_meta($pid, '_sb_blocks', true) : array(),
+    'no_global'   => $post ? (int) get_post_meta($pid, '_sb_no_global', true) : 0,
     'related'     => $post ? array_map(function ($rid) { return array('id' => (int) $rid, 'title' => get_the_title($rid)); }, array_filter((array) get_post_meta($pid, '_sb_related', true))) : array(),
     'faq'         => $post ? (array) get_post_meta($pid, '_sb_faq', true) : array(),
     'category'    => (!empty($cat_terms) && !is_wp_error($cat_terms)) ? (int) $cat_terms[0]->term_id : 0,
@@ -129,6 +131,12 @@ foreach (array_keys(sb_feature_labels()) as $f) {
             <input type="search" id="rel-q" placeholder="পোস্ট বা পেজের নাম লিখে খুঁজুন…" style="max-width:420px">
             <ul id="rel-results" class="sba-relres"></ul>
             <div id="rel-chosen" class="sba-chips"></div>
+
+            <h3>📢 পোস্টের মাঝে বাটন / টেক্সট / লিংক ব্লক <small>(ঐচ্ছিক, বিজ্ঞাপন বা লিংকের জন্য)</small></h3>
+            <p class="sba-muted">চেকবক্স দিয়ে বেছে নিন: শুধু টেক্সট, শুধু বাটন, টেক্সট + বাটন, অথবা টেক্সটে ক্লিক করলে লিংকে যাবে।</p>
+            <div id="blk-list"></div>
+            <button type="button" class="button" id="blk-add">+ ব্লক যোগ করুন</button>
+            <label class="sba-inline-check" style="margin-top:10px"><input type="checkbox" id="no-global"> এই পোস্টে "সব পোস্টের ব্লক" দেখাবো না</label>
 
             <h3>সচরাচর জিজ্ঞাসা (FAQ) <small>ঐচ্ছিক</small></h3>
             <div id="faq-list"></div>

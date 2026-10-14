@@ -169,6 +169,8 @@ function sb_ajax_save_post() {
         }
     }
     update_post_meta($id, '_sb_related', array_values(array_unique($rel)));
+    update_post_meta($id, '_sb_blocks', sb_clean_blocks(isset($_POST['blocks']) ? wp_unslash($_POST['blocks']) : array()));
+    update_post_meta($id, '_sb_no_global', sb_req('no_global') === '1' ? 1 : 0);
     sb_init_views($id);
 
     $term = (int) sb_req('category', 0);

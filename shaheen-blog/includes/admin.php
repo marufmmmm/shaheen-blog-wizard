@@ -9,6 +9,7 @@ function sb_admin_menu() {
     add_submenu_page('sb-dashboard', 'ড্যাশবোর্ড', 'ড্যাশবোর্ড', 'edit_posts', 'sb-dashboard', 'sb_page_dashboard');
     add_submenu_page('sb-dashboard', 'নতুন পোস্ট', 'নতুন পোস্ট', 'edit_posts', 'sb-new', 'sb_page_new');
     add_submenu_page('sb-dashboard', 'সংবাদপত্রে শাহীন', '📰 সংবাদপত্রে শাহীন', 'edit_posts', 'sb-press', 'sb_page_press');
+    add_submenu_page('sb-dashboard', 'বিজ্ঞাপন/লিংক ব্লক', '📢 সব পোস্টের ব্লক', 'manage_options', 'sb-blocks', 'sb_page_blocks');
     add_submenu_page('sb-dashboard', 'সব পোস্ট', 'সব পোস্ট', 'edit_posts', 'sb-posts', 'sb_page_posts');
     add_submenu_page('sb-dashboard', 'ক্যাটাগরি', 'ক্যাটাগরি', 'manage_categories', 'sb-categories', 'sb_page_categories');
     add_submenu_page('sb-dashboard', 'সেটিংস', 'সেটিংস', 'manage_options', 'sb-settings', 'sb_page_settings');
@@ -58,6 +59,7 @@ function sb_admin_assets() {
         'labels'  => sb_feature_labels(),
         'cats'    => $cats,
         'page'    => $page,
+        'gblocks' => (array) get_option('sb_global_blocks', array()),
         'postsUrl' => admin_url('admin.php?page=sb-posts'),
     ));
 }
@@ -80,6 +82,7 @@ function sb_credit_pill() {
 function sb_page_dashboard() { include SB_PATH . 'views/dashboard.php'; }
 function sb_page_new()       { include SB_PATH . 'views/wizard.php'; }
 function sb_page_press()     { include SB_PATH . 'views/press.php'; }
+function sb_page_blocks()    { include SB_PATH . 'views/blocks.php'; }
 function sb_page_posts()     { include SB_PATH . 'views/posts.php'; }
 function sb_page_categories() { include SB_PATH . 'views/categories.php'; }
 function sb_page_settings()  { include SB_PATH . 'views/settings.php'; }
@@ -110,6 +113,8 @@ function sb_handle_save_settings() {
         'full_width'    => $in('full_width') ? 1 : 0,
         'hide_theme_title' => $in('hide_theme_title') ? 1 : 0,
         'content_width' => max(0, min(1600, (int) $in('content_width', 0))),
+        'top_offset'    => max(-300, min(300, (int) $in('top_offset', 0))),
+        'model_article' => sanitize_text_field($in('model_article')),
         'cost_research' => max(0, (int) $in('cost_research', 50)),
         'site_urls'     => sanitize_textarea_field($in('site_urls')),
         'about'         => sanitize_textarea_field($in('about')),

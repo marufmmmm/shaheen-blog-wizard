@@ -15,6 +15,8 @@ function sb_defaults() {
         'cost_article'   => 180,
         'cost_summary'   => 80,
         'cost_research'  => 50,
+        'model_article'  => '',
+        'top_offset'     => 0,
         'content_width'  => 0,
         'site_urls'      => "https://shaheen.edu.bd/",
         'about'          => '',
@@ -46,6 +48,12 @@ function sb_save_settings(array $new) {
 }
 
 /** Feature => credit cost. */
+/** Model for a feature: article may use its own (better) model. */
+function sb_model_for($feature) {
+    $m = $feature === 'article' ? trim((string) sb_get('model_article')) : '';
+    return $m !== '' ? $m : sb_get('model');
+}
+
 function sb_feature_cost($feature) {
     $map = array(
         'headlines' => 'cost_headlines',

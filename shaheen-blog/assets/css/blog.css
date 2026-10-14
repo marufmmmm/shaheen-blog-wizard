@@ -872,3 +872,24 @@ body.single-sb_post.shb-hide-title main .wp-block-separator { display: none; }
     .shb-single .post-layout { grid-template-columns: minmax(0, 1fr); padding: 0 12px 40px; gap: 20px; }
     .shb-single .post-aside { position: static; }
 }
+
+/* Link / ad blocks inside posts */
+.shb-single .sb-ad {
+    position: relative;
+    margin: 26px 0; padding: 20px 22px; text-align: center;
+    background: linear-gradient(135deg, rgba(26,107,62,.08), rgba(212,175,55,.14));
+    border: 1px solid rgba(212,175,55,.45); border-radius: 14px;
+}
+.shb-single .sb-ad p { margin: 0; }
+.shb-single .sb-ad-text { font-size: 1.05rem; font-weight: 600; line-height: 1.6; color: var(--text); }
+.shb-single .sb-ad-link { color: var(--primary, #0f5132); text-decoration: underline; text-underline-offset: 3px; }
+.shb-single .sb-ad-actions { margin-top: 12px !important; }
+.shb-single .sb-ad-text + .sb-ad-actions { margin-top: 14px !important; }
+.shb-single .sb-ad-btn {
+    display: inline-block; padding: 11px 26px; border-radius: 999px; text-decoration: none;
+    background: linear-gradient(135deg, #198754, #0f5132); color: #fff !important; font-weight: 700; font-size: 15px;
+    box-shadow: 0 6px 16px rgba(15,81,50,.25); transition: transform .2s, box-shadow .2s;
+}
+.shb-single .sb-ad-btn:hover { transform: translateY(-2px); box-shadow: 0 10px 22px rgba(15,81,50,.3); }
+.shb-single .sb-ad-tag { position: absolute; top: 8px; right: 12px; font-size: 11px; color: #7a6b2a; opacity: .85; }
+.shb-single a.sb-ad-btn, .shb-single a.sb-ad-btn:hover { text-decoration: none !important; }

@@ -101,15 +101,21 @@ class SB_AI {
                 return new WP_Error('sb_feature', 'অজানা ফিচার।');
         }
 
+        $model = sb_model_for($feature);
         $body = array(
-            'model'       => sb_get('model'),
-            'temperature' => 0.7,
-            'max_tokens'  => $max,
-            'messages'    => array(
+            'model'    => $model,
+            'messages' => array(
                 array('role' => 'system', 'content' => self::system_prompt()),
                 array('role' => 'user', 'content' => $user),
             ),
         );
+        if (preg_match('/^(gpt-5|o\d)/i', $model)) {
+            // Reasoning-style models: no temperature, and thinking tokens count against the limit.
+            $body['max_completion_tokens'] = $max * 3;
+        } else {
+            $body['temperature'] = 0.7;
+            $body['max_tokens'] = $max;
+        }
         if ($json) {
             $body['response_format'] = array('type' => 'json_object');
         }
@@ -170,7 +176,7 @@ class SB_AI {
             'timeout' => 200,
             'headers' => array('Authorization' => 'Bearer ' . sb_get('api_key'), 'Content-Type' => 'application/json'),
             'body'    => wp_json_encode(array(
-                'model' => sb_get('model'),
+                'model' => sb_model_for('article'),
                 'input' => array(
                     array('role' => 'system', 'content' => self::system_prompt()),
                     array('role' => 'user', 'content' => $user),

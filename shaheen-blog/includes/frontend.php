@@ -32,7 +32,12 @@ function sb_enqueue_front($with_js) {
 
 /** Optional fixed content width (0 = match the theme header automatically). */
 function sb_fixedw_attr() {
-    return (int) sb_get('content_width') >= 600 ? ' data-fixedw="1"' : '';
+    $a = (int) sb_get('content_width') >= 600 ? ' data-fixedw="1"' : '';
+    $page = (int) get_option('sb_blog_page_id');
+    if (is_singular('sb_post') || ($page && is_page($page))) {
+        $a .= ' data-gapfix="1"';
+    }
+    return $a . ' data-offset="' . (int) sb_get('top_offset') . '"';
 }
 
 function sb_width_style() {
@@ -254,7 +259,7 @@ function sb_single_content($content) {
                         <div class="post-summary"><strong>সংক্ষেপে</strong><?php echo esc_html($sum); ?></div>
                     <?php endif; ?>
 
-                    <div class="post-body"><?php echo wpautop($post->post_content); // phpcs:ignore WordPress.Security.EscapeOutput ?></div>
+                    <div class="post-body"><?php echo sb_inject_blocks(wpautop($post->post_content), sb_post_blocks($id)); // phpcs:ignore WordPress.Security.EscapeOutput ?></div>
 
                     <?php if (!empty($faq) && is_array($faq)) : ?>
                         <section class="post-faq">
