@@ -742,12 +742,15 @@
         <section class="filter-section">
             <h2 class="section-title">📂 বিভাগ অনুসারে ব্রাউজ করুন</h2>
             <div class="category-filter">
-                <button class="category-btn active" onclick="filterByCategory('all')">সব (All)</button>
-                <button class="category-btn" onclick="filterByCategory('news')">📰 সংবাদ (News)</button>
-                <button class="category-btn" onclick="filterByCategory('education')">📚 শিক্ষা (Education)</button>
-                <button class="category-btn" onclick="filterByCategory('technology')">💻 প্রযুক্তি (Technology)</button>
-                <button class="category-btn" onclick="filterByCategory('event')">🎉 অনুষ্ঠান (Events)</button>
-                <button class="category-btn" onclick="filterByCategory('announcement')">📢 ঘোষণা (Announcement)</button>
+                <button class="category-btn active" onclick="filterByCategory('all')">সকল (All)</button>
+                <button class="category-btn" onclick="filterByCategory('cadet')">ক্যাডেট (Cadet)</button>
+                <button class="category-btn" onclick="filterByCategory('student')">শিক্ষার্থী (Student)</button>
+                <button class="category-btn" onclick="filterByCategory('parent')">অভিভাবক (Parent)</button>
+                <button class="category-btn" onclick="filterByCategory('teacher')">শিক্ষক (Teacher)</button>
+                <button class="category-btn" onclick="filterByCategory('education')">শিক্ষা (Education)</button>
+                <button class="category-btn" onclick="filterByCategory('news')">খবর (News)</button>
+                <button class="category-btn" onclick="filterByCategory('technology')">প্রযুক্তি (Technology)</button>
+                <button class="category-btn" onclick="filterByCategory('others')">অন্যান্য (Others)</button>
             </div>
         </section>
 
@@ -774,8 +777,8 @@
                 id: 1,
                 title: "ডিজিটাল যুগে শিক্ষার রূপান্তর",
                 excerpt: "প্রযুক্তি ব্যবহার করে শিক্ষার্থীদের জন্য আরও কার্যকর শেখার পরিবেশ তৈরি করা যায়।",
-                category: "education",
-                category_bn: "শিক্ষা",
+                category: "cadet",
+                category_bn: "ক্যাডেট",
                 author: "ড. আবদুল করিম",
                 date: "2026-10-10",
                 image: "https://images.unsplash.com/photo-1509062522246-3755977927d7?w=500&h=300&fit=crop"
@@ -784,8 +787,8 @@
                 id: 2,
                 title: "কৃত্রিম বুদ্ধিমত্তা শিক্ষায় নতুন সম্ভাবনা",
                 excerpt: "কৃত্রিম বুদ্ধিমত্তা শিক্ষার্থীদের ব্যক্তিগত শেখার অভিজ্ঞতা প্রদান করতে পারে।",
-                category: "technology",
-                category_bn: "প্রযুক্তি",
+                category: "teacher",
+                category_bn: "শিক্ষক",
                 author: "প্রফেসর রহিম আহমেদ",
                 date: "2026-10-08",
                 image: "https://images.unsplash.com/photo-1516321318423-f06f70504504?w=500&h=300&fit=crop"
@@ -794,8 +797,8 @@
                 id: 3,
                 title: "२०२६ সালের শাহিন ভর্তি পরীক্ষা নোটিস",
                 excerpt: "আসন্ন ভর্তি পরীক্ষার তারিখ এবং নিয়মকানুন সম্পর্কে বিস্তারিত তথ্য।",
-                category: "announcement",
-                category_bn: "ঘোষণা",
+                category: "news",
+                category_bn: "খবর",
                 author: "অ্যাডমিনিস্ট্রেশন",
                 date: "2026-10-12",
                 image: "https://images.unsplash.com/photo-1427504494785-cdvaca05b37b?w=500&h=300&fit=crop"
@@ -804,8 +807,8 @@
                 id: 4,
                 title: "শাহিন বিজ্ঞান উৎসব २०२६",
                 excerpt: "শিক্ষার্থীদের বৈজ্ঞানিক দক্ষতা প্রদর্শনের জন্য এই বছর বিশাল আয়োজন।",
-                category: "event",
-                category_bn: "অনুষ্ঠান",
+                category: "others",
+                category_bn: "অন্যান্য",
                 author: "বিজ্ঞান বিভাগ",
                 date: "2026-10-09",
                 image: "https://images.unsplash.com/photo-1552664730-d307ca884978?w=500&h=300&fit=crop"
@@ -814,8 +817,8 @@
                 id: 5,
                 title: "অনলাইন শিক্ষায় সফলতার গল্প",
                 excerpt: "কীভাবে আমাদের শিক্ষার্থীরা অনলাইন মাধ্যমে সফল হয়েছে তার অভিজ্ঞতা।",
-                category: "news",
-                category_bn: "সংবাদ",
+                category: "student",
+                category_bn: "শিক্ষার্থী",
                 author: "আলমগীর হোসেন",
                 date: "2026-10-07",
                 image: "https://images.unsplash.com/photo-1516321318423-f06f70504504?w=500&h=300&fit=crop"
@@ -825,7 +828,7 @@
                 title: "শাহিনের নতুন ল্যাব ইনস্টলেশন",
                 excerpt: "অত্যাধুনিক বিজ্ঞান ল্যাব এখন আমাদের সকল ক্যাম্পাসে উপলব্ধ।",
                 category: "news",
-                category_bn: "সংবাদ",
+                category_bn: "খবর",
                 author: "ফ্যাসিলিটি ম্যানেজমেন্ট",
                 date: "2026-10-05",
                 image: "https://images.unsplash.com/photo-1530112570cd-fef3c3d21aef?w=500&h=300&fit=crop"
@@ -834,8 +837,8 @@
                 id: 7,
                 title: "শিক্ষার্থী মানসিক স্বাস্থ্য সচেতনতা",
                 excerpt: "মানসিক সুস্থতা শিক্ষায় সমান গুরুত্বপূর্ণ - আমাদের নতুন উদ্যোগ।",
-                category: "education",
-                category_bn: "শিক্ষা",
+                category: "parent",
+                category_bn: "অভিভাবক",
                 author: "কাউন্সেলিং টিম",
                 date: "2026-10-06",
                 image: "https://images.unsplash.com/photo-1552664730-d307ca884978?w=500&h=300&fit=crop"
