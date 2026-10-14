@@ -893,3 +893,28 @@ body.single-sb_post.shb-hide-title main .wp-block-separator { display: none; }
 .shb-single .sb-ad-btn:hover { transform: translateY(-2px); box-shadow: 0 10px 22px rgba(15,81,50,.3); }
 .shb-single .sb-ad-tag { position: absolute; top: 8px; right: 12px; font-size: 11px; color: #7a6b2a; opacity: .85; }
 .shb-single a.sb-ad-btn, .shb-single a.sb-ad-btn:hover { text-decoration: none !important; }
+
+/* Social box (inside posts or via [shaheen_social]) */
+.sb-social {
+    clear: both; margin: 28px 0; padding: 18px; border-radius: 16px; overflow: hidden;
+    background: linear-gradient(135deg, rgba(26,107,62,.07), rgba(212,175,55,.13));
+    border: 1px solid rgba(212,175,55,.45); font-family: 'Noto Sans Bengali', system-ui, sans-serif;
+}
+.sb-social .sb-soc-head { text-align: center; font-weight: 700; font-size: 1.05rem; margin-bottom: 12px; color: #0f5132; }
+.sb-social .sb-soc-stage { background: #fff; border-radius: 12px; overflow: hidden; min-height: 120px; }
+.sb-social .sb-soc-slide[hidden] { display: none !important; }
+.sb-social iframe { max-width: 100%; }
+.sb-social .sb-soc-yt { position: relative; display: block; width: 100%; padding: 0; border: 0; cursor: pointer; background: #000; aspect-ratio: 16/9; }
+.sb-social .sb-soc-yt img { width: 100%; height: 100%; object-fit: cover; display: block; opacity: .92; }
+.sb-social .sb-soc-play { position: absolute; inset: 0; margin: auto; width: 64px; height: 64px; border-radius: 50%; background: #e62117; color: #fff; display: grid; place-items: center; font-size: 26px; padding-left: 4px; }
+.sb-social .sb-soc-cap { padding: 10px 14px; font-weight: 600; font-size: 14px; line-height: 1.5; }
+.sb-social .sb-soc-card { display: grid; gap: 6px; justify-items: center; padding: 34px 16px; text-align: center; text-decoration: none; color: #fff; background: linear-gradient(45deg, #f09433, #dc2743 55%, #bc1888); }
+.sb-social .sb-soc-card span { font-size: 36px; }
+.sb-social .sb-soc-nav { display: flex; align-items: center; justify-content: center; gap: 12px; margin-top: 10px; }
+.sb-social .sb-soc-nav > button { border: 0; background: #fff; width: 32px; height: 32px; border-radius: 50%; cursor: pointer; font-size: 20px; line-height: 1; box-shadow: 0 2px 6px rgba(0,0,0,.15); }
+.sb-social .sb-soc-dots { display: inline-flex; gap: 7px; }
+.sb-social .sb-soc-dots button { width: 9px; height: 9px; padding: 0; border: 0; border-radius: 50%; background: #b9c9bf; cursor: pointer; }
+.sb-social .sb-soc-dots button.on { background: #198754; transform: scale(1.25); }
+.sb-social .sb-soc-btns { display: flex; flex-wrap: wrap; gap: 10px; justify-content: center; margin-top: 14px; }
+.sb-social a.sb-soc-btn { display: inline-block; padding: 10px 20px; border-radius: 999px; color: #fff !important; text-decoration: none !important; font-weight: 700; font-size: 14px; box-shadow: 0 4px 12px rgba(0,0,0,.15); }
+.sb-social a.is-fb { background: #1877f2; } .sb-social a.is-yt { background: #e62117; } .sb-social a.is-ig { background: linear-gradient(45deg, #f09433, #dc2743 55%, #bc1888); }

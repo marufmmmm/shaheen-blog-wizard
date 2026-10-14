@@ -391,6 +391,7 @@
   });
   $('#blk-add').addEventListener('click', function () { pEd.add(); });
   $('#no-global').checked = !!Number(P.no_global || 0);
+  $('#no-social').checked = !!Number(P.no_social || 0);
 
   /* related posts/pages picker */
   var rel = (P.related || []).slice();
@@ -516,7 +517,7 @@
       id: postId, title: val('#f-title'), slug: val('#f-slug'), excerpt: val('#f-excerpt'), content: editorContent(),
       subtitle: val('#f-subtitle'), meta_desc: val('#f-meta'), summary: val('#f-summary'), author_name: val('#f-author'),
       date: val('#f-date'), topic: val('#f-topic'), keywords: keywords(), category: val('#f-category'),
-      image_id: imgId, faq: faqData(), related: rel.map(function (r) { return r.id; }), blocks: pEd.get(), block_ids: picked, no_global: $('#no-global').checked ? '1' : '0', status: st ? st.value : 'draft'
+      image_id: imgId, faq: faqData(), related: rel.map(function (r) { return r.id; }), blocks: pEd.get(), block_ids: picked, no_global: $('#no-global').checked ? '1' : '0', no_social: $('#no-social').checked ? '1' : '0', status: st ? st.value : 'draft'
     }).then(function (d) {
       postId = d.id;
       var box = $('#save-result');

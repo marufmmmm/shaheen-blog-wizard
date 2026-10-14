@@ -255,7 +255,7 @@ function sb_single_content($content) {
                         <div class="post-summary"><strong>সংক্ষেপে</strong><?php echo esc_html($sum); ?></div>
                     <?php endif; ?>
 
-                    <div class="post-body"><?php echo sb_inject_blocks(wpautop($post->post_content), sb_post_blocks($id)); // phpcs:ignore WordPress.Security.EscapeOutput ?></div>
+                    <div class="post-body"><?php echo sb_inject_blocks(wpautop($post->post_content), sb_post_blocks($id), $id); // phpcs:ignore WordPress.Security.EscapeOutput ?></div>
 
                     <?php if (!empty($faq) && is_array($faq)) : ?>
                         <section class="post-faq">

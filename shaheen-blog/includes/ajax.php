@@ -176,6 +176,7 @@ function sb_ajax_save_post() {
     update_post_meta($id, '_sb_related', array_values(array_unique($rel)));
     update_post_meta($id, '_sb_blocks', sb_clean_blocks(isset($_POST['blocks']) ? wp_unslash($_POST['blocks']) : array()));
     update_post_meta($id, '_sb_block_ids', array_values(array_filter(sb_req_list('block_ids', 20), function ($x) { return preg_match('/^[a-z0-9]{6,20}$/', $x); })));
+    update_post_meta($id, '_sb_no_social', sb_req('no_social') === '1' ? 1 : 0);
     update_post_meta($id, '_sb_no_global', sb_req('no_global') === '1' ? 1 : 0);
     sb_init_views($id);
 

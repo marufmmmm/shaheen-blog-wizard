@@ -9,6 +9,7 @@ function sb_admin_menu() {
     add_submenu_page('sb-dashboard', 'ড্যাশবোর্ড', 'ড্যাশবোর্ড', 'edit_posts', 'sb-dashboard', 'sb_page_dashboard');
     add_submenu_page('sb-dashboard', 'নতুন পোস্ট', 'নতুন পোস্ট', 'edit_posts', 'sb-new', 'sb_page_new');
     add_submenu_page('sb-dashboard', 'রিরাইট করে পোস্ট', '🔁 রিরাইট করে পোস্ট', 'edit_posts', 'sb-rewrite', 'sb_page_rewrite');
+    add_submenu_page('sb-dashboard', 'সোশ্যাল মিডিয়া', '🌐 সোশ্যাল মিডিয়া', 'manage_options', 'sb-social', 'sb_page_social');
     add_submenu_page('sb-dashboard', 'সংবাদপত্রে শাহীন', '📰 সংবাদপত্রে শাহীন', 'edit_posts', 'sb-press', 'sb_page_press');
     add_submenu_page('sb-dashboard', 'বিজ্ঞাপন/লিংক ব্লক', '📚 ব্লক লাইব্রেরি', 'manage_options', 'sb-blocks', 'sb_page_blocks');
     add_submenu_page('sb-dashboard', 'সব পোস্ট', 'সব পোস্ট', 'edit_posts', 'sb-posts', 'sb_page_posts');
@@ -83,6 +84,7 @@ function sb_credit_pill() {
 function sb_page_dashboard() { include SB_PATH . 'views/dashboard.php'; }
 function sb_page_new()       { include SB_PATH . 'views/wizard.php'; }
 function sb_page_rewrite()   { include SB_PATH . 'views/rewrite.php'; }
+function sb_page_social()    { include SB_PATH . 'views/social.php'; }
 function sb_page_press()     { include SB_PATH . 'views/press.php'; }
 function sb_page_blocks()    { include SB_PATH . 'views/blocks.php'; }
 function sb_page_posts()     { include SB_PATH . 'views/posts.php'; }

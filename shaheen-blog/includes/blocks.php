@@ -66,8 +66,12 @@ function sb_render_block($b) {
 }
 
 /** Insert blocks after the 1st / middle / last paragraph of already-formatted HTML. */
-function sb_inject_blocks($html, array $blocks) {
+function sb_inject_blocks($html, array $blocks, $post_id = 0) {
     $by = array('start' => '', 'middle' => '', 'end' => '');
+    $soc = sb_social_get();
+    if ($soc['pos'] !== 'off' && !($post_id && get_post_meta($post_id, '_sb_no_social', true))) {
+        $by[$soc['pos']] .= sb_social_html();
+    }
     foreach ($blocks as $b) {
         $by[$b['pos']] .= sb_render_block($b);
     }

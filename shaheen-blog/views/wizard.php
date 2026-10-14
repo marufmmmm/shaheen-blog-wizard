@@ -25,6 +25,7 @@ $d = array(
     'topic'       => $post ? get_post_meta($pid, '_sb_topic', true) : '',
     'blocks'      => $post ? (array) get_post_meta($pid, '_sb_blocks', true) : array(),
     'block_ids'   => $post ? (array) get_post_meta($pid, '_sb_block_ids', true) : array(),
+    'no_social'   => $post ? (int) get_post_meta($pid, '_sb_no_social', true) : 0,
     'no_global'   => $post ? (int) get_post_meta($pid, '_sb_no_global', true) : 0,
     'related'     => $post ? array_map(function ($rid) { return array('id' => (int) $rid, 'title' => get_the_title($rid)); }, array_filter((array) get_post_meta($pid, '_sb_related', true))) : array(),
     'faq'         => $post ? (array) get_post_meta($pid, '_sb_faq', true) : array(),
@@ -141,7 +142,8 @@ $costs['research'] = max(0, (int) sb_get('cost_research'));
             <p class="sba-muted">অথবা শুধু এই পোস্টের জন্য নতুন ব্লক:</p>
             <div id="blk-list"></div>
             <button type="button" class="button" id="blk-add">+ নতুন ব্লক যোগ করুন</button>
-            <label class="sba-inline-check" style="margin-top:10px"><input type="checkbox" id="no-global"> লাইব্রেরির "সব পোস্টে অটো" ব্লকগুলো এই পোস্টে দেখাবো না</label>
+            <label class="sba-inline-check" style="margin-top:10px"><input type="checkbox" id="no-social"> এই পোস্টে সোশ্যাল মিডিয়া বক্স (ফেসবুক/ইউটিউব/ইনস্টাগ্রাম) দেখাবো না</label><br>
+            <label class="sba-inline-check" style="margin-top:6px"><input type="checkbox" id="no-global"> লাইব্রেরির "সব পোস্টে অটো" ব্লকগুলো এই পোস্টে দেখাবো না</label>
 
             <h3>সচরাচর জিজ্ঞাসা (FAQ) <small>ঐচ্ছিক</small></h3>
             <div id="faq-list"></div>

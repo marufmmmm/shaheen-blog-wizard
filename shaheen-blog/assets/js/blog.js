@@ -142,11 +142,67 @@
             }).catch(function () {});
     }
 
+    /* ---- Social box: one latest post at a time, rotating ---- */
+    function initSocial(box) {
+        var slides = [].slice.call(box.querySelectorAll('.sb-soc-slide'));
+        if (!slides.length) { return; }
+        var dotsEl = box.querySelector('.sb-soc-dots'), cur = 0, timer = null, paused = false;
+        var every = (parseInt(box.getAttribute('data-interval'), 10) || 8) * 1000;
+        var reduce = window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+
+        function mount(slide) {
+            if (slide.getAttribute('data-ready')) { return; }
+            var kind = slide.getAttribute('data-kind'), src = slide.getAttribute('data-src');
+            if (kind === 'yt' || kind === 'igcard' || !src) { slide.setAttribute('data-ready', '1'); return; }
+            var f = document.createElement('iframe');
+            f.src = src; f.loading = 'lazy'; f.title = slide.getAttribute('data-title') || '';
+            f.setAttribute('allow', 'encrypted-media; picture-in-picture; clipboard-write');
+            f.setAttribute('allowfullscreen', 'true'); f.setAttribute('scrolling', 'no');
+            f.style.cssText = 'width:100%;border:0;display:block;height:' + (parseInt(slide.getAttribute('data-h'), 10) || 420) + 'px';
+            slide.appendChild(f); slide.setAttribute('data-ready', '1');
+        }
+        function show(i) {
+            cur = (i + slides.length) % slides.length;
+            slides.forEach(function (s, k) { s.hidden = k !== cur; });
+            mount(slides[cur]);
+            if (dotsEl) { [].slice.call(dotsEl.children).forEach(function (d, k) { d.classList.toggle('on', k === cur); }); }
+        }
+        function arm() {
+            clearInterval(timer);
+            if (slides.length > 1 && !reduce) { timer = setInterval(function () { if (!paused && !document.hidden) { show(cur + 1); } }, every); }
+        }
+        if (dotsEl) {
+            slides.forEach(function (_, k) {
+                var d = document.createElement('button'); d.type = 'button'; d.setAttribute('aria-label', 'স্লাইড ' + (k + 1));
+                d.addEventListener('click', function () { show(k); arm(); }); dotsEl.appendChild(d);
+            });
+        }
+        var p = box.querySelector('.sb-soc-prev'), n = box.querySelector('.sb-soc-next');
+        if (p) { p.addEventListener('click', function () { show(cur - 1); arm(); }); }
+        if (n) { n.addEventListener('click', function () { show(cur + 1); arm(); }); }
+        slides.forEach(function (s) {
+            var y = s.querySelector('.sb-soc-yt');
+            if (y) {
+                y.addEventListener('click', function () {
+                    var f = document.createElement('iframe');
+                    f.src = s.getAttribute('data-src') + '?autoplay=1&rel=0'; f.title = s.getAttribute('data-title') || '';
+                    f.setAttribute('allow', 'autoplay; encrypted-media; picture-in-picture'); f.setAttribute('allowfullscreen', 'true');
+                    f.style.cssText = 'width:100%;aspect-ratio:16/9;border:0;display:block';
+                    y.replaceWith(f); paused = true;   // keep the video on screen while it plays
+                });
+            }
+        });
+        ['mouseenter', 'focusin', 'touchstart'].forEach(function (ev) { box.addEventListener(ev, function () { paused = true; }, { passive: true }); });
+        ['mouseleave', 'focusout'].forEach(function (ev) { box.addEventListener(ev, function () { if (!box.querySelector('.sb-soc-slide iframe[src*="autoplay"]')) { paused = false; } }); });
+        show(0); arm();
+    }
+
     document.addEventListener('DOMContentLoaded', function () {
         var blogs = document.querySelectorAll('.shb-blog');
         [].slice.call(blogs).forEach(function (r) { markPage(r); initBlog(r); });
         if (document.querySelector('.shb-single')) { document.body.classList.add('shb-page'); }
         initCopy();
+        [].slice.call(document.querySelectorAll('.sb-social')).forEach(initSocial);
         scheduleAlign();
         countView();
     });
