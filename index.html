@@ -352,47 +352,62 @@
             font-weight: 600;
         }
 
-        /* পেজিনেশন */
-        .pagination {
+        /* লোড মোর বাটন */
+        .load-more-container {
             display: flex;
             justify-content: center;
-            gap: 8px;
-            margin: 60px 0;
-            flex-wrap: wrap;
-            align-items: center;
+            margin: 80px 0 60px;
         }
 
-        .pagination button {
-            padding: 12px 16px;
-            border: 2px solid var(--border);
-            background: white;
-            color: var(--text);
-            border-radius: 8px;
-            cursor: pointer;
-            transition: all 0.3s;
-            font-weight: 600;
-            font-size: 14px;
-            font-family: 'Poppins', sans-serif;
-            min-width: 45px;
-        }
-
-        .pagination button:hover:not(:disabled) {
-            border-color: var(--primary-light);
-            color: var(--primary-light);
-            background: rgba(26, 107, 62, 0.05);
-            transform: translateY(-2px);
-        }
-
-        .pagination button.active {
-            background: var(--primary-light);
+        .load-more-btn {
+            padding: 14px 40px;
+            background: linear-gradient(135deg, var(--primary-light), var(--accent));
             color: white;
-            border-color: var(--primary-light);
-            box-shadow: 0 5px 15px rgba(26, 107, 62, 0.3);
+            border: none;
+            border-radius: 30px;
+            cursor: pointer;
+            transition: all 0.3s cubic-bezier(0.25, 0.46, 0.45, 0.94);
+            font-weight: 700;
+            font-size: 16px;
+            font-family: 'Poppins', sans-serif;
+            box-shadow: 0 8px 25px rgba(26, 107, 62, 0.3);
+            display: flex;
+            align-items: center;
+            gap: 10px;
         }
 
-        .pagination button:disabled {
-            opacity: 0.4;
+        .load-more-btn:hover {
+            transform: translateY(-3px);
+            box-shadow: 0 12px 35px rgba(26, 107, 62, 0.4);
+            background: linear-gradient(135deg, var(--accent), var(--primary-light));
+        }
+
+        .load-more-btn:active {
+            transform: translateY(-1px);
+        }
+
+        .load-more-btn:disabled {
+            opacity: 0.6;
             cursor: not-allowed;
+            transform: none;
+        }
+
+        .load-more-btn.loading {
+            pointer-events: none;
+        }
+
+        .spinner {
+            display: inline-block;
+            width: 16px;
+            height: 16px;
+            border: 3px solid rgba(255, 255, 255, 0.3);
+            border-top-color: white;
+            border-radius: 50%;
+            animation: spin 0.8s linear infinite;
+        }
+
+        @keyframes spin {
+            to { transform: rotate(360deg); }
         }
 
         /* খালি স্টেট */
@@ -520,6 +535,11 @@
                 font-size: 1rem;
             }
 
+            .blog-subtitle {
+                font-size: 1.1rem;
+                margin-top: 12px;
+            }
+
             .blog-grid {
                 grid-template-columns: 1fr;
                 gap: 25px;
@@ -540,6 +560,13 @@
             .category-btn {
                 padding: 8px 16px;
                 font-size: 12px;
+            }
+
+            .load-more-btn {
+                padding: 12px 30px;
+                font-size: 15px;
+                width: 100%;
+                max-width: 400px;
             }
 
             .blog-footer {
@@ -597,11 +624,11 @@
             </div>
         </div>
 
-        <!-- পেজিনেশন -->
-        <div class="pagination">
-            <button id="prevBtn" onclick="previousPage()">← আগে</button>
-            <span id="pageNumbers"></span>
-            <button id="nextBtn" onclick="nextPage()">পরে →</button>
+        <!-- লোড মোর -->
+        <div class="load-more-container">
+            <button id="loadMoreBtn" class="load-more-btn" onclick="loadMore()">
+                <span>আরও পোস্ট লোড করুন</span>
+            </button>
         </div>
     </div>
 
@@ -694,6 +721,7 @@
         const postsPerPage = 12;
         let filteredPosts = [...samplePosts];
         let currentFilter = 'all';
+        let displayedPostIds = new Set();
 
         document.addEventListener('DOMContentLoaded', () => {
             displayPosts();
@@ -710,6 +738,7 @@
         function filterByCategory(category) {
             currentFilter = category;
             currentPage = 1;
+            displayedPostIds.clear();
             document.getElementById('searchInput').value = '';
             document.querySelectorAll('.category-btn').forEach(btn => btn.classList.remove('active'));
             event.target.classList.add('active');
@@ -720,6 +749,7 @@
         function handleSearch() {
             const searchTerm = document.getElementById('searchInput').value.toLowerCase();
             currentPage = 1;
+            displayedPostIds.clear();
             document.querySelectorAll('.category-btn').forEach(btn => btn.classList.remove('active'));
             document.querySelector('.category-btn').classList.add('active');
             filteredPosts = samplePosts.filter(post =>
@@ -744,15 +774,18 @@
             const endIndex = startIndex + postsPerPage;
             const paginatedPosts = filteredPosts.slice(startIndex, endIndex);
 
-            if (paginatedPosts.length === 0) {
+            if (currentPage === 1) {
+                container.innerHTML = '';
+                displayedPostIds.clear();
+            }
+
+            if (paginatedPosts.length === 0 && currentPage === 1) {
                 container.innerHTML = '<div class="empty-state" style="grid-column: 1 / -1;"><p style="font-size: 40px; margin-bottom: 20px;">📭</p><h3>কোনো পোস্ট পাওয়া যায়নি</h3><p>অন্য শ্রেণী চেষ্টা করুন</p></div>';
-                document.getElementById('pageNumbers').innerHTML = '';
-                document.getElementById('prevBtn').disabled = true;
-                document.getElementById('nextBtn').disabled = true;
+                document.getElementById('loadMoreBtn').style.display = 'none';
                 return;
             }
 
-            container.innerHTML = paginatedPosts.map(post => `
+            const newPosts = paginatedPosts.map(post => `
                 <div class="blog-card">
                     <div class="blog-image-container">
                         <img src="${post.image}" alt="${post.title}" class="blog-image">
@@ -769,22 +802,39 @@
                 </div>
             `).join('');
 
-            updatePagination();
+            container.innerHTML += newPosts;
+            paginatedPosts.forEach(post => displayedPostIds.add(post.id));
+
+            updateLoadMoreButton();
         }
 
-        function updatePagination() {
-            const totalPages = Math.ceil(filteredPosts.length / postsPerPage);
-            const pageNumbers = document.getElementById('pageNumbers');
-            document.getElementById('prevBtn').disabled = currentPage === 1;
-            document.getElementById('nextBtn').disabled = currentPage === totalPages;
-            pageNumbers.innerHTML = Array.from({length: totalPages}, (_, i) => i + 1)
-                .map(page => `<button onclick="goToPage(${page})" class="${page === currentPage ? 'active' : ''}">${page}</button>`)
-                .join('');
+        function updateLoadMoreButton() {
+            const loadMoreBtn = document.getElementById('loadMoreBtn');
+            const totalDisplayed = displayedPostIds.size;
+            const totalAvailable = filteredPosts.length;
+
+            if (totalDisplayed >= totalAvailable) {
+                loadMoreBtn.style.display = 'none';
+            } else {
+                loadMoreBtn.style.display = 'flex';
+                loadMoreBtn.disabled = false;
+                loadMoreBtn.classList.remove('loading');
+                loadMoreBtn.querySelector('span').textContent = 'আরও পোস্ট লোড করুন';
+            }
         }
 
-        function previousPage() { if (currentPage > 1) { currentPage--; displayPosts(); } }
-        function nextPage() { const totalPages = Math.ceil(filteredPosts.length / postsPerPage); if (currentPage < totalPages) { currentPage++; displayPosts(); } }
-        function goToPage(page) { currentPage = page; displayPosts(); }
+        function loadMore() {
+            const loadMoreBtn = document.getElementById('loadMoreBtn');
+            loadMoreBtn.disabled = true;
+            loadMoreBtn.classList.add('loading');
+            loadMoreBtn.querySelector('span').textContent = 'লোড হচ্ছে...';
+
+            // সিমুলেট লোডিং ডিলে
+            setTimeout(() => {
+                currentPage++;
+                displayPosts();
+            }, 500);
+        }
     </script>
 </body>
 </html>
