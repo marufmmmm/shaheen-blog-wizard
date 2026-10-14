@@ -186,12 +186,12 @@
         /* সার্চ এবং ফিল্টার */
         .filter-section {
             background: linear-gradient(135deg, rgba(212, 175, 55, 0.12) 0%, rgba(26, 107, 62, 0.08) 50%, rgba(34, 168, 79, 0.06) 100%);
-            padding: 20px;
+            padding: 18px 20px;
             border-radius: 15px;
             border: 2px solid;
             border-image: linear-gradient(90deg, rgba(212, 175, 55, 0.3), rgba(212, 175, 55, 0.1)) 0 1;
             margin: -25px 0 15px 0;
-            text-align: center;
+            text-align: left;
             position: relative;
             overflow: hidden;
             box-shadow: 0 8px 25px rgba(212, 175, 55, 0.08), inset 0 1px 0 rgba(255, 255, 255, 0.3);
@@ -221,25 +221,17 @@
 
         .section-title {
             font-family: 'Playfair Display', serif;
-            font-size: 26px;
+            font-size: 24px;
             font-weight: 700;
-            margin-bottom: 2px;
+            margin-bottom: 3px;
             color: var(--primary);
             position: relative;
-            display: inline-block;
+            display: block;
             letter-spacing: 0.5px;
         }
 
         .section-title::after {
-            content: '';
-            position: absolute;
-            bottom: -8px;
-            left: 50%;
-            transform: translateX(-50%);
-            width: 50px;
-            height: 3px;
-            background: linear-gradient(90deg, var(--primary-light), #d4af37, var(--accent));
-            border-radius: 2px;
+            content: none;
         }
 
         .search-container {
@@ -287,9 +279,9 @@
         .category-filter {
             display: flex;
             flex-wrap: wrap;
-            gap: 10px;
-            justify-content: center;
-            margin-top: 8px;
+            gap: 8px;
+            justify-content: flex-start;
+            margin-top: 4px;
         }
 
         .category-btn {
@@ -704,11 +696,13 @@
                 margin: -20px 0 12px 0;
                 padding: 15px 12px;
                 border-radius: 12px;
+                text-align: left;
             }
 
             .section-title {
                 font-size: 22px;
-                margin-bottom: 2px;
+                margin-bottom: 3px;
+                display: block;
             }
 
             .search-container {
@@ -732,8 +726,9 @@
             }
 
             .category-filter {
-                gap: 10px;
-                margin-top: 8px;
+                gap: 8px;
+                margin-top: 4px;
+                justify-content: flex-start;
             }
 
             .category-btn {
