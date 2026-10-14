@@ -8,6 +8,7 @@ function sb_admin_menu() {
     add_menu_page('শাহীন ব্লগ', 'শাহীন ব্লগ', 'edit_posts', 'sb-dashboard', 'sb_page_dashboard', 'dashicons-welcome-write-blog', 26);
     add_submenu_page('sb-dashboard', 'ড্যাশবোর্ড', 'ড্যাশবোর্ড', 'edit_posts', 'sb-dashboard', 'sb_page_dashboard');
     add_submenu_page('sb-dashboard', 'নতুন পোস্ট', 'নতুন পোস্ট', 'edit_posts', 'sb-new', 'sb_page_new');
+    add_submenu_page('sb-dashboard', 'রিরাইট করে পোস্ট', '🔁 রিরাইট করে পোস্ট', 'edit_posts', 'sb-rewrite', 'sb_page_rewrite');
     add_submenu_page('sb-dashboard', 'সংবাদপত্রে শাহীন', '📰 সংবাদপত্রে শাহীন', 'edit_posts', 'sb-press', 'sb_page_press');
     add_submenu_page('sb-dashboard', 'বিজ্ঞাপন/লিংক ব্লক', '📚 ব্লক লাইব্রেরি', 'manage_options', 'sb-blocks', 'sb_page_blocks');
     add_submenu_page('sb-dashboard', 'সব পোস্ট', 'সব পোস্ট', 'edit_posts', 'sb-posts', 'sb_page_posts');
@@ -35,7 +36,7 @@ function sb_admin_assets() {
     wp_enqueue_style('sb-admin', SB_URL . 'assets/css/admin.css', array('sb-fonts'), SB_VERSION . '.' . filemtime(SB_PATH . 'assets/css/admin.css'));
     wp_enqueue_script('sb-admin', SB_URL . 'assets/js/admin.js', array(), SB_VERSION . '.' . filemtime(SB_PATH . 'assets/js/admin.js'), true);
 
-    if ($page === 'sb-new' || $page === 'sb-press') {
+    if (in_array($page, array('sb-new', 'sb-press', 'sb-rewrite'), true)) {
         wp_enqueue_media();
     }
 
@@ -81,6 +82,7 @@ function sb_credit_pill() {
 
 function sb_page_dashboard() { include SB_PATH . 'views/dashboard.php'; }
 function sb_page_new()       { include SB_PATH . 'views/wizard.php'; }
+function sb_page_rewrite()   { include SB_PATH . 'views/rewrite.php'; }
 function sb_page_press()     { include SB_PATH . 'views/press.php'; }
 function sb_page_blocks()    { include SB_PATH . 'views/blocks.php'; }
 function sb_page_posts()     { include SB_PATH . 'views/posts.php'; }

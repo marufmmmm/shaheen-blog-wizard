@@ -116,6 +116,25 @@ class SB_AI {
                 $max = 3800;
                 break;
 
+            case 'rewrite_post':
+                $src = isset($c['source']) ? trim($c['source']) : '';
+                if (mb_strlen($src) < 200) {
+                    return new WP_Error('sb_short', 'কমপক্ষে ২০০ অক্ষরের লেখা পেস্ট করুন।');
+                }
+                $user = "নিচে অন্য উৎসের একটি সংবাদ/লেখার শিরোনাম ও মূল লেখা দেওয়া আছে। এটি পড়ে বিষয়টি বুঝে শিরোনাম, সংক্ষিপ্ত বর্ণনা ও পুরো লেখা নিজের ভাষায় নতুন করে লেখো।\n"
+                    . "কঠোর নিয়ম:\n"
+                    . "- সব তথ্য একদম ঠিক রাখবে: নাম, পদবি, প্রতিষ্ঠানের নাম, সংখ্যা, তারিখ, সময়, স্থান, অর্থের অঙ্ক, বক্তার কথার মর্ম। কিছু বাদ দেবে না, নতুন কিছু যোগ করবে না, অনুমান করবে না।\n"
+                    . "- ভাষা সম্পূর্ণ বদলাবে: বাক্যগঠন, শব্দচয়ন, অনুচ্ছেদের সাজানো নতুন হবে; মূল লেখার কোনো বাক্য হুবহু বা সামান্য বদলে রাখবে না। সহজ, প্রচলিত ভাষা।\n"
+                    . "- সরাসরি উদ্ধৃতি (বক্তার মুখের কথা) থাকলে তার অর্থ ঠিক রেখে নিজের ভাষায় পরোক্ষ উক্তিতে লিখবে।\n"
+                    . "- নতুন শিরোনাম আকর্ষণীয় কিন্তু ক্লিকবেইট নয়" . ($kw ? ", এবং এই কীওয়ার্ডগুলো স্বাভাবিকভাবে থাকবে: {$kw}" : '') . "।\n"
+                    . "- সংক্ষিপ্ত বর্ণনা (excerpt) ২ থেকে ৩ লাইনের, ১৬০ অক্ষরের মধ্যে।\n"
+                    . "- article অংশ HTML: <h2>, <p>, <ul>, <li>, <strong> ব্যবহার করো। <h1>, কোড-ব্লক দেবে না।\n"
+                    . "শুধু JSON দাও: {\"headline\":\"...\",\"excerpt\":\"...\",\"article\":\"...\"}\n\n"
+                    . "--- মূল শিরোনাম ---\n{$title}\n\n--- মূল লেখা ---\n" . mb_substr($src, 0, 12000);
+                $json = true;
+                $max = 4200;
+                break;
+
             default:
                 return new WP_Error('sb_feature', 'অজানা ফিচার।');
         }
@@ -178,6 +197,17 @@ class SB_AI {
 
         if ($feature === 'headlines') {
             return self::parse_headlines($text, $keywords);
+        }
+        if ($feature === 'rewrite_post') {
+            $j = json_decode($text, true);
+            if (!is_array($j) || empty($j['article'])) {
+                return new WP_Error('sb_json', 'AI-এর উত্তর পড়া যায়নি। আবার চেষ্টা করুন।');
+            }
+            return array(
+                'headline' => sanitize_text_field(isset($j['headline']) ? $j['headline'] : ''),
+                'excerpt'  => sanitize_textarea_field(isset($j['excerpt']) ? $j['excerpt'] : ''),
+                'text'     => wp_kses_post($j['article']),
+            );
         }
         if ($feature === 'article' || $feature === 'rewrite') {
             $text = preg_replace('/^```[a-z]*\s*|\s*```$/i', '', $text);

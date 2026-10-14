@@ -214,6 +214,68 @@
   var pinLock = $('#pin-lock');
   if (pinLock) pinLock.addEventListener('click', function () { post('sb_lock', {}).then(function () { location.reload(); }); });
 
+  /* ---------------- rewrite & post page ---------------- */
+  if ($('#rw-page')) {
+    var rwMsg = $('#msg'), rwId = 0;
+    var rwEd = function () { return window.tinymce && tinymce.get('rw_content') && !tinymce.get('rw_content').isHidden() ? tinymce.get('rw_content') : null; };
+    var rwGet = function () { var e = rwEd(); return e ? e.getContent() : ($('#rw_content') ? $('#rw_content').value : ''); };
+    var rwSet = function (h) { var e = rwEd(); if (e) e.setContent(h); if ($('#rw_content')) $('#rw_content').value = h; };
+    var rwKw = function () { return val('#rw-kw').split(/[,،，;；|।\n]+/).map(function (x) { return x.trim(); }).filter(Boolean).slice(0, 10); };
+    function toastR(t, k) { toast(t, k); say(rwMsg, t, k); }
+    $('#rw-pick').addEventListener('click', function () {
+      if (!window.wp || !wp.media) return;
+      var fr = wp.media({ title: 'ফিচার্ড ছবি', library: { type: 'image' }, multiple: false });
+      fr.on('select', function () {
+        var a = fr.state().get('selection').first().toJSON();
+        $('#rw-image-id').value = a.id; var im = $('#rw-img'); im.src = (a.sizes && a.sizes.medium) ? a.sizes.medium.url : a.url; im.hidden = false; $('#rw-unpick').hidden = false;
+      });
+      fr.open();
+    });
+    $('#rw-unpick').addEventListener('click', function () { $('#rw-image-id').value = 0; $('#rw-img').hidden = true; this.hidden = true; });
+
+    $('#rw-go').addEventListener('click', function () {
+      var btn = this, src = val('#rw-source').trim(), cost = Number(btn.dataset.cost);
+      if (src.length < 200) { toastR('কমপক্ষে ২০০ অক্ষরের মূল লেখা পেস্ট করুন।', 'err'); return; }
+      if (SB.balance.remaining < cost) { toastR('ক্রেডিট যথেষ্ট নয়। প্রয়োজন ' + fmt(cost) + ', আছে ' + fmt(SB.balance.remaining) + '।', 'err'); return; }
+      var old = btn.innerHTML; btn.disabled = true; btn.textContent = '⏳ লেখা হচ্ছে… (১ মিনিট পর্যন্ত লাগতে পারে)'; say(rwMsg, '');
+      post('sb_ai', { feature: 'rewrite_post', post_id: 0, title: val('#rw-title'), source: src, keywords: rwKw() }).then(function (d) {
+        var r = d.result;
+        $('#rw-new-title').value = r.headline || ''; $('#rw-new-excerpt').value = r.excerpt || '';
+        var html = r.text, nm = val('#rw-src-name').trim(), url = val('#rw-src-url').trim();
+        if (nm) {
+          var esc = function (s) { var x = document.createElement('div'); x.textContent = s; return x.innerHTML; };
+          html += '<p><em>সূত্র: ' + (url ? '<a href="' + esc(url) + '" target="_blank" rel="noopener nofollow">' + esc(nm) + '</a>' : esc(nm)) + '</em></p>';
+        }
+        $('#rw-result').hidden = false; rwSet(html);
+        var fb = $('#rw-facts'); fb.innerHTML = '';
+        if (r.facts_missing && r.facts_missing.length) {
+          var s = document.createElement('strong'); s.textContent = '⚠️ মূল লেখার এই সংখ্যা/তারিখগুলো নতুন লেখায় পাওয়া যায়নি, মিলিয়ে নিন: ' + r.facts_missing.join(', '); fb.appendChild(s); fb.hidden = false;
+        } else { fb.hidden = true; }
+        toastR('✓ হয়েছে। ' + fmt(d.cost) + ' ক্রেডিট কেটেছে। প্রকাশের আগে তথ্য মিলিয়ে নিন।', 'ok');
+        $('#rw-result').scrollIntoView({ behavior: 'smooth' });
+      }).catch(function (e) { toastR(e.message, 'err'); })
+        .then(function () { btn.disabled = false; btn.innerHTML = old; });
+    });
+
+    $('#rw-save').addEventListener('click', function () {
+      var btn = this, t = val('#rw-new-title').trim();
+      if (!t) { toast('শিরোনাম লিখুন।', 'err'); return; }
+      var st = $('input[name="rw-status"]:checked');
+      btn.disabled = true;
+      post('sb_save_post', {
+        id: rwId, title: t, excerpt: val('#rw-new-excerpt'), meta_desc: val('#rw-new-excerpt'), content: rwGet(), category: val('#rw-cat'),
+        keywords: rwKw(), image_id: val('#rw-image-id'), status: st ? st.value : 'draft'
+      }).then(function (d) {
+        rwId = d.id; var box = $('#rw-saved'); box.innerHTML = '';
+        var p = document.createElement('div'); p.className = 'notice notice-success inline';
+        var tx = document.createElement('p'); tx.textContent = d.status === 'publish' ? '✓ প্রকাশিত হয়েছে। ' : '✓ খসড়া সেভ হয়েছে। ';
+        if (d.status === 'publish') { var a = document.createElement('a'); a.href = d.url; a.target = '_blank'; a.textContent = 'পোস্ট দেখুন ↗'; tx.appendChild(a); tx.appendChild(document.createTextNode('  ')); }
+        var e2 = document.createElement('a'); e2.href = d.edit; e2.textContent = 'আরও এডিট (ওয়িজার্ডে)'; tx.appendChild(e2);
+        p.appendChild(tx); box.appendChild(p);
+      }).catch(function (e) { toast(e.message, 'err'); }).then(function () { btn.disabled = false; });
+    });
+  }
+
   /* ---------------- wizard ---------------- */
   var form = $('#sb-form');
   if (!form) return;

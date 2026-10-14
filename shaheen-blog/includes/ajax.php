@@ -73,6 +73,10 @@ function sb_ajax_ai() {
         preg_match_all('/\[তথ্য দরকার:[^\]]*\]/u', $result['text'], $m);
         $result['missing'] = array_values(array_unique($m[0]));
     }
+    if ($feature === 'rewrite_post') {
+        $have = sb_numbers($result['headline'] . ' ' . $result['excerpt'] . ' ' . wp_strip_all_tags($result['text']));
+        $result['facts_missing'] = array_values(array_map('sb_bn_digits', array_diff(sb_numbers($ctx['source'] . ' ' . $ctx['title']), $have)));
+    }
     $new = SB_Credits::charge($uid, $feature, $cost, $post_id);
     if (is_wp_error($new)) {
         wp_send_json_error(array('message' => $new->get_error_message(), 'balance' => $state));

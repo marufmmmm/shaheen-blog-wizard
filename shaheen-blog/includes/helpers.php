@@ -52,7 +52,7 @@ function sb_save_settings(array $new) {
 /** Feature => credit cost. */
 /** Model for a feature: article may use its own (better) model. */
 function sb_model_for($feature) {
-    $m = ($feature === 'article' || $feature === 'rewrite') ? trim((string) sb_get('model_article')) : '';
+    $m = (in_array($feature, array('article', 'rewrite', 'rewrite_post'), true)) ? trim((string) sb_get('model_article')) : '';
     return $m !== '' ? $m : sb_get('model');
 }
 
@@ -64,11 +64,20 @@ function sb_feature_cost($feature) {
         'article'   => 'cost_article',
         'summary'   => 'cost_summary',
         'rewrite'   => 'cost_rewrite',
+        'rewrite_post' => 'cost_rewrite',
     );
     return isset($map[$feature]) ? max(0, (int) sb_get($map[$feature])) : 0;
 }
 
 /* ---------------------------------------------------------------- views */
+/** Numbers (2+ digits, Bengali or English) found in a text, as plain ASCII strings. */
+function sb_numbers($text) {
+    $text = strtr((string) $text, array('০' => '0', '১' => '1', '২' => '2', '৩' => '3', '৪' => '4', '৫' => '5', '৬' => '6', '৭' => '7', '৮' => '8', '৯' => '9'));
+    $text = preg_replace('/(?<=\d),(?=\d)/', '', $text);
+    preg_match_all('/\d+(?:\.\d+)?/', $text, $m);
+    return array_values(array_unique(array_filter($m[0], function ($n) { return strlen(str_replace('.', '', $n)) >= 2; })));
+}
+
 /** 300 starting numbers for the "read N times" counter (fixed, repeatable). */
 function sb_view_pool() {
     static $pool = null;
@@ -166,6 +175,7 @@ function sb_feature_labels() {
         'article'   => 'সম্পূর্ণ আর্টিকেল',
         'summary'   => 'সামারি',
         'rewrite'   => 'কপি করা লেখা নতুন করে লেখা',
+        'rewrite_post' => 'রিরাইট (শিরোনাম + বর্ণনা + লেখা)',
     );
 }
 
