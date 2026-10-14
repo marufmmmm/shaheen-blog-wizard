@@ -234,36 +234,6 @@
             content: none;
         }
 
-        .search-container {
-            display: flex;
-            gap: 0;
-            justify-content: flex-start;
-            margin-bottom: 12px;
-            align-items: center;
-            max-width: 500px;
-        }
-
-        #searchInput {
-            padding: 12px 20px;
-            border: 2px solid var(--border);
-            border-radius: 25px;
-            width: 100%;
-            max-width: 500px;
-            font-size: 14px;
-            font-family: 'Poppins', sans-serif;
-            transition: all 0.3s;
-            flex: 1;
-        }
-
-        #searchInput:focus {
-            outline: none;
-            border-color: var(--primary-light);
-            box-shadow: 0 0 0 3px rgba(26, 107, 62, 0.1);
-        }
-
-        .search-btn {
-            display: none;
-        }
 
         .category-filter {
             display: flex;
@@ -694,26 +664,6 @@
                 display: block;
             }
 
-            .search-container {
-                flex-direction: row;
-                gap: 0;
-                margin-bottom: 10px;
-                justify-content: flex-start;
-                align-items: center;
-                max-width: 100%;
-            }
-
-            #searchInput {
-                flex: 1;
-                width: 100%;
-                padding: 12px 16px;
-                font-size: 14px;
-            }
-
-            .search-btn {
-                display: none;
-            }
-
             .category-filter {
                 gap: 8px;
                 margin-top: 4px;
@@ -767,21 +717,16 @@
 
     <!-- মূল কন্টেন্ট -->
     <div class="blog-container">
-        <!-- সার্চ সেকশন -->
-        <div class="search-container">
-            <input type="text" id="searchInput" placeholder="শিক্ষা, প্রযুক্তি এবং আপডেট খুঁজুন..." onkeypress="if(event.key==='Enter') handleSearch()">
-        </div>
-
         <!-- ফিল্টার সেকশন -->
         <section class="filter-section">
             <h2 class="section-title">📂 বিভাগ অনুসারে ব্রাউজ করুন</h2>
             <div class="category-filter">
-                <button class="category-btn active" onclick="filterByCategory('all')">সব</button>
-                <button class="category-btn" onclick="filterByCategory('news')">📰 সংবাদ</button>
-                <button class="category-btn" onclick="filterByCategory('education')">📚 শিক্ষা</button>
-                <button class="category-btn" onclick="filterByCategory('technology')">💻 প্রযুক্তি</button>
-                <button class="category-btn" onclick="filterByCategory('event')">🎉 অনুষ্ঠান</button>
-                <button class="category-btn" onclick="filterByCategory('announcement')">📢 ঘোষণা</button>
+                <button class="category-btn active" onclick="filterByCategory('all')">সব (All)</button>
+                <button class="category-btn" onclick="filterByCategory('news')">📰 সংবাদ (News)</button>
+                <button class="category-btn" onclick="filterByCategory('education')">📚 শিক্ষা (Education)</button>
+                <button class="category-btn" onclick="filterByCategory('technology')">💻 প্রযুক্তি (Technology)</button>
+                <button class="category-btn" onclick="filterByCategory('event')">🎉 অনুষ্ঠান (Events)</button>
+                <button class="category-btn" onclick="filterByCategory('announcement')">📢 ঘোষণা (Announcement)</button>
             </div>
         </section>
 
@@ -915,27 +860,6 @@
             displayPosts();
         }
 
-        function handleSearch() {
-            const searchTerm = document.getElementById('searchInput').value.toLowerCase();
-            currentPage = 1;
-            displayedPostIds.clear();
-            document.querySelectorAll('.category-btn').forEach(btn => btn.classList.remove('active'));
-            document.querySelector('.category-btn').classList.add('active');
-            filteredPosts = samplePosts.filter(post =>
-                post.title.toLowerCase().includes(searchTerm) ||
-                post.excerpt.toLowerCase().includes(searchTerm)
-            );
-            displayPosts();
-        }
-
-        document.addEventListener('DOMContentLoaded', () => {
-            const searchInput = document.getElementById('searchInput');
-            if (searchInput) {
-                searchInput.addEventListener('keypress', (e) => {
-                    if (e.key === 'Enter') handleSearch();
-                });
-            }
-        });
 
         function displayPosts() {
             const container = document.getElementById('postsContainer');
