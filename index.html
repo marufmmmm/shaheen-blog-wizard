@@ -116,7 +116,7 @@
             margin-top: 10px;
             margin-bottom: 0;
             letter-spacing: 1.5px;
-            text-shadow: 0 2px 8px rgba(0, 0, 0, 0.3);
+            text-shadow: 0 0 15px rgba(255, 215, 0, 0.5), 0 0 30px rgba(255, 215, 0, 0.3), 0 2px 8px rgba(0, 0, 0, 0.3);
         }
 
         /* ========== পরিচিতি সেকশন ========== */
@@ -265,7 +265,7 @@
 
         .search-btn {
             padding: 12px 20px;
-            background: var(--primary-light);
+            background: linear-gradient(135deg, #d4af37, #f5c649);
             color: white;
             border: none;
             border-radius: 25px;
@@ -273,11 +273,13 @@
             font-weight: bold;
             transition: all 0.3s;
             font-family: 'Poppins', sans-serif;
+            box-shadow: 0 4px 15px rgba(212, 175, 55, 0.3);
         }
 
         .search-btn:hover {
-            background: var(--accent);
+            background: linear-gradient(135deg, #f5c649, #d4af37);
             transform: translateY(-2px);
+            box-shadow: 0 6px 20px rgba(212, 175, 55, 0.4);
         }
 
         .category-filter {
@@ -669,6 +671,7 @@
                 font-size: 1.1rem;
                 margin-top: 8px;
                 letter-spacing: 1px;
+                text-shadow: 0 0 15px rgba(255, 215, 0, 0.5), 0 0 30px rgba(255, 215, 0, 0.3), 0 2px 8px rgba(0, 0, 0, 0.3);
             }
 
             .intro-section {
@@ -721,6 +724,8 @@
                 width: 100%;
                 padding: 14px;
                 font-size: 16px;
+                background: linear-gradient(135deg, #d4af37, #f5c649);
+                box-shadow: 0 4px 15px rgba(212, 175, 55, 0.3);
             }
 
             .category-filter {
