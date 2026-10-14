@@ -72,7 +72,7 @@
       e.preventDefault();
       if (!a.dataset.sure) { a.dataset.sure = 1; a.textContent = 'নিশ্চিত? আবার ক্লিক'; return; }
       post('sb_delete_category', { id: a.dataset.id }).then(function () {
-        a.closest('tr').remove();
+        a.closest('tr,li').remove();
       }).catch(function (er) { a.textContent = er.message; });
     });
   });
@@ -83,10 +83,24 @@
       e.preventDefault();
       if (!a.dataset.sure) { a.dataset.sure = 1; a.textContent = 'নিশ্চিত? আবার ক্লিক'; return; }
       post('sb_trash_post', { id: a.dataset.id }).then(function () {
-        a.closest('tr').remove();
+        a.closest('tr,li').remove();
       }).catch(function (er) { a.textContent = er.message; });
     });
   });
+
+  /* ---------------- press coverage ---------------- */
+  var prSave = $('#pr-save');
+  if (prSave) {
+    prSave.addEventListener('click', function () {
+      post('sb_save_press', {
+        id: $('#pr-id').value, title: $('#pr-title').value, paper: $('#pr-paper').value, url: $('#pr-url').value,
+        date: $('#pr-date').value, category: $('#pr-cat').value
+      }).then(function (d) {
+        say($('#msg'), '✓ সেভ হয়েছে', 'ok');
+        location.href = location.pathname + '?page=sb-press';
+      }).catch(function (e) { say($('#msg'), e.message, 'err'); });
+    });
+  }
 
   /* ---------------- settings tools ---------------- */
   var subSave = $('#sub-save');
@@ -226,6 +240,34 @@
     });
   }
 
+  /* related posts/pages picker */
+  var rel = (P.related || []).slice();
+  function drawRel() {
+    var box = $('#rel-chosen'); box.innerHTML = '';
+    rel.forEach(function (r, i) {
+      var c = document.createElement('span'); c.textContent = r.title + ' ✕'; c.style.cursor = 'pointer';
+      c.addEventListener('click', function () { rel.splice(i, 1); drawRel(); }); box.appendChild(c);
+    });
+  }
+  drawRel();
+  var relT;
+  $('#rel-q').addEventListener('input', function () {
+    var q = this.value.trim(), ul = $('#rel-results'); clearTimeout(relT);
+    if (q.length < 2) { ul.innerHTML = ''; return; }
+    relT = setTimeout(function () {
+      post('sb_search_content', { q: q, exclude: postId }).then(function (d) {
+        ul.innerHTML = '';
+        d.items.forEach(function (it) {
+          if (rel.some(function (r) { return r.id === it.id; })) return;
+          var li = document.createElement('li'), b = document.createElement('button');
+          b.type = 'button'; b.textContent = '+ ' + it.title + ' (' + it.type + ')';
+          b.addEventListener('click', function () { rel.push({ id: it.id, title: it.title }); drawRel(); li.remove(); });
+          li.appendChild(b); ul.appendChild(li);
+        });
+      }).catch(function () {});
+    }, 300);
+  });
+
   /* meta counter */
   function metaCount() { var n = val('#f-meta').length; $('#meta-count').textContent = n ? bn(n) + ' অক্ষর' : ''; }
   $('#f-meta').addEventListener('input', metaCount); metaCount();
@@ -234,7 +276,8 @@
   function aiPayload(feature) {
     return {
       feature: feature, post_id: postId, title: val('#f-title'), topic: val('#f-topic'), excerpt: val('#f-excerpt'),
-      content: editorContent(), keywords: keywords(), length: val('#f-length')
+      content: editorContent(), keywords: keywords(), length: val('#f-length'),
+      research: ($('#f-research') && $('#f-research').checked) ? '1' : '0'
     };
   }
   $$('[data-ai]').forEach(function (btn) {
@@ -247,7 +290,7 @@
       if (f === 'summary' && editorContent().replace(/<[^>]+>/g, '').trim().length < 80) {
         toast('সামারি মূল পোস্ট থেকে তৈরি হয়। আগে আর্টিকেল লিখুন বা তৈরি করুন।', 'err'); return;
       }
-      var cost = SB.costs[f];
+      var cost = SB.costs[f] + (f === 'article' && $('#f-research') && $('#f-research').checked ? SB.costs.research : 0);
       if (SB.balance.remaining < cost) { toast('ক্রেডিট যথেষ্ট নয়। প্রয়োজন ' + fmt(cost) + ', আছে ' + fmt(SB.balance.remaining) + '।', 'err'); return; }
       var old = btn.innerHTML; btn.disabled = true; btn.textContent = '⏳ তৈরি হচ্ছে… (আর্টিকেলে ১ মিনিট লাগতে পারে)';
       say(msg, '');
@@ -274,7 +317,24 @@
       });
     } else if (f === 'subtitle') { $('#f-subtitle').value = r.text; }
     else if (f === 'meta') { $('#f-meta').value = r.text; metaCount(); }
-    else if (f === 'article') { setEditorContent(r.text); }
+    else if (f === 'article') {
+      setEditorContent(r.text);
+      var sb = $('#article-sources'), mb = $('#article-missing');
+      sb.innerHTML = ''; mb.innerHTML = '';
+      if (r.sources && r.sources.length) {
+        var h = document.createElement('strong'); h.textContent = '🌐 যেসব সূত্র থেকে তথ্য নেওয়া হয়েছে (প্রকাশের আগে যাচাই করুন):'; sb.appendChild(h);
+        var ul = document.createElement('ul');
+        r.sources.forEach(function (s) { var li = document.createElement('li'), a = document.createElement('a'); a.href = s.url; a.target = '_blank'; a.rel = 'noopener'; a.textContent = s.title || s.url; li.appendChild(a); ul.appendChild(li); });
+        sb.appendChild(ul); sb.hidden = false;
+      } else { sb.hidden = true; }
+      if (r.missing && r.missing.length) {
+        var m = document.createElement('strong'); m.textContent = '⚠️ AI-এর এই তথ্যগুলো দরকার, আর্টিকেলে লাল জায়গায় নিজে লিখে দিন:'; mb.appendChild(m);
+        var ml = document.createElement('ul');
+        r.missing.forEach(function (x) { var li = document.createElement('li'); li.textContent = x; ml.appendChild(li); });
+        mb.appendChild(ml); mb.hidden = false;
+        toast('আর্টিকেলে ' + bn(r.missing.length) + 'টি জায়গায় আপনার তথ্য দরকার ([তথ্য দরকার: …] খুঁজুন)।', 'err');
+      } else { mb.hidden = true; }
+    }
     else if (f === 'summary') { $('#f-summary').value = r.text; }
   }
 
@@ -301,7 +361,7 @@
       id: postId, title: val('#f-title'), slug: val('#f-slug'), excerpt: val('#f-excerpt'), content: editorContent(),
       subtitle: val('#f-subtitle'), meta_desc: val('#f-meta'), summary: val('#f-summary'), author_name: val('#f-author'),
       date: val('#f-date'), topic: val('#f-topic'), keywords: keywords(), category: val('#f-category'),
-      image_id: imgId, faq: faqData(), status: st ? st.value : 'draft'
+      image_id: imgId, faq: faqData(), related: rel.map(function (r) { return r.id; }), status: st ? st.value : 'draft'
     }).then(function (d) {
       postId = d.id;
       var box = $('#save-result');

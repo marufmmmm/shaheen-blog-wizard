@@ -14,6 +14,10 @@ function sb_defaults() {
         'cost_meta'      => 20,
         'cost_article'   => 180,
         'cost_summary'   => 80,
+        'cost_research'  => 50,
+        'content_width'  => 0,
+        'site_urls'      => "https://shaheen.edu.bd/",
+        'about'          => '',
         'hero_title'    => '📚 শাহীন শিক্ষা পরিবার ব্লগ',
         'hero_subtitle' => 'শাহীন স্কুল, ক্যাডেট কোচিং ও শিক্ষাবিষয়ক তথ্য',
         'intro'         => 'শাহীন শিক্ষা পরিবারের ব্লগে স্বাগতম। এখানে স্কুলে ভর্তি, ক্যাডেট কলেজ ভর্তি প্রস্তুতি, শিক্ষাবিষয়ক পরামর্শ, পরীক্ষার প্রস্তুতি, একাডেমিক কার্যক্রম এবং শাহীন স্কুল ও ক্যাডেট কোচিং সম্পর্কিত গুরুত্বপূর্ণ তথ্য প্রকাশ করা হয়। শিক্ষার্থী ও অভিভাবকদের সঠিক সিদ্ধান্ত নিতে সহায়তা করাই আমাদের লক্ষ্য।',
@@ -51,6 +55,96 @@ function sb_feature_cost($feature) {
         'summary'   => 'cost_summary',
     );
     return isset($map[$feature]) ? max(0, (int) sb_get($map[$feature])) : 0;
+}
+
+/* ---------------------------------------------------------------- views */
+/** 300 starting numbers for the "read N times" counter (fixed, repeatable). */
+function sb_view_pool() {
+    static $pool = null;
+    if ($pool === null) {
+        mt_srand(8311);
+        $pool = array();
+        for ($i = 0; $i < 300; $i++) {
+            $pool[] = 90 + $i * 7 + mt_rand(0, 6);   // 90 .. ~2200
+        }
+        // Deterministic shuffle so neighbouring posts differ.
+        for ($i = count($pool) - 1; $i > 0; $i--) {
+            $j = mt_rand(0, $i);
+            $t = $pool[$i]; $pool[$i] = $pool[$j]; $pool[$j] = $t;
+        }
+        mt_srand();
+    }
+    return $pool;
+}
+
+/** Give a post its random starting count once; keeps real visits already counted. */
+function sb_init_views($post_id) {
+    if (get_post_meta($post_id, '_sb_views_seeded', true)) {
+        return (int) get_post_meta($post_id, '_sb_views', true);
+    }
+    $pool = sb_view_pool();
+    $start = $pool[wp_rand(0, count($pool) - 1)];
+    $views = $start + max(0, (int) get_post_meta($post_id, '_sb_views', true));
+    update_post_meta($post_id, '_sb_views', $views);
+    update_post_meta($post_id, '_sb_views_seeded', 1);
+    return $views;
+}
+
+/* ----------------------------------------------------------- press items */
+function sb_is_press($post_id) {
+    return (bool) get_post_meta($post_id, '_sb_press_url', true);
+}
+
+/**
+ * Related items (posts, pages, press): manual picks first, then same category,
+ * then latest blog posts, then pages — always at least $min when content exists.
+ */
+function sb_related_items($post_id, $min = 3, $max = 5) {
+    $ids = array();
+    $manual = get_post_meta($post_id, '_sb_related', true);
+    if (is_array($manual)) {
+        foreach ($manual as $m) {
+            $m = (int) $m;
+            if ($m && $m !== $post_id && get_post_status($m) === 'publish') {
+                $ids[] = $m;
+            }
+        }
+    }
+    $add = function ($more) use (&$ids, $post_id) {
+        foreach ($more as $m) {
+            if ((int) $m !== $post_id && !in_array((int) $m, $ids, true)) {
+                $ids[] = (int) $m;
+            }
+        }
+    };
+    $base = array('post_status' => 'publish', 'no_found_rows' => true, 'fields' => 'ids', 'post__not_in' => array($post_id),
+        'meta_query' => array(array('key' => '_sb_press_url', 'compare' => 'NOT EXISTS')));
+    $term = get_the_terms($post_id, 'sb_category');
+    if (count($ids) < $max && !empty($term) && !is_wp_error($term)) {
+        $add(get_posts($base + array('post_type' => 'sb_post', 'posts_per_page' => $max, 'tax_query' => array(array(
+            'taxonomy' => 'sb_category', 'field' => 'term_id', 'terms' => array((int) $term[0]->term_id))))));
+    }
+    if (count($ids) < $max) {
+        $add(get_posts($base + array('post_type' => 'sb_post', 'posts_per_page' => $max)));
+    }
+    if (count($ids) < $min) {
+        $add(get_posts(array('post_type' => array('page', 'post'), 'post_status' => 'publish', 'posts_per_page' => $min + 4,
+            'no_found_rows' => true, 'fields' => 'ids', 'post__not_in' => array($post_id), 'orderby' => 'date', 'order' => 'DESC')));
+    }
+    $items = array();
+    foreach (array_slice($ids, 0, max($min, $max)) as $rid) {
+        $type = get_post_type($rid);
+        $press = ($type === 'sb_post' && sb_is_press($rid));
+        $items[] = array(
+            'id'    => $rid,
+            'title' => get_the_title($rid),
+            'url'   => $press ? get_post_meta($rid, '_sb_press_url', true) : get_permalink($rid),
+            'thumb' => get_the_post_thumbnail_url($rid, 'medium'),
+            'tag'   => $press ? 'সংবাদ: ' . get_post_meta($rid, '_sb_press_paper', true) : ($type === 'page' ? 'পেজ' : ($type === 'sb_post' ? sb_post_category($rid)['bn'] : 'পোস্ট')),
+            'press' => $press,
+        );
+    }
+    return $items;
 }
 
 function sb_feature_labels() {

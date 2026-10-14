@@ -47,15 +47,17 @@ $base = admin_url('admin.php?page=sb-posts');
             <tr><td colspan="6">কোনো পোস্ট পাওয়া যায়নি।</td></tr>
         <?php else : while ($q->have_posts()) : $q->the_post(); $id = get_the_ID(); ?>
             <tr data-id="<?php echo (int) $id; ?>">
-                <td><strong><a href="<?php echo esc_url(admin_url('admin.php?page=sb-new&post=' . $id)); ?>"><?php echo esc_html(get_the_title()); ?></a></strong>
-                    <?php if (get_post_meta($id, '_sb_demo', true)) : ?><span class="sba-tag">ডেমো</span><?php endif; ?></td>
+                <?php $edit_url = sb_is_press($id) ? admin_url('admin.php?page=sb-press&edit=' . $id) : admin_url('admin.php?page=sb-new&post=' . $id); ?>
+                <td><strong><a href="<?php echo esc_url($edit_url); ?>"><?php echo esc_html(get_the_title()); ?></a></strong>
+                    <?php if (get_post_meta($id, '_sb_demo', true)) : ?><span class="sba-tag">ডেমো</span><?php endif; ?>
+                    <?php if (sb_is_press($id)) : ?><span class="sba-tag">📰 সংবাদ</span><?php endif; ?></td>
                 <td><?php echo esc_html(sb_post_category($id)); ?></td>
                 <td><span class="sba-tag sba-tag--<?php echo esc_attr(get_post_status()); ?>"><?php echo get_post_status() === 'publish' ? 'প্রকাশিত' : 'খসড়া'; ?></span></td>
                 <td><?php echo esc_html(sb_bn_date(get_post_time('U'))); ?></td>
                 <td><?php echo esc_html(sb_bn_digits((int) get_post_meta($id, '_sb_views', true))); ?></td>
                 <td class="sba-actions">
-                    <a href="<?php echo esc_url(admin_url('admin.php?page=sb-new&post=' . $id)); ?>">এডিট</a>
-                    <?php if (get_post_status() === 'publish') : ?><a href="<?php echo esc_url(get_permalink()); ?>" target="_blank">দেখুন ↗</a><?php endif; ?>
+                    <a href="<?php echo esc_url($edit_url); ?>">এডিট</a>
+                    <?php if (get_post_status() === 'publish' && !sb_is_press($id)) : ?><a href="<?php echo esc_url(get_permalink()); ?>" target="_blank">দেখুন ↗</a><?php endif; ?>
                     <?php if (current_user_can('delete_post', $id)) : ?><a href="#" class="sba-trash" data-id="<?php echo (int) $id; ?>">ট্র্যাশ</a><?php endif; ?>
                 </td>
             </tr>

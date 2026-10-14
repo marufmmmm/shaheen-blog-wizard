@@ -8,3 +8,7 @@ Plugin folder: `shaheen-blog/` — zip it (or use `shaheen-blog.zip`) and upload
 - Monthly credits (20,000), reset on subscription date; hook `shaheen_blog_set_subscription()` for payment code later
 - Editing posts is free; only AI buttons cost credits
 - Admin: dashboard, posts, categories, settings
+
+## v2.1
+- Deep research (OpenAI web search) + AI knows Shaheen via settings text and linked website URLs; missing facts are marked `[তথ্য দরকার: …]`
+- Related posts/pages sidebar (min 3, manual picks), newspaper coverage items (external links), header-aligned width/gap, randomized read counter (300 start values)

@@ -65,3 +65,12 @@
 .sba-toast{display:none;position:fixed;top:44px;right:20px;z-index:100000;max-width:360px;padding:12px 16px;border-radius:8px;background:#1d2327;color:#fff;box-shadow:0 4px 16px rgba(0,0,0,.25)}
 .sba-toast--err{background:#b32d2e}.sba-toast--ok{background:#0a7a34}
 .sba-lock{max-width:420px}
+.sba-research{display:inline-flex;gap:4px;align-items:center;margin:0 10px 0 0;font-weight:500;font-size:13px}
+.sba-research em{font-style:normal;opacity:.8}
+.sba-sources,.sba-missing{margin-top:10px;padding:10px 14px;border-radius:8px;font-size:13px}
+.sba-sources{background:#eef6ff;border:1px solid #b6d4f5}
+.sba-missing{background:#fff4e5;border:1px solid #f0c27a}
+.sba-sources ul,.sba-missing ul{margin:6px 0 0 18px}
+.sba-relres{list-style:none;margin:6px 0;padding:0;max-width:520px}
+.sba-relres button{width:100%;text-align:left;border:0;background:#f6f7f7;padding:7px 10px;margin-bottom:3px;border-radius:6px;cursor:pointer;font:inherit}
+.sba-relres button:hover{background:#e8f3ec}

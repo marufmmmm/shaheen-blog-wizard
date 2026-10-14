@@ -76,7 +76,15 @@ class SB_AI {
                     . "দৈর্ঘ্য: প্রায় {$w} শব্দ।\nনিয়ম:\n- শুরুতে একটি আকর্ষণীয় ভূমিকা (গল্প বা প্রশ্ন দিয়ে)।\n"
                     . "- প্রায় প্রতি ১৫০ শব্দে একটি উপশিরোনাম (<h2>)।\n- ছোট অনুচ্ছেদ, সহজ ভাষা, সক্রিয় বাক্য।\n"
                     . "- বাস্তবসম্মত উদাহরণ দাও, তবে ভুয়া সংখ্যা বা উদ্ধৃতি বানাবে না।\n- শেষে একটি উপসংহার ও পাঠকের জন্য করণীয় (call to action)।\n"
+                    . "- শাহীন শিক্ষা পরিবার সম্পর্কিত তথ্য (ফি, তারিখ, ঠিকানা, ফোন, শাখা, ফলাফল, নিয়ম ইত্যাদি) শুধু নিচের 'আমাদের তথ্য' থেকে নেবে। সেখানে না থাকলে অনুমান বা বানিয়ে লিখবে না; ওই জায়গায় ঠিক এভাবে লিখবে: [তথ্য দরকার: কী তথ্য লাগবে]।\n"
                     . "আউটপুট শুধু HTML: <h2>, <h3>, <p>, <ul>, <li>, <strong> ব্যবহার করো। <h1>, <html>, <body> বা কোড-ব্লক দেবে না।";
+                $know = SB_Know::context($keywords);
+                if ($know !== '') {
+                    $user .= "\n\n--- আমাদের তথ্য ---\n" . $know;
+                }
+                if (!empty($c['research'])) {
+                    $user .= "\n\nইন্টারনেটে খুঁজে বিষয়টির সর্বশেষ ও নির্ভরযোগ্য তথ্য (সরকারি/অফিসিয়াল সাইট অগ্রাধিকার) ব্যবহার করো। তারিখ ও সংখ্যা যাচাই করা তথ্য থেকেই দেবে।";
+                }
                 $max = 3800;
                 break;
 
@@ -106,6 +114,13 @@ class SB_AI {
             $body['response_format'] = array('type' => 'json_object');
         }
 
+        if ($feature === 'article' && !empty($c['research'])) {
+            $r = self::research_article($user, $max);
+            if (!is_wp_error($r)) {
+                return $r;
+            }
+            // Web search not available for this key/model: fall back to a normal article (no extra charge).
+        }
         if (function_exists('set_time_limit')) {
             @set_time_limit(180); // phpcs:ignore
         }
@@ -144,6 +159,61 @@ class SB_AI {
             return array('text' => wp_kses_post($text));
         }
         return array('text' => trim(wp_strip_all_tags($text), " \t\n\r\0\x0B\"'“”"));
+    }
+
+    /** Article using OpenAI web search (Responses API). */
+    protected static function research_article($user, $max) {
+        if (function_exists('set_time_limit')) {
+            @set_time_limit(240); // phpcs:ignore
+        }
+        $resp = wp_remote_post('https://api.openai.com/v1/responses', array(
+            'timeout' => 200,
+            'headers' => array('Authorization' => 'Bearer ' . sb_get('api_key'), 'Content-Type' => 'application/json'),
+            'body'    => wp_json_encode(array(
+                'model' => sb_get('model'),
+                'input' => array(
+                    array('role' => 'system', 'content' => self::system_prompt()),
+                    array('role' => 'user', 'content' => $user),
+                ),
+                'tools' => array(array('type' => 'web_search_preview')),
+                'max_output_tokens' => $max + 1500,
+            )),
+        ));
+        if (is_wp_error($resp)) {
+            return $resp;
+        }
+        $data = json_decode(wp_remote_retrieve_body($resp), true);
+        if (wp_remote_retrieve_response_code($resp) !== 200 || !is_array($data) || empty($data['output'])) {
+            return new WP_Error('sb_noresearch', 'ওয়েব সার্চ পাওয়া যায়নি।');
+        }
+        $text = '';
+        $sources = array();
+        foreach ($data['output'] as $item) {
+            if (isset($item['type']) && $item['type'] === 'message' && !empty($item['content'])) {
+                foreach ($item['content'] as $c) {
+                    if (isset($c['text'])) {
+                        $text .= $c['text'];
+                    }
+                    if (!empty($c['annotations'])) {
+                        foreach ($c['annotations'] as $a) {
+                            if (isset($a['url']) && !isset($sources[$a['url']])) {
+                                $sources[$a['url']] = isset($a['title']) ? sanitize_text_field($a['title']) : $a['url'];
+                            }
+                        }
+                    }
+                }
+            }
+        }
+        $text = trim($text);
+        if ($text === '') {
+            return new WP_Error('sb_empty', 'AI কোনো লেখা দেয়নি।');
+        }
+        $text = preg_replace('/^```[a-z]*\s*|\s*```$/i', '', $text);
+        $list = array();
+        foreach ($sources as $u => $t) {
+            $list[] = array('url' => esc_url_raw($u), 'title' => $t);
+        }
+        return array('text' => wp_kses_post($text), 'sources' => array_slice($list, 0, 8), 'researched' => true);
     }
 
     protected static function parse_headlines($text, $keywords) {

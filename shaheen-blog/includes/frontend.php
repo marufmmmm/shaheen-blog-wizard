@@ -27,6 +27,43 @@ function sb_enqueue_front($with_js) {
     );
     wp_enqueue_style('sb-blog', SB_URL . 'assets/css/blog.css', array('sb-fonts'), SB_VERSION . '.' . filemtime(SB_PATH . 'assets/css/blog.css'));
     wp_enqueue_script('sb-blog', SB_URL . 'assets/js/blog.js', array(), SB_VERSION . '.' . filemtime(SB_PATH . 'assets/js/blog.js'), true);
+    wp_localize_script('sb-blog', 'SBF', array('ajax' => admin_url('admin-ajax.php')));
+}
+
+/** Optional fixed content width (0 = match the theme header automatically). */
+function sb_fixedw_attr() {
+    return (int) sb_get('content_width') >= 600 ? ' data-fixedw="1"' : '';
+}
+
+function sb_width_style() {
+    $w = (int) sb_get('content_width');
+    return $w >= 600 ? '<style>.shb{--shb-w:' . $w . 'px}</style>' : '';
+}
+
+/* Press items have no page of their own: go to the newspaper link. */
+add_action('template_redirect', function () {
+    if (is_singular('sb_post') && sb_is_press(get_the_ID())) {
+        wp_redirect(esc_url_raw(get_post_meta(get_the_ID(), '_sb_press_url', true)), 302); // phpcs:ignore WordPress.Security.SafeRedirect
+        exit;
+    }
+});
+
+/* Count a read (called by blog.js, once per visitor per 6 hours). */
+add_action('wp_ajax_nopriv_sb_view', 'sb_ajax_view');
+add_action('wp_ajax_sb_view', 'sb_ajax_view');
+function sb_ajax_view() {
+    $id = isset($_POST['id']) ? (int) $_POST['id'] : 0; // phpcs:ignore WordPress.Security.NonceVerification
+    if (!$id || get_post_type($id) !== 'sb_post' || get_post_status($id) !== 'publish') {
+        wp_send_json_error();
+    }
+    $views = sb_init_views($id);
+    $ua = isset($_SERVER['HTTP_USER_AGENT']) ? strtolower(wp_unslash($_SERVER['HTTP_USER_AGENT'])) : '';
+    $bot = $ua === '' || preg_match('/bot|crawl|spider|slurp|facebookexternalhit|preview|monitor/', $ua);
+    if (!$bot && !current_user_can('edit_posts')) {
+        $views++;
+        update_post_meta($id, '_sb_views', $views);
+    }
+    wp_send_json_success(array('views' => $views, 'text' => sb_bn_digits($views)));
 }
 
 add_filter('body_class', 'sb_body_class');
@@ -52,27 +89,34 @@ function sb_card_html($post_id, $hidden = false) {
     $cat   = sb_post_category($post_id);
     $img   = sb_post_image($post_id, 'large');
     $title = get_the_title($post_id);
+    $press = sb_is_press($post_id);
     $excerpt = get_the_excerpt($post_id);
-    if ($excerpt === '') {
+    if ($excerpt === '' && !$press) {
         $excerpt = wp_trim_words(wp_strip_all_tags(get_post_field('post_content', $post_id)), 28, '…');
     }
     $label = esc_html($cat['bn']);
+    $href  = $press ? get_post_meta($post_id, '_sb_press_url', true) : get_permalink($post_id);
+    $paper = $press ? get_post_meta($post_id, '_sb_press_paper', true) : '';
     ob_start();
     ?>
-    <a class="blog-card" href="<?php echo esc_url(get_permalink($post_id)); ?>" data-cat="<?php echo esc_attr($cat['slug']); ?>"<?php echo $hidden ? ' hidden' : ''; ?>>
+    <a class="blog-card<?php echo $press ? ' is-press' : ''; ?>" href="<?php echo esc_url($href); ?>"<?php echo $press ? ' target="_blank" rel="noopener nofollow"' : ''; ?> data-cat="<?php echo esc_attr($cat['slug']); ?>"<?php echo $hidden ? ' hidden' : ''; ?>>
         <div class="blog-image-container">
             <?php if ($img) : ?>
                 <img class="blog-image" src="<?php echo esc_url($img); ?>" alt="<?php echo esc_attr($title); ?>" loading="lazy">
             <?php else : ?>
-                <div class="blog-noimg" aria-hidden="true">📚</div>
+                <div class="blog-noimg" aria-hidden="true"><?php echo $press ? '📰' : '📚'; ?></div>
             <?php endif; ?>
             <span class="blog-category"><?php echo $label; ?></span>
         </div>
         <div class="blog-content">
             <h3 class="blog-title"><?php echo esc_html($title); ?></h3>
-            <p class="blog-excerpt"><?php echo esc_html($excerpt); ?></p>
+            <?php if ($press) : ?>
+                <p class="blog-excerpt">📰 <?php echo esc_html($paper); ?> · সংবাদটি পড়তে ক্লিক করুন ↗</p>
+            <?php else : ?>
+                <p class="blog-excerpt"><?php echo esc_html($excerpt); ?></p>
+            <?php endif; ?>
             <div class="blog-meta">
-                <span class="blog-author">✍️ <?php echo esc_html(sb_author_name($post_id)); ?></span>
+                <span class="blog-author"><?php echo $press ? '📰 ' . esc_html($paper) : '✍️ ' . esc_html(sb_author_name($post_id)); ?></span>
                 <span class="blog-date"><?php echo esc_html(sb_bn_date(get_post_time('U', false, $post_id), false)); ?></span>
             </div>
         </div>
@@ -104,8 +148,9 @@ function sb_shortcode($atts) {
     $classes = 'shb shb-blog' . (sb_get('full_width') ? '' : ' shb--boxed');
 
     ob_start();
+    echo sb_width_style(); // phpcs:ignore WordPress.Security.EscapeOutput
     ?>
-    <div class="<?php echo esc_attr($classes); ?>" data-per-page="<?php echo (int) $per; ?>" data-hide-title="<?php echo sb_get('hide_theme_title') ? '1' : '0'; ?>">
+    <div class="<?php echo esc_attr($classes); ?>"<?php echo sb_fixedw_attr(); // phpcs:ignore WordPress.Security.EscapeOutput ?> data-per-page="<?php echo (int) $per; ?>" data-hide-title="<?php echo sb_get('hide_theme_title') ? '1' : '0'; ?>">
         <header class="blog-header">
             <div class="header-content">
                 <h1><?php echo esc_html(sb_get('hero_title')); ?></h1>
@@ -170,39 +215,20 @@ function sb_single_content($content) {
     $sum  = get_post_meta($id, '_sb_summary', true);
     $faq  = get_post_meta($id, '_sb_faq', true);
     $img  = sb_post_image($id, 'full');
-    $views = (int) get_post_meta($id, '_sb_views', true);
+    $views = sb_init_views($id);
     $url  = get_permalink($id);
     $blog = (int) get_option('sb_blog_page_id') ? get_permalink((int) get_option('sb_blog_page_id')) : home_url('/');
-
-    if (!is_user_logged_in()) {
-        update_post_meta($id, '_sb_views', $views + 1);
-        $views++;
-    }
 
     $classes = 'shb shb-single' . (sb_get('full_width') ? '' : ' shb--boxed');
     $title_enc = rawurlencode(get_the_title($id));
     $url_enc = rawurlencode($url);
 
-    // Related: same category first, then latest.
-    $related = array();
-    $term = get_the_terms($id, 'sb_category');
-    $base = array('post_type' => 'sb_post', 'post_status' => 'publish', 'posts_per_page' => 3,
-        'post__not_in' => array($id), 'no_found_rows' => true, 'fields' => 'ids');
-    if (!empty($term) && !is_wp_error($term)) {
-        $related = get_posts($base + array('tax_query' => array(array(
-            'taxonomy' => 'sb_category', 'field' => 'term_id', 'terms' => array((int) $term[0]->term_id)))));
-    }
-    if (count($related) < 3) {
-        $more = get_posts(array_merge($base, array(
-            'posts_per_page' => 3 - count($related),
-            'post__not_in' => array_merge(array($id), $related),
-        )));
-        $related = array_merge($related, $more);
-    }
+    $related = sb_related_items($id, 3, 5);
 
     ob_start();
+    echo sb_width_style(); // phpcs:ignore WordPress.Security.EscapeOutput
     ?>
-    <article class="<?php echo esc_attr($classes); ?>">
+    <article class="<?php echo esc_attr($classes); ?>"<?php echo sb_fixedw_attr(); // phpcs:ignore WordPress.Security.EscapeOutput ?> data-post="<?php echo (int) $id; ?>">
         <header class="blog-header post-hero">
             <div class="header-content">
                 <a class="post-back" href="<?php echo esc_url($blog); ?>">← ব্লগে ফিরুন</a><br>
@@ -212,11 +238,12 @@ function sb_single_content($content) {
                 <div class="post-meta">
                     <span>✍️ <?php echo esc_html(sb_author_name($id)); ?></span>
                     <span>📅 <?php echo esc_html(sb_bn_date(get_post_time('U', false, $id))); ?></span>
-                    <span>👁 <?php echo esc_html(sb_bn_digits($views)); ?> বার পড়া হয়েছে</span>
+                    <span>👁 <span class="js-views"><?php echo esc_html(sb_bn_digits($views)); ?></span> বার পড়া হয়েছে</span>
                 </div>
             </div>
         </header>
 
+        <div class="post-layout">
         <div class="post-wrap">
             <div class="post-card">
                 <?php if ($img) : ?>
@@ -255,16 +282,22 @@ function sb_single_content($content) {
             </div>
         </div>
 
-        <?php if ($related) : ?>
-        <section class="post-related">
-            <h2>📖 আরও পড়ুন</h2>
-            <div class="blog-grid">
-                <?php foreach ($related as $rid) {
-                    echo sb_card_html($rid); // phpcs:ignore WordPress.Security.EscapeOutput
-                } ?>
+        <aside class="post-aside" aria-label="সম্পর্কিত পোস্ট">
+            <div class="aside-box">
+                <h2>📖 সম্পর্কিত পোস্ট</h2>
+                <ul class="rel-list">
+                    <?php foreach ($related as $r) : ?>
+                        <li>
+                            <a class="rel-item" href="<?php echo esc_url($r['url']); ?>"<?php echo $r['press'] ? ' target="_blank" rel="noopener nofollow"' : ''; ?>>
+                                <span class="rel-thumb"><?php if ($r['thumb']) : ?><img src="<?php echo esc_url($r['thumb']); ?>" alt="" loading="lazy"><?php else : ?><i><?php echo $r['press'] ? '📰' : '📚'; ?></i><?php endif; ?></span>
+                                <span class="rel-text"><small><?php echo esc_html($r['tag']); ?></small><strong><?php echo esc_html($r['title']); ?></strong></span>
+                            </a>
+                        </li>
+                    <?php endforeach; ?>
+                </ul>
             </div>
-        </section>
-        <?php endif; ?>
+        </aside>
+        </div>
     </article>
     <?php
     return ob_get_clean();

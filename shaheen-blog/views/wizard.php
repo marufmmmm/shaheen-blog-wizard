@@ -23,6 +23,7 @@ $d = array(
     'author_name' => $post ? get_post_meta($pid, '_sb_author_name', true) : '',
     'keywords'    => $post ? (array) get_post_meta($pid, '_sb_keywords', true) : array(),
     'topic'       => $post ? get_post_meta($pid, '_sb_topic', true) : '',
+    'related'     => $post ? array_map(function ($rid) { return array('id' => (int) $rid, 'title' => get_the_title($rid)); }, array_filter((array) get_post_meta($pid, '_sb_related', true))) : array(),
     'faq'         => $post ? (array) get_post_meta($pid, '_sb_faq', true) : array(),
     'category'    => (!empty($cat_terms) && !is_wp_error($cat_terms)) ? (int) $cat_terms[0]->term_id : 0,
     'image_id'    => $post ? (int) get_post_thumbnail_id($pid) : 0,
@@ -124,6 +125,11 @@ foreach (array_keys(sb_feature_labels()) as $f) {
             </details>
             <?php endif; ?>
 
+            <h3>সম্পর্কিত পোস্ট/পেজ <small>(ঐচ্ছিক — ফাঁকা রাখলে কমপক্ষে ৩টি নিজে নিজে দেখাবে)</small></h3>
+            <input type="search" id="rel-q" placeholder="পোস্ট বা পেজের নাম লিখে খুঁজুন…" style="max-width:420px">
+            <ul id="rel-results" class="sba-relres"></ul>
+            <div id="rel-chosen" class="sba-chips"></div>
+
             <h3>সচরাচর জিজ্ঞাসা (FAQ) <small>ঐচ্ছিক</small></h3>
             <div id="faq-list"></div>
             <button type="button" class="button" id="faq-add">+ প্রশ্ন যোগ করুন</button>
@@ -162,6 +168,7 @@ foreach (array_keys(sb_feature_labels()) as $f) {
                             <option value="medium" selected>মাঝারি (৮০০-১২০০)</option>
                             <option value="long">বড় (১৫০০+)</option>
                         </select>
+                        <label class="sba-research"><input type="checkbox" id="f-research" checked> 🌐 ইন্টারনেট থেকে সর্বশেষ তথ্য <em>(+<?php echo esc_html(sb_bn_digits($costs['research'])); ?>)</em></label>
                         <button type="button" class="button" data-ai="article">🤖 তৈরি করুন <em>(<?php echo esc_html(sb_bn_digits($costs['article'])); ?>)</em></button>
                     </span></div>
                 <?php
@@ -172,10 +179,12 @@ foreach (array_keys(sb_feature_labels()) as $f) {
                     'teeny'         => false,
                 ));
                 ?>
+                <div id="article-sources" class="sba-sources" hidden></div>
+                <div id="article-missing" class="sba-missing" hidden></div>
             </div>
 
             <div class="sba-ai">
-                <div class="sba-ai-head"><h3>সামারি</h3>
+                <div class="sba-ai-head"><h3>সামারি <small class="sba-muted">(মূল পোস্ট থেকে তৈরি হয়)</small></h3>
                     <button type="button" class="button" data-ai="summary">🤖 তৈরি করুন <em>(<?php echo esc_html(sb_bn_digits($costs['summary'])); ?>)</em></button></div>
                 <textarea id="f-summary" rows="4"><?php echo esc_textarea($d['summary']); ?></textarea>
                 <small class="sba-muted">আর্টিকেলের ওপরে "সংক্ষেপে" বক্সে দেখাবে। আর্টিকেল থেকে তৈরি হয়।</small>

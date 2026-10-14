@@ -41,9 +41,11 @@ function sb_ajax_ai() {
     }
     $uid = get_current_user_id();
     $state = SB_Credits::state($uid);
-    if ($state['remaining'] < $cost) {
+    $research = ($feature === 'article' && sb_req('research') === '1');
+    $need = $cost + ($research ? max(0, (int) sb_get('cost_research')) : 0);
+    if ($state['remaining'] < $need) {
         wp_send_json_error(array(
-            'message' => 'ক্রেডিট যথেষ্ট নয়। প্রয়োজন ' . sb_bn_digits($cost) . ', আছে ' . sb_bn_digits($state['remaining']) . '। রিসেট: ' . $state['next_reset_bn'],
+            'message' => 'ক্রেডিট যথেষ্ট নয়। প্রয়োজন ' . sb_bn_digits($need) . ', আছে ' . sb_bn_digits($state['remaining']) . '। রিসেট: ' . $state['next_reset_bn'],
             'balance' => $state,
         ));
     }
@@ -55,6 +57,7 @@ function sb_ajax_ai() {
         'content'  => wp_kses_post(sb_req('content')),
         'keywords' => sb_req_list('keywords', 10),
         'length'   => sanitize_key(sb_req('length', 'medium')),
+        'research' => $research,
     );
     $result = SB_AI::generate($feature, $ctx);
     if (is_wp_error($result)) {
@@ -62,6 +65,13 @@ function sb_ajax_ai() {
         wp_send_json_error(array('message' => $result->get_error_message(), 'balance' => $state));
     }
     $post_id = (int) sb_req('post_id', 0);
+    if ($research && !empty($result['researched'])) {
+        $cost += max(0, (int) sb_get('cost_research'));   // web search really ran
+    }
+    if ($feature === 'article') {
+        preg_match_all('/\[তথ্য দরকার:[^\]]*\]/u', $result['text'], $m);
+        $result['missing'] = array_values(array_unique($m[0]));
+    }
     $new = SB_Credits::charge($uid, $feature, $cost, $post_id);
     if (is_wp_error($new)) {
         wp_send_json_error(array('message' => $new->get_error_message(), 'balance' => $state));
@@ -147,6 +157,19 @@ function sb_ajax_save_post() {
         }
     }
     update_post_meta($id, '_sb_faq', $faq);
+
+    $rel = array();
+    $rel_raw = isset($_POST['related']) ? wp_unslash($_POST['related']) : array();
+    if (is_array($rel_raw)) {
+        foreach (array_slice($rel_raw, 0, 12) as $rid) {
+            $rid = (int) $rid;
+            if ($rid && $rid !== $id && in_array(get_post_type($rid), array('sb_post', 'post', 'page'), true)) {
+                $rel[] = $rid;
+            }
+        }
+    }
+    update_post_meta($id, '_sb_related', array_values(array_unique($rel)));
+    sb_init_views($id);
 
     $term = (int) sb_req('category', 0);
     if ($term && term_exists($term, 'sb_category')) {
@@ -252,4 +275,70 @@ add_action('wp_ajax_sb_balance', 'sb_ajax_balance');
 function sb_ajax_balance() {
     sb_ajax_guard();
     wp_send_json_success(array('balance' => SB_Credits::state(get_current_user_id())));
+}
+
+/* ---------- Search posts/pages to link as related ---------- */
+add_action('wp_ajax_sb_search_content', 'sb_ajax_search_content');
+function sb_ajax_search_content() {
+    sb_ajax_guard();
+    $q = sanitize_text_field(sb_req('q'));
+    $exclude = (int) sb_req('exclude', 0);
+    $posts = get_posts(array(
+        'post_type' => array('sb_post', 'post', 'page'), 'post_status' => 'publish', 's' => $q,
+        'posts_per_page' => 12, 'no_found_rows' => true, 'post__not_in' => $exclude ? array($exclude) : array(),
+    ));
+    $out = array();
+    foreach ($posts as $p) {
+        $type = $p->post_type === 'page' ? 'পেজ' : ($p->post_type === 'sb_post' ? (sb_is_press($p->ID) ? 'সংবাদ' : 'ব্লগ') : 'পোস্ট');
+        $out[] = array('id' => $p->ID, 'title' => get_the_title($p), 'type' => $type);
+    }
+    wp_send_json_success(array('items' => $out));
+}
+
+/* ---------- Newspaper coverage (external link + category) ---------- */
+add_action('wp_ajax_sb_save_press', 'sb_ajax_save_press');
+function sb_ajax_save_press() {
+    sb_ajax_guard();
+    $id    = (int) sb_req('id', 0);
+    $title = sanitize_text_field(sb_req('title'));
+    $paper = sanitize_text_field(sb_req('paper'));
+    $url   = esc_url_raw(trim(sb_req('url')), array('http', 'https'));
+    $date  = sanitize_text_field(sb_req('date'));
+    if ($title === '' || $url === '' || $paper === '') {
+        wp_send_json_error(array('message' => 'শিরোনাম, পত্রিকার নাম ও লিংক—তিনটিই দিন।'));
+    }
+    if ($id && (get_post_type($id) !== 'sb_post' || !current_user_can('edit_post', $id))) {
+        wp_send_json_error(array('message' => 'অনুমতি নেই।'), 403);
+    }
+    $arr = array('post_type' => 'sb_post', 'post_title' => $title, 'post_status' => 'publish');
+    if (preg_match('/^\d{4}-\d{2}-\d{2}$/', $date)) {
+        $arr['post_date'] = $date . ' ' . ($date >= wp_date('Y-m-d') ? wp_date('H:i:s') : '12:00:00');
+        $arr['post_date_gmt'] = get_gmt_from_date($arr['post_date']);
+    }
+    if ($id) {
+        $arr['ID'] = $id;
+        $res = wp_update_post(wp_slash($arr), true);
+    } else {
+        $arr['post_author'] = get_current_user_id();
+        $res = wp_insert_post(wp_slash($arr), true);
+    }
+    if (is_wp_error($res)) {
+        wp_send_json_error(array('message' => $res->get_error_message()));
+    }
+    $id = (int) $res;
+    if (!$id || !get_post_meta($id, '_sb_press_slugged', true)) {
+        wp_update_post(array('ID' => $id, 'post_name' => 'press-' . $id));
+        update_post_meta($id, '_sb_press_slugged', 1);
+    }
+    update_post_meta($id, '_sb_press_url', $url);
+    update_post_meta($id, '_sb_press_paper', $paper);
+    $term = (int) sb_req('category', 0);
+    wp_set_object_terms($id, ($term && term_exists($term, 'sb_category')) ? array($term) : array(), 'sb_category');
+    $img = (int) sb_req('image_id', 0);
+    if ($img && get_post_type($img) === 'attachment') {
+        set_post_thumbnail($id, $img);
+    } elseif (!$img) {
+        delete_post_thumbnail($id);
+    }
+    wp_send_json_success(array('id' => $id));
 }

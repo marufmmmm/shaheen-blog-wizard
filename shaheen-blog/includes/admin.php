@@ -8,6 +8,7 @@ function sb_admin_menu() {
     add_menu_page('শাহীন ব্লগ', 'শাহীন ব্লগ', 'edit_posts', 'sb-dashboard', 'sb_page_dashboard', 'dashicons-welcome-write-blog', 26);
     add_submenu_page('sb-dashboard', 'ড্যাশবোর্ড', 'ড্যাশবোর্ড', 'edit_posts', 'sb-dashboard', 'sb_page_dashboard');
     add_submenu_page('sb-dashboard', 'নতুন পোস্ট', 'নতুন পোস্ট', 'edit_posts', 'sb-new', 'sb_page_new');
+    add_submenu_page('sb-dashboard', 'সংবাদপত্রে শাহীন', '📰 সংবাদপত্রে শাহীন', 'edit_posts', 'sb-press', 'sb_page_press');
     add_submenu_page('sb-dashboard', 'সব পোস্ট', 'সব পোস্ট', 'edit_posts', 'sb-posts', 'sb_page_posts');
     add_submenu_page('sb-dashboard', 'ক্যাটাগরি', 'ক্যাটাগরি', 'manage_categories', 'sb-categories', 'sb_page_categories');
     add_submenu_page('sb-dashboard', 'সেটিংস', 'সেটিংস', 'manage_options', 'sb-settings', 'sb_page_settings');
@@ -48,6 +49,7 @@ function sb_admin_assets() {
     foreach (array_keys(sb_feature_labels()) as $f) {
         $costs[$f] = sb_feature_cost($f);
     }
+    $costs['research'] = max(0, (int) sb_get('cost_research'));
     wp_localize_script('sb-admin', 'SB', array(
         'ajax'    => admin_url('admin-ajax.php'),
         'nonce'   => wp_create_nonce('sb_admin'),
@@ -77,6 +79,7 @@ function sb_credit_pill() {
 
 function sb_page_dashboard() { include SB_PATH . 'views/dashboard.php'; }
 function sb_page_new()       { include SB_PATH . 'views/wizard.php'; }
+function sb_page_press()     { include SB_PATH . 'views/press.php'; }
 function sb_page_posts()     { include SB_PATH . 'views/posts.php'; }
 function sb_page_categories() { include SB_PATH . 'views/categories.php'; }
 function sb_page_settings()  { include SB_PATH . 'views/settings.php'; }
@@ -106,6 +109,10 @@ function sb_handle_save_settings() {
         'per_page'      => max(3, min(50, (int) $in('per_page', 12))),
         'full_width'    => $in('full_width') ? 1 : 0,
         'hide_theme_title' => $in('hide_theme_title') ? 1 : 0,
+        'content_width' => max(0, min(1600, (int) $in('content_width', 0))),
+        'cost_research' => max(0, (int) $in('cost_research', 50)),
+        'site_urls'     => sanitize_textarea_field($in('site_urls')),
+        'about'         => sanitize_textarea_field($in('about')),
     );
     foreach (array('headlines', 'subtitle', 'meta', 'article', 'summary') as $f) {
         $new['cost_' . $f] = max(0, (int) $in('cost_' . $f, 0));

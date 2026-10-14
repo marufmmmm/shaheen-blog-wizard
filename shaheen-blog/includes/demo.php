@@ -75,7 +75,7 @@ function sb_create_demo_posts() {
             update_post_meta($id, '_sb_keywords', $d['kw']);
             update_post_meta($id, '_sb_meta_desc', $d['excerpt']);
             update_post_meta($id, '_sb_demo', 1);
-            update_post_meta($id, '_sb_views', 40 + $i * 17);
+            sb_init_views($id);
             $term = get_term_by('slug', $d['cat'], 'sb_category');
             if ($term) {
                 wp_set_object_terms($id, array((int) $term->term_id), 'sb_category');

@@ -53,12 +53,25 @@ if (!SB_Lock::is_unlocked()) : ?>
         </div>
 
         <div class="sba-card">
+            <h2>🏫 শাহীন সম্পর্কে AI-এর তথ্য ও ডিপ রিসার্চ</h2>
+            <p class="sba-muted">আর্টিকেল লেখার সময় AI এই তথ্য ও ওয়েবসাইট থেকে শাহীন সম্পর্কে জেনে নেবে। কোনো তথ্য না পেলে অনুমান না করে লেখায় <code>[তথ্য দরকার: …]</code> বসিয়ে দেবে, যাতে আপনি পূরণ করতে পারেন।</p>
+            <label>আমাদের ওয়েবসাইট লিংক <small>(প্রতি লাইনে একটি, সর্বোচ্চ ৪টি; ১২ ঘণ্টা পরপর নতুন করে পড়া হয়)</small>
+                <textarea name="site_urls" rows="3"><?php echo esc_textarea($s('site_urls')); ?></textarea></label>
+            <label>শাহীন সম্পর্কে আমাদের নিজস্ব তথ্য <small>(শাখা, ফি, যোগাযোগ, বৈশিষ্ট্য, ফলাফল ইত্যাদি, যা AI সবসময় জানবে)</small>
+                <textarea name="about" rows="8"><?php echo esc_textarea($s('about')); ?></textarea></label>
+            <label>ইন্টারনেট রিসার্চের অতিরিক্ত ক্রেডিট <small>(শুধু রিসার্চ সফল হলে কাটে)</small>
+                <input type="number" min="0" name="cost_research" value="<?php echo esc_attr($s('cost_research')); ?>"></label>
+        </div>
+
+        <div class="sba-card">
             <h2>🎨 ব্লগ পেজ</h2>
             <label>হিরো শিরোনাম<input type="text" name="hero_title" value="<?php echo esc_attr($s('hero_title')); ?>"></label>
             <label>হিরো সাবটাইটেল<input type="text" name="hero_subtitle" value="<?php echo esc_attr($s('hero_subtitle')); ?>"></label>
             <label>পরিচিতি লেখা<textarea name="intro" rows="4"><?php echo esc_textarea($s('intro')); ?></textarea></label>
             <label class="sba-inline-check"><input type="checkbox" name="show_intro" value="1" <?php checked($s('show_intro')); ?>> পরিচিতি লেখা দেখান</label>
             <label>প্রতিবারে কতটি পোস্ট দেখাবে<input type="number" min="3" max="50" name="per_page" value="<?php echo esc_attr($s('per_page')); ?>"></label>
+            <label>কনটেন্টের প্রস্থ (px) <small>(০ = থিমের হেডারের মাপ অনুযায়ী নিজে নিজে মিলবে। বেশিরভাগ ক্ষেত্রে ০ রাখুন)</small>
+                <input type="number" min="0" max="1600" name="content_width" value="<?php echo esc_attr($s('content_width')); ?>"></label>
             <label class="sba-inline-check"><input type="checkbox" name="full_width" value="1" <?php checked($s('full_width')); ?>> পুরো-প্রস্থ (full width) ডিজাইন</label>
             <label class="sba-inline-check"><input type="checkbox" name="hide_theme_title" value="1" <?php checked($s('hide_theme_title')); ?>> থিমের নিজস্ব পেজ শিরোনাম লুকান</label>
         </div>
