@@ -1,0 +1,120 @@
+<?php
+if (!defined('ABSPATH')) {
+    exit;
+}
+
+add_action('admin_menu', 'sb_admin_menu');
+function sb_admin_menu() {
+    add_menu_page('শাহীন ব্লগ', 'শাহীন ব্লগ', 'edit_posts', 'sb-dashboard', 'sb_page_dashboard', 'dashicons-welcome-write-blog', 26);
+    add_submenu_page('sb-dashboard', 'ড্যাশবোর্ড', 'ড্যাশবোর্ড', 'edit_posts', 'sb-dashboard', 'sb_page_dashboard');
+    add_submenu_page('sb-dashboard', 'নতুন পোস্ট', 'নতুন পোস্ট', 'edit_posts', 'sb-new', 'sb_page_new');
+    add_submenu_page('sb-dashboard', 'সব পোস্ট', 'সব পোস্ট', 'edit_posts', 'sb-posts', 'sb_page_posts');
+    add_submenu_page('sb-dashboard', 'ক্যাটাগরি', 'ক্যাটাগরি', 'manage_categories', 'sb-categories', 'sb_page_categories');
+    add_submenu_page('sb-dashboard', 'সেটিংস', 'সেটিংস', 'manage_options', 'sb-settings', 'sb_page_settings');
+}
+
+function sb_is_our_screen() {
+    return isset($_GET['page']) && strpos(sanitize_key(wp_unslash($_GET['page'])), 'sb-') === 0; // phpcs:ignore WordPress.Security.NonceVerification
+}
+
+add_action('admin_enqueue_scripts', 'sb_admin_assets');
+function sb_admin_assets() {
+    if (!sb_is_our_screen()) {
+        return;
+    }
+    $page = sanitize_key(wp_unslash($_GET['page'])); // phpcs:ignore WordPress.Security.NonceVerification
+
+    wp_enqueue_style(
+        'sb-fonts',
+        'https://fonts.googleapis.com/css2?family=Noto+Sans+Bengali:wght@400;500;600;700&display=swap',
+        array(),
+        null
+    );
+    wp_enqueue_style('sb-admin', SB_URL . 'assets/css/admin.css', array('sb-fonts'), SB_VERSION);
+    wp_enqueue_script('sb-admin', SB_URL . 'assets/js/admin.js', array(), SB_VERSION, true);
+
+    if ($page === 'sb-new') {
+        wp_enqueue_media();
+    }
+
+    $terms = get_terms(array('taxonomy' => 'sb_category', 'hide_empty' => false, 'orderby' => 'term_id'));
+    $cats = array();
+    if (!is_wp_error($terms)) {
+        foreach ($terms as $t) {
+            $cats[] = array('id' => (int) $t->term_id, 'name' => $t->name, 'en' => get_term_meta($t->term_id, 'sb_name_en', true));
+        }
+    }
+    $costs = array();
+    foreach (array_keys(sb_feature_labels()) as $f) {
+        $costs[$f] = sb_feature_cost($f);
+    }
+    wp_localize_script('sb-admin', 'SB', array(
+        'ajax'    => admin_url('admin-ajax.php'),
+        'nonce'   => wp_create_nonce('sb_admin'),
+        'balance' => SB_Credits::state(get_current_user_id()),
+        'costs'   => $costs,
+        'labels'  => sb_feature_labels(),
+        'cats'    => $cats,
+        'page'    => $page,
+        'postsUrl' => admin_url('admin.php?page=sb-posts'),
+    ));
+}
+
+/** Shared header: credit pill. */
+function sb_credit_pill() {
+    $st = SB_Credits::state(get_current_user_id());
+    ?>
+    <div class="sba-credit" id="sb-credit">
+        <div class="sba-credit-top">
+            <span>💳 ক্রেডিট</span>
+            <strong><span data-sb="remaining"><?php echo esc_html(sb_bn_digits(number_format_i18n($st['remaining']))); ?></span> / <?php echo esc_html(sb_bn_digits(number_format_i18n($st['limit']))); ?></strong>
+        </div>
+        <div class="sba-bar"><div class="sba-bar-fill" data-sb="bar" style="width:<?php echo esc_attr($st['percent']); ?>%"></div></div>
+        <small>রিসেট: <span data-sb="reset"><?php echo esc_html($st['next_reset_bn']); ?></span></small>
+    </div>
+    <?php
+}
+
+function sb_page_dashboard() { include SB_PATH . 'views/dashboard.php'; }
+function sb_page_new()       { include SB_PATH . 'views/wizard.php'; }
+function sb_page_posts()     { include SB_PATH . 'views/posts.php'; }
+function sb_page_categories() { include SB_PATH . 'views/categories.php'; }
+function sb_page_settings()  { include SB_PATH . 'views/settings.php'; }
+
+/* ------------------------------------------------------ settings save */
+add_action('admin_post_sb_save_settings', 'sb_handle_save_settings');
+function sb_handle_save_settings() {
+    if (!current_user_can('manage_options')) {
+        wp_die('অনুমতি নেই।', 403);
+    }
+    check_admin_referer('sb_save_settings');
+
+    $in = function ($k, $d = '') {
+        return isset($_POST[$k]) ? wp_unslash($_POST[$k]) : $d; // phpcs:ignore WordPress.Security.NonceVerification
+    };
+
+    $new = array(
+        'model'         => sanitize_text_field($in('model', 'gpt-4o-mini')),
+        'default_limit' => max(0, (int) $in('default_limit', 20000)),
+        'hero_title'    => sanitize_text_field($in('hero_title')),
+        'hero_subtitle' => sanitize_text_field($in('hero_subtitle')),
+        'intro'         => sanitize_textarea_field($in('intro')),
+        'show_intro'    => $in('show_intro') ? 1 : 0,
+        'per_page'      => max(3, min(50, (int) $in('per_page', 12))),
+        'full_width'    => $in('full_width') ? 1 : 0,
+        'hide_theme_title' => $in('hide_theme_title') ? 1 : 0,
+    );
+    foreach (array('headlines', 'subtitle', 'meta', 'article', 'summary') as $f) {
+        $new['cost_' . $f] = max(0, (int) $in('cost_' . $f, 0));
+    }
+    // API key: keep the saved one unless a new one is typed or removal is ticked.
+    $key = trim(sanitize_text_field($in('api_key')));
+    if ($in('remove_key')) {
+        $new['api_key'] = '';
+    } elseif ($key !== '') {
+        $new['api_key'] = $key;
+    }
+    sb_save_settings($new);
+    wp_safe_redirect(admin_url('admin.php?page=sb-settings&saved=1'));
+    exit;
+}
