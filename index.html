@@ -31,7 +31,7 @@
         body {
             font-family: 'Poppins', sans-serif;
             color: var(--text);
-            background: linear-gradient(180deg, var(--light) 0%, rgba(212, 175, 55, 0.03) 50%, var(--light) 100%);
+            background: linear-gradient(180deg, #fef8f0 0%, #f8fbf5 40%, #f5f9f2 100%);
             line-height: 1.6;
             position: relative;
         }
@@ -90,12 +90,13 @@
 
         /* ========== পরিচিতি সেকশন ========== */
         .intro-section {
-            background: white;
+            background: rgba(255, 255, 255, 0.7);
             padding: 50px 30px;
             border-bottom: 3px solid;
             border-image: linear-gradient(90deg, transparent, var(--golden), transparent) 0 1;
             position: relative;
             overflow: hidden;
+            backdrop-filter: blur(5px);
         }
 
         .intro-section::before {
@@ -261,17 +262,17 @@
         }
 
         .blog-card {
-            background: white;
+            background: rgba(255, 255, 255, 0.85);
             border-radius: 15px;
             overflow: hidden;
-            box-shadow: 0 5px 20px rgba(0, 0, 0, 0.08);
+            box-shadow: 0 8px 25px rgba(13, 46, 28, 0.08);
             transition: all 0.4s cubic-bezier(0.25, 0.46, 0.45, 0.94);
             cursor: pointer;
             display: flex;
             flex-direction: column;
             height: 100%;
             position: relative;
-            border: 1px solid rgba(212, 175, 55, 0.1);
+            border: 1px solid rgba(212, 175, 55, 0.15);
         }
 
         .blog-card::before {
