@@ -236,21 +236,23 @@
 
         .search-container {
             display: flex;
-            gap: 8px;
+            gap: 0;
             justify-content: flex-start;
             margin-bottom: 12px;
             align-items: center;
-            max-width: 600px;
+            max-width: 500px;
         }
 
         #searchInput {
             padding: 12px 20px;
             border: 2px solid var(--border);
             border-radius: 25px;
-            width: 280px;
+            width: 100%;
+            max-width: 500px;
             font-size: 14px;
             font-family: 'Poppins', sans-serif;
             transition: all 0.3s;
+            flex: 1;
         }
 
         #searchInput:focus {
@@ -260,22 +262,7 @@
         }
 
         .search-btn {
-            padding: 12px 20px;
-            background: linear-gradient(135deg, #d4af37, #f5c649);
-            color: white;
-            border: none;
-            border-radius: 25px;
-            cursor: pointer;
-            font-weight: bold;
-            transition: all 0.3s;
-            font-family: 'Poppins', sans-serif;
-            box-shadow: 0 4px 15px rgba(212, 175, 55, 0.3);
-        }
-
-        .search-btn:hover {
-            background: linear-gradient(135deg, #f5c649, #d4af37);
-            transform: translateY(-2px);
-            box-shadow: 0 6px 20px rgba(212, 175, 55, 0.4);
+            display: none;
         }
 
         .category-filter {
@@ -709,7 +696,7 @@
 
             .search-container {
                 flex-direction: row;
-                gap: 8px;
+                gap: 0;
                 margin-bottom: 10px;
                 justify-content: flex-start;
                 align-items: center;
@@ -718,17 +705,13 @@
 
             #searchInput {
                 flex: 1;
-                min-width: 200px;
+                width: 100%;
                 padding: 12px 16px;
                 font-size: 14px;
             }
 
             .search-btn {
-                flex-shrink: 0;
-                padding: 12px 16px;
-                font-size: 14px;
-                background: linear-gradient(135deg, #d4af37, #f5c649);
-                box-shadow: 0 4px 15px rgba(212, 175, 55, 0.3);
+                display: none;
             }
 
             .category-filter {
@@ -786,8 +769,7 @@
     <div class="blog-container">
         <!-- সার্চ সেকশন -->
         <div class="search-container">
-            <input type="text" id="searchInput" placeholder="শিক্ষা, প্রযুক্তি এবং আপডেট খুঁজুন...">
-            <button class="search-btn" onclick="handleSearch()">🔍</button>
+            <input type="text" id="searchInput" placeholder="শিক্ষা, প্রযুক্তি এবং আপডেট খুঁজুন..." onkeypress="if(event.key==='Enter') handleSearch()">
         </div>
 
         <!-- ফিল্টার সেকশন -->
