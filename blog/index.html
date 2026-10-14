@@ -1,0 +1,709 @@
+<!DOCTYPE html>
+<html lang="bn">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>শাহিন ব্লগ - Shaheen Education Blog</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        :root {
+            --primary: #f5a623;
+            --dark: #1a1a1a;
+            --light: #f8f8f8;
+            --text: #333;
+            --border: #e0e0e0;
+            --bg-hover: #fafafa;
+        }
+
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            color: var(--text);
+            background: var(--light);
+            line-height: 1.6;
+        }
+
+        /* Header */
+        header {
+            background: white;
+            border-bottom: 2px solid var(--primary);
+            padding: 20px 0;
+            position: sticky;
+            top: 0;
+            z-index: 100;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+        }
+
+        .header-container {
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 0 20px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            flex-wrap: wrap;
+            gap: 20px;
+        }
+
+        .logo {
+            font-size: 24px;
+            font-weight: bold;
+            color: var(--primary);
+        }
+
+        .logo-bangla {
+            font-size: 20px;
+            color: var(--dark);
+            display: block;
+            margin-top: 2px;
+        }
+
+        .nav-right {
+            display: flex;
+            gap: 15px;
+            align-items: center;
+            flex-wrap: wrap;
+        }
+
+        /* Search Bar */
+        .search-container {
+            display: flex;
+            gap: 5px;
+        }
+
+        #searchInput {
+            padding: 10px 15px;
+            border: 2px solid var(--border);
+            border-radius: 4px;
+            width: 200px;
+            font-size: 14px;
+        }
+
+        #searchInput:focus {
+            outline: none;
+            border-color: var(--primary);
+        }
+
+        .search-btn {
+            padding: 10px 15px;
+            background: var(--primary);
+            color: white;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+            font-weight: bold;
+            transition: background 0.3s;
+        }
+
+        .search-btn:hover {
+            background: #e89000;
+        }
+
+        /* Category Filter */
+        .filter-section {
+            background: white;
+            padding: 20px;
+            border-radius: 8px;
+            margin-bottom: 30px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.05);
+        }
+
+        .filter-title {
+            font-size: 18px;
+            font-weight: bold;
+            margin-bottom: 15px;
+            color: var(--dark);
+        }
+
+        .category-filter {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 10px;
+        }
+
+        .category-btn {
+            padding: 8px 16px;
+            border: 2px solid var(--border);
+            background: white;
+            color: var(--text);
+            border-radius: 20px;
+            cursor: pointer;
+            transition: all 0.3s;
+            font-size: 14px;
+            font-weight: 500;
+        }
+
+        .category-btn:hover {
+            border-color: var(--primary);
+            color: var(--primary);
+        }
+
+        .category-btn.active {
+            background: var(--primary);
+            color: white;
+            border-color: var(--primary);
+        }
+
+        /* Main Container */
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 0 20px;
+        }
+
+        /* Blog Grid */
+        .blog-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+            gap: 25px;
+            margin-bottom: 40px;
+        }
+
+        .blog-card {
+            background: white;
+            border-radius: 8px;
+            overflow: hidden;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+            transition: transform 0.3s, box-shadow 0.3s;
+            cursor: pointer;
+            display: flex;
+            flex-direction: column;
+        }
+
+        .blog-card:hover {
+            transform: translateY(-5px);
+            box-shadow: 0 8px 16px rgba(0,0,0,0.15);
+        }
+
+        .blog-image {
+            width: 100%;
+            height: 200px;
+            object-fit: cover;
+            background: #e0e0e0;
+        }
+
+        .blog-content {
+            padding: 20px;
+            display: flex;
+            flex-direction: column;
+            flex-grow: 1;
+        }
+
+        .blog-category {
+            display: inline-block;
+            background: var(--primary);
+            color: white;
+            padding: 4px 10px;
+            border-radius: 12px;
+            font-size: 12px;
+            font-weight: bold;
+            margin-bottom: 10px;
+            width: fit-content;
+        }
+
+        .blog-title {
+            font-size: 18px;
+            font-weight: bold;
+            margin-bottom: 10px;
+            color: var(--dark);
+            line-height: 1.4;
+        }
+
+        .blog-excerpt {
+            font-size: 14px;
+            color: #666;
+            margin-bottom: 15px;
+            flex-grow: 1;
+            line-height: 1.5;
+        }
+
+        .blog-meta {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            font-size: 12px;
+            color: #999;
+            border-top: 1px solid var(--border);
+            padding-top: 10px;
+        }
+
+        .blog-author {
+            font-weight: 500;
+        }
+
+        .blog-date {
+            color: var(--primary);
+            font-weight: 500;
+        }
+
+        /* Empty State */
+        .empty-state {
+            text-align: center;
+            padding: 60px 20px;
+            color: #999;
+        }
+
+        .empty-state h3 {
+            font-size: 20px;
+            margin-bottom: 10px;
+        }
+
+        /* Pagination */
+        .pagination {
+            display: flex;
+            justify-content: center;
+            gap: 10px;
+            margin: 40px 0;
+            flex-wrap: wrap;
+        }
+
+        .pagination button {
+            padding: 10px 15px;
+            border: 2px solid var(--border);
+            background: white;
+            color: var(--text);
+            border-radius: 4px;
+            cursor: pointer;
+            transition: all 0.3s;
+            font-weight: 500;
+        }
+
+        .pagination button:hover {
+            border-color: var(--primary);
+            color: var(--primary);
+        }
+
+        .pagination button.active {
+            background: var(--primary);
+            color: white;
+            border-color: var(--primary);
+        }
+
+        .pagination button:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+        }
+
+        .pagination-info {
+            text-align: center;
+            color: #666;
+            font-size: 14px;
+            margin: 20px 0;
+        }
+
+        /* Footer */
+        footer {
+            background: var(--dark);
+            color: white;
+            padding: 30px 0;
+            margin-top: 60px;
+            text-align: center;
+        }
+
+        .footer-content {
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 0 20px;
+        }
+
+        /* Responsive */
+        @media (max-width: 768px) {
+            .blog-grid {
+                grid-template-columns: 1fr;
+            }
+
+            .header-container {
+                flex-direction: column;
+                align-items: flex-start;
+            }
+
+            #searchInput {
+                width: 100%;
+            }
+
+            .nav-right {
+                width: 100%;
+                flex-direction: column;
+            }
+
+            .search-container {
+                width: 100%;
+            }
+
+            .category-filter {
+                max-height: 150px;
+                overflow-y: auto;
+            }
+        }
+
+        /* Loading Spinner */
+        .loading {
+            text-align: center;
+            padding: 40px;
+            color: var(--primary);
+            font-size: 18px;
+        }
+
+        .spinner {
+            border: 4px solid var(--border);
+            border-top: 4px solid var(--primary);
+            border-radius: 50%;
+            width: 40px;
+            height: 40px;
+            animation: spin 1s linear infinite;
+            margin: 20px auto;
+        }
+
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+    </style>
+</head>
+<body>
+    <!-- Header -->
+    <header>
+        <div class="header-container">
+            <div>
+                <div class="logo">SHAHEEN BLOG</div>
+                <div class="logo-bangla">শাহিন শিক্ষা ব্লগ</div>
+            </div>
+            <div class="nav-right">
+                <div class="search-container">
+                    <input type="text" id="searchInput" placeholder="অনুসন্ধান করুন... (Search)">
+                    <button class="search-btn" onclick="handleSearch()">🔍</button>
+                </div>
+            </div>
+        </div>
+    </header>
+
+    <!-- Main Content -->
+    <main class="container">
+        <!-- Category Filter -->
+        <div class="filter-section">
+            <div class="filter-title">📁 বিভাগ অনুযায়ী (Filter by Category)</div>
+            <div class="category-filter">
+                <button class="category-btn active" onclick="filterByCategory('all')">সব (All)</button>
+                <button class="category-btn" onclick="filterByCategory('news')">📰 সংবাদ (News)</button>
+                <button class="category-btn" onclick="filterByCategory('education')">📚 শিক্ষা (Education)</button>
+                <button class="category-btn" onclick="filterByCategory('technology')">💻 প্রযুক্তি (Technology)</button>
+                <button class="category-btn" onclick="filterByCategory('event')">🎉 অনুষ্ঠান (Events)</button>
+                <button class="category-btn" onclick="filterByCategory('announcement')">📢 ঘোষণা (Announcement)</button>
+            </div>
+        </div>
+
+        <!-- Blog Grid -->
+        <div id="postsContainer" class="blog-grid">
+            <div class="loading">
+                <div class="spinner"></div>
+                ব্লগ পোস্ট লোড হচ্ছে... (Loading posts...)
+            </div>
+        </div>
+
+        <!-- Pagination Info -->
+        <div class="pagination-info">
+            <span id="pageInfo"></span>
+        </div>
+
+        <!-- Pagination -->
+        <div class="pagination">
+            <button id="prevBtn" onclick="previousPage()">← পূর্ববর্তী (Previous)</button>
+            <span id="pageNumbers"></span>
+            <button id="nextBtn" onclick="nextPage()">পরবর্তী → (Next)</button>
+        </div>
+    </main>
+
+    <!-- Footer -->
+    <footer>
+        <div class="footer-content">
+            <p>&copy; 2026 Shaheen Education Family. All rights reserved.</p>
+            <p style="margin-top: 10px; font-size: 12px;">শাহিন শিক্ষা পরিবার - Serving Education Since 1990</p>
+        </div>
+    </footer>
+
+    <script>
+        // Sample Blog Data
+        const samplePosts = [
+            {
+                id: 1,
+                title: "ডিজিটাল যুগে শিক্ষার রূপান্তর",
+                title_en: "Education Transformation in Digital Age",
+                excerpt: "প্রযুক্তি ব্যবহার করে শিক্ষার্থীদের জন্য আরও কার্যকর শেখার পরিবেশ তৈরি করা যায়।",
+                content: "প্রযুক্তি ব্যবহার করে শিক্ষার্থীদের জন্য আরও কার্যকর শেখার পরিবেশ তৈরি করা যায়। ডিজিটাল শিক্ষা পদ্ধতি শিক্ষার্থীদের নমনীয়তা এবং স্বাধীনতা প্রদান করে।",
+                category: "education",
+                category_bn: "শিক্ষা",
+                author: "ড. আবদুল করিম",
+                date: "2026-10-10",
+                image: "https://images.unsplash.com/photo-1509062522246-3755977927d7?w=400&h=300&fit=crop"
+            },
+            {
+                id: 2,
+                title: "কৃত্রিম বুদ্ধিমত্তা শিক্ষায় নতুন সম্ভাবনা",
+                title_en: "AI Brings New Possibilities in Education",
+                excerpt: "কৃত্রিম বুদ্ধিমত্তা শিক্ষার্থীদের ব্যক্তিগত শেখার অভিজ্ঞতা প্রদান করতে পারে।",
+                content: "কৃত্রিম বুদ্ধিমত্তা শিক্ষার্থীদের ব্যক্তিগত শেখার অভিজ্ঞতা প্রদান করতে পারে। AI-চালিত সিস্টেম শিক্ষার্থীদের গতি অনুযায়ী কন্টেন্ট সামঞ্জস্য করতে পারে।",
+                category: "technology",
+                category_bn: "প্রযুক্তি",
+                author: "প্রফেসর রহিম আহমেদ",
+                date: "2026-10-08",
+                image: "https://images.unsplash.com/photo-1516321318423-f06f70504504?w=400&h=300&fit=crop"
+            },
+            {
+                id: 3,
+                title: "২০২৬ সালের শাহিন ভর্তি পরীক্ষা নোটিস",
+                title_en: "Shaheen Admission Test 2026 Notice",
+                excerpt: "আসন্ন ভর্তি পরীক্ষার তারিখ এবং নিয়মকানুন সম্পর্কে বিস্তারিত তথ্য।",
+                content: "আসন্ন ভর্তি পরীক্ষার তারিখ এবং নিয়মকানুন সম্পর্কে বিস্তারিত তথ্য। পরীক্ষা অনুষ্ঠিত হবে ১৫ নভেম্বর, ২০২৬ সালে।",
+                category: "announcement",
+                category_bn: "ঘোষণা",
+                author: "অ্যাডমিনিস্ট্রেশন",
+                date: "2026-10-12",
+                image: "https://images.unsplash.com/photo-1427504494785-cdvaca05b37b?w=400&h=300&fit=crop"
+            },
+            {
+                id: 4,
+                title: "শাহিন বিজ্ঞান উৎসব ২০২৬",
+                title_en: "Shaheen Science Fest 2026",
+                excerpt: "শিক্ষার্থীদের বৈজ্ঞানিক দক্ষতা প্রদর্শনের জন্য এই বছর বিশাল আয়োজন।",
+                content: "শিক্ষার্থীদের বৈজ্ঞানিক দক্ষতা প্রদর্শনের জন্য এই বছর বিশাল আয়োজন। প্রতিযোগিতায় অংশগ্রহণ করতে পারেন সকল বিভাগের শিক্ষার্থীরা।",
+                category: "event",
+                category_bn: "অনুষ্ঠান",
+                author: "বিজ্ঞান বিভাগ",
+                date: "2026-10-09",
+                image: "https://images.unsplash.com/photo-1552664730-d307ca884978?w=400&h=300&fit=crop"
+            },
+            {
+                id: 5,
+                title: "অনলাইন শিক্ষায় সফলতার গল্প",
+                title_en: "Success Stories in Online Education",
+                excerpt: "কীভাবে আমাদের শিক্ষার্থীরা অনলাইন মাধ্যমে সফল হয়েছে তার অভিজ্ঞতা শেয়ার।",
+                content: "কীভাবে আমাদের শিক্ষার্থীরা অনলাইন মাধ্যমে সফল হয়েছে তার অভিজ্ঞতা শেয়ার। প্রতিটি শিক্ষার্থীর নিজস্ব সংগ্রাম এবং সাফল্যের গল্প রয়েছে।",
+                category: "news",
+                category_bn: "সংবাদ",
+                author: "আলমগীর হোসেন",
+                date: "2026-10-07",
+                image: "https://images.unsplash.com/photo-1552664730-d307ca884978?w=400&h=300&fit=crop"
+            },
+            {
+                id: 6,
+                title: "শাহিনের নতুন ল্যাব ইনস্টলেশন",
+                title_en: "New Laboratory Installation at Shaheen",
+                excerpt: "অত্যাধুনিক বিজ্ঞান ল্যাব এখন আমাদের সকল ক্যাম্পাসে উপলব্ধ।",
+                content: "অত্যাধুনিক বিজ্ঞান ল্যাব এখন আমাদের সকল ক্যাম্পাসে উপলব্ধ। এটি শিক্ষার্থীদের ব্যবহারিক জ্ঞান অর্জনে সহায়তা করবে।",
+                category: "news",
+                category_bn: "সংবাদ",
+                author: "ফ্যাসিলিটি ম্যানেজমেন্ট",
+                date: "2026-10-05",
+                image: "https://images.unsplash.com/photo-1530112570cd-fef3c3d21aef?w=400&h=300&fit=crop"
+            },
+            {
+                id: 7,
+                title: "শিক্ষার্থী মানসিক স্বাস্থ্য সচেতনতা প্রোগ্রাম",
+                title_en: "Student Mental Health Awareness Program",
+                excerpt: "মানসিক সুস্থতা শিক্ষায় সমান গুরুত্বপূর্ণ - আমাদের নতুন উদ্যোগ।",
+                content: "মানসিক সুস্থতা শিক্ষায় সমান গুরুত্বপূর্ণ - আমাদের নতুন উদ্যোগ। পরামর্শদাতারা শিক্ষার্থীদের সাথে নিয়মিত সেশন পরিচালনা করেন।",
+                category: "education",
+                category_bn: "শিক্ষা",
+                author: "কাউন্সেলিং টিম",
+                date: "2026-10-06",
+                image: "https://images.unsplash.com/photo-1552664730-d307ca884978?w=400&h=300&fit=crop"
+            },
+            {
+                id: 8,
+                title: "ক্লাউড প্রযুক্তিতে শিক্ষার ভবিষ্যৎ",
+                title_en: "The Future of Education in Cloud Technology",
+                excerpt: "ক্লাউড ভিত্তিক শেখার প্ল্যাটফর্ম শিক্ষায় বৈপ্লবিক পরিবর্তন আনতে চলেছে।",
+                content: "ক্লাউড ভিত্তিক শেখার প্ল্যাটফর্ম শিক্ষায় বৈপ্লবিক পরিবর্তন আনতে চলেছে। এটি যেকোনো জায়গা থেকে যেকোনো সময় শেখার সুবিধা প্রদান করে।",
+                category: "technology",
+                category_bn: "প্রযুক্তি",
+                author: "আইটি ডিরেক্টর",
+                date: "2026-10-04",
+                image: "https://images.unsplash.com/photo-1454165804606-c3d57bc86b40?w=400&h=300&fit=crop"
+            }
+        ];
+
+        // Pagination Variables
+        let currentPage = 1;
+        const postsPerPage = 12;
+        let filteredPosts = [...samplePosts];
+        let currentFilter = 'all';
+        let searchTerm = '';
+
+        // Initialize
+        document.addEventListener('DOMContentLoaded', () => {
+            displayPosts();
+        });
+
+        // Format Bengali Date
+        function formatBengaliDate(dateString) {
+            const months = ['জানুয়ারি', 'ফেব্রুয়ারি', 'মার্চ', 'এপ্রিল', 'মে', 'জুন',
+                           'জুলাই', 'আগস্ট', 'সেপ্টেম্বর', 'অক্টোবর', 'নভেম্বর', 'ডিসেম্বর'];
+            const date = new Date(dateString);
+            const day = date.getDate();
+            const month = months[date.getMonth()];
+            const year = date.getFullYear();
+            return `${day} ${month}, ${year}`;
+        }
+
+        // Filter by Category
+        function filterByCategory(category) {
+            currentFilter = category;
+            currentPage = 1;
+            searchTerm = '';
+            document.getElementById('searchInput').value = '';
+
+            // Update button states
+            document.querySelectorAll('.category-btn').forEach(btn => {
+                btn.classList.remove('active');
+            });
+            event.target.classList.add('active');
+
+            // Filter posts
+            if (category === 'all') {
+                filteredPosts = [...samplePosts];
+            } else {
+                filteredPosts = samplePosts.filter(post => post.category === category);
+            }
+
+            displayPosts();
+        }
+
+        // Search Posts
+        function handleSearch() {
+            searchTerm = document.getElementById('searchInput').value.toLowerCase();
+            currentPage = 1;
+            currentFilter = 'all';
+            document.querySelectorAll('.category-btn').forEach(btn => btn.classList.remove('active'));
+            document.querySelector('.category-btn').classList.add('active');
+
+            filteredPosts = samplePosts.filter(post =>
+                post.title.toLowerCase().includes(searchTerm) ||
+                post.title_en.toLowerCase().includes(searchTerm) ||
+                post.excerpt.toLowerCase().includes(searchTerm)
+            );
+
+            displayPosts();
+        }
+
+        // Allow search on Enter key
+        document.addEventListener('DOMContentLoaded', () => {
+            const searchInput = document.getElementById('searchInput');
+            if (searchInput) {
+                searchInput.addEventListener('keypress', (e) => {
+                    if (e.key === 'Enter') {
+                        handleSearch();
+                    }
+                });
+            }
+        });
+
+        // Display Posts
+        function displayPosts() {
+            const container = document.getElementById('postsContainer');
+            const startIndex = (currentPage - 1) * postsPerPage;
+            const endIndex = startIndex + postsPerPage;
+            const paginatedPosts = filteredPosts.slice(startIndex, endIndex);
+
+            if (paginatedPosts.length === 0) {
+                container.innerHTML = `
+                    <div style="grid-column: 1 / -1;">
+                        <div class="empty-state">
+                            <h3>📭 কোনো পোস্ট পাওয়া যায়নি (No posts found)</h3>
+                            <p>অন্য ক্যাটাগরি বা সার্চ টার্ম চেষ্টা করুন</p>
+                        </div>
+                    </div>
+                `;
+                document.getElementById('pageInfo').innerHTML = '';
+                document.getElementById('pageNumbers').innerHTML = '';
+                document.getElementById('prevBtn').disabled = true;
+                document.getElementById('nextBtn').disabled = true;
+                return;
+            }
+
+            container.innerHTML = paginatedPosts.map(post => `
+                <div class="blog-card" onclick="viewPost(${post.id})">
+                    <img src="${post.image}" alt="${post.title}" class="blog-image">
+                    <div class="blog-content">
+                        <span class="blog-category">${post.category_bn}</span>
+                        <h3 class="blog-title">${post.title}</h3>
+                        <p class="blog-excerpt">${post.excerpt}</p>
+                        <div class="blog-meta">
+                            <span class="blog-author">✍️ ${post.author}</span>
+                            <span class="blog-date">${formatBengaliDate(post.date)}</span>
+                        </div>
+                    </div>
+                </div>
+            `).join('');
+
+            updatePagination();
+        }
+
+        // Update Pagination
+        function updatePagination() {
+            const totalPages = Math.ceil(filteredPosts.length / postsPerPage);
+            const pageInfo = document.getElementById('pageInfo');
+            const pageNumbers = document.getElementById('pageNumbers');
+            const prevBtn = document.getElementById('prevBtn');
+            const nextBtn = document.getElementById('nextBtn');
+
+            pageInfo.innerHTML = `পৃষ্ঠা ${currentPage} / ${totalPages} | মোট পোস্ট: ${filteredPosts.length}`;
+
+            pageNumbers.innerHTML = Array.from({length: totalPages}, (_, i) => i + 1)
+                .map(page => `<button class="pagination-page ${page === currentPage ? 'active' : ''}" onclick="goToPage(${page})">${page}</button>`)
+                .join('');
+
+            prevBtn.disabled = currentPage === 1;
+            nextBtn.disabled = currentPage === totalPages;
+        }
+
+        // Pagination Functions
+        function previousPage() {
+            if (currentPage > 1) {
+                currentPage--;
+                displayPosts();
+                window.scrollTo({top: 0, behavior: 'smooth'});
+            }
+        }
+
+        function nextPage() {
+            const totalPages = Math.ceil(filteredPosts.length / postsPerPage);
+            if (currentPage < totalPages) {
+                currentPage++;
+                displayPosts();
+                window.scrollTo({top: 0, behavior: 'smooth'});
+            }
+        }
+
+        function goToPage(page) {
+            currentPage = page;
+            displayPosts();
+            window.scrollTo({top: 0, behavior: 'smooth'});
+        }
+
+        // View Single Post
+        function viewPost(postId) {
+            const post = samplePosts.find(p => p.id === postId);
+            if (post) {
+                // Store post data in session storage and redirect
+                sessionStorage.setItem('selectedPost', JSON.stringify(post));
+                // In a real implementation, this would redirect to single.html
+                alert(`📖 Post: ${post.title}\n\n${post.content}\n\n- By ${post.author}`);
+            }
+        }
+
+        // Add some CSS for pagination buttons
+        const style = document.createElement('style');
+        style.textContent = `
+            .pagination-page {
+                padding: 8px 12px;
+                min-width: 40px;
+            }
+        `;
+        document.head.appendChild(style);
+    </script>
+</body>
+</html>
