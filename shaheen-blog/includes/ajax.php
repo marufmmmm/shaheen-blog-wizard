@@ -59,6 +59,7 @@ function sb_ajax_ai() {
         'length'   => sanitize_key(sb_req('length', 'medium')),
         'research' => $research,
         'source'   => sanitize_textarea_field(sb_req('source')),
+        'instruction' => sanitize_textarea_field(sb_req('instruction')),
     );
     $result = SB_AI::generate($feature, $ctx);
     if (is_wp_error($result)) {
@@ -69,7 +70,7 @@ function sb_ajax_ai() {
     if ($research && !empty($result['researched'])) {
         $cost += max(0, (int) sb_get('cost_research'));   // web search really ran
     }
-    if ($feature === 'article' || $feature === 'rewrite') {
+    if (in_array($feature, array('article', 'rewrite', 'edit', 'edit_new'), true)) {
         preg_match_all('/\[তথ্য দরকার:[^\]]*\]/u', $result['text'], $m);
         $result['missing'] = array_values(array_unique($m[0]));
     }

@@ -205,6 +205,8 @@ $costs['research'] = max(0, (int) sb_get('cost_research'));
                 <div id="article-missing" class="sba-missing" hidden></div>
             </div>
 
+            <?php sb_edit_box('ed'); ?>
+
             <div class="sba-ai">
                 <div class="sba-ai-head"><h3>সামারি <small class="sba-muted">(মূল পোস্ট থেকে তৈরি হয়)</small></h3>
                     <button type="button" class="button" data-ai="summary">🤖 তৈরি করুন <em>(<?php echo esc_html(sb_bn_digits($costs['summary'])); ?>)</em></button></div>

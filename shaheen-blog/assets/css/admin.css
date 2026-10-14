@@ -78,3 +78,4 @@
 .sba-blk-top{display:flex;gap:10px;align-items:center;justify-content:space-between;flex-wrap:wrap;margin-bottom:8px}
 .sba-blk-checks{display:flex;flex-wrap:wrap;gap:6px 16px;margin-bottom:8px}
 .sba-blk-checks label{margin:0!important}
+.sba-edit-modes{display:grid;gap:6px;margin:8px 0}.sba-edit-modes label{margin:0!important;font-weight:400!important}.sba-edit-modes em{font-style:normal;opacity:.8}

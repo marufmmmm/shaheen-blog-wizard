@@ -53,7 +53,7 @@ if (!SB_Lock::is_unlocked()) : ?>
                 <small>২০,০০০ ক্রেডিট ≈ ৪ ডলার API খরচ।</small>
             </label>
             <div class="sba-row">
-                <?php foreach (sb_feature_labels() as $f => $label) : ?>
+                <?php foreach (sb_feature_labels() as $f => $label) : if (in_array($f, array('rewrite_post', 'edit_new'), true)) { continue; } ?>
                     <label><?php echo esc_html($label); ?><input type="number" min="0" name="cost_<?php echo esc_attr($f); ?>" value="<?php echo esc_attr($s('cost_' . $f)); ?>"></label>
                 <?php endforeach; ?>
             </div>

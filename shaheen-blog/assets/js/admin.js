@@ -134,6 +134,25 @@
     });
   }
 
+  /* "Give an instruction" box: correct the existing text, or write it again */
+  function editBox(p, getFn, setFn, ctxFn) {
+    var go = $('#' + p + '-go'), undo = $('#' + p + '-undo'), prev = null;
+    if (!go) return;
+    go.addEventListener('click', function () {
+      var ins = val('#' + p + '-ins').trim(), m = $('input[name="' + p + '-mode"]:checked'), mode = m ? m.value : 'edit', cost = SB.costs[mode];
+      if (ins.length < 4) { toast('কী বদলাতে চান তা লিখুন।', 'err'); return; }
+      if (SB.balance.remaining < cost) { toast('ক্রেডিট যথেষ্ট নয়। প্রয়োজন ' + fmt(cost) + ', আছে ' + fmt(SB.balance.remaining) + '।', 'err'); return; }
+      var ctx = ctxFn(), old = go.innerHTML; go.disabled = true; go.textContent = '⏳ হচ্ছে… (১ মিনিট পর্যন্ত লাগতে পারে)';
+      post('sb_ai', { feature: mode, post_id: 0, instruction: ins, content: getFn(), title: ctx.title, keywords: ctx.keywords }).then(function (d) {
+        prev = getFn(); setFn(d.result.text); undo.hidden = false;
+        toast('✓ হয়েছে। ' + fmt(d.cost) + ' ক্রেডিট কেটেছে। পছন্দ না হলে "আগের লেখা ফিরিয়ে আনুন" চাপুন।', 'ok');
+        if (d.result.missing && d.result.missing.length) { toast('লেখায় ' + bn(d.result.missing.length) + 'টি জায়গায় আপনার তথ্য দরকার ([তথ্য দরকার: …] খুঁজুন)।', 'err'); }
+      }).catch(function (e) { toast(e.message, 'err'); })
+        .then(function () { go.disabled = false; go.innerHTML = old; });
+    });
+    undo.addEventListener('click', function () { if (prev !== null) { setFn(prev); prev = null; undo.hidden = true; toast('আগের লেখা ফিরে এসেছে।', 'ok'); } });
+  }
+
   /* ---------------- link / ad blocks ---------------- */
   function blockEditor(listEl, data, lib) {
     var rows = [];
@@ -222,6 +241,7 @@
     var rwSet = function (h) { var e = rwEd(); if (e) e.setContent(h); if ($('#rw_content')) $('#rw_content').value = h; };
     var rwKw = function () { return val('#rw-kw').split(/[,،，;；|।\n]+/).map(function (x) { return x.trim(); }).filter(Boolean).slice(0, 10); };
     function toastR(t, k) { toast(t, k); say(rwMsg, t, k); }
+    editBox('rwed', rwGet, rwSet, function () { return { title: val('#rw-new-title'), keywords: rwKw() }; });
     $('#rw-pick').addEventListener('click', function () {
       if (!window.wp || !wp.media) return;
       var fr = wp.media({ title: 'ফিচার্ড ছবি', library: { type: 'image' }, multiple: false });
@@ -530,6 +550,8 @@
     }).catch(function (e) { say(msg, e.message, 'err'); })
       .then(function () { btn.disabled = false; });
   });
+
+  editBox('ed', editorContent, setEditorContent, function () { return { title: val('#f-title'), keywords: keywords() }; });
 
   show(1);
 })();

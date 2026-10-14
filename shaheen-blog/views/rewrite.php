@@ -48,6 +48,7 @@ $cost = sb_feature_cost('rewrite_post');
         <label>নতুন শিরোনাম<input type="text" id="rw-new-title"></label>
         <label>সংক্ষিপ্ত বর্ণনা (কার্ডে ও গুগলে দেখাবে)<textarea id="rw-new-excerpt" rows="2"></textarea></label>
         <?php wp_editor('', 'rw_content', array('textarea_name' => 'rw_content', 'media_buttons' => true, 'editor_height' => 380)); ?>
+        <?php sb_edit_box('rwed'); ?>
         <fieldset class="sba-status" style="margin-top:14px">
             <label><input type="radio" name="rw-status" value="draft" checked> খসড়া হিসেবে সেভ</label>
             <label><input type="radio" name="rw-status" value="publish"> প্রকাশ করুন</label>

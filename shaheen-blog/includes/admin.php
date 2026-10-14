@@ -66,6 +66,22 @@ function sb_admin_assets() {
     ));
 }
 
+/** "Tell the AI how you want the post" box (used in the wizard and the rewrite page). */
+function sb_edit_box($p) {
+    ?>
+    <div class="sba-ai sba-editbox" id="<?php echo esc_attr($p); ?>-box">
+        <div class="sba-ai-head"><h3>✏️ পোস্ট কেমন চান — নির্দেশ দিন</h3></div>
+        <textarea id="<?php echo esc_attr($p); ?>-ins" rows="3" placeholder="যেমন: দ্বিতীয় অনুচ্ছেদ ছোট করুন, শুরুটা আরও আকর্ষণীয় করুন, শেষে ভর্তির যোগাযোগের কথা যোগ করুন…"></textarea>
+        <div class="sba-edit-modes">
+            <label class="sba-inline-check"><input type="radio" name="<?php echo esc_attr($p); ?>-mode" value="edit" checked> শুধু সংশোধন <em>(<?php echo esc_html(sb_bn_digits(sb_feature_cost('edit'))); ?> ক্রেডিট)</em> — বাকি লেখা যেমন আছে তেমন থাকবে, শুধু আপনার নির্দেশের অংশ বদলাবে</label>
+            <label class="sba-inline-check"><input type="radio" name="<?php echo esc_attr($p); ?>-mode" value="edit_new"> নতুন করে লেখা <em>(<?php echo esc_html(sb_bn_digits(sb_feature_cost('edit_new'))); ?> ক্রেডিট)</em> — নির্দেশ মেনে পুরো লেখা নতুন করে তৈরি হবে</label>
+        </div>
+        <p><button type="button" class="button button-primary" id="<?php echo esc_attr($p); ?>-go">🤖 নির্দেশ অনুযায়ী করুন</button>
+           <button type="button" class="button" id="<?php echo esc_attr($p); ?>-undo" hidden>↩️ আগের লেখা ফিরিয়ে আনুন</button></p>
+    </div>
+    <?php
+}
+
 /** Shared header: credit pill. */
 function sb_credit_pill() {
     $st = SB_Credits::state(get_current_user_id());
@@ -124,7 +140,7 @@ function sb_handle_save_settings() {
         'site_urls'     => sanitize_textarea_field($in('site_urls')),
         'about'         => sanitize_textarea_field($in('about')),
     );
-    foreach (array('headlines', 'subtitle', 'meta', 'article', 'summary', 'rewrite') as $f) {
+    foreach (array('headlines', 'subtitle', 'meta', 'article', 'summary', 'rewrite', 'edit') as $f) {
         $new['cost_' . $f] = max(0, (int) $in('cost_' . $f, 0));
     }
     // API key: keep the saved one unless a new one is typed or removal is ticked.

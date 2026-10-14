@@ -16,6 +16,7 @@ function sb_defaults() {
         'cost_summary'   => 80,
         'cost_research'  => 50,
         'cost_rewrite'   => 150,
+        'cost_edit'      => 100,
         'style_note'     => 'প্রচলিত চলিত ভাষায় লিখবে। কঠিন, সাধু বা বইয়ের মতো ভারী শব্দ এড়িয়ে প্রতিদিনের সহজ শব্দ ব্যবহার করবে। যেখানে জনপ্রিয় ইংরেজি শব্দ (যেমন: ক্লাস, কোচিং, অনলাইন) বেশি চলে সেখানে সেটাই লিখবে।',
         'model_article'  => '',
         'top_offset'     => 0,
@@ -52,7 +53,7 @@ function sb_save_settings(array $new) {
 /** Feature => credit cost. */
 /** Model for a feature: article may use its own (better) model. */
 function sb_model_for($feature) {
-    $m = (in_array($feature, array('article', 'rewrite', 'rewrite_post'), true)) ? trim((string) sb_get('model_article')) : '';
+    $m = (in_array($feature, array('article', 'rewrite', 'rewrite_post', 'edit', 'edit_new'), true)) ? trim((string) sb_get('model_article')) : '';
     return $m !== '' ? $m : sb_get('model');
 }
 
@@ -65,6 +66,8 @@ function sb_feature_cost($feature) {
         'summary'   => 'cost_summary',
         'rewrite'   => 'cost_rewrite',
         'rewrite_post' => 'cost_rewrite',
+        'edit'      => 'cost_edit',
+        'edit_new'  => 'cost_article',
     );
     return isset($map[$feature]) ? max(0, (int) sb_get($map[$feature])) : 0;
 }
@@ -176,6 +179,8 @@ function sb_feature_labels() {
         'summary'   => 'সামারি',
         'rewrite'   => 'কপি করা লেখা নতুন করে লেখা',
         'rewrite_post' => 'রিরাইট (শিরোনাম + বর্ণনা + লেখা)',
+        'edit'      => 'নির্দেশ দিয়ে সংশোধন',
+        'edit_new'  => 'নির্দেশ দিয়ে নতুন করে লেখা',
     );
 }
 
