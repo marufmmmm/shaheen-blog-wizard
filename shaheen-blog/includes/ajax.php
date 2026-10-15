@@ -95,8 +95,13 @@ function sb_ajax_ai() {
         $cost = sb_feature_cost('edit_many');
     }
     $tier = max(1, min(3, (int) sb_req('tier', 1)));
+    $cmodel = '';
     if ($feature === 'custom') {
-        $cost = sb_custom_cost($tier);
+        $cmodel = sanitize_text_field(sb_req('model'));
+        if (!in_array($cmodel, sb_allowed_models(), true)) {
+            $cmodel = trim((string) sb_get('model_article')) ?: sb_get('model');
+        }
+        $cost = sb_custom_cost($tier, $cmodel);
     }
     if (!$cost) {
         wp_send_json_error(array('message' => 'অজানা AI ফিচার।'));
@@ -124,26 +129,30 @@ function sb_ajax_ai() {
         'instruction' => sanitize_textarea_field(sb_req('instruction')),
         'faq_count' => (int) sb_req('faq_count', 5),
         'post_id'  => (int) sb_req('post_id', 0),
+        'tier'     => $tier,
+        'model'    => $cmodel,
     );
-    $notes = array();
     if ($feature === 'custom') {
-        $ctx['tier'] = $tier;
-        $ctx['web'] = sb_fetch_pages(sb_req('urls'), $notes);
-        $ctx['parts'] = sb_upload_parts($notes);
-        if (mb_strlen(trim($ctx['instruction'])) < 30) {
-            wp_send_json_error(array('message' => 'প্রম্পট বক্সে বিস্তারিত নির্দেশ লিখুন (কমপক্ষে ৩০ অক্ষর)।', 'balance' => $state));
-        }
+        sb_job_start($uid, $ctx, $cost, $research, $state);   // exits
     }
+    $notes = array();
+    $out = sb_ai_execute($uid, $feature, $ctx, $cost, $research, $notes);
+    if (empty($out['ok'])) {
+        wp_send_json_error(array('message' => $out['message'], 'balance' => $state));
+    }
+    wp_send_json_success($out['data']);
+}
+
+/** Runs one AI feature, post-processes and charges credits. Returns array(ok, message|data). */
+function sb_ai_execute($uid, $feature, $ctx, $cost, $research, &$notes) {
+    $post_id = (int) $ctx['post_id'];
     $result = SB_AI::generate($feature, $ctx);
     if (is_wp_error($result)) {
-        // Nothing was charged: the call failed.
-        wp_send_json_error(array('message' => $result->get_error_message(), 'balance' => $state));
+        return array('ok' => false, 'message' => $result->get_error_message());   // nothing charged
     }
     if ($feature === 'related' && empty($result['items'])) {
-        // Nothing relevant found: no charge.
-        wp_send_json_error(array('message' => 'সাইটে এই লেখার সাথে মেলে এমন পোস্ট/পেজ পাওয়া যায়নি, তাই ক্রেডিট কাটা হয়নি। নিজে খুঁজে যোগ করতে পারেন।', 'balance' => $state));
+        return array('ok' => false, 'message' => 'সাইটে এই লেখার সাথে মেলে এমন পোস্ট/পেজ পাওয়া যায়নি, তাই ক্রেডিট কাটা হয়নি। নিজে খুঁজে যোগ করতে পারেন।');
     }
-    $post_id = (int) sb_req('post_id', 0);
     if ($research && !empty($result['researched'])) {
         $cost += max(0, (int) sb_get('cost_research'));   // web search really ran
     }
@@ -157,11 +166,122 @@ function sb_ajax_ai() {
     }
     $new = SB_Credits::charge($uid, $feature, $cost, $post_id);
     if (is_wp_error($new)) {
-        wp_send_json_error(array('message' => $new->get_error_message(), 'balance' => $state));
+        return array('ok' => false, 'message' => $new->get_error_message());
     }
     $result['notes'] = $notes;
-    wp_send_json_success(array('result' => $result, 'cost' => $cost, 'balance' => $new));
+    return array('ok' => true, 'data' => array('result' => $result, 'cost' => $cost, 'balance' => $new));
 }
+
+/* ---------- Long prompt-articles run as a background job (a web server cuts a request that stays open too long: HTTP 504) ---------- */
+function sb_job_dir() {
+    $u = wp_upload_dir();
+    $d = trailingslashit($u['basedir']) . 'sb-tmp';
+    if (!is_dir($d)) {
+        wp_mkdir_p($d);
+        @file_put_contents($d . '/index.php', "<?php // silence\n"); // phpcs:ignore
+        @file_put_contents($d . '/.htaccess', "Require all denied\nDeny from all\n"); // phpcs:ignore
+    }
+    return $d;
+}
+
+function sb_job_start($uid, $ctx, $cost, $research, $state) {
+    if (mb_strlen(trim($ctx['instruction'])) < 30) {
+        wp_send_json_error(array('message' => 'প্রম্পট বক্সে বিস্তারিত নির্দেশ লিখুন (কমপক্ষে ৩০ অক্ষর)।', 'balance' => $state));
+    }
+    $id = strtolower(wp_generate_password(16, false, false));
+    $files = array();
+    if (!empty($_FILES['files']) && is_array($_FILES['files']['name'])) { // phpcs:ignore WordPress.Security.NonceVerification
+        $f = $_FILES['files']; // phpcs:ignore WordPress.Security.NonceVerification
+        $ok = array('pdf', 'jpg', 'jpeg', 'png', 'webp');
+        foreach (array_slice(array_keys($f['name']), 0, 4) as $i) {
+            $name = sanitize_file_name($f['name'][$i]);
+            $ext = strtolower(pathinfo($name, PATHINFO_EXTENSION));
+            if ((int) $f['error'][$i] !== UPLOAD_ERR_OK || !is_uploaded_file($f['tmp_name'][$i])) {
+                $files[] = array('name' => $name, 'bad' => 'ফাইল আপলোড হয়নি (সম্ভবত বড়)');
+                continue;
+            }
+            if (!in_array($ext, $ok, true) || (int) $f['size'][$i] > 10 * 1024 * 1024) {
+                $files[] = array('name' => $name, 'bad' => 'ফাইল বাদ (শুধু PDF/JPG/PNG/WEBP, ১০ MB পর্যন্ত)');
+                continue;
+            }
+            $path = sb_job_dir() . '/' . $id . '-' . $i . '.' . $ext;
+            if (move_uploaded_file($f['tmp_name'][$i], $path)) {
+                $files[] = array('name' => $name, 'path' => $path, 'ext' => $ext);
+            }
+        }
+    }
+    $job = array(
+        'status' => 'queued', 'uid' => $uid, 'ctx' => $ctx, 'cost' => $cost, 'research' => $research ? 1 : 0,
+        'urls' => (string) sb_req('urls'), 'files' => $files, 'created' => time(), 'beat' => time(),
+    );
+    set_transient('sb_job_' . $id, $job, 6 * HOUR_IN_SECONDS);
+    wp_send_json_success(array('job' => $id));
+}
+
+/** The long request: runs the job. The browser may get a 504 for it; the job keeps going and the browser polls for the result. */
+add_action('wp_ajax_sb_job_run', function () {
+    sb_ajax_guard();
+    ignore_user_abort(true);
+    if (function_exists('set_time_limit')) {
+        @set_time_limit(420); // phpcs:ignore
+    }
+    $id = preg_replace('/[^a-z0-9]/', '', strtolower((string) sb_req('job')));
+    $job = get_transient('sb_job_' . $id);
+    if (!is_array($job) || (int) $job['uid'] !== get_current_user_id() || $job['status'] !== 'queued') {
+        wp_send_json_error(array('message' => 'কাজটি পাওয়া যায়নি বা আগেই শুরু হয়েছে।'));
+    }
+    $job['status'] = 'running';
+    $job['beat'] = time();
+    set_transient('sb_job_' . $id, $job, 6 * HOUR_IN_SECONDS);
+
+    $notes = array();
+    $ctx = $job['ctx'];
+    $ctx['web'] = sb_fetch_pages($job['urls'], $notes);
+    $ctx['parts'] = array();
+    $okx = array('pdf' => 'application/pdf', 'jpg' => 'image/jpeg', 'jpeg' => 'image/jpeg', 'png' => 'image/png', 'webp' => 'image/webp');
+    foreach ($job['files'] as $f) {
+        if (!empty($f['bad'])) {
+            $notes[] = $f['bad'] . ': ' . $f['name'];
+            continue;
+        }
+        $uri = 'data:' . $okx[$f['ext']] . ';base64,' . base64_encode((string) file_get_contents($f['path'])); // phpcs:ignore WordPress.WP.AlternativeFunctions
+        $ctx['parts'][] = $f['ext'] === 'pdf'
+            ? array('type' => 'file', 'file' => array('filename' => $f['name'], 'file_data' => $uri))
+            : array('type' => 'image_url', 'image_url' => array('url' => $uri));
+        @unlink($f['path']); // phpcs:ignore WordPress.WP.AlternativeFunctions
+    }
+    $out = sb_ai_execute((int) $job['uid'], 'custom', $ctx, (int) $job['cost'], (bool) $job['research'], $notes);
+    $job['status'] = !empty($out['ok']) ? 'done' : 'error';
+    $job['out'] = $out;
+    $job['beat'] = time();
+    set_transient('sb_job_' . $id, $job, 6 * HOUR_IN_SECONDS);
+    if (!empty($out['ok'])) {
+        wp_send_json_success($out['data']);
+    }
+    wp_send_json_error(array('message' => $out['message']));
+});
+
+add_action('wp_ajax_sb_job_status', function () {
+    sb_ajax_guard();
+    $id = preg_replace('/[^a-z0-9]/', '', strtolower((string) sb_req('job')));
+    $job = get_transient('sb_job_' . $id);
+    if (!is_array($job) || (int) $job['uid'] !== get_current_user_id()) {
+        wp_send_json_error(array('message' => 'কাজটি পাওয়া যায়নি (সময় পেরিয়ে গেছে)।'));
+    }
+    if ($job['status'] === 'done') {
+        delete_transient('sb_job_' . $id);
+        wp_send_json_success(array('state' => 'done', 'data' => $job['out']['data']));
+    }
+    if ($job['status'] === 'error') {
+        delete_transient('sb_job_' . $id);
+        wp_send_json_success(array('state' => 'error', 'message' => $job['out']['message'], 'balance' => SB_Credits::state((int) $job['uid'])));
+    }
+    if ($job['status'] === 'running' && time() - (int) $job['beat'] > 600) {
+        delete_transient('sb_job_' . $id);
+        wp_send_json_success(array('state' => 'error', 'message' => 'কাজটি শেষ হয়নি (সার্ভার সময় শেষ)। ক্রেডিট কাটা হয়নি। ছোট দৈর্ঘ্য বা কম ফাইল দিয়ে আবার চেষ্টা করুন।', 'balance' => SB_Credits::state((int) $job['uid'])));
+    }
+    wp_send_json_success(array('state' => $job['status']));
+});
 
 /* ---------- Save post (free: editing never costs credits) ---------- */
 add_action('wp_ajax_sb_save_post', 'sb_ajax_save_post');

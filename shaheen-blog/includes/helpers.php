@@ -64,16 +64,44 @@ function sb_save_settings(array $new) {
  * thinking tokens included for reasoning models. Prices per 1M tokens (input/output) as of Oct 2026.
  */
 function sb_model_catalog() {
+    // id => [price text, [est credits t1,t2,t3], note, [default charge t1,t2,t3]]
     return array(
-        'gpt-4o-mini'  => array('0.15 / 0.60', array(17, 21, 29), 'সবচেয়ে সস্তা; বাংলার মান মোটামুটি'),
-        'gpt-5.4-nano' => array('0.20 / 1.25', array(55, 73, 103), 'সস্তা, নতুন প্রজন্ম'),
-        'gpt-4.1-mini' => array('0.40 / 1.60', array(45, 56, 78), 'ভালো ও সস্তা'),
-        'gpt-5-mini'   => array('0.25 / 2.00', array(80, 110, 155), 'ভালো বাংলা, মাঝারি খরচ (প্রস্তাবিত আর্টিকেলে)'),
-        'gpt-5.4-mini' => array('0.75 / 4.50', array(190, 255, 360), 'আরও ভালো, দাম বেশি'),
-        'gpt-4.1'      => array('2.00 / 8.00', array(225, 280, 390), 'দামি'),
-        'gpt-4o'       => array('2.50 / 10.00', array(280, 340, 460), 'দামি'),
-        'gpt-5'        => array('1.25 / 10.00', array(410, 550, 750), 'সবচেয়ে দামি (চিন্তার টোকেনে)'),
+        'gpt-4o-mini'  => array('0.15 / 0.60', array(17, 21, 29), 'সবচেয়ে সস্তা; বাংলার মান মোটামুটি', array(120, 150, 180)),
+        'gpt-5.4-nano' => array('0.20 / 1.25', array(55, 73, 103), 'সস্তা, নতুন প্রজন্ম', array(120, 150, 180)),
+        'gpt-4.1-mini' => array('0.40 / 1.60', array(45, 56, 78), 'ভালো ও সস্তা', array(120, 150, 180)),
+        'gpt-5-mini'   => array('0.25 / 2.00', array(80, 110, 155), 'ভালো বাংলা, মাঝারি খরচ (প্রস্তাবিত)', array(130, 180, 250)),
+        'gpt-5.4-mini' => array('0.75 / 4.50', array(190, 255, 360), 'আরও ভালো, দাম বেশি', array(310, 410, 580)),
+        'gpt-4.1'      => array('2.00 / 8.00', array(225, 280, 390), 'দামি', array(360, 450, 630)),
+        'gpt-4o'       => array('2.50 / 10.00', array(280, 340, 460), 'দামি', array(450, 550, 740)),
+        'gpt-5'        => array('1.25 / 10.00', array(410, 550, 750), 'সবচেয়ে দামি (চিন্তার টোকেনে)', array(660, 880, 1200)),
     );
+}
+
+/** Charge (credits) per model for the three length tiers; owner-editable in Settings. */
+function sb_model_prices() {
+    $saved = sb_get('model_prices');
+    $saved = is_array($saved) ? $saved : array();
+    $out = array();
+    foreach (sb_model_catalog() as $id => $m) {
+        $row = isset($saved[$id]) && is_array($saved[$id]) ? array_values($saved[$id]) : array();
+        for ($i = 0; $i < 3; $i++) {
+            $row[$i] = isset($row[$i]) && (int) $row[$i] > 0 ? (int) $row[$i] : $m[3][$i];
+        }
+        $out[$id] = array_slice($row, 0, 3);
+    }
+    return $out;
+}
+
+/** Models an editor may pick for a prompt-article. */
+function sb_allowed_models() {
+    $ids = array_keys(sb_model_catalog());
+    foreach (array('model', 'model_article') as $k) {
+        $m = trim((string) sb_get($k));
+        if ($m !== '') {
+            $ids[] = $m;
+        }
+    }
+    return array_values(array_unique($ids));
 }
 
 /** Model chosen in the Settings select (or typed under "other"). */
@@ -89,10 +117,15 @@ function sb_model_for($feature) {
     return $m !== '' ? $m : sb_get('model');
 }
 
-/** Prompt-article price by length tier: 1 = 800-1000 words, 2 = 1000-1500, 3 = 1500+. */
-function sb_custom_cost($tier) {
+/** Prompt-article price: by length tier (1 = 800-1000 words, 2 = 1000-1500, 3 = 1500+) and chosen model. */
+function sb_custom_cost($tier, $model = '') {
+    $tier = max(1, min(3, (int) $tier));
+    $prices = sb_model_prices();
+    if ($model !== '' && isset($prices[$model])) {
+        return (int) $prices[$model][$tier - 1];
+    }
     $k = array(1 => 'cost_custom', 2 => 'cost_custom2', 3 => 'cost_custom3');
-    return max(0, (int) sb_get(isset($k[(int) $tier]) ? $k[(int) $tier] : 'cost_custom'));
+    return max(0, (int) sb_get($k[$tier]));
 }
 
 function sb_feature_cost($feature) {

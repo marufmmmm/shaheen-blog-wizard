@@ -559,7 +559,7 @@
   /* AI */
   function aiPayload(feature) {
     var extra = {};
-    if (feature === 'custom') { extra = { tier: val('#f-clen') || '1', urls: val('#f-curls'), files: [].slice.call(($('#f-cfiles') || {}).files || []) }; }
+    if (feature === 'custom') { extra = { tier: val('#f-clen') || '1', model: val('#f-cmodel'), urls: val('#f-curls'), files: [].slice.call(($('#f-cfiles') || {}).files || []) }; }
     var base = {
       feature: feature, post_id: postId, title: val('#f-title'), topic: val('#f-topic'), excerpt: val('#f-excerpt'),
       content: editorContent(), keywords: keywords(), length: val('#f-length'),
@@ -568,6 +568,39 @@
     };
     Object.keys(extra).forEach(function (k) { base[k] = extra[k]; });
     return base;
+  }
+  /* Prompt-article: price by model + length, shown in the length list */
+  function customPrice() {
+    var m = val('#f-cmodel'), t = (parseInt(val('#f-clen'), 10) || 1) - 1;
+    return (SB.modelPrices && SB.modelPrices[m]) ? SB.modelPrices[m][t] : SB.costs[['custom', 'custom2', 'custom3'][t]];
+  }
+  function refreshCustomPrices() {
+    var sel = $('#f-clen'), m = val('#f-cmodel'); if (!sel) { return; }
+    var names = ['৮০০–১০০০ শব্দ', '১০০০–১৫০০ শব্দ', '১৫০০+ শব্দ'];
+    [].forEach.call(sel.options, function (o, i) {
+      var p = (SB.modelPrices && SB.modelPrices[m]) ? SB.modelPrices[m][i] : SB.costs[['custom', 'custom2', 'custom3'][i]];
+      o.textContent = names[i] + ' — ' + fmt(p) + ' ক্রেডিট';
+    });
+  }
+  if ($('#f-cmodel')) { $('#f-cmodel').addEventListener('change', refreshCustomPrices); refreshCustomPrices(); }
+  /* Long job: start it, fire the worker request (the server may answer 504, the job keeps running), poll for the result */
+  function runCustom(btn) {
+    return post('sb_ai', aiPayload('custom')).then(function (d) {
+      var id = d.job, t0 = Date.now(), fails = 0;
+      post('sb_job_run', { job: id }).catch(function () { /* 504 / timeout: the job continues on the server */ });
+      return new Promise(function (resolve, reject) {
+        (function poll() {
+          setTimeout(function () {
+            if (btn) { btn.textContent = '⏳ লেখা হচ্ছে… ' + bn(Math.floor((Date.now() - t0) / 1000)) + ' সেকেন্ড (বড় লেখায় ১-৪ মিনিট লাগে, পেজ খোলা রাখুন)'; }
+            post('sb_job_status', { job: id }).then(function (s) {
+              if (s.state === 'done') { updateBalance(s.data.balance); resolve(s.data); }
+              else if (s.state === 'error') { reject(new Error(s.message)); }
+              else { poll(); }
+            }).catch(function (e) { if (++fails > 8) { reject(e); } else { poll(); } });
+          }, 3000);
+        })();
+      });
+    });
   }
   var onlyBtn = $('#inc-only');
   if (onlyBtn) {
@@ -605,13 +638,13 @@
       }
       var chain = [];
       if (f === 'article' || f === 'custom' || f === 'rewrite') { if ($('#inc-summary').checked) { chain.push('summary'); } if ($('#inc-faq').checked) { chain.push('faq'); } if ($('#inc-related').checked) { chain.push('related'); } }
-      var cost = (f === 'custom' ? SB.costs[['custom', 'custom', 'custom2', 'custom3'][parseInt(val('#f-clen'), 10) || 1]] : SB.costs[f]) + ((f === 'article' || f === 'custom') && $('#f-research') && $('#f-research').checked ? SB.costs.research : 0);
+      var cost = (f === 'custom' ? customPrice() : SB.costs[f]) + ((f === 'article' || f === 'custom') && $('#f-research') && $('#f-research').checked ? SB.costs.research : 0);
       chain.forEach(function (c) { cost += SB.costs[c]; });
       if (SB.balance.remaining < cost) { toast('ক্রেডিট যথেষ্ট নয়। প্রয়োজন ' + fmt(cost) + ', আছে ' + fmt(SB.balance.remaining) + '।', 'err'); return; }
       var old = btn.innerHTML; btn.disabled = true; btn.textContent = '⏳ তৈরি হচ্ছে… (আর্টিকেলে ১ মিনিট লাগতে পারে)';
       say(msg, '');
       var spent = 0;
-      post('sb_ai', aiPayload(f)).then(function (d) {
+      (f === 'custom' ? runCustom(btn) : post('sb_ai', aiPayload(f))).then(function (d) {
         spent += d.cost; applyAI(f, d.result);
         return chain.reduce(function (pr, c) {
           return pr.then(function () {

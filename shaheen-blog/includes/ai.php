@@ -234,7 +234,7 @@ class SB_AI {
                 return new WP_Error('sb_feature', 'অজানা ফিচার।');
         }
 
-        $model = sb_model_for($feature);
+        $model = (!empty($c['model']) && in_array($c['model'], sb_allowed_models(), true)) ? $c['model'] : sb_model_for($feature);
         $body = array(
             'model'    => $model,
             'messages' => array(
@@ -254,7 +254,7 @@ class SB_AI {
         }
 
         if (in_array($feature, array('article', 'custom'), true) && !empty($c['research'])) {
-            $r = self::research_article($user, $max, ($feature === 'custom' && !empty($c['parts'])) ? $c['parts'] : array());
+            $r = self::research_article($user, $max, ($feature === 'custom' && !empty($c['parts'])) ? $c['parts'] : array(), $model);
             if (!is_wp_error($r)) {
                 return $r;
             }
@@ -347,7 +347,7 @@ class SB_AI {
     }
 
     /** Article using OpenAI web search (Responses API). */
-    protected static function research_article($user, $max, $parts = array()) {
+    protected static function research_article($user, $max, $parts = array(), $model = '') {
         if ($parts) {
             $in = array(array('type' => 'input_text', 'text' => $user));
             foreach ($parts as $p) {
@@ -364,7 +364,7 @@ class SB_AI {
             'timeout' => 200,
             'headers' => array('Authorization' => 'Bearer ' . sb_get('api_key'), 'Content-Type' => 'application/json'),
             'body'    => wp_json_encode(array(
-                'model' => sb_model_for('article'),
+                'model' => $model !== '' ? $model : sb_model_for('article'),
                 'input' => array(
                     array('role' => 'system', 'content' => self::system_prompt()),
                     array('role' => 'user', 'content' => $user),

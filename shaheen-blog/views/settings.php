@@ -55,9 +55,22 @@ $render = function ($name, $cur, $blank) use ($cat) {
                 <textarea name="style_note" rows="3"><?php echo esc_textarea($s('style_note')); ?></textarea></label>
             <label>আর্টিকেলের জন্য আলাদা মডেল <small>(প্রম্পট থেকে লেখা, সংশোধন, রিরাইট)</small>
                 <?php $render('model_article', $s('model_article'), true); ?>
-                <small id="sb-model-warn" style="display:block;font-weight:600"></small>
-                <small>তালিকার ক্রেডিট সংখ্যা আনুমানিক খরচ: ৮০০–১০০০ / ১০০০–১৫০০ / ১৫০০+ শব্দের আর্টিকেলে (১ ক্রেডিট = ০.০০০২ ডলার; ইন্টারনেট যাচাইয়ের খরচ আলাদা)। আপনার চার্জের চেয়ে খরচ বেশি হলে নিচে লাল সতর্কতা দেখাবে। আসল খরচ OpenAI Usage পেজে মিলিয়ে নিন।</small>
+                <small>প্রতিটি মডেলের চার্জ নিচের তালিকায় ঠিক করুন। লেখার সময় পোস্ট এডিটরেও মডেল বাছা যাবে।</small>
             </label>
+            <h3 style="margin-top:18px">💰 মডেল অনুযায়ী আর্টিকেলের চার্জ <small>(ক্রেডিট; সব মডেলের জন্য নিজে ঠিক করুন)</small></h3>
+            <p class="sba-muted">১ ক্রেডিট = ০.০০০২ ডলার (২০,০০০ ক্রেডিট = ৪ ডলার)। "আনুমানিক খরচ" বাংলায় ১ শব্দ ≈ ৪ টোকেন ধরে হিসাব, ইনপুট ফাইলসহ। লাল ঘর মানে চার্জ খরচের চেয়ে কম, অর্থাৎ লোকসান। ইন্টারনেট যাচাইয়ের চার্জ আলাদা (নিচে "ইন্টারনেট রিসার্চের অতিরিক্ত ক্রেডিট")।</p>
+            <div style="overflow-x:auto"><table class="widefat striped" id="sb-mp" style="max-width:900px">
+                <thead><tr><th>মডেল</th><th>দাম (ইনপুট/আউটপুট $/১০ লাখ টোকেন)</th><th>৮০০–১০০০ শব্দ<br><small>আনুমানিক খরচ → চার্জ</small></th><th>১০০০–১৫০০ শব্দ<br><small>আনুমানিক খরচ → চার্জ</small></th><th>১৫০০+ শব্দ<br><small>আনুমানিক খরচ → চার্জ</small></th></tr></thead>
+                <tbody>
+                <?php $mprices = sb_model_prices(); foreach (sb_model_catalog() as $mid => $mm) : ?>
+                    <tr><td><strong><?php echo esc_html($mid); ?></strong><br><small><?php echo esc_html($mm[2]); ?></small></td>
+                        <td><?php echo esc_html($mm[0]); ?></td>
+                        <?php for ($i = 0; $i < 3; $i++) : ?>
+                        <td>~<?php echo esc_html(sb_bn_digits($mm[1][$i])); ?> → <input type="number" min="1" data-est="<?php echo (int) $mm[1][$i]; ?>" name="mp[<?php echo esc_attr($mid); ?>][]" value="<?php echo (int) $mprices[$mid][$i]; ?>" style="width:90px"></td>
+                        <?php endfor; ?>
+                    </tr>
+                <?php endforeach; ?>
+                </tbody></table></div>
         </div>
 
         <div class="sba-card">
@@ -112,21 +125,17 @@ $render = function ($name, $cur, $blank) use ($cat) {
     </form>
     <script>
     (function () {
-        var q = function (s) { return document.querySelector(s); };
         function sync() {
             document.querySelectorAll('.sb-model-sel').forEach(function (sel) {
-                var o = q('input[name="' + sel.dataset.for + '_other"]'); if (o) { o.style.display = sel.value === '__other' ? '' : 'none'; }
+                var o = document.querySelector('input[name="' + sel.dataset.for + '_other"]'); if (o) { o.style.display = sel.value === '__other' ? '' : 'none'; }
             });
-            var sel = q('select[name="model_article_sel"]'), base = q('select[name="model_sel"]'), w = q('#sb-model-warn');
-            var opt = (sel.value ? sel : base).selectedOptions[0];
-            if (!opt || !opt.dataset.est) { w.textContent = ''; return; }
-            var est = opt.dataset.est.split(',').map(Number), prices = ['cost_custom', 'cost_custom2', 'cost_custom3'].map(function (n) { return parseInt((q('input[name="' + n + '"]') || {}).value, 10) || 0; });
-            var bad = []; est.forEach(function (e, i) { if (e > prices[i]) { bad.push((i === 0 ? '৮০০–১০০০' : i === 1 ? '১০০০–১৫০০' : '১৫০০+') + ' শব্দ: খরচ ~' + e + ' > চার্জ ' + prices[i]); } });
-            w.style.color = bad.length ? '#b32d2e' : '#1a6b3e';
-            w.textContent = bad.length ? '⚠️ এই মডেলে লোকসান হবে — ' + bad.join('; ') + '। চার্জ বাড়ান বা সস্তা মডেল বাছুন।' : '✓ তিনটি দৈর্ঘ্যেই খরচ আপনার চার্জের ভেতরে।';
+            document.querySelectorAll('#sb-mp input[data-est]').forEach(function (i) {
+                var low = (parseInt(i.value, 10) || 0) < parseInt(i.dataset.est, 10);
+                i.style.background = low ? '#fde8e8' : ''; i.style.borderColor = low ? '#b32d2e' : '';
+                i.title = low ? 'চার্জ আনুমানিক খরচের চেয়ে কম — লোকসান' : '';
+            });
         }
-        document.addEventListener('change', sync); document.addEventListener('input', function (e) { if (/^cost_custom/.test(e.target.name || '')) { sync(); } });
-        sync();
+        document.addEventListener('change', sync); document.addEventListener('input', sync); sync();
     })();
     </script>
 

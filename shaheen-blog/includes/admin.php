@@ -67,6 +67,7 @@ function sb_admin_assets() {
         'nonce'   => wp_create_nonce('sb_admin'),
         'balance' => SB_Credits::state(get_current_user_id()),
         'costs'   => $costs,
+        'modelPrices' => sb_model_prices(),
         'labels'  => sb_feature_labels(),
         'cats'    => $cats,
         'page'    => $page,
@@ -152,6 +153,17 @@ function sb_handle_save_settings() {
         'site_urls'     => sanitize_textarea_field($in('site_urls')),
         'about'         => sanitize_textarea_field($in('about')),
     );
+    $mp = array();
+    $post_mp = isset($_POST['mp']) && is_array($_POST['mp']) ? wp_unslash($_POST['mp']) : array(); // phpcs:ignore WordPress.Security.NonceVerification
+    foreach (sb_model_catalog() as $mid => $mm) {
+        $row = isset($post_mp[$mid]) && is_array($post_mp[$mid]) ? array_values($post_mp[$mid]) : array();
+        $mp[$mid] = array();
+        for ($i = 0; $i < 3; $i++) {
+            $v = isset($row[$i]) ? (int) $row[$i] : 0;
+            $mp[$mid][$i] = $v > 0 ? $v : $mm[3][$i];
+        }
+    }
+    $new['model_prices'] = $mp;
     foreach (array('headlines', 'subtitle', 'meta', 'article', 'summary', 'rewrite', 'custom', 'custom2', 'custom3', 'edit', 'edit_many', 'phones', 'faq', 'related') as $f) {
         $new['cost_' . $f] = max(0, (int) $in('cost_' . $f, 0));
     }

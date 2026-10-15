@@ -240,6 +240,13 @@ $costs['research'] = max(0, (int) sb_get('cost_research'));
                     <input type="file" id="f-cfiles" multiple accept=".pdf,.jpg,.jpeg,.png,.webp,application/pdf,image/*"></label>
                 <label class="sba-research" style="display:block;margin-top:8px"><input type="checkbox" id="f-research" checked> 🌐 সঠিক ও সর্বশেষ খবরের জন্য AI ইন্টারনেটেও যাচাই করুক <em>(+<?php echo esc_html(sb_bn_digits($costs['research'])); ?> ক্রেডিট, শুধু সফল হলে)</em></label>
                 <div style="margin-top:10px;display:flex;gap:10px;align-items:center;flex-wrap:wrap">
+                    <?php $cur_m = trim((string) sb_get('model_article')) ?: sb_get('model'); ?>
+                    <select id="f-cmodel" title="কোন AI মডেলে লিখবে">
+                        <?php foreach (sb_model_catalog() as $mid => $mm) : ?>
+                            <option value="<?php echo esc_attr($mid); ?>" <?php selected($cur_m, $mid); ?>><?php echo esc_html($mid . ' — ' . $mm[2]); ?></option>
+                        <?php endforeach; ?>
+                        <?php if (!isset(sb_model_catalog()[$cur_m])) : ?><option value="<?php echo esc_attr($cur_m); ?>" selected><?php echo esc_html($cur_m); ?></option><?php endif; ?>
+                    </select>
                     <select id="f-clen" title="আর্টিকেলের দৈর্ঘ্য">
                         <option value="1">৮০০–১০০০ শব্দ (<?php echo esc_html(sb_bn_digits($costs['custom'])); ?> ক্রেডিট)</option>
                         <option value="2">১০০০–১৫০০ শব্দ (<?php echo esc_html(sb_bn_digits($costs['custom2'])); ?> ক্রেডিট)</option>
