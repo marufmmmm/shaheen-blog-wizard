@@ -84,17 +84,19 @@
     all.addEventListener('change', function () { $$('.rp-cb').forEach(function (c) { c.checked = all.checked; }); });
     run.addEventListener('click', function () {
       var ids = $$('.rp-cb').filter(function (c) { return c.checked; }).map(function (c) { return c.value; });
-      if (!ids.length) { m.textContent = 'আগে পোস্ট টিক দিন।'; return; }
+      var parts = $$('.rp-part').filter(function (c) { return c.checked; }).map(function (c) { return c.value; }).join(',');
+      if (!ids.length) { m.textContent = 'আগে নিচের তালিকা থেকে পোস্ট টিক দিন।'; return; }
+      if (!parts) { m.textContent = 'কী যোগ করবেন (FAQ / সামারি / স্মার্ট সম্পর্কিত) টিক দিন।'; return; }
       run.disabled = true; var done = 0, spent = 0, none = 0, skipped = 0, over = $('#rp-over').checked ? '1' : '0';
       (function next() {
         if (!ids.length) {
           run.disabled = false;
-          m.textContent = '✓ শেষ: ' + fmt(done) + 'টিতে হয়েছে, ' + fmt(none) + 'টিতে মেলেনি, ' + fmt(skipped) + 'টি বাদ। ক্রেডিট কেটেছে ' + fmt(spent) + '।';
+          m.textContent = '✓ শেষ: ' + fmt(done) + 'টি অংশ যোগ হয়েছে, ' + fmt(none) + 'টি মেলেনি, ' + fmt(skipped) + 'টি আগে থেকেই ছিল (বাদ)। ক্রেডিট কেটেছে ' + fmt(spent) + '।';
           setTimeout(function () { location.reload(); }, 2500); return;
         }
         var id = ids.shift(); m.textContent = '⏳ চলছে… বাকি ' + fmt(ids.length + 1) + 'টি';
-        post('sb_related_post', { id: id, overwrite: over }).then(function (d) {
-          if (d.skipped) { skipped++; } else if (d.none) { none++; } else { done++; spent += d.cost; }
+        post('sb_enrich_post', { id: id, parts: parts, overwrite: over }).then(function (d) {
+          done += d.done.length; skipped += d.skipped.length; none += d.none.length; spent += d.cost;
           next();
         }).catch(function (e) { run.disabled = false; m.textContent = '⚠️ ' + e.message + ' (এ পর্যন্ত ' + fmt(done) + 'টি হয়েছে)'; });
       })();
@@ -477,6 +479,26 @@
       source: val('#f-source'), faq_count: val('#f-faqn') || '5',
       research: ($('#f-research') && $('#f-research').checked) ? '1' : '0'
     };
+  }
+  var onlyBtn = $('#inc-only');
+  if (onlyBtn) {
+    onlyBtn.addEventListener('click', function () {
+      var list = [];
+      if ($('#inc-summary').checked) { list.push('summary'); } if ($('#inc-faq').checked) { list.push('faq'); } if ($('#inc-related').checked) { list.push('related'); }
+      if (!list.length) { toast('আগে ওপরে টিক দিন কী কী বানাবেন।', 'err'); return; }
+      if (editorContent().replace(/<[^>]+>/g, '').trim().length < 80) { toast('আগে আর্টিকেল থাকতে হবে।', 'err'); return; }
+      var cost = list.reduce(function (a, c) { return a + SB.costs[c]; }, 0);
+      if (SB.balance.remaining < cost) { toast('ক্রেডিট যথেষ্ট নয়। প্রয়োজন ' + fmt(cost) + '।', 'err'); return; }
+      var old = onlyBtn.innerHTML; onlyBtn.disabled = true; var spent = 0;
+      list.reduce(function (pr, c) {
+        return pr.then(function () {
+          onlyBtn.textContent = '⏳ তৈরি হচ্ছে…';
+          return post('sb_ai', aiPayload(c)).then(function (d) { spent += d.cost; applyAI(c, d.result); });
+        });
+      }, Promise.resolve()).then(function () { toast('✓ হয়েছে (আর্টিকেল অপরিবর্তিত)। ' + fmt(spent) + ' ক্রেডিট কেটেছে। এখন সেভ করুন।', 'ok'); })
+        .catch(function (e) { toast(e.message, 'err'); })
+        .then(function () { onlyBtn.disabled = false; onlyBtn.innerHTML = old; });
+    });
   }
   $$('[data-ai]').forEach(function (btn) {
     btn.addEventListener('click', function () {

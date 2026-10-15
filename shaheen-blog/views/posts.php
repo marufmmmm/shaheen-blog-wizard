@@ -40,12 +40,16 @@ $base = admin_url('admin.php?page=sb-posts');
         <button class="button">ফিল্টার</button>
     </form>
 
-    <p class="sba-rp">
-        <button type="button" class="button" id="rp-run">🤖 নির্বাচিত পোস্টে স্মার্ট সম্পর্কিত বানান (প্রতিটি <?php echo esc_html(sb_bn_digits(sb_feature_cost('related'))); ?> ক্রেডিট)</button>
-        <label class="sba-inline-check"><input type="checkbox" id="rp-over"> যেগুলোতে আগে থেকে তালিকা আছে সেগুলোও বদলে দিন</label>
-        <span id="rp-msg" class="sba-msg"></span><br>
-        <small class="sba-muted">আগের পোস্টগুলোর জন্য: টিক দিয়ে বাটন চাপুন। AI সাইটের পোস্ট ও পেজ থেকে মিলগুলো বেছে পাশে বসাবে। কিছু না মিললে ক্রেডিট কাটে না।</small>
-    </p>
+    <div class="sba-rp sba-card">
+        <strong>পুরনো পোস্টে নতুন অংশ যোগ করুন</strong> <small class="sba-muted">— আর্টিকেল একদম বদলাবে না, শুধু টিক দেওয়া অংশ AI আগের আর্টিকেল থেকে বানাবে।</small><br>
+        <label class="sba-inline-check"><input type="checkbox" class="rp-part" value="faq"> FAQ (<?php echo esc_html(sb_bn_digits(sb_feature_cost('faq'))); ?>)</label>
+        <label class="sba-inline-check"><input type="checkbox" class="rp-part" value="summary"> সামারি (<?php echo esc_html(sb_bn_digits(sb_feature_cost('summary'))); ?>)</label>
+        <label class="sba-inline-check"><input type="checkbox" class="rp-part" value="related"> স্মার্ট সম্পর্কিত (<?php echo esc_html(sb_bn_digits(sb_feature_cost('related'))); ?>)</label>
+        <span class="sba-muted">ক্রেডিট প্রতিটি পোস্টে।</span><br>
+        <button type="button" class="button button-primary" id="rp-run">🤖 টিক দেওয়া পোস্টে যোগ করুন</button>
+        <label class="sba-inline-check"><input type="checkbox" id="rp-over"> আগে থেকে থাকলেও নতুন করে বানিয়ে বদলে দিন</label>
+        <span id="rp-msg" class="sba-msg"></span>
+    </div>
     <table class="widefat striped sba-table">
         <thead><tr><td class="check-column"><input type="checkbox" id="rp-all"></td><th>শিরোনাম</th><th>ক্যাটাগরি</th><th>অবস্থা</th><th>তারিখ</th><th>দেখা</th><th>স্মার্ট সম্পর্কিত</th><th></th></tr></thead>
         <tbody>

@@ -373,43 +373,65 @@ function sb_ajax_save_press() {
 }
 
 
-/* ---------- Smart related for an already saved post ---------- */
-add_action('wp_ajax_sb_related_post', 'sb_ajax_related_post');
-function sb_ajax_related_post() {
+/* ---------- Add summary / FAQ / smart related to an already saved post (article is never touched) ---------- */
+add_action('wp_ajax_sb_enrich_post', 'sb_ajax_enrich_post');
+function sb_ajax_enrich_post() {
     sb_ajax_guard();
     $id = (int) sb_req('id', 0);
     if (get_post_type($id) !== 'sb_post' || !current_user_can('edit_post', $id) || sb_is_press($id)) {
         wp_send_json_error(array('message' => 'এই পোস্টে করা যাবে না।'));
     }
-    $has = array_filter((array) get_post_meta($id, '_sb_related', true));
-    if ($has && sb_req('overwrite') !== '1') {
-        wp_send_json_success(array('skipped' => true));
-    }
+    $parts = array_values(array_intersect(array('summary', 'faq', 'related'), array_map('trim', explode(',', (string) sb_req('parts')))));
+    $over = sb_req('overwrite') === '1';
     $uid = get_current_user_id();
-    $cost = sb_feature_cost('related');
-    $state = SB_Credits::state($uid);
-    if ($state['remaining'] < $cost) {
-        wp_send_json_error(array('message' => 'ক্রেডিট যথেষ্ট নয়। প্রয়োজন ' . sb_bn_digits($cost) . ', আছে ' . sb_bn_digits($state['remaining']) . '।', 'balance' => $state));
-    }
     $kw = get_post_meta($id, '_sb_keywords', true);
-    $res = SB_AI::generate('related', array(
-        'title' => get_the_title($id), 'keywords' => is_array($kw) ? $kw : array(), 'post_id' => $id,
-        'content' => get_post_field('post_content', $id), 'excerpt' => get_post_field('post_excerpt', $id),
-    ));
-    if (is_wp_error($res)) {
-        wp_send_json_error(array('message' => $res->get_error_message(), 'balance' => $state));
+    $ctx = array('title' => get_the_title($id), 'keywords' => is_array($kw) ? $kw : array(), 'post_id' => $id,
+        'content' => get_post_field('post_content', $id), 'excerpt' => get_post_field('post_excerpt', $id), 'faq_count' => 5);
+    $out = array('done' => array(), 'skipped' => array(), 'none' => array(), 'cost' => 0);
+    foreach ($parts as $part) {
+        $have = $part === 'summary' ? get_post_meta($id, '_sb_summary', true) !== ''
+            : ($part === 'faq' ? !empty(get_post_meta($id, '_sb_faq', true)) : !empty(array_filter((array) get_post_meta($id, '_sb_related', true))));
+        if ($have && !$over) {
+            $out['skipped'][] = $part;
+            continue;
+        }
+        if ($part !== 'related' && mb_strlen(wp_strip_all_tags($ctx['content'])) < 80) {
+            $out['none'][] = $part;   // post has no real article to work from
+            continue;
+        }
+        $cost = sb_feature_cost($part);
+        $state = SB_Credits::state($uid);
+        if ($state['remaining'] < $cost) {
+            wp_send_json_error(array('message' => 'ক্রেডিট যথেষ্ট নয়। প্রয়োজন ' . sb_bn_digits($cost) . ', আছে ' . sb_bn_digits($state['remaining']) . '।', 'partial' => $out));
+        }
+        $res = SB_AI::generate($part, $ctx);
+        if (is_wp_error($res)) {
+            wp_send_json_error(array('message' => $res->get_error_message(), 'partial' => $out));
+        }
+        if ($part === 'summary') {
+            update_post_meta($id, '_sb_summary', sanitize_textarea_field($res['text']));
+            update_post_meta($id, '_sb_inc_summary', '1');
+        } elseif ($part === 'faq') {
+            update_post_meta($id, '_sb_faq', $res['faq']);
+            update_post_meta($id, '_sb_inc_faq', '1');
+        } else {
+            if (empty($res['items'])) {
+                $out['none'][] = $part;   // nothing relevant: not charged
+                continue;
+            }
+            $ids = array();
+            $why = array();
+            foreach ($res['items'] as $it) {
+                $ids[] = (int) $it['id'];
+                $why[(int) $it['id']] = $it['why'];
+            }
+            update_post_meta($id, '_sb_related', $ids);
+            update_post_meta($id, '_sb_related_why', $why);
+        }
+        SB_Credits::charge($uid, $part, $cost, $id);
+        $out['done'][] = $part;
+        $out['cost'] += $cost;
     }
-    if (empty($res['items'])) {
-        wp_send_json_success(array('none' => true));   // nothing relevant: not charged
-    }
-    $ids = array();
-    $why = array();
-    foreach ($res['items'] as $it) {
-        $ids[] = (int) $it['id'];
-        $why[(int) $it['id']] = $it['why'];
-    }
-    update_post_meta($id, '_sb_related', $ids);
-    update_post_meta($id, '_sb_related_why', $why);
-    $new = SB_Credits::charge($uid, 'related', $cost, $id);
-    wp_send_json_success(array('count' => count($ids), 'cost' => $cost, 'balance' => is_wp_error($new) ? $state : $new));
+    $out['balance'] = SB_Credits::state($uid);
+    wp_send_json_success($out);
 }
