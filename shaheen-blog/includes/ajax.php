@@ -60,6 +60,7 @@ function sb_ajax_ai() {
         'research' => $research,
         'source'   => sanitize_textarea_field(sb_req('source')),
         'instruction' => sanitize_textarea_field(sb_req('instruction')),
+        'faq_count' => (int) sb_req('faq_count', 5),
     );
     $result = SB_AI::generate($feature, $ctx);
     if (is_wp_error($result)) {
@@ -144,6 +145,8 @@ function sb_ajax_save_post() {
     update_post_meta($id, '_sb_subtitle', sanitize_text_field(sb_req('subtitle')));
     update_post_meta($id, '_sb_meta_desc', sanitize_textarea_field(sb_req('meta_desc')));
     update_post_meta($id, '_sb_summary', sanitize_textarea_field(sb_req('summary')));
+    update_post_meta($id, '_sb_inc_summary', sb_req('inc_summary') === '1' ? '1' : '0');
+    update_post_meta($id, '_sb_inc_faq', sb_req('inc_faq') === '1' ? '1' : '0');
     update_post_meta($id, '_sb_author_name', sanitize_text_field(sb_req('author_name')));
     update_post_meta($id, '_sb_keywords', sb_req_list('keywords', 10));
     update_post_meta($id, '_sb_topic', sanitize_text_field(sb_req('topic')));

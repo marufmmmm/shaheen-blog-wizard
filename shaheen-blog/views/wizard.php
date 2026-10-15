@@ -28,6 +28,8 @@ $d = array(
     'no_social'   => $post ? (int) get_post_meta($pid, '_sb_no_social', true) : 0,
     'no_global'   => $post ? (int) get_post_meta($pid, '_sb_no_global', true) : 0,
     'related'     => $post ? array_map(function ($rid) { return array('id' => (int) $rid, 'title' => get_the_title($rid)); }, array_filter((array) get_post_meta($pid, '_sb_related', true))) : array(),
+    'inc_summary' => $post ? ((($v = get_post_meta($pid, '_sb_inc_summary', true)) === '1') || ($v === '' && get_post_meta($pid, '_sb_summary', true) !== '')) : false,
+    'inc_faq'     => $post ? ((($v = get_post_meta($pid, '_sb_inc_faq', true)) === '1') || ($v === '' && !empty(get_post_meta($pid, '_sb_faq', true)))) : false,
     'faq'         => $post ? (array) get_post_meta($pid, '_sb_faq', true) : array(),
     'category'    => (!empty($cat_terms) && !is_wp_error($cat_terms)) ? (int) $cat_terms[0]->term_id : 0,
     'image_id'    => $post ? (int) get_post_thumbnail_id($pid) : 0,
@@ -180,6 +182,15 @@ $costs['research'] = max(0, (int) sb_get('cost_research'));
                     <button type="button" class="button" data-ai="rewrite">🤖 নতুন করে লিখুন <em>(<?php echo esc_html(sb_bn_digits($costs['rewrite'])); ?>)</em></button></div>
                 <textarea id="f-source" rows="6" placeholder="অন্য উৎস থেকে কপি করা লেখা এখানে পেস্ট করুন। AI এটি বুঝে নিজের ভাষায়, প্রচলিত বাংলায় নতুন করে লিখে নিচের আর্টিকেল বক্সে বসাবে।"></textarea>
                 <small class="sba-muted">অন্যের লেখার তথ্য নতুন ভাষায় লেখা হয়, তবে অন্যের লেখা হুবহু বা সামান্য বদলে ছাপলে কপিরাইট ও গুগলের স্প্যাম নীতির ঝুঁকি থাকে। প্রকাশের আগে তথ্য যাচাই করুন, দরকারে সূত্র উল্লেখ করুন।</small>
+            </div>
+
+            <div class="sba-ai sba-include">
+                <div class="sba-ai-head"><h3>📌 পোস্টের সাথে কী কী থাকবে?</h3></div>
+                <label class="sba-inline-check"><input type="checkbox" id="inc-summary" <?php checked($d['inc_summary']); ?>> সামারি <em>(আর্টিকেলের ওপরে "সংক্ষেপে" বক্স — AI হলে +<?php echo esc_html(sb_bn_digits($costs['summary'])); ?> ক্রেডিট)</em></label><br>
+                <label class="sba-inline-check"><input type="checkbox" id="inc-faq" <?php checked($d['inc_faq']); ?>> FAQ <em>(আর্টিকেলের নিচে প্রশ্ন-উত্তর — AI হলে +<?php echo esc_html(sb_bn_digits($costs['faq'])); ?> ক্রেডিট)</em></label>
+                <select id="f-faqn" title="FAQ কয়টি"><option value="3">৩</option><option value="5" selected>৫</option><option value="7">৭</option></select> টি
+                <p class="sba-muted">টিক দিয়ে নিচের "সম্পূর্ণ আর্টিকেল" তৈরি করলে AI আর্টিকেল থেকে টিক দেওয়াগুলো নিজে বানিয়ে দেবে। হাতে লিখতে চাইলে নিচের সামারি ঘরে ও ধাপ ৩-এর FAQ অংশে লিখুন। <strong>টিক না দিলে সামারি/FAQ বানানো হবে না, পোস্টেও দেখাবে না।</strong>
+                <button type="button" class="button" data-ai="faq">🤖 শুধু FAQ তৈরি করুন (<?php echo esc_html(sb_bn_digits($costs['faq'])); ?>)</button></p>
             </div>
 
             <div class="sba-ai">

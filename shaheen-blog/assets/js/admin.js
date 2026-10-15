@@ -450,7 +450,7 @@
     return {
       feature: feature, post_id: postId, title: val('#f-title'), topic: val('#f-topic'), excerpt: val('#f-excerpt'),
       content: editorContent(), keywords: keywords(), length: val('#f-length'),
-      source: val('#f-source'),
+      source: val('#f-source'), faq_count: val('#f-faqn') || '5',
       research: ($('#f-research') && $('#f-research').checked) ? '1' : '0'
     };
   }
@@ -463,16 +463,27 @@
         toast('আগে ধাপ ২-এ কমা দিয়ে কমপক্ষে ২টি কীওয়ার্ড লিখুন।', 'err'); say(msg, 'কীওয়ার্ড দিন (ধাপ ২)।', 'err'); return;
       }
       if (f !== 'headlines' && f !== 'rewrite' && !val('#f-title').trim()) { toast('আগে ধাপ ১-এ শিরোনাম লিখুন।', 'err'); return; }
-      if (f === 'summary' && editorContent().replace(/<[^>]+>/g, '').trim().length < 80) {
-        toast('সামারি মূল পোস্ট থেকে তৈরি হয়। আগে আর্টিকেল লিখুন বা তৈরি করুন।', 'err'); return;
+      if ((f === 'summary' || f === 'faq') && editorContent().replace(/<[^>]+>/g, '').trim().length < 80) {
+        toast('সামারি/FAQ মূল পোস্ট থেকে তৈরি হয়। আগে আর্টিকেল লিখুন বা তৈরি করুন।', 'err'); return;
       }
+      var chain = [];
+      if (f === 'article' || f === 'rewrite') { if ($('#inc-summary').checked) { chain.push('summary'); } if ($('#inc-faq').checked) { chain.push('faq'); } }
       var cost = SB.costs[f] + (f === 'article' && $('#f-research') && $('#f-research').checked ? SB.costs.research : 0);
+      chain.forEach(function (c) { cost += SB.costs[c]; });
       if (SB.balance.remaining < cost) { toast('ক্রেডিট যথেষ্ট নয়। প্রয়োজন ' + fmt(cost) + ', আছে ' + fmt(SB.balance.remaining) + '।', 'err'); return; }
       var old = btn.innerHTML; btn.disabled = true; btn.textContent = '⏳ তৈরি হচ্ছে… (আর্টিকেলে ১ মিনিট লাগতে পারে)';
       say(msg, '');
+      var spent = 0;
       post('sb_ai', aiPayload(f)).then(function (d) {
-        applyAI(f, d.result);
-        say(msg, '✓ হয়েছে। ' + fmt(d.cost) + ' ক্রেডিট কেটেছে।', 'ok'); toast('✓ হয়েছে। ' + fmt(d.cost) + ' ক্রেডিট কেটেছে।', 'ok');
+        spent += d.cost; applyAI(f, d.result);
+        return chain.reduce(function (pr, c) {
+          return pr.then(function () {
+            btn.textContent = '⏳ ' + (c === 'summary' ? 'সামারি' : 'FAQ') + ' তৈরি হচ্ছে…';
+            return post('sb_ai', aiPayload(c)).then(function (d2) { spent += d2.cost; applyAI(c, d2.result); });
+          });
+        }, Promise.resolve());
+      }).then(function () {
+        say(msg, '✓ হয়েছে। মোট ' + fmt(spent) + ' ক্রেডিট কেটেছে।', 'ok'); toast('✓ হয়েছে। মোট ' + fmt(spent) + ' ক্রেডিট কেটেছে।', 'ok');
       }).catch(function (e) { say(msg, e.message, 'err'); toast(e.message, 'err'); })
         .then(function () { btn.disabled = false; btn.innerHTML = old; });
     });
@@ -511,7 +522,10 @@
         toast('আর্টিকেলে ' + bn(r.missing.length) + 'টি জায়গায় আপনার তথ্য দরকার ([তথ্য দরকার: …] খুঁজুন)।', 'err');
       } else { mb.hidden = true; }
     }
-    else if (f === 'summary') { $('#f-summary').value = r.text; if (!val('#f-excerpt')) { $('#f-excerpt').value = r.text; } }
+    else if (f === 'faq') {
+      faqList.innerHTML = ''; r.faq.forEach(function (x) { addFaq(x.q, x.a); }); $('#inc-faq').checked = true;
+    }
+    else if (f === 'summary') { $('#inc-summary').checked = true; $('#f-summary').value = r.text; if (!val('#f-excerpt')) { $('#f-excerpt').value = r.text; } }
   }
 
   /* review */
@@ -521,6 +535,8 @@
     var plain = editorContent().replace(/<[^>]+>/g, ' ').trim();
     [['শিরোনাম', val('#f-title')], ['সাবটাইটেল', val('#f-subtitle') || '—'], ['কীওয়ার্ড', keywords().join(', ') || '—'],
      ['ক্যাটাগরি', catText], ['তারিখ', val('#f-date')], ['আর্টিকেল', plain ? bn(plain.split(/\s+/).length) + ' শব্দ' : 'খালি'],
+     ['সামারি', $('#inc-summary').checked ? (val('#f-summary').trim() ? 'থাকবে' : '⚠️ টিক আছে কিন্তু লেখা নেই') : 'থাকবে না'],
+     ['FAQ', $('#inc-faq').checked ? (faqData().length ? bn(faqData().length) + 'টি থাকবে' : '⚠️ টিক আছে কিন্তু লেখা নেই') : 'থাকবে না'],
      ['ছবি', imgId ? 'আছে' : 'নেই']].forEach(function (p) {
       var dt = document.createElement('dt'), dd = document.createElement('dd');
       dt.textContent = p[0]; dd.textContent = p[1]; dl.appendChild(dt); dl.appendChild(dd);
@@ -537,7 +553,7 @@
       id: postId, title: val('#f-title'), slug: val('#f-slug'), excerpt: val('#f-excerpt'), content: editorContent(),
       subtitle: val('#f-subtitle'), meta_desc: val('#f-meta'), summary: val('#f-summary'), author_name: val('#f-author'),
       date: val('#f-date'), topic: val('#f-topic'), keywords: keywords(), category: val('#f-category'),
-      image_id: imgId, faq: faqData(), related: rel.map(function (r) { return r.id; }), blocks: pEd.get(), block_ids: picked, no_global: $('#no-global').checked ? '1' : '0', no_social: $('#no-social').checked ? '1' : '0', status: st ? st.value : 'draft'
+      image_id: imgId, faq: faqData(), inc_summary: $('#inc-summary').checked ? '1' : '0', inc_faq: $('#inc-faq').checked ? '1' : '0', related: rel.map(function (r) { return r.id; }), blocks: pEd.get(), block_ids: picked, no_global: $('#no-global').checked ? '1' : '0', no_social: $('#no-social').checked ? '1' : '0', status: st ? st.value : 'draft'
     }).then(function (d) {
       postId = d.id;
       var box = $('#save-result');

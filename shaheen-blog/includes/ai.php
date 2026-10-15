@@ -101,6 +101,19 @@ class SB_AI {
                 $max = 500;
                 break;
 
+            case 'faq':
+                $body = isset($c['content']) ? wp_strip_all_tags($c['content']) : '';
+                if (mb_strlen($body) < 80) {
+                    return new WP_Error('sb_short', 'FAQ বানাতে আগে আর্টিকেলের লেখা দিন বা তৈরি করুন।');
+                }
+                $n = isset($c['faq_count']) ? max(3, min(8, (int) $c['faq_count'])) : 5;
+                $user = "নিচের আর্টিকেল পড়ে পাঠক যে {$n}টি প্রশ্ন সবচেয়ে বেশি করতে পারে তা প্রশ্ন-উত্তর (FAQ) আকারে লেখো।\n"
+                    . "নিয়ম: উত্তর শুধু আর্টিকেলে থাকা তথ্য থেকে দেবে, নতুন তথ্য বা সংখ্যা যোগ করবে না। প্রশ্ন ছোট ও সহজ, উত্তর ১-৩ বাক্যে।\n"
+                    . "শুধু JSON দাও: {\"faq\":[{\"q\":\"...\",\"a\":\"...\"}]}\n\nশিরোনাম: {$title}\n\n" . mb_substr($body, 0, 6000);
+                $json = true;
+                $max = 900;
+                break;
+
             case 'rewrite':
                 $src = isset($c['source']) ? trim($c['source']) : '';
                 if (mb_strlen($src) < 200) {
@@ -232,6 +245,23 @@ class SB_AI {
 
         if ($feature === 'headlines') {
             return self::parse_headlines($text, $keywords);
+        }
+        if ($feature === 'faq') {
+            $j = json_decode($text, true);
+            $out = array();
+            if (is_array($j) && !empty($j['faq']) && is_array($j['faq'])) {
+                foreach (array_slice($j['faq'], 0, 8) as $row) {
+                    $q = sanitize_text_field(isset($row['q']) ? $row['q'] : '');
+                    $a = sanitize_textarea_field(isset($row['a']) ? $row['a'] : '');
+                    if ($q !== '' && $a !== '') {
+                        $out[] = array('q' => $q, 'a' => $a);
+                    }
+                }
+            }
+            if (!$out) {
+                return new WP_Error('sb_json', 'AI-এর উত্তর পড়া যায়নি। আবার চেষ্টা করুন।');
+            }
+            return array('faq' => $out);
         }
         if ($feature === 'rewrite_post') {
             $j = json_decode($text, true);

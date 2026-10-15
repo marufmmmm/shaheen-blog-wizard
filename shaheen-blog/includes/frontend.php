@@ -215,6 +215,9 @@ function sb_single_content($content) {
     $sub  = get_post_meta($id, '_sb_subtitle', true);
     $sum  = get_post_meta($id, '_sb_summary', true);
     $faq  = get_post_meta($id, '_sb_faq', true);
+    // Shown only if the author ticked it (posts saved before this option: shown when filled).
+    if (get_post_meta($id, '_sb_inc_summary', true) === '0') { $sum = ''; }
+    if (get_post_meta($id, '_sb_inc_faq', true) === '0') { $faq = array(); }
     $img  = sb_post_image($id, 'full');
     $views = sb_init_views($id);
     $url  = get_permalink($id);
