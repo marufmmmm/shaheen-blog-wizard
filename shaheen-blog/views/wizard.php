@@ -107,9 +107,7 @@ $costs['research'] = max(0, (int) sb_get('cost_research'));
                 <input type="text" id="f-kw" value="<?php echo esc_attr(implode(', ', array_filter($d['keywords']))); ?>" placeholder="যেমন: ক্যাডেট কলেজ, ভর্তি প্রস্তুতি, মডেল টেস্ট">
             </label>
             <div id="kw-chips" class="sba-chips"></div>
-            <label>বিষয়/প্রসঙ্গ <small>(ঐচ্ছিক, AI-কে দিকনির্দেশনা)</small>
-                <input type="text" id="f-topic" value="<?php echo esc_attr($d['topic']); ?>" placeholder="যেমন: ষষ্ঠ শ্রেণির অভিভাবকদের জন্য">
-            </label>
+            <input type="hidden" id="f-topic" value="<?php echo esc_attr($d['topic']); ?>">
         </section>
 
         <!-- Step 3 -->
