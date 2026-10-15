@@ -584,8 +584,62 @@
   }
   if ($('#f-cmodel')) { $('#f-cmodel').addEventListener('change', refreshCustomPrices); refreshCustomPrices(); }
   /* Long job: start it, fire the worker request (the server may answer 504, the job keeps running), poll for the result */
+  /* Page images from a PDF, drawn in the browser (PDF.js), so old-font PDFs are read by sight */
+  function loadPdfJs() {
+    if (window.pdfjsLib) { return Promise.resolve(); }
+    return new Promise(function (res, rej) {
+      var s = document.createElement('script'); s.src = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js';
+      s.onload = function () { window.pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js'; res(); };
+      s.onerror = function () { rej(new Error('PDF পাতা ছবি করার টুল লোড হয়নি।')); }; document.head.appendChild(s);
+    });
+  }
+  function pdfToImages(file, btn) {
+    return loadPdfJs().then(function () { return file.arrayBuffer(); }).then(function (buf) {
+      return pdfjsLib.getDocument({ data: buf }).promise;
+    }).then(function (pdf) {
+      var n = Math.min(pdf.numPages, 12), out = [], base = file.name.replace(/\.pdf$/i, '');
+      return (function next(i) {
+        if (i > n) { return out; }
+        if (btn) { btn.textContent = '⏳ PDF-এর পাতা ছবি হচ্ছে… ' + bn(i) + '/' + bn(n); }
+        return pdf.getPage(i).then(function (pg) {
+          var v1 = pg.getViewport({ scale: 1 }), sc = Math.min(2, 1500 / v1.width), vp = pg.getViewport({ scale: sc });
+          var cv = document.createElement('canvas'); cv.width = vp.width; cv.height = vp.height;
+          return pg.render({ canvasContext: cv.getContext('2d'), viewport: vp }).promise.then(function () {
+            return new Promise(function (r) { cv.toBlob(function (b) { out.push(new File([b], base + '-p' + i + '.jpg', { type: 'image/jpeg' })); r(); }, 'image/jpeg', 0.82); });
+          });
+        }).then(function () { return next(i + 1); });
+      })(1);
+    });
+  }
+  function prepareCustomFiles(btn) {
+    var all = [].slice.call(($('#f-cfiles') || {}).files || []), asImg = $('#f-cimg') && $('#f-cimg').checked, keep = $('#f-ckeep') && $('#f-ckeep').checked;
+    var send = [], pdfs = all.filter(function (f) { return /\.pdf$/i.test(f.name); }), chain = Promise.resolve();
+    all.forEach(function (f) {
+      if (/\.pdf$/i.test(f.name) && asImg) { chain = chain.then(function () { return pdfToImages(f, btn); }).then(function (imgs) { send = send.concat(imgs); }, function () { send.push(f); toast('PDF-কে ছবি করা যায়নি, মূল PDF-ই পাঠানো হচ্ছে।', 'err'); }); }
+      else { send.push(f); }
+    });
+    return chain.then(function () { return { files: send, keep_pdf: keep ? pdfs : [] }; });
+  }
+  function addPdfRows(list) {
+    var have = function (kind) { return [].map.call(document.querySelectorAll('#ex-' + kind + ' .x-url'), function (i) { return i.value; }); };
+    (list || []).forEach(function (p) {
+      if (have('dls').indexOf(p.url) < 0) {
+        $('#ex-dls-add').click(); var d = [].slice.call(document.querySelectorAll('#ex-dls .sba-exrow')).pop();
+        d.querySelector('.x-label').value = 'PDF ডাউনলোড করুন — ' + p.name; d.querySelector('.x-url').value = p.url;
+      }
+      if (have('pdfs').indexOf(p.url) < 0) {
+        $('#ex-pdfs-add').click(); var r = [].slice.call(document.querySelectorAll('#ex-pdfs .sba-exrow')).pop();
+        r.querySelector('.x-label').value = p.name; r.querySelector('.x-url').value = p.url;
+      }
+    });
+  }
   function runCustom(btn) {
-    return post('sb_ai', aiPayload('custom')).then(function (d) {
+    return prepareCustomFiles(btn).then(function (pf) {
+      var pl = aiPayload('custom'); pl.files = pf.files; pl.keep_pdf = pf.keep_pdf;
+      if (btn) { btn.textContent = '⏳ ফাইল পাঠানো হচ্ছে…'; }
+      return post('sb_ai', pl);
+    }).then(function (d) {
+      if (d.pdfs && d.pdfs.length) { addPdfRows(d.pdfs); toast('✓ PDF মিডিয়ায় রাখা হয়েছে; ধাপ ৩-এর ডাউনলোড বাটন ও পড়ার ঘরে যোগ হয়েছে।', 'ok'); }
       var id = d.job, t0 = Date.now(), fails = 0;
       return post('sb_job_run', { job: id }).then(function () { return new Promise(function (resolve, reject) {
         (function poll() {

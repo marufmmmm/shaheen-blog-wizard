@@ -247,6 +247,29 @@ function sb_job_dir() {
     return $d;
 }
 
+/** PDFs the owner wants on the post (download button + reader): saved into the Media Library. */
+function sb_keep_pdfs() {
+    $out = array();
+    if (empty($_FILES['keep_pdf']) || !is_array($_FILES['keep_pdf']['name']) || !current_user_can('upload_files')) { // phpcs:ignore WordPress.Security.NonceVerification
+        return $out;
+    }
+    require_once ABSPATH . 'wp-admin/includes/file.php';
+    require_once ABSPATH . 'wp-admin/includes/media.php';
+    require_once ABSPATH . 'wp-admin/includes/image.php';
+    $k = $_FILES['keep_pdf']; // phpcs:ignore WordPress.Security.NonceVerification
+    foreach (array_slice(array_keys($k['name']), 0, 3) as $i) {
+        if ((int) $k['error'][$i] !== UPLOAD_ERR_OK || strtolower(pathinfo($k['name'][$i], PATHINFO_EXTENSION)) !== 'pdf' || (int) $k['size'][$i] > 25 * 1024 * 1024) {
+            continue;
+        }
+        $file = array('name' => sanitize_file_name($k['name'][$i]), 'type' => 'application/pdf', 'tmp_name' => $k['tmp_name'][$i], 'error' => 0, 'size' => $k['size'][$i]);
+        $aid = media_handle_sideload($file, 0, preg_replace('/\.pdf$/i', '', $file['name']));
+        if (!is_wp_error($aid)) {
+            $out[] = array('name' => preg_replace('/\.pdf$/i', '', $file['name']), 'url' => wp_get_attachment_url($aid));
+        }
+    }
+    return $out;
+}
+
 function sb_job_start($uid, $ctx, $cost, $research, $state) {
     if (mb_strlen(trim($ctx['instruction'])) < 30) {
         wp_send_json_error(array('message' => 'প্রম্পট বক্সে বিস্তারিত নির্দেশ লিখুন (কমপক্ষে ৩০ অক্ষর)।', 'balance' => $state));
@@ -256,7 +279,7 @@ function sb_job_start($uid, $ctx, $cost, $research, $state) {
     if (!empty($_FILES['files']) && is_array($_FILES['files']['name'])) { // phpcs:ignore WordPress.Security.NonceVerification
         $f = $_FILES['files']; // phpcs:ignore WordPress.Security.NonceVerification
         $ok = array('pdf', 'jpg', 'jpeg', 'png', 'webp');
-        foreach (array_slice(array_keys($f['name']), 0, 4) as $i) {
+        foreach (array_slice(array_keys($f['name']), 0, 14) as $i) {
             $name = sanitize_file_name($f['name'][$i]);
             $ext = strtolower(pathinfo($name, PATHINFO_EXTENSION));
             if ((int) $f['error'][$i] !== UPLOAD_ERR_OK || !is_uploaded_file($f['tmp_name'][$i])) {
@@ -278,7 +301,7 @@ function sb_job_start($uid, $ctx, $cost, $research, $state) {
         'urls' => (string) sb_req('urls'), 'files' => $files, 'created' => time(), 'beat' => time(),
     );
     set_transient('sb_job_' . $id, $job, 6 * HOUR_IN_SECONDS);
-    wp_send_json_success(array('job' => $id));
+    wp_send_json_success(array('job' => $id, 'pdfs' => sb_keep_pdfs()));
 }
 
 /** Prepares the sources (web pages, files) and starts OpenAI's background generation. Short request. */

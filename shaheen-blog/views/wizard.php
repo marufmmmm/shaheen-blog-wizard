@@ -238,6 +238,8 @@ $costs['research'] = max(0, (int) sb_get('cost_research'));
                     <textarea id="f-curls" rows="3" style="width:100%" placeholder="https://…"></textarea></label>
                 <label style="display:block;margin-top:8px">📎 PDF / ছবি <small>(সর্বোচ্চ ৪টি ফাইল, প্রতিটি ১০ MB-এর মধ্যে; PDF, JPG, PNG, WEBP। স্ক্যান করা PDF বা ছবির লেখাও AI পড়ে)</small>
                     <input type="file" id="f-cfiles" multiple accept=".pdf,.jpg,.jpeg,.png,.webp,application/pdf,image/*"></label>
+                <label class="sba-inline-check" style="display:block;margin-top:6px"><input type="checkbox" id="f-cimg" checked> 🖼️ PDF-এর পাতাগুলো ছবি করে AI-কে দাও <em>(সরকারি PDF প্রায়ই পুরনো বিজয় ফন্টে থাকে, লেখা হিজিবিজি হয়ে যায়, ছবি করে পড়ালে ঠিক পড়ে; বেশি পাতা হলে প্রথম ১২ পাতা)</em></label>
+                <label class="sba-inline-check" style="display:block;margin-top:4px"><input type="checkbox" id="f-ckeep" checked> 📥 PDF সাইটের মিডিয়ায় রেখে এই পোস্টে <strong>ডাউনলোড বাটন</strong> ও <strong>পেজে পড়ার ঘর</strong> যোগ করো <em>(ধাপ ৩-এর নিচে দেখা যাবে, সরাতেও পারবেন)</em></label>
                 <label class="sba-research" style="display:block;margin-top:8px"><input type="checkbox" id="f-research" checked> 🌐 সঠিক ও সর্বশেষ খবরের জন্য AI ইন্টারনেটেও যাচাই করুক <em>(+<?php echo esc_html(sb_bn_digits($costs['research'])); ?> ক্রেডিট, শুধু সফল হলে)</em></label>
                 <div style="margin-top:10px;display:flex;gap:10px;align-items:center;flex-wrap:wrap">
                     <?php $cur_m = trim((string) sb_get('model_article')) ?: sb_get('model'); ?>
