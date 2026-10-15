@@ -211,6 +211,14 @@ function sb_custom_result($r) {
         }
         $r['facts'] = $facts;
     }
+    $deferral = array();
+    $plain_all = wp_strip_all_tags((string) $r['text']);
+    foreach (preg_split('/(?<=[।\.\?!])\s+/u', $plain_all) as $sent) {
+        if (preg_match('/(সংযুক্ত|সংযোজিত|নিচের|নিচে দেওয়া)\s*(পিডিএফ|PDF|ফাইল)|(পিডিএফ|PDF)[\s\-‑]*(এ|-এ|তে)?\s*(বিস্তারিত|দেখুন|উল্লেখ)|স্পষ্টভাবে বলা আছে|নির্দেশনা দেখুন|লিখে দিতে পারেন|বিস্তারিত লিখে|ওয়েবসাইটে (দেখুন|বলা আছে)|সংশ্লিষ্ট (নির্দেশনা|বিজ্ঞপ্তি|পেজ).{0,12}দেখুন/u', $sent)) {
+            $deferral[] = trim(mb_substr($sent, 0, 220));
+        }
+    }
+    $r['deferral'] = array_slice(array_values(array_unique($deferral)), 0, 8);
     $t = sb_md_to_html($r['text']);
     $t = preg_replace('/\[[^\]\[]*(এখানে যুক্ত করুন|এখানে যোগ করুন)[^\]\[]*\]/u', '[তথ্য দরকার: সরকারি/মূল তথ্য]', $t);
     $r['text'] = wp_kses_post($t);

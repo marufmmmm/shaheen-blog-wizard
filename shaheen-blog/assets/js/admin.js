@@ -755,6 +755,13 @@
         mb.appendChild(ml); mb.hidden = false;
         toast('আর্টিকেলে ' + bn(r.missing.length) + 'টি জায়গায় আপনার তথ্য দরকার ([তথ্য দরকার: …] খুঁজুন)।', 'err');
       } else { mb.hidden = true; }
+      if (r.deferral && r.deferral.length) {
+        var dm = document.createElement('div'); dm.style.cssText = 'margin-top:8px;color:#b32d2e';
+        dm.innerHTML = '<strong>🚫 AI এই বাক্যগুলোতে আসল তথ্য না লিখে "PDF/ওয়েবসাইটে দেখুন" বলে এড়িয়ে গেছে — এই জায়গাগুলো নিজে ঠিক করুন, অথবা নিচের "নির্দেশ দিন" ঘরে লিখে আবার করান:</strong>';
+        var dl = document.createElement('ul'); r.deferral.forEach(function (x) { var li = document.createElement('li'); li.textContent = x; dl.appendChild(li); });
+        dm.appendChild(dl); mb.appendChild(dm); mb.hidden = false;
+        toast('⚠️ AI কিছু তথ্য লিখেনি, শুধু PDF-এর দিকে ইঙ্গিত করেছে — লেখার নিচের লাল তালিকা দেখুন।', 'err');
+      }
       buildFacts(f === 'custom' ? r.facts : [], r.missing);
       aiDraft = r.text;
     }
