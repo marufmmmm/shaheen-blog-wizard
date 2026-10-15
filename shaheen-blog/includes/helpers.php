@@ -17,6 +17,7 @@ function sb_defaults() {
         'cost_research'  => 50,
         'cost_rewrite'   => 150,
         'cost_edit'      => 100,
+        'cost_phones'    => 100,
         'style_note'     => 'প্রচলিত চলিত ভাষায় লিখবে। কঠিন, সাধু বা বইয়ের মতো ভারী শব্দ এড়িয়ে প্রতিদিনের সহজ শব্দ ব্যবহার করবে। যেখানে জনপ্রিয় ইংরেজি শব্দ (যেমন: ক্লাস, কোচিং, অনলাইন) বেশি চলে সেখানে সেটাই লিখবে।',
         'model_article'  => '',
         'top_offset'     => 0,
@@ -68,6 +69,7 @@ function sb_feature_cost($feature) {
         'rewrite_post' => 'cost_rewrite',
         'edit'      => 'cost_edit',
         'edit_new'  => 'cost_article',
+        'phones'    => 'cost_phones',
     );
     return isset($map[$feature]) ? max(0, (int) sb_get($map[$feature])) : 0;
 }
@@ -181,6 +183,7 @@ function sb_feature_labels() {
         'rewrite_post' => 'রিরাইট (শিরোনাম + বর্ণনা + লেখা)',
         'edit'      => 'নির্দেশ দিয়ে সংশোধন',
         'edit_new'  => 'নির্দেশ দিয়ে নতুন করে লেখা',
+        'phones'    => 'নতুন মোবাইল মডেল খোঁজা',
     );
 }
 

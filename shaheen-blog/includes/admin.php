@@ -12,6 +12,7 @@ function sb_admin_menu() {
     add_submenu_page('sb-dashboard', 'সোশ্যাল মিডিয়া', '🌐 সোশ্যাল মিডিয়া', 'manage_options', 'sb-social', 'sb_page_social');
     add_submenu_page('sb-dashboard', 'সংবাদপত্রে শাহীন', '📰 সংবাদপত্রে শাহীন', 'edit_posts', 'sb-press', 'sb_page_press');
     add_submenu_page('sb-dashboard', 'বিজ্ঞাপন/লিংক ব্লক', '📚 ব্লক লাইব্রেরি', 'manage_options', 'sb-blocks', 'sb_page_blocks');
+    add_submenu_page('sb-dashboard', 'মোবাইল মডেল', '📱 মোবাইল মডেল', 'manage_options', 'sb-phones', 'sb_page_phones');
     add_submenu_page('sb-dashboard', 'সব পোস্ট', 'সব পোস্ট', 'edit_posts', 'sb-posts', 'sb_page_posts');
     add_submenu_page('sb-dashboard', 'ক্যাটাগরি', 'ক্যাটাগরি', 'manage_categories', 'sb-categories', 'sb_page_categories');
     add_submenu_page('sb-dashboard', 'সেটিংস', 'সেটিংস', 'manage_options', 'sb-settings', 'sb_page_settings');
@@ -37,6 +38,9 @@ function sb_admin_assets() {
     wp_enqueue_style('sb-admin', SB_URL . 'assets/css/admin.css', array('sb-fonts'), SB_VERSION . '.' . filemtime(SB_PATH . 'assets/css/admin.css'));
     wp_enqueue_script('sb-admin', SB_URL . 'assets/js/admin.js', array(), SB_VERSION . '.' . filemtime(SB_PATH . 'assets/js/admin.js'), true);
 
+    if ($page === 'sb-phones') {
+        wp_enqueue_script('sb-phones-admin', SB_URL . 'assets/js/phones-admin.js', array('sb-admin'), SB_VERSION . '.' . filemtime(SB_PATH . 'assets/js/phones-admin.js'), true);
+    }
     if (in_array($page, array('sb-new', 'sb-press', 'sb-rewrite'), true)) {
         wp_enqueue_media();
     }
@@ -102,6 +106,7 @@ function sb_page_new()       { include SB_PATH . 'views/wizard.php'; }
 function sb_page_rewrite()   { include SB_PATH . 'views/rewrite.php'; }
 function sb_page_social()    { include SB_PATH . 'views/social.php'; }
 function sb_page_press()     { include SB_PATH . 'views/press.php'; }
+function sb_page_phones()    { include SB_PATH . 'views/phones.php'; }
 function sb_page_blocks()    { include SB_PATH . 'views/blocks.php'; }
 function sb_page_posts()     { include SB_PATH . 'views/posts.php'; }
 function sb_page_categories() { include SB_PATH . 'views/categories.php'; }
@@ -140,7 +145,7 @@ function sb_handle_save_settings() {
         'site_urls'     => sanitize_textarea_field($in('site_urls')),
         'about'         => sanitize_textarea_field($in('about')),
     );
-    foreach (array('headlines', 'subtitle', 'meta', 'article', 'summary', 'rewrite', 'edit') as $f) {
+    foreach (array('headlines', 'subtitle', 'meta', 'article', 'summary', 'rewrite', 'edit', 'phones') as $f) {
         $new['cost_' . $f] = max(0, (int) $in('cost_' . $f, 0));
     }
     // API key: keep the saved one unless a new one is typed or removal is ticked.
