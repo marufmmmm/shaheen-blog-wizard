@@ -270,7 +270,20 @@ $costs['research'] = max(0, (int) sb_get('cost_research'));
                 <div id="article-facts" class="sba-facts" hidden></div>
             </div>
 
+            <div class="sba-ai sba-chat" id="chat-box">
+                <div class="sba-ai-head"><h3>💬 AI সহকারী — চ্যাটে বলুন, কী বদলাতে হবে</h3>
+                    <button type="button" class="button" id="chat-undo" hidden>↩️ শেষ পরিবর্তন ফেরান</button></div>
+                <p class="sba-muted">প্রম্পট থেকে লেখা তৈরি হলে এখানে চ্যাটের মতো একটি একটি করে বলুন, যেমন: <em>"শিরোনাম আরও ছোট করো"</em>, <em>"তৃতীয় অনুচ্ছেদে ফি-এর কথা যোগ করো"</em>, <em>"FAQ-তে ভর্তির তারিখ নিয়ে একটি প্রশ্ন দাও"</em>, <em>"মেটা বর্ণনা ১৫০ অক্ষরের মধ্যে করো"</em>। AI শুধু ঠিক সেই অংশটুকু বদলাবে, বাকি সব যেমন আছে তেমন থাকবে। প্রতিটি সফল পরিবর্তনে <strong><?php echo esc_html(sb_bn_digits($costs['chat'])); ?> ক্রেডিট</strong> কাটবে; প্রশ্ন করলে বা কিছু না বদলালে কাটবে না।</p>
+                <div class="sba-chat-log" id="chat-log" aria-live="polite"></div>
+                <div class="sba-chat-in">
+                    <textarea id="chat-text" rows="2" placeholder="এখানে লিখুন কী বদলাতে চান… (পাঠাতে Ctrl+Enter)"></textarea>
+                    <button type="button" class="button button-primary" id="chat-send">পাঠান</button>
+                </div>
+            </div>
+
+            <details class="sba-oldedit"><summary>পুরোনো পদ্ধতি: ঘরে ঘরে নির্দেশ দিয়ে শুধু আর্টিকেল বদলানো</summary>
             <?php sb_edit_box('ed'); ?>
+            </details>
 
             <div class="sba-ai">
                 <div class="sba-ai-head"><h3>সামারি <small class="sba-muted">(মূল পোস্ট থেকে তৈরি হয়)</small></h3>

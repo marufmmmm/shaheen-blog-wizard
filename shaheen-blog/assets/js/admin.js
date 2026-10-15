@@ -749,6 +749,11 @@
       if (f === 'custom') {
         if (r.meta && !val('#f-meta').trim()) { $('#f-meta').value = r.meta; metaCount(); }
         if (r.excerpt && !val('#f-excerpt').trim()) { $('#f-excerpt').value = r.excerpt; }
+        if (r.title && !val('#f-title').trim()) { $('#f-title').value = r.title; }
+        if (r.subtitle && !val('#f-subtitle').trim()) { $('#f-subtitle').value = r.subtitle; }
+        if (r.slug && !val('#f-slug').trim()) { $('#f-slug').value = r.slug; }
+        if (r.summary && !val('#f-summary').trim()) { $('#f-summary').value = r.summary; $('#inc-summary').checked = true; }
+        if (r.faq && r.faq.length && !faqData().length) { r.faq.forEach(function (x) { addFaq(x.q, x.a); }); $('#inc-faq').checked = true; }
       }
       if (r.missing && r.missing.length) {
         var m = document.createElement('strong'); m.textContent = '⚠️ AI-এর এই তথ্যগুলো দরকার, আর্টিকেলে লাল জায়গায় নিজে লিখে দিন:'; mb.appendChild(m);
@@ -777,6 +782,72 @@
     }
     else if (f === 'summary') { $('#inc-summary').checked = true; $('#f-summary').value = r.text; if (!val('#f-excerpt')) { $('#f-excerpt').value = r.text; } }
   }
+
+  /* ---------- Chat assistant: change one point at a time ---------- */
+  (function () {
+    var log = $('#chat-log'), txt = $('#chat-text'), send = $('#chat-send'), undo = $('#chat-undo');
+    if (!log) { return; }
+    var hist = [], snaps = [];
+    function snap() {
+      return { title: val('#f-title'), subtitle: val('#f-subtitle'), meta: val('#f-meta'), excerpt: val('#f-excerpt'), summary: val('#f-summary'),
+        slug: val('#f-slug'), faq: faqData(), content: editorContent(), incS: $('#inc-summary').checked, incF: $('#inc-faq').checked };
+    }
+    function restore(o) {
+      $('#f-title').value = o.title; $('#f-subtitle').value = o.subtitle; $('#f-meta').value = o.meta; metaCount();
+      $('#f-excerpt').value = o.excerpt; $('#f-summary').value = o.summary; $('#f-slug').value = o.slug;
+      faqList.innerHTML = ''; o.faq.forEach(function (x) { addFaq(x.q, x.a); });
+      $('#inc-summary').checked = o.incS; $('#inc-faq').checked = o.incF; setEditorContent(o.content);
+    }
+    function add(cls, t, note) {
+      var d = document.createElement('div'); d.className = 'sba-msg ' + cls; d.textContent = t;
+      if (note) { var sm = document.createElement('small'); sm.textContent = note; d.appendChild(sm); }
+      log.appendChild(d); log.scrollTop = log.scrollHeight; return d;
+    }
+    var LBL = { title: 'শিরোনাম', subtitle: 'সাবটাইটেল', meta: 'মেটা বর্ণনা', excerpt: 'সংক্ষিপ্ত বিবরণ', summary: 'সামারি', slug: 'স্লাগ', faq: 'FAQ' };
+    function go() {
+      var t = txt.value.trim();
+      if (!t) { return; }
+      var cost = SB.costs.chat;
+      if (SB.balance.remaining < cost) { toast('ক্রেডিট যথেষ্ট নয়। প্রয়োজন ' + fmt(cost) + ', আছে ' + fmt(SB.balance.remaining) + '।', 'err'); return; }
+      add('me', t); txt.value = ''; send.disabled = true;
+      var wait = add('ai', '⏳ ভাবছি…'), before = snap();
+      post('sb_ai', { feature: 'chat', post_id: postId, instruction: t, content: before.content, keywords: keywords(),
+        state: JSON.stringify({ title: before.title, subtitle: before.subtitle, meta: before.meta, excerpt: before.excerpt, summary: before.summary, slug: before.slug, faq: before.faq }),
+        history: JSON.stringify(hist) }).then(function (d) {
+        var c = d.result.chat, done = [];
+        wait.remove();
+        hist.push({ role: 'me', text: t });
+        if (c.applied) {
+          snaps.push(before); if (snaps.length > 10) { snaps.shift(); }
+          Object.keys(c.changes).forEach(function (k) {
+            var v = c.changes[k];
+            if (k === 'faq') { faqList.innerHTML = ''; v.forEach(function (x) { addFaq(x.q, x.a); }); $('#inc-faq').checked = true; }
+            else if (k === 'summary') { $('#f-summary').value = v; $('#inc-summary').checked = true; }
+            else if (k === 'meta') { $('#f-meta').value = v; metaCount(); }
+            else { $('#f-' + k).value = v; }
+            done.push(LBL[k]);
+          });
+          if (c.article !== null) { setEditorContent(c.article); done.push('আর্টিকেল'); }
+          undo.hidden = false;
+          (window.__sbIns = window.__sbIns || []).push(t);
+          if (c.article !== null) { aiDraft = aiDraft || before.content; }
+        }
+        var note = c.applied ? '✓ বদলেছে: ' + done.join(', ') + ' — ' + fmt(d.cost) + ' ক্রেডিট কেটেছে' : 'কিছু বদলায়নি, ক্রেডিট কাটেনি';
+        if (c.failed && c.failed.length) { note += '\n⚠️ লেখায় এই অংশ হুবহু খুঁজে পায়নি, তাই বদলায়নি: "' + c.failed.join('", "') + '" — ওই অংশ কপি করে চ্যাটে দিন।'; }
+        if (c.missing && c.missing.length) { note += '\n⚠️ আপনার তথ্য দরকার: ' + c.missing.join(' '); }
+        add('ai', c.reply || (c.applied ? 'বদলে দিয়েছি।' : 'বুঝতে পারিনি, আবার লিখুন।'), note);
+        hist.push({ role: 'ai', text: c.reply || '' });
+      }).catch(function (e) { wait.remove(); add('ai err', e.message); })
+        .then(function () { send.disabled = false; txt.focus(); });
+    }
+    send.addEventListener('click', go);
+    txt.addEventListener('keydown', function (e) { if (e.key === 'Enter' && (e.ctrlKey || e.metaKey)) { e.preventDefault(); go(); } });
+    undo.addEventListener('click', function () {
+      var o = snaps.pop(); if (!o) { return; }
+      restore(o); if (!snaps.length) { undo.hidden = true; }
+      add('ai', '↩️ শেষ পরিবর্তন ফেরানো হয়েছে।');
+    });
+  })();
 
   /* review */
   function buildReview() {

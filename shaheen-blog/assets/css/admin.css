@@ -92,3 +92,16 @@
 .sba-frow input[type=text]{flex:1;min-width:220px}
 .sba-frow.is-missing .fl{color:#b45309}
 .sba-frow.is-changed input[type=text]{border-color:#0a7a3d;background:#f6fff9}
+
+.sba-chat-log{display:flex;flex-direction:column;gap:8px;max-height:360px;overflow:auto;margin:8px 0;padding:4px}
+.sba-chat-log:empty{display:none}
+.sba-msg{max-width:88%;padding:8px 12px;border-radius:12px;line-height:1.6;white-space:pre-wrap;font-size:13px}
+.sba-msg.me{align-self:flex-end;background:#2271b1;color:#fff;border-bottom-right-radius:3px}
+.sba-msg.ai{align-self:flex-start;background:#f0f0f1;color:#1d2327;border-bottom-left-radius:3px}
+.sba-msg.err{background:#fcf0f1;color:#b32d2e}
+.sba-msg small{display:block;margin-top:4px;opacity:.8}
+.sba-chat-in{display:flex;gap:8px;align-items:flex-end}
+.sba-chat-in textarea{flex:1;min-height:44px}
+.sba-oldedit{margin:10px 0}
+.sba-oldedit>summary{cursor:pointer;color:#50575e;padding:6px 0}
+.sba-msg{text-align:left}

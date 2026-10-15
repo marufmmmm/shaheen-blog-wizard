@@ -133,6 +133,10 @@ function sb_ajax_ai() {
         'tier'     => $tier,
         'model'    => $cmodel,
     );
+    if ($feature === 'chat') {
+        $ctx['state'] = sb_chat_state(sb_req('state'));
+        $ctx['history'] = sb_chat_history(sb_req('history'));
+    }
     if ($feature === 'custom') {
         sb_job_start($uid, $ctx, $cost, $research, $state);   // exits
     }
@@ -210,6 +214,11 @@ function sb_custom_result($r) {
             }
         }
         $r['facts'] = $facts;
+        $r['title'] = isset($j['title']) ? sanitize_text_field($j['title']) : '';
+        $r['subtitle'] = isset($j['subtitle']) ? mb_substr(sanitize_text_field($j['subtitle']), 0, 200) : '';
+        $r['summary'] = isset($j['summary']) ? sanitize_textarea_field($j['summary']) : '';
+        $r['slug'] = isset($j['slug']) ? trim(preg_replace('/[^a-z0-9]+/', '-', strtolower((string) $j['slug'])), '-') : '';
+        $r['faq'] = sb_chat_faq(isset($j['faq']) ? $j['faq'] : array());
     }
     $deferral = array();
     $plain_all = wp_strip_all_tags((string) $r['text']);
@@ -231,6 +240,12 @@ function sb_ai_finish($uid, $feature, $ctx, $cost, $research, $result, &$notes) 
     if ($feature === 'custom') {
         $result = sb_custom_result($result);
     }
+    if ($feature === 'chat') {
+        $result = sb_chat_result($result, $ctx);
+        if (empty($result['chat']['applied'])) {
+            $cost = 0;   // a question or nothing applied: free
+        }
+    }
     if ($feature === 'related' && empty($result['items'])) {
         return array('ok' => false, 'message' => 'সাইটে এই লেখার সাথে মেলে এমন পোস্ট/পেজ পাওয়া যায়নি, তাই ক্রেডিট কাটা হয়নি। নিজে খুঁজে যোগ করতে পারেন।');
     }
@@ -245,7 +260,7 @@ function sb_ai_finish($uid, $feature, $ctx, $cost, $research, $result, &$notes) 
         $have = sb_numbers($result['headline'] . ' ' . $result['excerpt'] . ' ' . wp_strip_all_tags($result['text']));
         $result['facts_missing'] = array_values(array_map('sb_bn_digits', array_diff(sb_numbers($ctx['source'] . ' ' . $ctx['title']), $have)));
     }
-    $new = SB_Credits::charge($uid, $feature, $cost, $post_id);
+    $new = $cost > 0 ? SB_Credits::charge($uid, $feature, $cost, $post_id) : SB_Credits::state($uid);
     if (is_wp_error($new)) {
         return array('ok' => false, 'message' => $new->get_error_message());
     }
@@ -751,4 +766,111 @@ function sb_ajax_enrich_post() {
     }
     $out['balance'] = SB_Credits::state($uid);
     wp_send_json_success($out);
+}
+
+
+/* ---------- Chat assistant: change one point of the post at a time ---------- */
+function sb_chat_faq($raw) {
+    $out = array();
+    foreach (is_array($raw) ? array_slice($raw, 0, 10) : array() as $row) {
+        $q = sanitize_text_field(isset($row['q']) ? $row['q'] : '');
+        $a = sanitize_textarea_field(isset($row['a']) ? $row['a'] : '');
+        if ($q !== '' && $a !== '') {
+            $out[] = array('q' => $q, 'a' => $a);
+        }
+    }
+    return $out;
+}
+
+function sb_chat_state($json) {
+    $j = json_decode((string) $json, true);
+    $j = is_array($j) ? $j : array();
+    $o = array();
+    foreach (array('title', 'subtitle', 'meta', 'slug') as $k) {
+        $o[$k] = isset($j[$k]) ? sanitize_text_field($j[$k]) : '';
+    }
+    foreach (array('excerpt', 'summary') as $k) {
+        $o[$k] = isset($j[$k]) ? sanitize_textarea_field($j[$k]) : '';
+    }
+    $o['faq'] = sb_chat_faq(isset($j['faq']) ? $j['faq'] : array());
+    return $o;
+}
+
+function sb_chat_history($json) {
+    $j = json_decode((string) $json, true);
+    $o = array();
+    foreach (is_array($j) ? array_slice($j, -6) : array() as $h) {
+        $o[] = array('role' => (isset($h['role']) && $h['role'] === 'ai') ? 'ai' : 'me', 'text' => sanitize_textarea_field(isset($h['text']) ? $h['text'] : ''));
+    }
+    return $o;
+}
+
+/** Reads the chat JSON, applies find/replace edits to the article on the server, reports what really changed. */
+function sb_chat_result($r, $ctx) {
+    $raw = trim((string) $r['text']);
+    $j = json_decode(preg_replace('/^```[a-z]*\s*|\s*```$/i', '', $raw), true);
+    if (!is_array($j) && preg_match('/\{.*\}/us', $raw, $m)) {
+        $j = json_decode($m[0], true);
+    }
+    $out = array('reply' => '', 'changes' => array(), 'article' => null, 'applied' => 0, 'failed' => array(), 'missing' => array());
+    if (!is_array($j)) {
+        $out['reply'] = 'AI-এর উত্তর পড়া যায়নি, আবার লিখুন। (ক্রেডিট কাটা হয়নি)';
+        $r['chat'] = $out;
+        return $r;
+    }
+    $out['reply'] = isset($j['reply']) ? sanitize_textarea_field($j['reply']) : '';
+    $cur = isset($ctx['content']) ? (string) $ctx['content'] : '';
+    $ch = isset($j['changes']) && is_array($j['changes']) ? $j['changes'] : array();
+    $st = isset($ctx['state']) ? $ctx['state'] : array();
+    foreach (array('title', 'subtitle', 'meta', 'slug') as $k) {
+        if (isset($ch[$k]) && is_string($ch[$k])) {
+            $v = sanitize_text_field($ch[$k]);
+            if ($k === 'slug') {
+                $v = trim(preg_replace('/[^a-z0-9]+/', '-', strtolower($v)), '-');
+            }
+            if ($v !== '' && $v !== (isset($st[$k]) ? $st[$k] : '')) {
+                $out['changes'][$k] = $v;
+            }
+        }
+    }
+    foreach (array('excerpt', 'summary') as $k) {
+        if (isset($ch[$k]) && is_string($ch[$k])) {
+            $v = sanitize_textarea_field($ch[$k]);
+            if ($v !== '' && $v !== (isset($st[$k]) ? $st[$k] : '')) {
+                $out['changes'][$k] = $v;
+            }
+        }
+    }
+    if (isset($ch['faq']) && is_array($ch['faq'])) {
+        $f = sb_chat_faq($ch['faq']);
+        if ($f && $f !== (isset($st['faq']) ? $st['faq'] : array())) {
+            $out['changes']['faq'] = $f;
+        }
+    }
+    $new = $cur;
+    if (!empty($j['article']) && is_string($j['article'])) {
+        $new = wp_kses_post(sb_md_to_html(preg_replace('/^```[a-z]*\s*|\s*```$/i', '', trim($j['article']))));
+    } elseif (!empty($j['edits']) && is_array($j['edits'])) {
+        foreach (array_slice($j['edits'], 0, 12) as $e) {
+            $f = isset($e['find']) && is_string($e['find']) ? $e['find'] : '';
+            $rep = isset($e['replace']) && is_string($e['replace']) ? wp_kses_post($e['replace']) : '';
+            $pos = $f !== '' ? strpos($new, $f) : false;
+            if ($pos === false) {
+                $out['failed'][] = mb_substr(wp_strip_all_tags($f), 0, 80);
+                continue;
+            }
+            $new = substr_replace($new, $rep, $pos, strlen($f));
+        }
+    }
+    if ($new !== $cur) {
+        $out['article'] = $new;
+        preg_match_all('/\[তথ্য দরকার:[^\]]*\]/u', $new, $mm);
+        $out['missing'] = array_values(array_unique($mm[0]));
+    }
+    $out['applied'] = count($out['changes']) + ($out['article'] !== null ? 1 : 0);
+    if (!$out['applied'] && $out['reply'] === '') {
+        $out['reply'] = 'কিছু বদলানো যায়নি। কোন অংশ কীভাবে বদলাবেন আরও স্পষ্ট করে লিখুন।';
+    }
+    $r['chat'] = $out;
+    return $r;
 }

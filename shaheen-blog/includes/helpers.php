@@ -25,6 +25,7 @@ function sb_defaults() {
         'cost_phones'    => 100,
         'cost_faq'       => 80,
         'cost_related'   => 30,
+        'cost_chat'      => 30,
         'style_note'     => 'প্রচলিত চলিত ভাষায় লিখবে। কঠিন, সাধু বা বইয়ের মতো ভারী শব্দ এড়িয়ে প্রতিদিনের সহজ শব্দ ব্যবহার করবে। যেখানে জনপ্রিয় ইংরেজি শব্দ (যেমন: ক্লাস, কোচিং, অনলাইন) বেশি চলে সেখানে সেটাই লিখবে।',
         'model_article'  => '',
         'top_offset'     => 0,
@@ -146,6 +147,7 @@ function sb_feature_cost($feature) {
         'phones'    => 'cost_phones',
         'faq'       => 'cost_faq',
         'related'   => 'cost_related',
+        'chat'      => 'cost_chat',
     );
     return isset($map[$feature]) ? max(0, (int) sb_get($map[$feature])) : 0;
 }
@@ -280,6 +282,7 @@ function sb_feature_labels() {
         'phones'    => 'নতুন মোবাইল মডেল খোঁজা',
         'faq'       => 'FAQ (প্রশ্ন-উত্তর)',
         'related'   => 'স্মার্ট সম্পর্কিত পোস্ট/পেজ',
+        'chat'      => 'চ্যাট সহকারী (প্রতি সফল পরিবর্তন)',
     );
 }
 
