@@ -418,7 +418,7 @@
   function drawRel() {
     var box = $('#rel-chosen'); box.innerHTML = '';
     rel.forEach(function (r, i) {
-      var c = document.createElement('span'); c.textContent = r.title + ' ✕'; c.style.cursor = 'pointer';
+      var c = document.createElement('span'); c.textContent = (r.type ? '[' + r.type + '] ' : '') + r.title + (r.why ? ' — ' + r.why : '') + ' ✕'; c.style.cursor = 'pointer';
       c.addEventListener('click', function () { rel.splice(i, 1); drawRel(); }); box.appendChild(c);
     });
   }
@@ -434,7 +434,7 @@
           if (rel.some(function (r) { return r.id === it.id; })) return;
           var li = document.createElement('li'), b = document.createElement('button');
           b.type = 'button'; b.textContent = '+ ' + it.title + ' (' + it.type + ')';
-          b.addEventListener('click', function () { rel.push({ id: it.id, title: it.title }); drawRel(); li.remove(); });
+          b.addEventListener('click', function () { rel.push({ id: it.id, title: it.title, type: it.type }); drawRel(); li.remove(); });
           li.appendChild(b); ul.appendChild(li);
         });
       }).catch(function () {});
@@ -467,7 +467,7 @@
         toast('সামারি/FAQ মূল পোস্ট থেকে তৈরি হয়। আগে আর্টিকেল লিখুন বা তৈরি করুন।', 'err'); return;
       }
       var chain = [];
-      if (f === 'article' || f === 'rewrite') { if ($('#inc-summary').checked) { chain.push('summary'); } if ($('#inc-faq').checked) { chain.push('faq'); } }
+      if (f === 'article' || f === 'rewrite') { if ($('#inc-summary').checked) { chain.push('summary'); } if ($('#inc-faq').checked) { chain.push('faq'); } if ($('#inc-related').checked) { chain.push('related'); } }
       var cost = SB.costs[f] + (f === 'article' && $('#f-research') && $('#f-research').checked ? SB.costs.research : 0);
       chain.forEach(function (c) { cost += SB.costs[c]; });
       if (SB.balance.remaining < cost) { toast('ক্রেডিট যথেষ্ট নয়। প্রয়োজন ' + fmt(cost) + ', আছে ' + fmt(SB.balance.remaining) + '।', 'err'); return; }
@@ -478,7 +478,7 @@
         spent += d.cost; applyAI(f, d.result);
         return chain.reduce(function (pr, c) {
           return pr.then(function () {
-            btn.textContent = '⏳ ' + (c === 'summary' ? 'সামারি' : 'FAQ') + ' তৈরি হচ্ছে…';
+            btn.textContent = '⏳ ' + ({ summary: 'সামারি', faq: 'FAQ', related: 'সম্পর্কিত পোস্ট' }[c]) + ' তৈরি হচ্ছে…';
             return post('sb_ai', aiPayload(c)).then(function (d2) { spent += d2.cost; applyAI(c, d2.result); });
           });
         }, Promise.resolve());
@@ -522,6 +522,10 @@
         toast('আর্টিকেলে ' + bn(r.missing.length) + 'টি জায়গায় আপনার তথ্য দরকার ([তথ্য দরকার: …] খুঁজুন)।', 'err');
       } else { mb.hidden = true; }
     }
+    else if (f === 'related') {
+      if (!r.items.length) { toast('সাইটে এই লেখার সাথে মেলে এমন পোস্ট/পেজ পাওয়া যায়নি। নিজে খুঁজে যোগ করতে পারেন।', 'err'); }
+      else { rel = r.items.map(function (x) { return { id: x.id, title: x.title, type: x.type, why: x.why }; }); drawRel(); }
+    }
     else if (f === 'faq') {
       faqList.innerHTML = ''; r.faq.forEach(function (x) { addFaq(x.q, x.a); }); $('#inc-faq').checked = true;
     }
@@ -553,7 +557,7 @@
       id: postId, title: val('#f-title'), slug: val('#f-slug'), excerpt: val('#f-excerpt'), content: editorContent(),
       subtitle: val('#f-subtitle'), meta_desc: val('#f-meta'), summary: val('#f-summary'), author_name: val('#f-author'),
       date: val('#f-date'), topic: val('#f-topic'), keywords: keywords(), category: val('#f-category'),
-      image_id: imgId, faq: faqData(), inc_summary: $('#inc-summary').checked ? '1' : '0', inc_faq: $('#inc-faq').checked ? '1' : '0', related: rel.map(function (r) { return r.id; }), blocks: pEd.get(), block_ids: picked, no_global: $('#no-global').checked ? '1' : '0', no_social: $('#no-social').checked ? '1' : '0', status: st ? st.value : 'draft'
+      image_id: imgId, faq: faqData(), inc_summary: $('#inc-summary').checked ? '1' : '0', inc_faq: $('#inc-faq').checked ? '1' : '0', related: rel.map(function (r) { return r.id; }), related_why: JSON.stringify(rel.reduce(function (o, r) { if (r.why) { o[r.id] = r.why; } return o; }, {})), blocks: pEd.get(), block_ids: picked, no_global: $('#no-global').checked ? '1' : '0', no_social: $('#no-social').checked ? '1' : '0', status: st ? st.value : 'draft'
     }).then(function (d) {
       postId = d.id;
       var box = $('#save-result');

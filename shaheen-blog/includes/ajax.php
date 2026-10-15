@@ -61,11 +61,16 @@ function sb_ajax_ai() {
         'source'   => sanitize_textarea_field(sb_req('source')),
         'instruction' => sanitize_textarea_field(sb_req('instruction')),
         'faq_count' => (int) sb_req('faq_count', 5),
+        'post_id'  => (int) sb_req('post_id', 0),
     );
     $result = SB_AI::generate($feature, $ctx);
     if (is_wp_error($result)) {
         // Nothing was charged: the call failed.
         wp_send_json_error(array('message' => $result->get_error_message(), 'balance' => $state));
+    }
+    if ($feature === 'related' && empty($result['items'])) {
+        // Nothing relevant found: no charge.
+        wp_send_json_error(array('message' => 'সাইটে এই লেখার সাথে মেলে এমন পোস্ট/পেজ পাওয়া যায়নি, তাই ক্রেডিট কাটা হয়নি। নিজে খুঁজে যোগ করতে পারেন।', 'balance' => $state));
     }
     $post_id = (int) sb_req('post_id', 0);
     if ($research && !empty($result['researched'])) {
@@ -178,6 +183,16 @@ function sb_ajax_save_post() {
         }
     }
     update_post_meta($id, '_sb_related', array_values(array_unique($rel)));
+    $why_in = json_decode((string) sb_req('related_why', '{}'), true);
+    $why = array();
+    if (is_array($why_in)) {
+        foreach ($rel as $rid) {
+            if (!empty($why_in[$rid])) {
+                $why[$rid] = sanitize_text_field($why_in[$rid]);
+            }
+        }
+    }
+    update_post_meta($id, '_sb_related_why', $why);
     update_post_meta($id, '_sb_blocks', sb_clean_blocks(isset($_POST['blocks']) ? wp_unslash($_POST['blocks']) : array()));
     update_post_meta($id, '_sb_block_ids', array_values(array_filter(sb_req_list('block_ids', 20), function ($x) { return preg_match('/^[a-z0-9]{6,20}$/', $x); })));
     update_post_meta($id, '_sb_no_social', sb_req('no_social') === '1' ? 1 : 0);

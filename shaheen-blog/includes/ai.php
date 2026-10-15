@@ -101,6 +101,26 @@ class SB_AI {
                 $max = 500;
                 break;
 
+            case 'related':
+                $cands = sb_related_candidates(isset($c['post_id']) ? (int) $c['post_id'] : 0, $keywords, $title);
+                if (!$cands) {
+                    return new WP_Error('sb_none', 'সাইটে এখনো বেছে নেওয়ার মতো অন্য পোস্ট/পেজ নেই।');
+                }
+                $lines = array();
+                foreach ($cands as $r) {
+                    $lines[] = $r['id'] . ' | ' . $r['type'] . ' | ' . $r['title'] . ' | ' . $r['snip'];
+                }
+                $body = isset($c['content']) ? mb_substr(wp_strip_all_tags($c['content']), 0, 1500) : '';
+                $user = "নিচের পোস্টের পাশে 'সম্পর্কিত' তালিকা দেখানো হবে। প্রার্থী তালিকা (আইডি | ধরন | শিরোনাম | সংক্ষিপ্ত অংশ) থেকে সবচেয়ে প্রাসঙ্গিক ৩ থেকে ৫টি বেছে নাও, সবচেয়ে প্রাসঙ্গিকটি আগে।\n"
+                    . "নিয়ম: শুধু সত্যিই সম্পর্কিত হলে নেবে — মিল না থাকলে কম নাও বা খালি তালিকা দাও, জোর করে ভরবে না। পেজ ও পোস্ট দুটোই নেওয়া যায় (যেমন ক্যাডেট বিষয়ক পোস্টে ক্যাডেট কোচিংয়ের পেজ)। হোম/ব্লগ/নেভিগেশনের মতো সাধারণ পেজ নেবে না। তালিকার বাইরের আইডি দেবে না।\n"
+                    . "প্রতিটির জন্য why: পাঠক কেন এটা পড়বে/দেখবে — সহজ বাংলায় ৮ শব্দের মধ্যে।\n"
+                    . "শুধু JSON দাও: {\"items\":[{\"id\":123,\"why\":\"...\"}]}\n\n"
+                    . "পোস্টের শিরোনাম: {$title}\n" . ($kw ? "কীওয়ার্ড: {$kw}\n" : '') . ($body ? "লেখার শুরু: {$body}\n" : '')
+                    . "\nপ্রার্থী তালিকা:\n" . implode("\n", $lines);
+                $json = true;
+                $max = 500;
+                break;
+
             case 'faq':
                 $body = isset($c['content']) ? wp_strip_all_tags($c['content']) : '';
                 if (mb_strlen($body) < 80) {
@@ -245,6 +265,24 @@ class SB_AI {
 
         if ($feature === 'headlines') {
             return self::parse_headlines($text, $keywords);
+        }
+        if ($feature === 'related') {
+            $j = json_decode($text, true);
+            $ok = array();
+            foreach (sb_related_candidates(isset($c['post_id']) ? (int) $c['post_id'] : 0, $keywords, $title) as $r) {
+                $ok[$r['id']] = $r;
+            }
+            $out = array();
+            if (is_array($j) && !empty($j['items']) && is_array($j['items'])) {
+                foreach ($j['items'] as $row) {
+                    $rid = isset($row['id']) ? (int) $row['id'] : 0;
+                    if ($rid && isset($ok[$rid]) && count($out) < 5) {
+                        $out[$rid] = array('id' => $rid, 'title' => $ok[$rid]['title'], 'type' => $ok[$rid]['type'],
+                            'why' => sanitize_text_field(isset($row['why']) ? $row['why'] : ''));
+                    }
+                }
+            }
+            return array('items' => array_values($out));
         }
         if ($feature === 'faq') {
             $j = json_decode($text, true);

@@ -27,7 +27,7 @@ $d = array(
     'block_ids'   => $post ? (array) get_post_meta($pid, '_sb_block_ids', true) : array(),
     'no_social'   => $post ? (int) get_post_meta($pid, '_sb_no_social', true) : 0,
     'no_global'   => $post ? (int) get_post_meta($pid, '_sb_no_global', true) : 0,
-    'related'     => $post ? array_map(function ($rid) { return array('id' => (int) $rid, 'title' => get_the_title($rid)); }, array_filter((array) get_post_meta($pid, '_sb_related', true))) : array(),
+    'related'     => $post ? array_map(function ($rid) use ($pid) { $w = get_post_meta($pid, '_sb_related_why', true); return array('id' => (int) $rid, 'title' => get_the_title($rid), 'why' => (is_array($w) && isset($w[$rid])) ? $w[$rid] : ''); }, array_filter((array) get_post_meta($pid, '_sb_related', true))) : array(),
     'inc_summary' => $post ? ((($v = get_post_meta($pid, '_sb_inc_summary', true)) === '1') || ($v === '' && get_post_meta($pid, '_sb_summary', true) !== '')) : false,
     'inc_faq'     => $post ? ((($v = get_post_meta($pid, '_sb_inc_faq', true)) === '1') || ($v === '' && !empty(get_post_meta($pid, '_sb_faq', true)))) : false,
     'faq'         => $post ? (array) get_post_meta($pid, '_sb_faq', true) : array(),
@@ -132,7 +132,9 @@ $costs['research'] = max(0, (int) sb_get('cost_research'));
             </details>
             <?php endif; ?>
 
-            <h3>সম্পর্কিত পোস্ট/পেজ <small>(ঐচ্ছিক — ফাঁকা রাখলে কমপক্ষে ৩টি নিজে নিজে দেখাবে)</small></h3>
+            <h3>সম্পর্কিত পোস্ট/পেজ <small>(পোস্টের পাশে দেখাবে)</small></h3>
+            <p class="sba-muted">🤖 AI সাইটের সব পোস্ট ও পেজ থেকে এই লেখার সাথে সবচেয়ে মিলগুলো বেছে দেয় (যেমন ক্যাডেট পোস্টে ক্যাডেট কোচিং পেজ) এবং পাঠকের জন্য এক লাইনে কারণ লিখে দেয়। না মিললে জোর করে ভরে না। নিজেও খুঁজে যোগ করতে পারেন (বিনামূল্যে)। কিছু না বাছলে একই ক্যাটাগরির ব্লগ পোস্ট দেখাবে।
+                <button type="button" class="button" data-ai="related">🤖 স্মার্ট সম্পর্কিত বানান (<?php echo esc_html(sb_bn_digits($costs['related'])); ?> ক্রেডিট)</button></p>
             <input type="search" id="rel-q" placeholder="পোস্ট বা পেজের নাম লিখে খুঁজুন…" style="max-width:420px">
             <ul id="rel-results" class="sba-relres"></ul>
             <div id="rel-chosen" class="sba-chips"></div>
@@ -188,7 +190,8 @@ $costs['research'] = max(0, (int) sb_get('cost_research'));
                 <div class="sba-ai-head"><h3>📌 পোস্টের সাথে কী কী থাকবে?</h3></div>
                 <label class="sba-inline-check"><input type="checkbox" id="inc-summary" <?php checked($d['inc_summary']); ?>> সামারি <em>(আর্টিকেলের ওপরে "সংক্ষেপে" বক্স — AI হলে +<?php echo esc_html(sb_bn_digits($costs['summary'])); ?> ক্রেডিট)</em></label><br>
                 <label class="sba-inline-check"><input type="checkbox" id="inc-faq" <?php checked($d['inc_faq']); ?>> FAQ <em>(আর্টিকেলের নিচে প্রশ্ন-উত্তর — AI হলে +<?php echo esc_html(sb_bn_digits($costs['faq'])); ?> ক্রেডিট)</em></label>
-                <select id="f-faqn" title="FAQ কয়টি"><option value="3">৩</option><option value="5" selected>৫</option><option value="7">৭</option></select> টি
+                <select id="f-faqn" title="FAQ কয়টি"><option value="3">৩</option><option value="5" selected>৫</option><option value="7">৭</option></select> টি<br>
+                <label class="sba-inline-check"><input type="checkbox" id="inc-related"> স্মার্ট সম্পর্কিত পোস্ট/পেজ <em>(পাশে — AI সাইট থেকে মিলগুলো বেছে দেবে, +<?php echo esc_html(sb_bn_digits($costs['related'])); ?> ক্রেডিট)</em></label>
                 <p class="sba-muted">টিক দিয়ে নিচের "সম্পূর্ণ আর্টিকেল" তৈরি করলে AI আর্টিকেল থেকে টিক দেওয়াগুলো নিজে বানিয়ে দেবে। হাতে লিখতে চাইলে নিচের সামারি ঘরে ও ধাপ ৩-এর FAQ অংশে লিখুন। <strong>টিক না দিলে সামারি/FAQ বানানো হবে না, পোস্টেও দেখাবে না।</strong>
                 <button type="button" class="button" data-ai="faq">🤖 শুধু FAQ তৈরি করুন (<?php echo esc_html(sb_bn_digits($costs['faq'])); ?>)</button></p>
             </div>

@@ -19,6 +19,7 @@ function sb_defaults() {
         'cost_edit'      => 100,
         'cost_phones'    => 100,
         'cost_faq'       => 80,
+        'cost_related'   => 30,
         'style_note'     => 'প্রচলিত চলিত ভাষায় লিখবে। কঠিন, সাধু বা বইয়ের মতো ভারী শব্দ এড়িয়ে প্রতিদিনের সহজ শব্দ ব্যবহার করবে। যেখানে জনপ্রিয় ইংরেজি শব্দ (যেমন: ক্লাস, কোচিং, অনলাইন) বেশি চলে সেখানে সেটাই লিখবে।',
         'model_article'  => '',
         'top_offset'     => 0,
@@ -72,6 +73,7 @@ function sb_feature_cost($feature) {
         'edit_new'  => 'cost_article',
         'phones'    => 'cost_phones',
         'faq'       => 'cost_faq',
+        'related'   => 'cost_related',
     );
     return isset($map[$feature]) ? max(0, (int) sb_get($map[$feature])) : 0;
 }
@@ -144,20 +146,19 @@ function sb_related_items($post_id, $min = 3, $max = 5) {
             }
         }
     };
+    $has_manual = !empty($ids);   // an AI/hand-picked list is shown as is, never padded with unrelated items
     $base = array('post_status' => 'publish', 'no_found_rows' => true, 'fields' => 'ids', 'post__not_in' => array($post_id),
         'meta_query' => array(array('key' => '_sb_press_url', 'compare' => 'NOT EXISTS')));
     $term = get_the_terms($post_id, 'sb_category');
-    if (count($ids) < $max && !empty($term) && !is_wp_error($term)) {
+    if (!$has_manual && count($ids) < $max && !empty($term) && !is_wp_error($term)) {
         $add(get_posts($base + array('post_type' => 'sb_post', 'posts_per_page' => $max, 'tax_query' => array(array(
             'taxonomy' => 'sb_category', 'field' => 'term_id', 'terms' => array((int) $term[0]->term_id))))));
     }
-    if (count($ids) < $max) {
+    if (!$has_manual && count($ids) < $max) {
         $add(get_posts($base + array('post_type' => 'sb_post', 'posts_per_page' => $max)));
     }
-    if (count($ids) < $min) {
-        $add(get_posts(array('post_type' => array('page', 'post'), 'post_status' => 'publish', 'posts_per_page' => $min + 4,
-            'no_found_rows' => true, 'fields' => 'ids', 'post__not_in' => array($post_id), 'orderby' => 'date', 'order' => 'DESC')));
-    }
+    $why = get_post_meta($post_id, '_sb_related_why', true);
+    $why = is_array($why) ? $why : array();
     $items = array();
     foreach (array_slice($ids, 0, max($min, $max)) as $rid) {
         $type = get_post_type($rid);
@@ -167,8 +168,9 @@ function sb_related_items($post_id, $min = 3, $max = 5) {
             'title' => get_the_title($rid),
             'url'   => $press ? get_post_meta($rid, '_sb_press_url', true) : get_permalink($rid),
             'thumb' => get_the_post_thumbnail_url($rid, 'medium'),
-            'tag'   => $press ? 'সংবাদ: ' . get_post_meta($rid, '_sb_press_paper', true) : ($type === 'page' ? 'পেজ' : ($type === 'sb_post' ? sb_post_category($rid)['bn'] : 'পোস্ট')),
+            'tag'   => $press ? '📰 সংবাদ: ' . get_post_meta($rid, '_sb_press_paper', true) : ($type === 'page' ? '📄 পেজ' : ($type === 'sb_post' ? '📝 ব্লগ · ' . sb_post_category($rid)['bn'] : '📝 পোস্ট')),
             'press' => $press,
+            'why'   => isset($why[$rid]) ? $why[$rid] : '',
         );
     }
     return $items;
@@ -187,6 +189,7 @@ function sb_feature_labels() {
         'edit_new'  => 'নির্দেশ দিয়ে নতুন করে লেখা',
         'phones'    => 'নতুন মোবাইল মডেল খোঁজা',
         'faq'       => 'FAQ (প্রশ্ন-উত্তর)',
+        'related'   => 'স্মার্ট সম্পর্কিত পোস্ট/পেজ',
     );
 }
 
@@ -286,4 +289,44 @@ function sb_author_name($post_id) {
 function sb_post_image($post_id, $size = 'large') {
     $url = get_the_post_thumbnail_url($post_id, $size);
     return $url ? $url : '';
+}
+
+
+/**
+ * Candidate pool for "smart related": blog posts, site pages and posts, pre-filtered by
+ * keyword overlap so the AI only reads a short list (keeps the cost tiny).
+ */
+function sb_related_candidates($post_id, $keywords, $title, $limit = 40) {
+    $skip = array_filter(array((int) $post_id, (int) get_option('sb_blog_page_id'), (int) get_option('page_on_front'), (int) get_option('page_for_posts')));
+    $ids = get_posts(array('post_type' => array('sb_post', 'page', 'post'), 'post_status' => 'publish', 'numberposts' => 250,
+        'fields' => 'ids', 'post__not_in' => $skip, 'orderby' => 'date', 'order' => 'DESC', 'no_found_rows' => true));
+    $tokens = array();
+    foreach (array_merge((array) $keywords, array($title)) as $t) {
+        foreach (preg_split('/[^\p{L}\p{M}\p{N}]+/u', mb_strtolower((string) $t)) as $w) {
+            if (mb_strlen($w) >= 3) {
+                $tokens[$w] = true;
+            }
+        }
+    }
+    $rows = array();
+    foreach ($ids as $rid) {
+        if (get_post_type($rid) === 'sb_post' && sb_is_press($rid)) {
+            continue;
+        }
+        $p = get_post($rid);
+        $snip = mb_substr(trim(preg_replace('/\s+/u', ' ', wp_strip_all_tags(($p->post_excerpt ?: $p->post_content)))), 0, 110);
+        $hay_t = mb_strtolower($p->post_title);
+        $hay_b = mb_strtolower($snip);
+        $score = 0;
+        foreach (array_keys($tokens) as $w) {
+            if (mb_strpos($hay_t, $w) !== false) {
+                $score += 3;
+            } elseif (mb_strpos($hay_b, $w) !== false) {
+                $score += 1;
+            }
+        }
+        $rows[] = array('id' => (int) $rid, 'type' => $p->post_type === 'page' ? 'পেজ' : 'পোস্ট', 'title' => $p->post_title, 'snip' => $snip, 'score' => $score);
+    }
+    usort($rows, function ($a, $b) { return $b['score'] <=> $a['score']; });
+    return array_slice($rows, 0, $limit);
 }

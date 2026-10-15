@@ -918,3 +918,6 @@ body.single-sb_post.shb-hide-title main .wp-block-separator { display: none; }
 .sb-social .sb-soc-btns { display: flex; flex-wrap: wrap; gap: 10px; justify-content: center; margin-top: 14px; }
 .sb-social a.sb-soc-btn { display: inline-block; padding: 10px 20px; border-radius: 999px; color: #fff !important; text-decoration: none !important; font-weight: 700; font-size: 14px; box-shadow: 0 4px 12px rgba(0,0,0,.15); }
 .sb-social a.is-fb { background: #1877f2; } .sb-social a.is-yt { background: #e62117; } .sb-social a.is-ig { background: linear-gradient(45deg, #f09433, #dc2743 55%, #bc1888); }
+
+.shb-single .post-layout.no-aside { grid-template-columns: minmax(0, 1fr); }
+.shb-single .rel-text em { font-style: normal; font-size: 12.5px; color: #5d6a64; line-height: 1.4; }

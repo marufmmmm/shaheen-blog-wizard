@@ -247,7 +247,7 @@ function sb_single_content($content) {
             </div>
         </header>
 
-        <div class="post-layout">
+        <div class="post-layout<?php echo $related ? '' : ' no-aside'; ?>">
         <div class="post-wrap">
             <div class="post-card">
                 <?php if ($img) : ?>
@@ -286,21 +286,23 @@ function sb_single_content($content) {
             </div>
         </div>
 
+        <?php if ($related) : ?>
         <aside class="post-aside" aria-label="সম্পর্কিত পোস্ট">
             <div class="aside-box">
-                <h2>📖 সম্পর্কিত পোস্ট</h2>
+                <h2>📖 এগুলোও পড়ুন</h2>
                 <ul class="rel-list">
                     <?php foreach ($related as $r) : ?>
                         <li>
                             <a class="rel-item" href="<?php echo esc_url($r['url']); ?>"<?php echo $r['press'] ? ' target="_blank" rel="noopener nofollow"' : ''; ?>>
-                                <span class="rel-thumb"><?php if ($r['thumb']) : ?><img src="<?php echo esc_url($r['thumb']); ?>" alt="" loading="lazy"><?php else : ?><i><?php echo $r['press'] ? '📰' : '📚'; ?></i><?php endif; ?></span>
-                                <span class="rel-text"><small><?php echo esc_html($r['tag']); ?></small><strong><?php echo esc_html($r['title']); ?></strong></span>
+                                <span class="rel-thumb"><?php if ($r['thumb']) : ?><img src="<?php echo esc_url($r['thumb']); ?>" alt="" loading="lazy"><?php else : ?><i><?php echo $r['press'] ? '📰' : (strpos($r['tag'], 'পেজ') !== false ? '📄' : '📝'); ?></i><?php endif; ?></span>
+                                <span class="rel-text"><small><?php echo esc_html($r['tag']); ?></small><strong><?php echo esc_html($r['title']); ?></strong><?php if (!empty($r['why'])) : ?><em><?php echo esc_html($r['why']); ?></em><?php endif; ?></span>
                             </a>
                         </li>
                     <?php endforeach; ?>
                 </ul>
             </div>
         </aside>
+        <?php endif; ?>
         </div>
     </article>
     <?php
