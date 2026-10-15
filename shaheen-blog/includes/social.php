@@ -40,6 +40,16 @@ function sb_social_host($url) {
     return '';
 }
 
+/** Box shapes the owner can choose for a post/video (value => label). '' = follow the post itself. */
+function sb_ratio_options() {
+    return array('' => 'স্বয়ংক্রিয় (পোস্ট যেমন)', '16:9' => '১৬:৯ — চওড়া ভিডিও', '4:3' => '৪:৩ — ছোট চওড়া', '1:1' => '১:১ — চৌকো', '4:5' => '৪:৫ — লম্বা পোস্ট/ছবি', '9:16' => '৯:১৬ — রিল/শর্টস/স্টোরি');
+}
+
+function sb_ratio_clean($r) {
+    $r = is_string($r) ? trim($r) : '';
+    return array_key_exists($r, sb_ratio_options()) ? $r : '';
+}
+
 function sb_social_clean_url($url, $only = '') {
     $url = esc_url_raw(trim((string) $url), array('http', 'https'));
     if ($url === '' || ($kind = sb_social_host($url)) === '' || ($only && $kind !== $only)) {
@@ -88,6 +98,7 @@ function sb_social_clean_items($raw) {
             'name' => sanitize_text_field(isset($r['name']) ? $r['name'] : ''),
             'src' => in_array($r['type'], array('fb_post', 'yt_video', 'ig', 'code'), true) ? $src : esc_url_raw($src, array('http', 'https')),
             'h' => max(0, min(1400, (int) (isset($r['h']) ? $r['h'] : 0))),
+            'r' => in_array($r['type'], array('fb_post', 'yt_video', 'ig', 'yt_latest'), true) ? sb_ratio_clean(isset($r['r']) ? $r['r'] : '') : '',
             'n' => max(1, min(5, (int) (isset($r['n']) ? $r['n'] : 3))),
         );
     }
@@ -149,7 +160,7 @@ function sb_social_item_slides($it, $s) {
         case 'yt_latest':
             $out = array();
             foreach (sb_yt_latest($it['src'] !== '' ? $it['src'] : $s['yt'], (int) $it['n']) as $v) {
-                $out[] = array('kind' => 'yt', 'src' => 'https://www.youtube-nocookie.com/embed/' . $v['id'], 'thumb' => 'https://i.ytimg.com/vi/' . $v['id'] . '/hqdefault.jpg', 'title' => $v['title']);
+                $out[] = array('kind' => 'yt', 'r' => sb_ratio_clean(isset($it['r']) ? $it['r'] : ''), 'src' => 'https://www.youtube-nocookie.com/embed/' . $v['id'], 'thumb' => 'https://i.ytimg.com/vi/' . $v['id'] . '/hqdefault.jpg', 'title' => $v['title']);
             }
             return $out;
         case 'ig_card':
@@ -173,10 +184,10 @@ function sb_social_item_slides($it, $s) {
                 return array();
             }
             if ($e['kind'] === 'yt' && preg_match('#/embed/([\w-]{11})#', $e['src'], $m)) {
-                return array(array('kind' => 'yt', 'src' => 'https://www.youtube-nocookie.com/embed/' . $m[1], 'thumb' => 'https://i.ytimg.com/vi/' . $m[1] . '/hqdefault.jpg', 'title' => 'ইউটিউব ভিডিও'));
+                return array(array('kind' => 'yt', 'r' => sb_ratio_clean(isset($it['r']) ? $it['r'] : ''), 'src' => 'https://www.youtube-nocookie.com/embed/' . $m[1], 'thumb' => 'https://i.ytimg.com/vi/' . $m[1] . '/hqdefault.jpg', 'title' => 'ইউটিউব ভিডিও'));
             }
             $hh = $it['h'] ?: ($e['h'] ?: 420);
-            return array(array('kind' => $e['kind'] === 'ig' ? 'ig' : 'fb', 'wa' => preg_match('#facebook\.com/plugins/(page|like)\.php#', $e['src']) ? 1 : 0, 'src' => $e['src'], 'h' => $hh, 'title' => 'সোশ্যাল মিডিয়া'));
+            return array(array('kind' => $e['kind'] === 'ig' ? 'ig' : 'fb', 'r' => sb_ratio_clean(isset($it['r']) ? $it['r'] : ''), 'wa' => preg_match('#facebook\.com/plugins/(page|like)\.php#', $e['src']) ? 1 : 0, 'src' => $e['src'], 'h' => $hh, 'title' => 'সোশ্যাল মিডিয়া'));
     }
 }
 
@@ -319,7 +330,7 @@ function sb_social_html($ids = null) {
         <?php if ($slides) : ?>
         <div class="sb-soc-stage">
             <?php foreach ($slides as $i => $sl) : ?>
-                <div class="sb-soc-slide" data-kind="<?php echo esc_attr($sl['kind']); ?>"<?php echo !empty($sl['wa']) ? ' data-wa="1"' : ''; ?><?php echo isset($sl['src']) ? ' data-src="' . esc_url($sl['src']) . '"' : ''; ?> data-h="<?php echo isset($sl['h']) ? (int) $sl['h'] : 0; ?>"<?php echo !empty($sl['auto']) ? ' data-auto="1"' : ''; ?> data-title="<?php echo esc_attr($sl['title']); ?>"<?php echo ($i && !$stack) ? ' hidden' : ''; ?>>
+                <div class="sb-soc-slide" data-kind="<?php echo esc_attr($sl['kind']); ?>"<?php echo !empty($sl['wa']) ? ' data-wa="1"' : ''; ?><?php echo isset($sl['src']) ? ' data-src="' . esc_url($sl['src']) . '"' : ''; ?> data-h="<?php echo isset($sl['h']) ? (int) $sl['h'] : 0; ?>"<?php echo !empty($sl['auto']) ? ' data-auto="1"' : ''; ?><?php echo !empty($sl['r']) ? ' data-r="' . esc_attr($sl['r']) . '"' : ''; ?> data-title="<?php echo esc_attr($sl['title']); ?>"<?php echo ($i && !$stack) ? ' hidden' : ''; ?>>
                     <?php if ($sl['kind'] === 'yt') : ?>
                         <button type="button" class="sb-soc-yt" aria-label="ভিডিও চালান">
                             <img src="<?php echo esc_url($sl['thumb']); ?>" alt="" loading="lazy"><span class="sb-soc-play">▶</span>

@@ -51,6 +51,9 @@ function sb_clean_extras($raw) {
                 'url'   => $url,
                 'pos'   => sb_clean_pos(isset($r['pos']) ? $r['pos'] : 'end', isset($r['n']) ? $r['n'] : 1),
             );
+            if ($key === 'embeds') {
+                $out[$key][count($out[$key]) - 1]['r'] = sb_ratio_clean(isset($r['r']) ? $r['r'] : '');
+            }
         }
     }
     $sp = isset($raw['social_pos']) ? (string) $raw['social_pos'] : '';
@@ -211,7 +214,7 @@ function sb_embed_parse($raw) {
     return array('link' => $url);
 }
 
-function sb_embed_html($raw) {
+function sb_embed_html($raw, $ratio = '') {
     $e = sb_embed_parse($raw);
     if (!$e) {
         return '';
@@ -222,6 +225,10 @@ function sb_embed_html($raw) {
     $kind = $e['kind'];
     $cls = $kind === 'yt' ? 'sb-embed--16x9' : ($kind === 'ig' ? 'sb-embed--ig' : ($kind === 'fblike' ? 'sb-embed--like' : 'sb-embed--fb'));
     $style = ($e['h'] && $kind !== 'yt') ? ' style="--sb-h:' . (int) $e['h'] . 'px"' : '';
+    if ($ratio !== '' && function_exists('sb_ratio_clean') && sb_ratio_clean($ratio) !== '' && $kind !== 'fblike') {
+        $cls .= ' sb-embed--ratio';
+        $style = ' style="' . ($e['h'] && $kind !== 'yt' ? '--sb-h:' . (int) $e['h'] . 'px;' : '') . '--sb-r:' . esc_attr(str_replace(':', '/', $ratio)) . '" data-r="' . esc_attr($ratio) . '"';
+    }
     return '<div class="sb-embed ' . $cls . '"' . $style . '><iframe src="' . esc_url($e['src']) . '" title="সোশ্যাল মিডিয়া" loading="lazy" scrolling="no" allow="encrypted-media; picture-in-picture; clipboard-write" allowfullscreen></iframe></div>';
 }
 
@@ -245,7 +252,7 @@ function sb_extras_items($post_id) {
         $items[] = array($d['pos'], sb_pdf_html($d['url'], $d['label']));
     }
     foreach ($e['embeds'] as $d) {
-        $items[] = array($d['pos'], sb_embed_html($d['url']));
+        $items[] = array($d['pos'], sb_embed_html($d['url'], isset($d['r']) ? $d['r'] : ''));
     }
     return $items;
 }

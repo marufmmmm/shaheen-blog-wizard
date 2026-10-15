@@ -76,6 +76,7 @@ function sb_admin_assets() {
         'cats'    => $cats,
         'page'    => $page,
         'gblocks' => sb_block_library(),
+        'ratios'  => sb_ratio_options(),
         'memAuto' => (int) sb_memory_cfg()['auto'],
         'postsUrl' => admin_url('admin.php?page=sb-posts'),
     ));

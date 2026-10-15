@@ -176,7 +176,8 @@
             var wa = slide.getAttribute('data-wa') === '1';
             f.style.cssText = 'width:' + (wa ? '100%' : '100%') + ';max-width:100%;border:0;display:block;margin:0 auto;height:' + (parseInt(slide.getAttribute('data-h'), 10) || 420) + 'px';
             slide.appendChild(f); slide.setAttribute('data-ready', '1');
-            if (wa) { fit(slide); } else { f.src = src; if (window.SBFB) { window.SBFB.upgrade(f); } }
+            if (slide.getAttribute('data-r')) { f.src = src; f.style.height = '100%'; slide.style.width = '100%'; if (window.SBRATIO) { window.SBRATIO.fit(slide, f); } }
+            else if (wa) { fit(slide); } else { f.src = src; if (window.SBFB) { window.SBFB.upgrade(f); } }
         }
         function show(i) {
             cur = (i + slides.length) % slides.length;
@@ -204,7 +205,7 @@
                     var f = document.createElement('iframe');
                     f.src = s.getAttribute('data-src') + '?autoplay=1&rel=0'; f.title = s.getAttribute('data-title') || '';
                     f.setAttribute('allow', 'autoplay; encrypted-media; picture-in-picture'); f.setAttribute('allowfullscreen', 'true');
-                    f.style.cssText = 'width:100%;aspect-ratio:16/9;border:0;display:block';
+                    f.style.cssText = 'width:100%;aspect-ratio:' + ((s.getAttribute('data-r') || '16:9').replace(':', '/')) + ';border:0;display:block';
                     y.replaceWith(f); paused = true;   // keep the video on screen while it plays
                 });
             }
@@ -281,7 +282,7 @@
         setTimeout(function () { if (sdkState === 1) { sdkState = 3; var q = queue.splice(0); q.forEach(function (f) { f(false); }); } }, 8000);
     }
     function upgrade(f) {
-        if (!f || f.getAttribute('data-sbfb')) { return; }
+        if (!f || f.getAttribute('data-sbfb') || (f.closest && (f.closest('.sb-embed--ratio') || f.closest('.sb-soc-slide[data-r]')))) { return; }
         var m = /facebook\.com\/plugins\/(post|video)\.php\?([^#]*)/.exec(f.getAttribute('src') || f.getAttribute('data-src') || '');
         if (!m) { return; }
         var href = (/(?:^|&)href=([^&]+)/.exec(m[2]) || [])[1];
@@ -311,4 +312,32 @@
     document.addEventListener('DOMContentLoaded', function () {
         [].slice.call(document.querySelectorAll('.sb-embed iframe[src*="facebook.com/plugins/post.php"], .sb-embed iframe[src*="facebook.com/plugins/video.php"]')).forEach(upgrade);
     });
+})();
+
+
+/* Box shapes (16:9, 1:1, 4:5, 9:16 …) chosen by the owner for video/post embeds */
+(function () {
+    var CAP = { '16:9': 0, '4:3': 640, '1:1': 540, '4:5': 480, '9:16': 360 };
+    function fit(box, f) {
+        var r = box.getAttribute('data-r'); if (!r || !f) { return; }
+        var p = r.split(':'), a = +p[0], b = +p[1]; if (!a || !b) { return; }
+        var cap = CAP[r];
+        if (cap) { box.style.maxWidth = cap + 'px'; box.style.marginLeft = 'auto'; box.style.marginRight = 'auto'; }
+        box.style.aspectRatio = a + ' / ' + b;
+        var w = Math.round(box.clientWidth), h = Math.round(w * b / a);
+        f.style.width = '100%'; f.style.height = '100%';
+        var src = f.getAttribute('src') || f.getAttribute('data-fbsrc') || '';
+        if (/facebook\.com\/plugins\/(post|video)\.php/.test(src) && w > 0 && box.getAttribute('data-fw') !== w + 'x' + h) {
+            box.setAttribute('data-fw', w + 'x' + h);
+            var u = src.replace(/([?&])width=\d+/, '$1width=' + Math.max(180, Math.min(750, w)));
+            u = /([?&])height=\d+/.test(u) ? u.replace(/([?&])height=\d+/, '$1height=' + h) : u + '&height=' + h;
+            if (u !== src) { f.setAttribute('src', u); }
+        }
+    }
+    window.SBRATIO = { fit: fit };
+    function run() {
+        [].slice.call(document.querySelectorAll('.sb-embed--ratio, .sb-soc-slide[data-r][data-ready]:not([hidden])')).forEach(function (b) { fit(b, b.querySelector('iframe')); });
+    }
+    document.addEventListener('DOMContentLoaded', run);
+    var t; window.addEventListener('resize', function () { clearTimeout(t); t = setTimeout(run, 200); });
 })();
