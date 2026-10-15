@@ -127,11 +127,15 @@ add_action('wp_ajax_sb_mem_learn', function () {
     }
     $draft = trim(wp_strip_all_tags(wp_kses_post(sb_req('draft'))));
     $final = trim(wp_strip_all_tags(wp_kses_post(sb_req('final'))));
-    if (mb_strlen($draft) < 200 || mb_strlen($final) < 200) {
+    $ins = trim(sanitize_textarea_field(sb_req('ins')));
+    if ($ins === '' && (mb_strlen($draft) < 200 || mb_strlen($final) < 200)) {
         wp_send_json_success(array('added' => 0, 'skipped' => 1));
     }
-    similar_text(mb_substr($draft, 0, 3000), mb_substr($final, 0, 3000), $pct);
-    if ($pct > 97) {
+    $pct = 0;
+    if ($draft !== '' && $final !== '') {
+        similar_text(mb_substr($draft, 0, 3000), mb_substr($final, 0, 3000), $pct);
+    }
+    if ($ins === '' && $pct > 97) {
         wp_send_json_success(array('added' => 0, 'skipped' => 1));   // nothing meaningful changed
     }
     $uid = get_current_user_id();
@@ -140,7 +144,7 @@ add_action('wp_ajax_sb_mem_learn', function () {
     if ($state['remaining'] < $cost) {
         wp_send_json_error(array('message' => 'শেখার জন্য ক্রেডিট যথেষ্ট নয়।', 'balance' => $state));
     }
-    $r = SB_AI::generate('learn', array('draft' => $draft, 'final' => $final, 'title' => sanitize_text_field(sb_req('title')), 'keywords' => array()));
+    $r = SB_AI::generate('learn', array('draft' => $draft, 'final' => $final, 'ins' => $ins, 'title' => sanitize_text_field(sb_req('title')), 'keywords' => array()));
     if (is_wp_error($r)) {
         wp_send_json_error(array('message' => $r->get_error_message(), 'balance' => $state));
     }

@@ -187,6 +187,7 @@
       var ctx = ctxFn(), old = go.innerHTML; go.disabled = true; go.textContent = '⏳ হচ্ছে… (১ মিনিট পর্যন্ত লাগতে পারে)';
       post('sb_ai', { feature: mode, post_id: 0, instruction: ins, ins_count: list.length, content: getFn(), title: ctx.title, keywords: ctx.keywords }).then(function (d) {
         prev = getFn(); setFn(d.result.text); undo.hidden = false;
+        (window.__sbIns = window.__sbIns || []).push(ins);
         toast('✓ হয়েছে। ' + fmt(d.cost) + ' ক্রেডিট কেটেছে। পছন্দ না হলে "আগের লেখা ফিরিয়ে আনুন" চাপুন।', 'ok');
         if (d.result.missing && d.result.missing.length) { toast('লেখায় ' + bn(d.result.missing.length) + 'টি জায়গায় আপনার তথ্য দরকার ([তথ্য দরকার: …] খুঁজুন)।', 'err'); }
       }).catch(function (e) { toast(e.message, 'err'); })
@@ -762,6 +763,7 @@
         dm.appendChild(dl); mb.appendChild(dm); mb.hidden = false;
         toast('⚠️ AI কিছু তথ্য লিখেনি, শুধু PDF-এর দিকে ইঙ্গিত করেছে — লেখার নিচের লাল তালিকা দেখুন।', 'err');
       }
+      if (f === 'custom') { (window.__sbIns = window.__sbIns || []).push(val('#f-custom')); }
       buildFacts(f === 'custom' ? r.facts : [], r.missing);
       aiDraft = r.text;
     }
@@ -844,9 +846,10 @@
     box.hidden = false;
   }
   function autoLearn(finalHtml) {
-    if (!SB.memAuto || !aiDraft || !finalHtml) { return; }
-    var draft = aiDraft; aiDraft = finalHtml;
-    post('sb_mem_learn', { draft: draft, final: finalHtml, title: val('#f-title'), post_id: postId }).then(function (d) {
+    var insList = window.__sbIns || [];
+    if (!SB.memAuto || (!aiDraft && !insList.length) || !finalHtml) { return; }
+    var draft = aiDraft || ''; aiDraft = finalHtml; window.__sbIns = [];
+    post('sb_mem_learn', { draft: draft, final: finalHtml, ins: insList.join('\n---\n'), title: val('#f-title'), post_id: postId }).then(function (d) {
       if (d && d.added) { toast('🧠 মেমোরিতে ' + bn(d.added) + 'টি নতুন শিক্ষা জমা হয়েছে (' + fmt(d.cost) + ' ক্রেডিট)। দেখুন/বদলান: মেমোরি মেনু।', 'ok'); }
     }).catch(function () {});
   }
