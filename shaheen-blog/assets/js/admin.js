@@ -742,7 +742,7 @@
         nh.innerHTML = '<strong>📋 আপনার দেওয়া উৎসের অবস্থা:</strong>';
         var nl = document.createElement('ul'); r.notes.forEach(function (x) { var li = document.createElement('li'); li.textContent = x; nl.appendChild(li); });
         nh.appendChild(nl); sb.appendChild(nh); sb.hidden = false;
-        if (r.notes.some(function (x) { return x.indexOf('✓') !== 0; })) { toast('⚠️ কিছু উৎস পড়া যায়নি — লেখার নিচে "উৎসের অবস্থা" দেখুন।', 'err'); }
+        if (r.notes.some(function (x) { return x.indexOf('✓') !== 0 && x.indexOf('ℹ️') !== 0; })) { toast('⚠️ কিছু উৎস পড়া যায়নি — লেখার নিচে "উৎসের অবস্থা" দেখুন।', 'err'); }
       }
       if (f === 'custom') {
         if (r.meta && !val('#f-meta').trim()) { $('#f-meta').value = r.meta; metaCount(); }

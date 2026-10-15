@@ -331,6 +331,7 @@ add_action('wp_ajax_sb_job_run', function () {
             ? array('type' => 'file', 'file' => array('filename' => $f['name'], 'file_data' => $uri))
             : array('type' => 'image_url', 'image_url' => array('url' => $uri));
     }
+    $notes = array_merge($notes, SB_Know::status(isset($ctx['keywords']) ? $ctx['keywords'] : array()));
     $ctx['bg'] = true;
     $r = SB_AI::generate('custom', $ctx);
     foreach ($job['files'] as $f) {
