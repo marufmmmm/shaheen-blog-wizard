@@ -956,3 +956,11 @@ body.single-sb_post.shb-hide-title main .wp-block-separator { display: none; }
 .shb .sb-pdf-more { text-align: center; padding: 6px 0 12px; }
 .shb .sb-pdf-more button { background: var(--primary-light, #1a6b3e); color: #fff; border: 0; border-radius: 8px; padding: 8px 18px; font: inherit; cursor: pointer; }
 @media (max-width: 640px) { .shb .sb-embed--fb iframe { height: min(var(--sb-h, 560px), 560px); } .shb .sb-pdf-pages { max-height: 60vh; } }
+
+/* Facebook post/video sized by Facebook's SDK */
+.shb .sb-embed--fb.is-dyn { background: transparent; border: 0; max-width: 750px; overflow: visible; }
+.sb-fbdyn, .sb-fbdyn > span, .sb-fbdyn iframe { max-width: 100% !important; }
+.sb-fbdyn { display: block; width: 100%; text-align: center; }
+.sb-fbdyn > span { display: block !important; margin: 0 auto; }
+.shb .sb-embed--fb.is-dyn .sb-fbdyn iframe { height: auto; }
+.sb-social .sb-soc-slide.is-dyn { overflow: visible; }

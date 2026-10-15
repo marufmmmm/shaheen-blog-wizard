@@ -172,7 +172,7 @@
             var wa = slide.getAttribute('data-wa') === '1';
             f.style.cssText = 'width:' + (wa ? '100%' : '100%') + ';max-width:100%;border:0;display:block;margin:0 auto;height:' + (parseInt(slide.getAttribute('data-h'), 10) || 420) + 'px';
             slide.appendChild(f); slide.setAttribute('data-ready', '1');
-            if (wa) { fit(slide); } else { f.src = src; }
+            if (wa) { fit(slide); } else { f.src = src; if (window.SBFB) { window.SBFB.upgrade(f); } }
         }
         function show(i) {
             cur = (i + slides.length) % slides.length;
@@ -257,4 +257,54 @@
         es.forEach(function (e) { if (e.isIntersecting) { io.unobserve(e.target); start(e.target); } });
     }, { rootMargin: '300px' }) : null;
     boxes.forEach(function (b) { if (io) { io.observe(b); } else { start(b); } });
+})();
+
+
+/* Facebook post/video embeds: let Facebook's own SDK size them (height follows the post, width follows the box; mobile + desktop).
+   If the SDK can't load (ad-blocker, offline) the normal iframe stays. */
+(function () {
+    var sdkState = 0, queue = [];
+    function loadSdk(cb) {
+        if (window.FB && window.FB.XFBML) { cb(true); return; }
+        queue.push(cb);
+        if (sdkState) { return; }
+        sdkState = 1;
+        window.fbAsyncInit = function () { try { FB.init({ xfbml: false, version: 'v21.0' }); } catch (e) {} sdkState = 2; var q = queue.splice(0); q.forEach(function (f) { f(true); }); };
+        var s = document.createElement('script');
+        s.async = true; s.defer = true; s.crossOrigin = 'anonymous'; s.src = 'https://connect.facebook.net/en_US/sdk.js';
+        s.onerror = function () { sdkState = 3; var q = queue.splice(0); q.forEach(function (f) { f(false); }); };
+        document.head.appendChild(s);
+        setTimeout(function () { if (sdkState === 1) { sdkState = 3; var q = queue.splice(0); q.forEach(function (f) { f(false); }); } }, 8000);
+    }
+    function upgrade(f) {
+        if (!f || f.getAttribute('data-sbfb')) { return; }
+        var m = /facebook\.com\/plugins\/(post|video)\.php\?([^#]*)/.exec(f.getAttribute('src') || f.getAttribute('data-src') || '');
+        if (!m) { return; }
+        var href = (/(?:^|&)href=([^&]+)/.exec(m[2]) || [])[1];
+        if (!href) { return; }
+        f.setAttribute('data-sbfb', '1');
+        try { href = decodeURIComponent(href); } catch (e) { return; }
+        loadSdk(function (ok) {
+            if (!ok || !f.parentNode) { return; }
+            var d = document.createElement('div');
+            d.className = 'sb-fbdyn ' + (m[1] === 'video' ? 'fb-video' : 'fb-post');
+            d.setAttribute('data-href', href); d.setAttribute('data-width', 'auto');
+            if (m[1] === 'video') { d.setAttribute('data-allowfullscreen', 'true'); d.setAttribute('data-show-text', 'false'); }
+            else { d.setAttribute('data-show-text', 'true'); }
+            f.parentNode.insertBefore(d, f);
+            try { FB.XFBML.parse(d.parentNode); } catch (e) { d.remove(); return; }
+            var tries = 0, t = setInterval(function () {
+                tries++;
+                if (d.querySelector('iframe')) {
+                    clearInterval(t); f.style.display = 'none';
+                    var box = f.closest('.sb-embed'); if (box) { box.classList.add('is-dyn'); }
+                    var slide = f.closest('.sb-soc-slide'); if (slide) { slide.classList.add('is-dyn'); }
+                } else if (tries > 24) { clearInterval(t); d.remove(); }   // SDK gave nothing: keep the plain iframe
+            }, 250);
+        });
+    }
+    window.SBFB = { upgrade: upgrade };
+    document.addEventListener('DOMContentLoaded', function () {
+        [].slice.call(document.querySelectorAll('.sb-embed iframe[src*="facebook.com/plugins/post.php"], .sb-embed iframe[src*="facebook.com/plugins/video.php"]')).forEach(upgrade);
+    });
 })();
