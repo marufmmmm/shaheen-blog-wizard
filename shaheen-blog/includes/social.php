@@ -153,7 +153,7 @@ function sb_social_item_slides($it, $s) {
         case 'fb_like':
             if (!$fb) { return array(); }
             return array(array('kind' => 'fb', 'wa' => 1, 'h' => $h, 'title' => 'ফেসবুক লাইক',
-                'src' => 'https://www.facebook.com/plugins/like.php?href=' . rawurlencode($fb) . '&layout=button_count&action=like&show_faces=false&share=false&width=500&height=' . $h));
+                'src' => 'https://www.facebook.com/plugins/like.php?href=' . rawurlencode($fb) . '&layout=button_count&action=like&size=large&show_faces=false&share=false&width=500&height=' . $h));
         case 'fb_card':
             return $fb ? array(array('kind' => 'fb', 'wa' => 1, 'h' => $h, 'title' => 'ফেসবুক পেজ', 'src' => $page('', $h))) : array();
         case 'fb_timeline':
@@ -322,7 +322,7 @@ function sb_social_html($ids = null) {
     }
     $stack = $s['layout'] === 'stack';
     // The Facebook plugin already has its own Like/Follow button, so a second "Like" button would be redundant.
-    $fb_plugin = (bool) array_filter($slides, function ($x) { return isset($x['src']) && preg_match('#plugins/(page|like)\.php#', $x['src']); });
+    $fb_plugin = (bool) array_filter($slides, function ($x) { return isset($x['src']) && preg_match('#plugins/page\.php#', $x['src']); });
     $show_btns = !$s['hide_btns'];
     ob_start();
     ?>
@@ -352,7 +352,7 @@ function sb_social_html($ids = null) {
         <?php endif; endif; ?>
         <?php if ($show_btns && (($s['fb'] && !$fb_plugin) || $s['yt'] || $s['ig'])) : ?>
         <div class="sb-soc-btns">
-            <?php if ($s['fb'] && !$fb_plugin) : ?><a class="sb-soc-btn is-fb" href="<?php echo esc_url($s['fb']); ?>" target="_blank" rel="noopener"><?php echo esc_html($s['fb_label']); ?></a><?php endif; ?>
+            <?php if ($s['fb'] && !$fb_plugin) : ?><a class="sb-soc-btn is-fb" href="<?php echo esc_url($s['fb']); ?>" target="_blank" rel="noopener"><?php echo esc_html(trim($s['fb_label']) !== '' ? $s['fb_label'] : '👍 ফেসবুকে লাইক/ফলো করুন'); ?></a><?php endif; ?>
             <?php if ($s['yt']) : ?><a class="sb-soc-btn is-yt" href="<?php echo esc_url($s['yt']); ?>" target="_blank" rel="noopener"><?php echo esc_html($s['yt_label']); ?></a><?php endif; ?>
             <?php if ($s['ig']) : ?><a class="sb-soc-btn is-ig" href="<?php echo esc_url($s['ig']); ?>" target="_blank" rel="noopener"><?php echo esc_html($s['ig_label']); ?></a><?php endif; ?>
         </div>
