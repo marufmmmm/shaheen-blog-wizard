@@ -30,6 +30,7 @@ $d = array(
     'related'     => $post ? array_map(function ($rid) use ($pid) { $w = get_post_meta($pid, '_sb_related_why', true); return array('id' => (int) $rid, 'title' => get_the_title($rid), 'why' => (is_array($w) && isset($w[$rid])) ? $w[$rid] : ''); }, array_filter((array) get_post_meta($pid, '_sb_related', true))) : array(),
     'inc_summary' => $post ? ((($v = get_post_meta($pid, '_sb_inc_summary', true)) === '1') || ($v === '' && get_post_meta($pid, '_sb_summary', true) !== '')) : false,
     'inc_faq'     => $post ? ((($v = get_post_meta($pid, '_sb_inc_faq', true)) === '1') || ($v === '' && !empty(get_post_meta($pid, '_sb_faq', true)))) : false,
+    'extras'      => $post ? sb_get_extras($pid) : sb_clean_extras(array()),
     'faq'         => $post ? (array) get_post_meta($pid, '_sb_faq', true) : array(),
     'category'    => (!empty($cat_terms) && !is_wp_error($cat_terms)) ? (int) $cat_terms[0]->term_id : 0,
     'image_id'    => $post ? (int) get_post_thumbnail_id($pid) : 0,
@@ -148,6 +149,29 @@ $costs['research'] = max(0, (int) sb_get('cost_research'));
             <button type="button" class="button" id="blk-add">+ নতুন ব্লক যোগ করুন</button>
             <label class="sba-inline-check" style="margin-top:10px"><input type="checkbox" id="no-social"> এই পোস্টে সোশ্যাল মিডিয়া বক্স (ফেসবুক/ইউটিউব/ইনস্টাগ্রাম) দেখাবো না</label><br>
             <label class="sba-inline-check" style="margin-top:6px"><input type="checkbox" id="no-global"> লাইব্রেরির "সব পোস্টে অটো" ব্লকগুলো এই পোস্টে দেখাবো না</label>
+
+            <h3>🔗 রেফারেন্স লিংক <small>(ঐচ্ছিক)</small></h3>
+            <p class="sba-muted">"যে শব্দে লিংক বসবে" ঘরে আর্টিকেলের হুবহু শব্দ/বাক্যাংশ লিখলে লেখার ভেতরে সেই শব্দটি হাইপারলিংক হবে (প্রথমবার যেখানে পাবে সেখানে)। না লিখলে বা না পেলে শুধু নিচের "সূত্র" তালিকায় থাকবে। লিংক নতুন ট্যাবে খুলবে।</p>
+            <div id="ex-refs"></div><button type="button" class="button" id="ex-refs-add">＋ রেফারেন্স যোগ করুন</button>
+
+            <h3>⬇️ ডাউনলোড বাটন <small>(ঐচ্ছিক)</small></h3>
+            <p class="sba-muted">বাটনের লেখা লিখুন, ফাইল মিডিয়া লাইব্রেরি থেকে বাছুন বা লিংক দিন, আর কোথায় বসবে ঠিক করুন।</p>
+            <div id="ex-dls"></div><button type="button" class="button" id="ex-dls-add">＋ ডাউনলোড বাটন যোগ করুন</button>
+
+            <h3>📄 PDF পড়ার ঘর <small>(ঐচ্ছিক)</small></h3>
+            <p class="sba-muted">PDF পোস্টের ভেতরেই পড়া যাবে (ফোনেও)। পাশে "খুলুন / ডাউনলোড" লিংকও থাকবে।</p>
+            <div id="ex-pdfs"></div><button type="button" class="button" id="ex-pdfs-add">＋ PDF যোগ করুন</button>
+
+            <h3>▶️ ভিডিও / সোশ্যাল পোস্ট এমবেড <small>(ঐচ্ছিক)</small></h3>
+            <p class="sba-muted">ইউটিউব ভিডিও, ফেসবুক পোস্ট/ভিডিও বা ইনস্টাগ্রাম পোস্ট/রিলের লিংক দিন; যেখানে বসাতে চান সেখানে দেখাবে।</p>
+            <div id="ex-embeds"></div><button type="button" class="button" id="ex-embeds-add">＋ ভিডিও/পোস্ট যোগ করুন</button>
+
+            <h3>📣 এই পোস্টে সোশ্যাল বক্স (লাইক/ফলো) কোথায় দেখাবে</h3>
+            <div class="sba-row"><select id="ex-social-pos">
+                <option value="">সাধারণ সেটিং অনুযায়ী (সোশ্যাল মিডিয়া পেজে ঠিক করা)</option>
+                <option value="top">লেখার একদম ওপরে</option><option value="p">N-তম অনুচ্ছেদের পর</option>
+                <option value="middle">লেখার মাঝখানে</option><option value="end">লেখার শেষে</option><option value="off">এই পোস্টে দেখাবো না</option></select>
+                <input type="number" id="ex-social-n" min="1" max="60" value="2" style="width:80px" title="কত নম্বর অনুচ্ছেদের পর"></div>
 
             <h3>সচরাচর জিজ্ঞাসা (FAQ) <small>ঐচ্ছিক</small></h3>
             <div id="faq-list"></div>

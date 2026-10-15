@@ -75,9 +75,11 @@ function sb_edit_box($p) {
     ?>
     <div class="sba-ai sba-editbox" id="<?php echo esc_attr($p); ?>-box">
         <div class="sba-ai-head"><h3>✏️ পোস্ট কেমন চান — নির্দেশ দিন</h3></div>
-        <textarea id="<?php echo esc_attr($p); ?>-ins" rows="3" placeholder="যেমন: দ্বিতীয় অনুচ্ছেদ ছোট করুন, শুরুটা আরও আকর্ষণীয় করুন, শেষে ভর্তির যোগাযোগের কথা যোগ করুন…"></textarea>
+        <p class="sba-muted">প্রতিটি ঘরে একটি পরিবর্তন লিখুন, আরও বদলাতে চাইলে <strong>＋</strong> চাপুন (সর্বোচ্চ ১০টি)। AI সবগুলো একসাথে করবে; বাকি লেখা যেমন আছে তেমন থাকবে।</p>
+        <div class="sba-insrows" id="<?php echo esc_attr($p); ?>-rows"></div>
+        <button type="button" class="button" id="<?php echo esc_attr($p); ?>-addrow">＋ আরেকটি পরিবর্তন যোগ করুন</button>
         <div class="sba-edit-modes">
-            <label class="sba-inline-check"><input type="radio" name="<?php echo esc_attr($p); ?>-mode" value="edit" checked> শুধু সংশোধন <em>(<?php echo esc_html(sb_bn_digits(sb_feature_cost('edit'))); ?> ক্রেডিট)</em> — বাকি লেখা যেমন আছে তেমন থাকবে, শুধু আপনার নির্দেশের অংশ বদলাবে</label>
+            <label class="sba-inline-check"><input type="radio" name="<?php echo esc_attr($p); ?>-mode" value="edit" checked> শুধু সংশোধন <em>(১–৫টি পরিবর্তন <?php echo esc_html(sb_bn_digits(sb_feature_cost('edit'))); ?> ক্রেডিট, ৬–১০টি <?php echo esc_html(sb_bn_digits(sb_feature_cost('edit_many'))); ?>)</em> — বাকি লেখা যেমন আছে তেমন থাকবে, শুধু আপনার নির্দেশের অংশ বদলাবে</label>
             <label class="sba-inline-check"><input type="radio" name="<?php echo esc_attr($p); ?>-mode" value="edit_new"> নতুন করে লেখা <em>(<?php echo esc_html(sb_bn_digits(sb_feature_cost('edit_new'))); ?> ক্রেডিট)</em> — নির্দেশ মেনে পুরো লেখা নতুন করে তৈরি হবে</label>
         </div>
         <p><button type="button" class="button button-primary" id="<?php echo esc_attr($p); ?>-go">🤖 নির্দেশ অনুযায়ী করুন</button>
@@ -145,7 +147,7 @@ function sb_handle_save_settings() {
         'site_urls'     => sanitize_textarea_field($in('site_urls')),
         'about'         => sanitize_textarea_field($in('about')),
     );
-    foreach (array('headlines', 'subtitle', 'meta', 'article', 'summary', 'rewrite', 'edit', 'phones', 'faq', 'related') as $f) {
+    foreach (array('headlines', 'subtitle', 'meta', 'article', 'summary', 'rewrite', 'edit', 'edit_many', 'phones', 'faq', 'related') as $f) {
         $new['cost_' . $f] = max(0, (int) $in('cost_' . $f, 0));
     }
     // API key: keep the saved one unless a new one is typed or removal is ticked.

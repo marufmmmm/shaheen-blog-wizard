@@ -921,3 +921,33 @@ body.single-sb_post.shb-hide-title main .wp-block-separator { display: none; }
 
 .shb-single .post-layout.no-aside { grid-template-columns: minmax(0, 1fr); }
 .shb-single .rel-text em { font-style: normal; font-size: 12.5px; color: #5d6a64; line-height: 1.4; }
+
+/* ---- per-post extras: references, download buttons, PDF viewer, embeds ---- */
+.shb .sb-ref-link { color: var(--primary-light, #1a6b3e); text-decoration: underline; text-underline-offset: 3px; font-weight: 500; }
+.shb .sb-refs { margin: 28px 0 8px; padding: 16px 18px; background: #f7faf5; border: 1px solid #dfe6e9; border-left: 4px solid var(--golden, #d4af37); border-radius: 10px; }
+.shb .sb-refs h2 { margin: 0 0 8px; font-size: 18px; border: 0; padding: 0; }
+.shb .sb-refs ul { margin: 0; padding-left: 20px; display: grid; gap: 6px; }
+.shb .sb-refs li { overflow-wrap: anywhere; }
+.shb .sb-refs a { color: var(--primary-light, #1a6b3e); font-weight: 500; }
+.shb .sb-refs small { color: #6b7770; }
+.shb .sb-dl { margin: 18px 0; text-align: center; }
+.shb a.sb-dl-btn { display: inline-block; padding: 13px 28px; border-radius: 12px; background: linear-gradient(135deg, #1a6b3e, #22a84f); color: #fff !important; font-weight: 700; text-decoration: none !important; border: 2px solid var(--golden, #d4af37); box-shadow: 0 6px 16px rgba(26,107,62,.25); transition: transform .15s; max-width: 100%; overflow-wrap: anywhere; }
+.shb a.sb-dl-btn:hover { transform: translateY(-2px); }
+.shb .sb-embed { margin: 20px 0; border-radius: 12px; overflow: hidden; background: #000; }
+.shb .sb-embed iframe { display: block; width: 100%; border: 0; }
+.shb .sb-embed--16x9 { aspect-ratio: 16 / 9; }
+.shb .sb-embed--16x9 iframe { height: 100%; }
+.shb .sb-embed--fb, .shb .sb-embed--ig { background: #fff; border: 1px solid #dfe6e9; max-width: 540px; margin-inline: auto; }
+.shb .sb-embed--fb iframe { height: 560px; }
+.shb .sb-embed--fb.is-video iframe { height: 320px; }
+.shb .sb-embed--ig iframe { height: 620px; }
+.shb .sb-embed-link a { color: var(--primary-light, #1a6b3e); overflow-wrap: anywhere; }
+.shb .sb-pdf { margin: 22px 0; border: 1px solid #cfd8d3; border-radius: 12px; overflow: hidden; background: #fff; }
+.shb .sb-pdf-bar { display: flex; flex-wrap: wrap; gap: 8px 16px; align-items: center; justify-content: space-between; padding: 10px 14px; background: #eef5ef; }
+.shb .sb-pdf-bar a { color: var(--primary-light, #1a6b3e); font-weight: 600; text-decoration: none; margin-left: 10px; }
+.shb .sb-pdf-pages { max-height: 70vh; overflow: auto; padding: 10px; background: #f1f3f2; -webkit-overflow-scrolling: touch; }
+.shb .sb-pdf-pages canvas { display: block; width: 100%; height: auto; margin: 0 auto 10px; background: #fff; box-shadow: 0 1px 4px rgba(0,0,0,.15); }
+.shb .sb-pdf-wait { text-align: center; color: #6b7770; margin: 20px 0; }
+.shb .sb-pdf-more { text-align: center; padding: 6px 0 12px; }
+.shb .sb-pdf-more button { background: var(--primary-light, #1a6b3e); color: #fff; border: 0; border-radius: 8px; padding: 8px 18px; font: inherit; cursor: pointer; }
+@media (max-width: 640px) { .shb .sb-embed--fb iframe { height: 520px; } .shb .sb-pdf-pages { max-height: 60vh; } }

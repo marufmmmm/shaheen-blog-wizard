@@ -65,39 +65,25 @@ function sb_render_block($b) {
     return '<aside class="sb-ad">' . $label . $html . '</aside>';
 }
 
-/** Insert blocks after the 1st / middle / last paragraph of already-formatted HTML. */
+/** Put link blocks, the social box and the post's extras (PDF, downloads, embeds) into formatted HTML. */
 function sb_inject_blocks($html, array $blocks, $post_id = 0) {
-    $by = array('start' => '', 'middle' => '', 'end' => '');
+    $ex = $post_id ? sb_get_extras($post_id) : array('refs' => array(), 'social_pos' => '');
+    $html = sb_link_refs($html, $ex['refs']);
+    $map = array('start' => 'p:1', 'middle' => 'middle', 'end' => 'end');
+    $items = array();
+
     $soc = sb_social_get();
-    if ($soc['pos'] !== 'off' && !($post_id && get_post_meta($post_id, '_sb_no_social', true))) {
-        $by[$soc['pos']] .= sb_social_html();
+    $sp = $ex['social_pos'] !== '' ? $ex['social_pos'] : (isset($map[$soc['pos']]) ? $map[$soc['pos']] : 'off');
+    if ($sp !== 'off' && !($post_id && get_post_meta($post_id, '_sb_no_social', true))) {
+        $items[] = array($sp, sb_social_html());
     }
     foreach ($blocks as $b) {
-        $by[$b['pos']] .= sb_render_block($b);
+        $items[] = array(isset($map[$b['pos']]) ? $map[$b['pos']] : 'middle', sb_render_block($b));
     }
-    if (implode('', $by) === '') {
-        return $html;
+    if ($post_id) {
+        $items = array_merge($items, sb_extras_items($post_id));
     }
-    preg_match_all('#</p>#i', $html, $m, PREG_OFFSET_CAPTURE);
-    $ends = array();
-    foreach ($m[0] as $hit) {
-        $ends[] = $hit[1] + 4;
-    }
-    $n = count($ends);
-    $ins = array();
-    if ($n === 0) {
-        return $by['start'] . $html . $by['middle'] . $by['end'];
-    }
-    $ins[$ends[0]] = (isset($ins[$ends[0]]) ? $ins[$ends[0]] : '') . $by['start'];
-    $mid = $ends[(int) floor(($n - 1) / 2)];
-    $ins[$mid] = (isset($ins[$mid]) ? $ins[$mid] : '') . $by['middle'];
-    krsort($ins);
-    foreach ($ins as $off => $chunk) {
-        if ($chunk !== '') {
-            $html = substr($html, 0, $off) . $chunk . substr($html, $off);
-        }
-    }
-    return $html . $by['end'];
+    return sb_inject_at($html, $items);
 }
 
 /** The saved block library (each block has id, name, auto). Older saves get ids/auto filled in. */

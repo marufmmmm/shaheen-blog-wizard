@@ -36,6 +36,9 @@ function sb_ajax_ai() {
     sb_ajax_guard();
     $feature = sanitize_key(sb_req('feature'));
     $cost = sb_feature_cost($feature);
+    if ($feature === 'edit' && (int) sb_req('ins_count', 1) > 5) {
+        $cost = sb_feature_cost('edit_many');
+    }
     if (!$cost) {
         wp_send_json_error(array('message' => 'অজানা AI ফিচার।'));
     }
@@ -195,6 +198,8 @@ function sb_ajax_save_post() {
     update_post_meta($id, '_sb_related_why', $why);
     update_post_meta($id, '_sb_blocks', sb_clean_blocks(isset($_POST['blocks']) ? wp_unslash($_POST['blocks']) : array()));
     update_post_meta($id, '_sb_block_ids', array_values(array_filter(sb_req_list('block_ids', 20), function ($x) { return preg_match('/^[a-z0-9]{6,20}$/', $x); })));
+    $ex_in = json_decode((string) sb_req('extras', '{}'), true);
+    update_post_meta($id, '_sb_extras', sb_clean_extras(is_array($ex_in) ? $ex_in : array()));
     update_post_meta($id, '_sb_no_social', sb_req('no_social') === '1' ? 1 : 0);
     update_post_meta($id, '_sb_no_global', sb_req('no_global') === '1' ? 1 : 0);
     sb_init_views($id);

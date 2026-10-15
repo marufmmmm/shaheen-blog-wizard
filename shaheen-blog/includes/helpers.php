@@ -16,7 +16,8 @@ function sb_defaults() {
         'cost_summary'   => 80,
         'cost_research'  => 50,
         'cost_rewrite'   => 150,
-        'cost_edit'      => 100,
+        'cost_edit'      => 30,
+        'cost_edit_many' => 45,
         'cost_phones'    => 100,
         'cost_faq'       => 80,
         'cost_related'   => 30,
@@ -70,6 +71,7 @@ function sb_feature_cost($feature) {
         'rewrite'   => 'cost_rewrite',
         'rewrite_post' => 'cost_rewrite',
         'edit'      => 'cost_edit',
+        'edit_many' => 'cost_edit_many',
         'edit_new'  => 'cost_article',
         'phones'    => 'cost_phones',
         'faq'       => 'cost_faq',
@@ -147,15 +149,30 @@ function sb_related_items($post_id, $min = 3, $max = 5) {
         }
     };
     $has_manual = !empty($ids);   // an AI/hand-picked list is shown as is, never padded with unrelated items
-    $base = array('post_status' => 'publish', 'no_found_rows' => true, 'fields' => 'ids', 'post__not_in' => array($post_id),
-        'meta_query' => array(array('key' => '_sb_press_url', 'compare' => 'NOT EXISTS')));
-    $term = get_the_terms($post_id, 'sb_category');
-    if (!$has_manual && count($ids) < $max && !empty($term) && !is_wp_error($term)) {
-        $add(get_posts($base + array('post_type' => 'sb_post', 'posts_per_page' => $max, 'tax_query' => array(array(
-            'taxonomy' => 'sb_category', 'field' => 'term_id', 'terms' => array((int) $term[0]->term_id))))));
-    }
-    if (!$has_manual && count($ids) < $max) {
-        $add(get_posts($base + array('post_type' => 'sb_post', 'posts_per_page' => $max)));
+    if (!$has_manual) {
+        // Free matching (no AI): posts & pages whose title/text share the post's title or keywords.
+        $cache_key = 'sb_rel_' . $post_id . '_' . get_post_modified_time('U', true, $post_id);
+        $auto = get_transient($cache_key);
+        if (!is_array($auto)) {
+            $kw = get_post_meta($post_id, '_sb_keywords', true);
+            $auto = array();
+            foreach (sb_related_candidates($post_id, is_array($kw) ? $kw : array(), get_the_title($post_id), 12) as $r) {
+                if ($r['score'] > 0) {
+                    $auto[] = $r['id'];
+                }
+            }
+            $term = get_the_terms($post_id, 'sb_category');
+            if (count($auto) < $min && !empty($term) && !is_wp_error($term)) {
+                $same = get_posts(array('post_type' => 'sb_post', 'post_status' => 'publish', 'posts_per_page' => $max, 'fields' => 'ids',
+                    'post__not_in' => array($post_id), 'no_found_rows' => true,
+                    'meta_query' => array(array('key' => '_sb_press_url', 'compare' => 'NOT EXISTS')),
+                    'tax_query' => array(array('taxonomy' => 'sb_category', 'field' => 'term_id', 'terms' => array((int) $term[0]->term_id)))));
+                $auto = array_merge($auto, array_diff($same, $auto));
+            }
+            $auto = array_slice($auto, 0, $max);
+            set_transient($cache_key, $auto, 6 * HOUR_IN_SECONDS);
+        }
+        $ids = $auto;
     }
     $why = get_post_meta($post_id, '_sb_related_why', true);
     $why = is_array($why) ? $why : array();
@@ -185,7 +202,8 @@ function sb_feature_labels() {
         'summary'   => 'সামারি',
         'rewrite'   => 'কপি করা লেখা নতুন করে লেখা',
         'rewrite_post' => 'রিরাইট (শিরোনাম + বর্ণনা + লেখা)',
-        'edit'      => 'নির্দেশ দিয়ে সংশোধন',
+        'edit'      => 'সংশোধন (১–৫টি পরিবর্তন)',
+        'edit_many' => 'সংশোধন (৬–১০টি পরিবর্তন)',
         'edit_new'  => 'নির্দেশ দিয়ে নতুন করে লেখা',
         'phones'    => 'নতুন মোবাইল মডেল খোঁজা',
         'faq'       => 'FAQ (প্রশ্ন-উত্তর)',

@@ -260,6 +260,8 @@ function sb_single_content($content) {
 
                     <div class="post-body"><?php echo sb_inject_blocks(wpautop($post->post_content), sb_post_blocks($id), $id); // phpcs:ignore WordPress.Security.EscapeOutput ?></div>
 
+                    <?php echo sb_refs_list_html(sb_get_extras($id)['refs']); // phpcs:ignore WordPress.Security.EscapeOutput ?>
+
                     <?php if (!empty($faq) && is_array($faq)) : ?>
                         <section class="post-faq">
                             <h2>❓ সচরাচর জিজ্ঞাসা</h2>

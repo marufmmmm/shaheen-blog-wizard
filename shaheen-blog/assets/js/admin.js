@@ -164,12 +164,27 @@
   function editBox(p, getFn, setFn, ctxFn) {
     var go = $('#' + p + '-go'), undo = $('#' + p + '-undo'), prev = null;
     if (!go) return;
+    var rowsEl = $('#' + p + '-rows');
+    function addRow(v) {
+      if ($$('.sba-insrow', rowsEl).length >= 10) { toast('সর্বোচ্চ ১০টি পরিবর্তন।', 'err'); return; }
+      var d = document.createElement('div'); d.className = 'sba-insrow';
+      d.innerHTML = '<span class="n"></span><input type="text" placeholder="যেমন: দ্বিতীয় অনুচ্ছেদ ছোট করুন / শেষে ভর্তির যোগাযোগ নম্বর যোগ করুন"><button type="button" class="button-link-delete" title="মুছুন">✕</button>';
+      d.querySelector('input').value = v || '';
+      d.querySelector('button').addEventListener('click', function () { d.remove(); renum(); });
+      rowsEl.appendChild(d); renum();
+    }
+    function renum() { $$('.sba-insrow', rowsEl).forEach(function (d, i) { d.querySelector('.n').textContent = bn(i + 1) + ')'; }); }
+    $('#' + p + '-addrow').addEventListener('click', function () { addRow(); });
+    addRow();
     go.addEventListener('click', function () {
-      var ins = val('#' + p + '-ins').trim(), m = $('input[name="' + p + '-mode"]:checked'), mode = m ? m.value : 'edit', cost = SB.costs[mode];
-      if (ins.length < 4) { toast('কী বদলাতে চান তা লিখুন।', 'err'); return; }
+      var list = $$('.sba-insrow input', rowsEl).map(function (i) { return i.value.trim(); }).filter(Boolean);
+      var ins = list.map(function (t, i) { return (i + 1) + ') ' + t; }).join('\n');
+      var m = $('input[name="' + p + '-mode"]:checked'), mode = m ? m.value : 'edit', cost = SB.costs[mode];
+      if (mode === 'edit' && list.length > 5) { cost = SB.costs.edit_many; }
+      if (!list.length) { toast('কী বদলাতে চান তা অন্তত একটি ঘরে লিখুন।', 'err'); return; }
       if (SB.balance.remaining < cost) { toast('ক্রেডিট যথেষ্ট নয়। প্রয়োজন ' + fmt(cost) + ', আছে ' + fmt(SB.balance.remaining) + '।', 'err'); return; }
       var ctx = ctxFn(), old = go.innerHTML; go.disabled = true; go.textContent = '⏳ হচ্ছে… (১ মিনিট পর্যন্ত লাগতে পারে)';
-      post('sb_ai', { feature: mode, post_id: 0, instruction: ins, content: getFn(), title: ctx.title, keywords: ctx.keywords }).then(function (d) {
+      post('sb_ai', { feature: mode, post_id: 0, instruction: ins, ins_count: list.length, content: getFn(), title: ctx.title, keywords: ctx.keywords }).then(function (d) {
         prev = getFn(); setFn(d.result.text); undo.hidden = false;
         toast('✓ হয়েছে। ' + fmt(d.cost) + ' ক্রেডিট কেটেছে। পছন্দ না হলে "আগের লেখা ফিরিয়ে আনুন" চাপুন।', 'ok');
         if (d.result.missing && d.result.missing.length) { toast('লেখায় ' + bn(d.result.missing.length) + 'টি জায়গায় আপনার তথ্য দরকার ([তথ্য দরকার: …] খুঁজুন)।', 'err'); }
@@ -436,6 +451,65 @@
     pickBox.appendChild(l);
   });
   $('#blk-add').addEventListener('click', function () { pEd.add(); });
+
+  /* per-post extras: references, download buttons, PDFs, embeds */
+  var EX = P.extras || {};
+  var posHtml = '<select class="x-pos"><option value="end">লেখার শেষে</option><option value="top">লেখার একদম ওপরে</option><option value="p">N-তম অনুচ্ছেদের পর</option><option value="middle">লেখার মাঝখানে</option></select><input type="number" class="x-n" min="1" max="60" value="2" title="কত নম্বর অনুচ্ছেদের পর">';
+  function exEditor(kind, data) {
+    var list = $('#ex-' + kind), rows = [];
+    function row(r) {
+      r = r || {};
+      var d = document.createElement('div'); d.className = 'sba-exrow';
+      var h = '';
+      if (kind === 'refs') {
+        h = '<input type="text" class="x-anchor" placeholder="যে শব্দে লিংক বসবে (ঐচ্ছিক)"><input type="text" class="x-label" placeholder="সূত্রের নাম (যেমন: শিক্ষা মন্ত্রণালয়)"><input type="text" class="x-url" placeholder="https://…">';
+      } else if (kind === 'embeds') {
+        h = '<input type="text" class="x-url" placeholder="ইউটিউব / ফেসবুক / ইনস্টাগ্রাম লিংক"><input type="text" class="x-label" placeholder="নাম (শুধু আপনার জন্য, ঐচ্ছিক)">' + posHtml;
+      } else {
+        h = '<input type="text" class="x-label" placeholder="' + (kind === 'dls' ? 'বাটনের লেখা (যেমন: ভর্তি ফরম ডাউনলোড)' : 'PDF-এর নাম') + '"><input type="text" class="x-url" placeholder="ফাইলের লিংক"><button type="button" class="button x-media">মিডিয়া থেকে</button>' + posHtml;
+      }
+      d.innerHTML = h + '<button type="button" class="button-link-delete x-del">✕</button>';
+      var q = function (s) { return d.querySelector(s); };
+      if (q('.x-anchor')) { q('.x-anchor').value = r.anchor || ''; }
+      if (q('.x-label')) { q('.x-label').value = r.label || ''; }
+      q('.x-url').value = r.url || '';
+      if (q('.x-pos')) {
+        var m = /^p:(\d+)$/.exec(r.pos || ''); q('.x-pos').value = m ? 'p' : (r.pos || 'end'); q('.x-n').value = m ? m[1] : 2;
+        var vis = function () { q('.x-n').style.display = q('.x-pos').value === 'p' ? '' : 'none'; };
+        q('.x-pos').addEventListener('change', vis); vis();
+      }
+      if (q('.x-media')) {
+        q('.x-media').addEventListener('click', function () {
+          if (!window.wp || !wp.media) { return; }
+          var fr = wp.media({ title: 'ফাইল বেছে নিন', multiple: false });
+          fr.on('select', function () { var a = fr.state().get('selection').first().toJSON(); q('.x-url').value = a.url; if (q('.x-label') && !q('.x-label').value) { q('.x-label').value = a.title || ''; } });
+          fr.open();
+        });
+      }
+      q('.x-del').addEventListener('click', function () { d.remove(); rows = rows.filter(function (x) { return x !== d; }); });
+      list.appendChild(d); rows.push(d);
+    }
+    (data || []).forEach(row);
+    $('#ex-' + kind + '-add').addEventListener('click', function () { row(); });
+    return function () {
+      return rows.filter(function (d) { return d.isConnected; }).map(function (d) {
+        var q = function (s) { return d.querySelector(s); };
+        return { anchor: q('.x-anchor') ? q('.x-anchor').value : '', label: q('.x-label') ? q('.x-label').value : '', url: q('.x-url').value,
+          pos: q('.x-pos') ? q('.x-pos').value : '', n: q('.x-n') ? q('.x-n').value : 1 };
+      });
+    };
+  }
+  var exRefs = exEditor('refs', EX.refs), exDls = exEditor('dls', EX.dls), exPdfs = exEditor('pdfs', EX.pdfs), exEmb = exEditor('embeds', EX.embeds);
+  (function () {
+    var sp = EX.social_pos || '', m = /^p:(\d+)$/.exec(sp);
+    $('#ex-social-pos').value = m ? 'p' : sp; $('#ex-social-n').value = m ? m[1] : 2;
+    var vis = function () { $('#ex-social-n').style.display = $('#ex-social-pos').value === 'p' ? '' : 'none'; };
+    $('#ex-social-pos').addEventListener('change', vis); vis();
+  })();
+  function exGet() {
+    return { refs: exRefs(), dls: exDls(), pdfs: exPdfs(), embeds: exEmb(), social_pos: $('#ex-social-pos').value, social_n: $('#ex-social-n').value };
+  }
+
   $('#no-global').checked = !!Number(P.no_global || 0);
   $('#no-social').checked = !!Number(P.no_social || 0);
 
@@ -603,7 +677,7 @@
       id: postId, title: val('#f-title'), slug: val('#f-slug'), excerpt: val('#f-excerpt'), content: editorContent(),
       subtitle: val('#f-subtitle'), meta_desc: val('#f-meta'), summary: val('#f-summary'), author_name: val('#f-author'),
       date: val('#f-date'), topic: val('#f-topic'), keywords: keywords(), category: val('#f-category'),
-      image_id: imgId, faq: faqData(), inc_summary: $('#inc-summary').checked ? '1' : '0', inc_faq: $('#inc-faq').checked ? '1' : '0', related: rel.map(function (r) { return r.id; }), related_why: JSON.stringify(rel.reduce(function (o, r) { if (r.why) { o[r.id] = r.why; } return o; }, {})), blocks: pEd.get(), block_ids: picked, no_global: $('#no-global').checked ? '1' : '0', no_social: $('#no-social').checked ? '1' : '0', status: st ? st.value : 'draft'
+      image_id: imgId, faq: faqData(), inc_summary: $('#inc-summary').checked ? '1' : '0', inc_faq: $('#inc-faq').checked ? '1' : '0', related: rel.map(function (r) { return r.id; }), related_why: JSON.stringify(rel.reduce(function (o, r) { if (r.why) { o[r.id] = r.why; } return o; }, {})), blocks: pEd.get(), extras: JSON.stringify(exGet()), block_ids: picked, no_global: $('#no-global').checked ? '1' : '0', no_social: $('#no-social').checked ? '1' : '0', status: st ? st.value : 'draft'
     }).then(function (d) {
       postId = d.id;
       var box = $('#save-result');

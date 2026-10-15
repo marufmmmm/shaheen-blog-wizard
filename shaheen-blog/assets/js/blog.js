@@ -207,3 +207,39 @@
         countView();
     });
 })();
+
+/* PDF reader inside a post (PDF.js; falls back to the open/download links) */
+(function () {
+    var boxes = [].slice.call(document.querySelectorAll('.sb-pdf'));
+    if (!boxes.length) { return; }
+    function start(box) {
+        var pages = box.querySelector('.sb-pdf-pages'), more = box.querySelector('.sb-pdf-more button');
+        function fail() { pages.innerHTML = '<p class="sb-pdf-wait">এই ডিভাইসে পিডিএফ এখানে দেখানো যায়নি। ওপরের "খুলুন" বা "ডাউনলোড" চাপুন।</p>'; }
+        if (!window.pdfjsLib) { fail(); return; }
+        pdfjsLib.GlobalWorkerOptions.workerSrc = (window.SBPDF && SBPDF.worker) || '';
+        pdfjsLib.getDocument(box.getAttribute('data-src')).promise.then(function (pdf) {
+            pages.innerHTML = '';
+            var next = 1, STEP = 3;
+            function renderOne(n) {
+                return pdf.getPage(n).then(function (pg) {
+                    var vp = pg.getViewport({ scale: 1 });
+                    var scale = Math.min(2, Math.max(1, (pages.clientWidth * (window.devicePixelRatio || 1)) / vp.width));
+                    var v = pg.getViewport({ scale: scale });
+                    var c = document.createElement('canvas'); c.width = v.width; c.height = v.height;
+                    pages.appendChild(c);
+                    return pg.render({ canvasContext: c.getContext('2d'), viewport: v }).promise;
+                });
+            }
+            function batch() {
+                var last = Math.min(pdf.numPages, next + STEP - 1), chain = Promise.resolve();
+                for (var n = next; n <= last; n++) { (function (k) { chain = chain.then(function () { return renderOne(k); }); })(n); }
+                next = last + 1; more.hidden = next > pdf.numPages;
+            }
+            more.onclick = batch; batch();
+        }).catch(fail);
+    }
+    var io = 'IntersectionObserver' in window ? new IntersectionObserver(function (es) {
+        es.forEach(function (e) { if (e.isIntersecting) { io.unobserve(e.target); start(e.target); } });
+    }, { rootMargin: '300px' }) : null;
+    boxes.forEach(function (b) { if (io) { io.observe(b); } else { start(b); } });
+})();
