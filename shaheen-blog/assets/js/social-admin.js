@@ -28,6 +28,7 @@
       var nn = it.type === 'yt_latest' ? '<label>কয়টি ভিডিও<input type="number" class="i-n" min="1" max="5" value="' + (it.n || 3) + '" style="max-width:90px"></label>' : '';
       row.innerHTML =
         '<div class="sba-row"><label>ধরন<select class="i-type">' + opts + '</select></label><label>নাম (শুধু আপনার জন্য)<input type="text" class="i-name" value="' + esc(it.name) + '"></label></div>' +
+        (it.type === 'fb_timeline' ? '<p class="sba-muted" style="margin:6px 0">ℹ️ ফেসবুক নিজে ঠিক করে পেজের সর্বশেষ পোস্ট দেখাবে কি না। অনেক পেজে সে শুধু পেজের নাম ও Follow বাটন দেখায়, পোস্ট দেখায় না। এমন হলে নির্দিষ্ট পোস্ট/ভিডিও ধরন ব্যবহার করুন (প্রতি লাইনে একটি লিংক)।</p>' : '') +
         src + '<div class="sba-row">' + hh + nn + rr + '</div>' +
         '<div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center"><label class="sba-inline-check"><input type="checkbox" class="i-on"' + (it.on ? ' checked' : '') + '> চালু</label>' +
         '<button type="button" class="button i-prev">👁 দেখুন</button><button type="button" class="button i-up" title="ওপরে">↑</button><button type="button" class="button i-dn" title="নিচে">↓</button><button type="button" class="button i-del">🗑 মুছুন</button></div>' +
