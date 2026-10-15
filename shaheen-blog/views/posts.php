@@ -40,13 +40,20 @@ $base = admin_url('admin.php?page=sb-posts');
         <button class="button">ফিল্টার</button>
     </form>
 
+    <p class="sba-rp">
+        <button type="button" class="button" id="rp-run">🤖 নির্বাচিত পোস্টে স্মার্ট সম্পর্কিত বানান (প্রতিটি <?php echo esc_html(sb_bn_digits(sb_feature_cost('related'))); ?> ক্রেডিট)</button>
+        <label class="sba-inline-check"><input type="checkbox" id="rp-over"> যেগুলোতে আগে থেকে তালিকা আছে সেগুলোও বদলে দিন</label>
+        <span id="rp-msg" class="sba-msg"></span><br>
+        <small class="sba-muted">আগের পোস্টগুলোর জন্য: টিক দিয়ে বাটন চাপুন। AI সাইটের পোস্ট ও পেজ থেকে মিলগুলো বেছে পাশে বসাবে। কিছু না মিললে ক্রেডিট কাটে না।</small>
+    </p>
     <table class="widefat striped sba-table">
-        <thead><tr><th>শিরোনাম</th><th>ক্যাটাগরি</th><th>অবস্থা</th><th>তারিখ</th><th>দেখা</th><th></th></tr></thead>
+        <thead><tr><td class="check-column"><input type="checkbox" id="rp-all"></td><th>শিরোনাম</th><th>ক্যাটাগরি</th><th>অবস্থা</th><th>তারিখ</th><th>দেখা</th><th>স্মার্ট সম্পর্কিত</th><th></th></tr></thead>
         <tbody>
         <?php if (!$q->have_posts()) : ?>
-            <tr><td colspan="6">কোনো পোস্ট পাওয়া যায়নি।</td></tr>
+            <tr><td colspan="8">কোনো পোস্ট পাওয়া যায়নি।</td></tr>
         <?php else : while ($q->have_posts()) : $q->the_post(); $id = get_the_ID(); ?>
             <tr data-id="<?php echo (int) $id; ?>">
+                <th class="check-column"><?php if (!sb_is_press($id)) : ?><input type="checkbox" class="rp-cb" value="<?php echo (int) $id; ?>"><?php endif; ?></th>
                 <?php $edit_url = sb_is_press($id) ? admin_url('admin.php?page=sb-press&edit=' . $id) : admin_url('admin.php?page=sb-new&post=' . $id); ?>
                 <td><strong><a href="<?php echo esc_url($edit_url); ?>"><?php echo esc_html(get_the_title()); ?></a></strong>
                     <?php if (get_post_meta($id, '_sb_demo', true)) : ?><span class="sba-tag">ডেমো</span><?php endif; ?>
@@ -55,6 +62,7 @@ $base = admin_url('admin.php?page=sb-posts');
                 <td><span class="sba-tag sba-tag--<?php echo esc_attr(get_post_status()); ?>"><?php echo get_post_status() === 'publish' ? 'প্রকাশিত' : 'খসড়া'; ?></span></td>
                 <td><?php echo esc_html(sb_bn_date(get_post_time('U'))); ?></td>
                 <td><?php echo esc_html(sb_bn_digits((int) get_post_meta($id, '_sb_views', true))); ?></td>
+                <td class="rp-state"><?php echo sb_is_press($id) ? '—' : (array_filter((array) get_post_meta($id, '_sb_related', true)) ? '✅ আছে' : 'নেই (ক্যাটাগরি অনুযায়ী দেখাচ্ছে)'); ?></td>
                 <td class="sba-actions">
                     <a href="<?php echo esc_url($edit_url); ?>">এডিট</a>
                     <?php if (get_post_status() === 'publish' && !sb_is_press($id)) : ?><a href="<?php echo esc_url(get_permalink()); ?>" target="_blank">দেখুন ↗</a><?php endif; ?>

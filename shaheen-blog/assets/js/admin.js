@@ -77,6 +77,30 @@
     });
   });
 
+  /* ---------------- posts list: smart related for old posts ---------------- */
+  (function () {
+    var run = $('#rp-run'); if (!run) { return; }
+    var all = $('#rp-all'), m = $('#rp-msg');
+    all.addEventListener('change', function () { $$('.rp-cb').forEach(function (c) { c.checked = all.checked; }); });
+    run.addEventListener('click', function () {
+      var ids = $$('.rp-cb').filter(function (c) { return c.checked; }).map(function (c) { return c.value; });
+      if (!ids.length) { m.textContent = 'আগে পোস্ট টিক দিন।'; return; }
+      run.disabled = true; var done = 0, spent = 0, none = 0, skipped = 0, over = $('#rp-over').checked ? '1' : '0';
+      (function next() {
+        if (!ids.length) {
+          run.disabled = false;
+          m.textContent = '✓ শেষ: ' + fmt(done) + 'টিতে হয়েছে, ' + fmt(none) + 'টিতে মেলেনি, ' + fmt(skipped) + 'টি বাদ। ক্রেডিট কেটেছে ' + fmt(spent) + '।';
+          setTimeout(function () { location.reload(); }, 2500); return;
+        }
+        var id = ids.shift(); m.textContent = '⏳ চলছে… বাকি ' + fmt(ids.length + 1) + 'টি';
+        post('sb_related_post', { id: id, overwrite: over }).then(function (d) {
+          if (d.skipped) { skipped++; } else if (d.none) { none++; } else { done++; spent += d.cost; }
+          next();
+        }).catch(function (e) { run.disabled = false; m.textContent = '⚠️ ' + e.message + ' (এ পর্যন্ত ' + fmt(done) + 'টি হয়েছে)'; });
+      })();
+    });
+  })();
+
   /* ---------------- posts list ---------------- */
   $$('.sba-trash').forEach(function (a) {
     a.addEventListener('click', function (e) {
