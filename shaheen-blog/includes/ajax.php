@@ -103,7 +103,7 @@ function sb_ajax_ai() {
     }
     $uid = get_current_user_id();
     $state = SB_Credits::state($uid);
-    $research = ($feature === 'article' && sb_req('research') === '1');
+    $research = (in_array($feature, array('article', 'custom'), true) && sb_req('research') === '1');
     $need = $cost + ($research ? max(0, (int) sb_get('cost_research')) : 0);
     if ($state['remaining'] < $need) {
         wp_send_json_error(array(

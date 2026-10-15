@@ -104,11 +104,14 @@ class SB_AI {
                     . "- দৈর্ঘ্য: প্রায় " . (isset($range[$tier]) ? $range[$tier] : $range[1]) . " শব্দ।\n"
                     . "- প্রম্পট, ওয়েবসাইটের লেখা, সংযুক্ত PDF ও ছবিতে যা আছে, সব নাম, তারিখ, সংখ্যা, অঙ্ক, শর্ত হুবহু ঠিক রাখবে; কিছু বাদ দেবে না, বদলাবে না। PDF/ছবির লেখা মনোযোগ দিয়ে পড়ে ব্যবহার করবে।\n"
                     . "- এগুলোতে নেই এমন তথ্য, সংখ্যা বা উদ্ধৃতি বানাবে না; কোনো জরুরি তথ্য না থাকলে ওই জায়গায় ঠিক এভাবে লিখবে: [তথ্য দরকার: কী তথ্য লাগবে]।\n"
-                    . "- ইন্টারনেট বা নিজের অনুমান থেকে নতুন তথ্য যোগ করবে না।\n"
+                    . "- নিজের অনুমান থেকে নতুন তথ্য যোগ করবে না (ইন্টারনেটে খোঁজার অনুমতি নিচে আলাদা দেওয়া থাকলে শুধু তখনই খুঁজবে)।\n"
                     . "আউটপুট শুধু HTML: <h2>, <h3>, <p>, <ul>, <li>, <strong>, দরকারে <table>। <h1>, <html>, <body> বা কোড-ব্লক দেবে না।\n\n"
                     . ($title ? "শিরোনাম: {$title}\n" : '') . ($kw ? "কীওয়ার্ড (স্বাভাবিকভাবে ব্যবহার করবে): {$kw}\n" : '')
                     . "\n--- পোস্ট মালিকের প্রম্পট ---\n" . mb_substr($ins, 0, 20000)
                     . (!empty($c['web']) ? "\n\n--- ওয়েবসাইট থেকে নেওয়া লেখা ---" . $c['web'] : '');
+                if (!empty($c['research'])) {
+                    $user .= "\n\nইন্টারনেটে খুঁজে বিষয়টির সর্বশেষ ও সঠিক খবর/তথ্য (সরকারি ও অফিসিয়াল সাইট অগ্রাধিকার) যাচাই করে লেখায় ব্যবহার করবে। তবে প্রম্পট, ওয়েবসাইট, PDF বা ছবির তথ্য সবার আগে; ইন্টারনেটের তথ্য এগুলোর সাথে না মিললে সেটা না লিখে [তথ্য দরকার: …] লিখবে। যাচাই করা যায়নি এমন তারিখ বা সংখ্যা দেবে না।";
+                }
                 if (!empty($c['parts'])) {
                     $user .= "\n\n(এই বার্তার সাথে সংযুক্ত PDF/ছবিগুলোও তথ্যের উৎস।)";
                     $content = array_merge(array(array('type' => 'text', 'text' => $user)), $c['parts']);
@@ -250,8 +253,8 @@ class SB_AI {
             $body['response_format'] = array('type' => 'json_object');
         }
 
-        if ($feature === 'article' && !empty($c['research'])) {
-            $r = self::research_article($user, $max);
+        if (in_array($feature, array('article', 'custom'), true) && !empty($c['research'])) {
+            $r = self::research_article($user, $max, ($feature === 'custom' && !empty($c['parts'])) ? $c['parts'] : array());
             if (!is_wp_error($r)) {
                 return $r;
             }
@@ -344,7 +347,16 @@ class SB_AI {
     }
 
     /** Article using OpenAI web search (Responses API). */
-    protected static function research_article($user, $max) {
+    protected static function research_article($user, $max, $parts = array()) {
+        if ($parts) {
+            $in = array(array('type' => 'input_text', 'text' => $user));
+            foreach ($parts as $p) {
+                $in[] = $p['type'] === 'file'
+                    ? array('type' => 'input_file', 'filename' => $p['file']['filename'], 'file_data' => $p['file']['file_data'])
+                    : array('type' => 'input_image', 'image_url' => $p['image_url']['url']);
+            }
+            $user = $in;
+        }
         if (function_exists('set_time_limit')) {
             @set_time_limit(240); // phpcs:ignore
         }

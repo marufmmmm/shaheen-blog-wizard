@@ -234,12 +234,13 @@ $costs['research'] = max(0, (int) sb_get('cost_research'));
 
             <div class="sba-ai">
                 <div class="sba-ai-head"><h3>✍️ লেখার প্রম্পট <small>(আপনার নির্দেশ ও তথ্যই AI মানবে)</small></h3></div>
-                <p class="sba-muted">এখানে কী লিখতে হবে, কোন তথ্য থেকে লিখবে, সুর কেমন, কোন কোন অংশ থাকবে — সব বিস্তারিত লিখুন। নিচে ওয়েবসাইটের লিংক ও PDF/ছবি দিলে AI সেগুলো পড়ে তথ্য নেবে। AI নিজে ইন্টারনেট ঘাঁটবে না, আপনার দেওয়া তথ্যের বাইরে কিছু বানাবে না; কোনো তথ্য না থাকলে <code>[তথ্য দরকার: …]</code> লিখে রাখবে। শিরোনাম ও কীওয়ার্ডও (ধাপ ১-২) প্রম্পটের সাথে যাবে।</p>
+                <p class="sba-muted">এখানে কী লিখতে হবে, কোন তথ্য থেকে লিখবে, সুর কেমন, কোন কোন অংশ থাকবে — সব বিস্তারিত লিখুন। নিচে ওয়েবসাইটের লিংক ও PDF/ছবি দিলে AI সেগুলো পড়ে তথ্য নেবে। আপনার দেওয়া তথ্যই সবার আগে; নিচের টিক দিলে AI ইন্টারনেটে সর্বশেষ খবরও যাচাই করবে, তবু বানিয়ে কিছু লিখবে না; কোনো তথ্য না থাকলে <code>[তথ্য দরকার: …]</code> লিখে রাখবে। শিরোনাম ও কীওয়ার্ডও (ধাপ ১-২) প্রম্পটের সাথে যাবে।</p>
                 <textarea id="f-custom" rows="10" style="width:100%" placeholder="যেমন: ভর্তি বিজ্ঞপ্তির আর্টিকেল লিখুন। ক্লাস ৬ষ্ঠ–৯ম। আবেদন ১–১৫ নভেম্বর। ফি … । সুর আনুষ্ঠানিক, অভিভাবকদের উদ্দেশে। শেষে যোগাযোগের নম্বর দিন। (PDF-এর কোন অংশ কীভাবে ব্যবহার হবে তাও লিখুন)"></textarea>
                 <label style="display:block;margin-top:8px">🌐 তথ্যের ওয়েবসাইট লিংক <small>(প্রতি লাইনে একটি, সর্বোচ্চ ৪টি; সাইট নিজে পড়ে লেখাটুকু AI-কে দেওয়া হবে)</small>
                     <textarea id="f-curls" rows="3" style="width:100%" placeholder="https://…"></textarea></label>
                 <label style="display:block;margin-top:8px">📎 PDF / ছবি <small>(সর্বোচ্চ ৪টি ফাইল, প্রতিটি ১০ MB-এর মধ্যে; PDF, JPG, PNG, WEBP। স্ক্যান করা PDF বা ছবির লেখাও AI পড়ে)</small>
                     <input type="file" id="f-cfiles" multiple accept=".pdf,.jpg,.jpeg,.png,.webp,application/pdf,image/*"></label>
+                <label class="sba-research" style="display:block;margin-top:8px"><input type="checkbox" id="f-research" checked> 🌐 সঠিক ও সর্বশেষ খবরের জন্য AI ইন্টারনেটেও যাচাই করুক <em>(+<?php echo esc_html(sb_bn_digits($costs['research'])); ?> ক্রেডিট, শুধু সফল হলে)</em></label>
                 <div style="margin-top:10px;display:flex;gap:10px;align-items:center;flex-wrap:wrap">
                     <select id="f-clen" title="আর্টিকেলের দৈর্ঘ্য">
                         <option value="1">৮০০–১০০০ শব্দ (<?php echo esc_html(sb_bn_digits($costs['custom'])); ?> ক্রেডিট)</option>

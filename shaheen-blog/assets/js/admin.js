@@ -605,7 +605,7 @@
       }
       var chain = [];
       if (f === 'article' || f === 'custom' || f === 'rewrite') { if ($('#inc-summary').checked) { chain.push('summary'); } if ($('#inc-faq').checked) { chain.push('faq'); } if ($('#inc-related').checked) { chain.push('related'); } }
-      var cost = (f === 'custom' ? SB.costs[['custom', 'custom', 'custom2', 'custom3'][parseInt(val('#f-clen'), 10) || 1]] : SB.costs[f]) + (f === 'article' && $('#f-research') && $('#f-research').checked ? SB.costs.research : 0);
+      var cost = (f === 'custom' ? SB.costs[['custom', 'custom', 'custom2', 'custom3'][parseInt(val('#f-clen'), 10) || 1]] : SB.costs[f]) + ((f === 'article' || f === 'custom') && $('#f-research') && $('#f-research').checked ? SB.costs.research : 0);
       chain.forEach(function (c) { cost += SB.costs[c]; });
       if (SB.balance.remaining < cost) { toast('ক্রেডিট যথেষ্ট নয়। প্রয়োজন ' + fmt(cost) + ', আছে ' + fmt(SB.balance.remaining) + '।', 'err'); return; }
       var old = btn.innerHTML; btn.disabled = true; btn.textContent = '⏳ তৈরি হচ্ছে… (আর্টিকেলে ১ মিনিট লাগতে পারে)';
