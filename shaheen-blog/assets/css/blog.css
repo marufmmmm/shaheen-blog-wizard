@@ -938,9 +938,10 @@ body.single-sb_post.shb-hide-title main .wp-block-separator { display: none; }
 .shb .sb-embed--16x9 { aspect-ratio: 16 / 9; }
 .shb .sb-embed--16x9 iframe { height: 100%; }
 .shb .sb-embed--fb, .shb .sb-embed--ig { background: #fff; border: 1px solid #dfe6e9; max-width: 540px; margin-inline: auto; }
-.shb .sb-embed--fb iframe { height: 560px; }
-.shb .sb-embed--fb.is-video iframe { height: 320px; }
-.shb .sb-embed--ig iframe { height: 620px; }
+.shb .sb-embed--fb iframe { height: var(--sb-h, 560px); }
+.shb .sb-embed--ig iframe { height: var(--sb-h, 620px); }
+.shb .sb-embed--like { background: transparent; border: 0; text-align: center; }
+.shb .sb-embed--like iframe { height: 50px; }
 .shb .sb-embed-link a { color: var(--primary-light, #1a6b3e); overflow-wrap: anywhere; }
 .shb .sb-pdf { margin: 22px 0; border: 1px solid #cfd8d3; border-radius: 12px; overflow: hidden; background: #fff; }
 .shb .sb-pdf-bar { display: flex; flex-wrap: wrap; gap: 8px 16px; align-items: center; justify-content: space-between; padding: 10px 14px; background: #eef5ef; }
@@ -950,4 +951,4 @@ body.single-sb_post.shb-hide-title main .wp-block-separator { display: none; }
 .shb .sb-pdf-wait { text-align: center; color: #6b7770; margin: 20px 0; }
 .shb .sb-pdf-more { text-align: center; padding: 6px 0 12px; }
 .shb .sb-pdf-more button { background: var(--primary-light, #1a6b3e); color: #fff; border: 0; border-radius: 8px; padding: 8px 18px; font: inherit; cursor: pointer; }
-@media (max-width: 640px) { .shb .sb-embed--fb iframe { height: 520px; } .shb .sb-pdf-pages { max-height: 60vh; } }
+@media (max-width: 640px) { .shb .sb-embed--fb iframe { height: min(var(--sb-h, 560px), 560px); } .shb .sb-pdf-pages { max-height: 60vh; } }

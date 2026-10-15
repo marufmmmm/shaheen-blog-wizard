@@ -33,9 +33,15 @@ function sb_clean_extras($raw) {
     }
     foreach (array('dls' => 12, 'pdfs' => 6, 'embeds' => 10) as $key => $max) {
         foreach (array_slice(isset($raw[$key]) && is_array($raw[$key]) ? $raw[$key] : array(), 0, $max) as $r) {
-            $url = esc_url_raw(trim(isset($r['url']) ? $r['url'] : ''), array('http', 'https'));
-            if ($key === 'embeds' && $url && sb_social_host($url) === '') {
-                $url = '';
+            if ($key === 'embeds') {
+                // The pasted link or embed code is kept as text only; it is never printed as HTML (see sb_embed_parse).
+                $url = trim(wp_check_invalid_utf8(isset($r['url']) ? (string) $r['url'] : ''));
+                $url = mb_substr($url, 0, 4000);
+                if ($url !== '' && !sb_embed_parse($url)) {
+                    $url = '';
+                }
+            } else {
+                $url = esc_url_raw(trim(isset($r['url']) ? $r['url'] : ''), array('http', 'https'));
             }
             if (!$url) {
                 continue;
@@ -104,21 +110,115 @@ function sb_refs_list_html(array $refs) {
     return $h . '</ul></section>';
 }
 
-function sb_embed_html($url) {
+/** Hosts whose iframes may be embedded. */
+function sb_embed_host_ok($url) {
+    $h = strtolower((string) wp_parse_url($url, PHP_URL_HOST));
+    $h = preg_replace('/^(www|m|web)\./', '', $h);
+    return in_array($h, array('facebook.com', 'youtube.com', 'youtube-nocookie.com', 'instagram.com'), true);
+}
+
+/**
+ * Understand what the owner pasted: a link, or an embed code from Facebook (Page plugin / Like / Post / Video),
+ * YouTube (iframe) or Instagram (blockquote). We never print the pasted code itself; we only read the address
+ * out of it and build our own iframe, so no foreign scripts or HTML can get into a post.
+ * Returns array('src' =>, 'h' =>, 'kind' =>) or array('link' => url) or null.
+ */
+function sb_embed_parse($raw) {
+    $raw = trim((string) $raw);
+    if ($raw === '') {
+        return null;
+    }
+    $attr = function ($tag, $name) {
+        return preg_match('/\b' . $name . '\s*=\s*["\']([^"\']*)["\']/i', $tag, $m) ? html_entity_decode($m[1], ENT_QUOTES) : '';
+    };
+    if (strpos($raw, '<') !== false) {
+        // 1) <iframe src="…">
+        if (preg_match('/<iframe\b[^>]*>/i', $raw, $m)) {
+            $src = $attr($m[0], 'src');
+            if (strpos($src, '//') === 0) {
+                $src = 'https:' . $src;
+            }
+            $src = esc_url_raw($src, array('https'));
+            if ($src && sb_embed_host_ok($src)) {
+                $h = (int) $attr($m[0], 'height');
+                $w = (int) $attr($m[0], 'width');
+                return array('src' => $src, 'h' => ($h >= 100 && $h <= 1400) ? $h : 0, 'w' => $w, 'kind' => sb_social_host($src));
+            }
+            return null;
+        }
+        // 2) Instagram blockquote
+        if (preg_match('/data-instgrm-permalink\s*=\s*["\']([^"\']+)["\']/i', $raw, $m) && preg_match('#instagram\.com/(p|reel|tv)/([\w-]+)#', $m[1], $q)) {
+            return array('src' => 'https://www.instagram.com/' . $q[1] . '/' . $q[2] . '/embed/', 'h' => 620, 'w' => 0, 'kind' => 'ig');
+        }
+        // 3) Facebook SDK divs: fb-page / fb-like / fb-post / fb-video
+        if (preg_match('/<div\b[^>]*class\s*=\s*["\'][^"\']*\bfb-(page|like|post|video|comment-embed)\b[^"\']*["\'][^>]*>/i', $raw, $m)) {
+            $href = esc_url_raw($attr($m[0], 'data-href'), array('https', 'http'));
+            if ($href && sb_social_host($href) === 'fb') {
+                $type = $m[1];
+                $h = (int) $attr($m[0], 'data-height');
+                $w = (int) $attr($m[0], 'data-width');
+                $w = ($w >= 180 && $w <= 500) ? $w : 500;
+                if ($type === 'page') {
+                    $h = ($h >= 130 && $h <= 1000) ? $h : 500;
+                    $tabs = preg_replace('/[^a-z,]/', '', strtolower($attr($m[0], 'data-tabs') ?: 'timeline'));
+                    $src = 'https://www.facebook.com/plugins/page.php?href=' . rawurlencode($href) . '&tabs=' . rawurlencode($tabs) . '&width=' . $w . '&height=' . $h
+                        . '&small_header=' . ($attr($m[0], 'data-small-header') === 'true' ? 'true' : 'false') . '&adapt_container_width=true&hide_cover=' . ($attr($m[0], 'data-hide-cover') === 'true' ? 'true' : 'false')
+                        . '&show_facepile=' . ($attr($m[0], 'data-show-facepile') === 'false' ? 'false' : 'true');
+                    return array('src' => $src, 'h' => $h, 'w' => 0, 'kind' => 'fb');
+                }
+                if ($type === 'like') {
+                    $layout = preg_replace('/[^a-z_]/', '', strtolower($attr($m[0], 'data-layout') ?: 'button_count'));
+                    $src = 'https://www.facebook.com/plugins/like.php?href=' . rawurlencode($href) . '&layout=' . rawurlencode($layout) . '&action=like&show_faces=false&share=true&width=' . $w;
+                    return array('src' => $src, 'h' => 50, 'w' => 0, 'kind' => 'fblike');
+                }
+                $is_video = ($type === 'video');
+                $src = 'https://www.facebook.com/plugins/' . ($is_video ? 'video' : 'post') . '.php?href=' . rawurlencode($href) . '&show_text=' . ($is_video ? 'false' : 'true') . '&width=' . $w;
+                return array('src' => $src, 'h' => $is_video ? 320 : 560, 'w' => 0, 'kind' => 'fb');
+            }
+        }
+        // 4) any link inside the pasted code
+        if (preg_match('#https?://[^\s"\'<>]+#i', $raw, $m)) {
+            $raw = html_entity_decode($m[0], ENT_QUOTES);
+        } else {
+            return null;
+        }
+    }
+    $url = esc_url_raw($raw, array('http', 'https'));
+    if ($url === '' || sb_social_host($url) === '') {
+        return null;
+    }
     $kind = sb_social_host($url);
     if ($kind === 'yt' && preg_match('#(?:v=|youtu\.be/|shorts/|embed/|live/)([\w-]{11})#', $url, $m)) {
-        return '<div class="sb-embed sb-embed--16x9"><iframe src="https://www.youtube-nocookie.com/embed/' . esc_attr($m[1]) . '" title="ইউটিউব ভিডিও" loading="lazy" allow="encrypted-media; picture-in-picture" allowfullscreen></iframe></div>';
+        return array('src' => 'https://www.youtube-nocookie.com/embed/' . $m[1], 'h' => 0, 'w' => 0, 'kind' => 'yt');
     }
     if ($kind === 'fb') {
+        // A Facebook *page* address gets the Page plugin (timeline + like button); a post/video address the matching plugin.
         $is_video = (bool) preg_match('#/videos?/|fb\.watch|/reel/|/watch/#', $url);
-        $src = 'https://www.facebook.com/plugins/' . ($is_video ? 'video' : 'post') . '.php?href=' . rawurlencode($url) . '&show_text=' . ($is_video ? 'false' : 'true') . '&width=500';
-        return '<div class="sb-embed sb-embed--fb' . ($is_video ? ' is-video' : '') . '"><iframe src="' . esc_url($src) . '" title="ফেসবুক পোস্ট" loading="lazy" scrolling="no" allow="encrypted-media; picture-in-picture"></iframe></div>';
+        $is_post = (bool) preg_match('#/posts/|/permalink|story_fbid|/photos?/|/share/#', $url);
+        if (!$is_video && !$is_post) {
+            return array('src' => 'https://www.facebook.com/plugins/page.php?href=' . rawurlencode($url) . '&tabs=timeline&width=500&height=500&small_header=false&adapt_container_width=true&hide_cover=false&show_facepile=true', 'h' => 500, 'w' => 0, 'kind' => 'fb');
+        }
+        return array('src' => 'https://www.facebook.com/plugins/' . ($is_video ? 'video' : 'post') . '.php?href=' . rawurlencode($url) . '&show_text=' . ($is_video ? 'false' : 'true') . '&width=500',
+            'h' => $is_video ? 320 : 560, 'w' => 0, 'kind' => 'fb');
     }
     if ($kind === 'ig' && preg_match('#instagram\.com/(p|reel|tv)/([\w-]+)#', $url, $m)) {
-        return '<div class="sb-embed sb-embed--ig"><iframe src="' . esc_url('https://www.instagram.com/' . $m[1] . '/' . $m[2] . '/embed/') . '" title="ইনস্টাগ্রাম পোস্ট" loading="lazy" scrolling="no"></iframe></div>';
+        return array('src' => 'https://www.instagram.com/' . $m[1] . '/' . $m[2] . '/embed/', 'h' => 620, 'w' => 0, 'kind' => 'ig');
     }
-    // A page/profile link rather than a single post: show a simple link card.
-    return '<p class="sb-embed-link"><a href="' . esc_url($url) . '" target="_blank" rel="noopener">🔗 ' . esc_html($url) . '</a></p>';
+    return array('link' => $url);
+}
+
+function sb_embed_html($raw) {
+    $e = sb_embed_parse($raw);
+    if (!$e) {
+        return '';
+    }
+    if (isset($e['link'])) {
+        return '<p class="sb-embed-link"><a href="' . esc_url($e['link']) . '" target="_blank" rel="noopener">🔗 ' . esc_html($e['link']) . '</a></p>';
+    }
+    $kind = $e['kind'];
+    $cls = $kind === 'yt' ? 'sb-embed--16x9' : ($kind === 'ig' ? 'sb-embed--ig' : ($kind === 'fblike' ? 'sb-embed--like' : 'sb-embed--fb'));
+    $style = ($e['h'] && $kind !== 'yt') ? ' style="--sb-h:' . (int) $e['h'] . 'px"' : '';
+    return '<div class="sb-embed ' . $cls . '"' . $style . '><iframe src="' . esc_url($e['src']) . '" title="সোশ্যাল মিডিয়া" loading="lazy" scrolling="no" allow="encrypted-media; picture-in-picture; clipboard-write" allowfullscreen></iframe></div>';
 }
 
 function sb_pdf_html($url, $title) {

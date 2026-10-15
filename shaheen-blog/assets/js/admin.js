@@ -464,7 +464,7 @@
       if (kind === 'refs') {
         h = '<input type="text" class="x-anchor" placeholder="যে শব্দে লিংক বসবে (ঐচ্ছিক)"><input type="text" class="x-label" placeholder="সূত্রের নাম (যেমন: শিক্ষা মন্ত্রণালয়)"><input type="text" class="x-url" placeholder="https://…">';
       } else if (kind === 'embeds') {
-        h = '<input type="text" class="x-url" placeholder="ইউটিউব / ফেসবুক / ইনস্টাগ্রাম লিংক"><input type="text" class="x-label" placeholder="নাম (শুধু আপনার জন্য, ঐচ্ছিক)">' + posHtml;
+        h = '<textarea class="x-url" rows="3" placeholder="লিংক অথবা এমবেড কোড পেস্ট করুন — ফেসবুক পেজ প্লাগইন/লাইক বাটন, ইউটিউব iframe, ইনস্টাগ্রাম এমবেড কোড বা শুধু লিংক"></textarea><input type="text" class="x-label" placeholder="নাম (শুধু আপনার জন্য, ঐচ্ছিক)">' + posHtml;
       } else {
         h = '<input type="text" class="x-label" placeholder="' + (kind === 'dls' ? 'বাটনের লেখা (যেমন: ভর্তি ফরম ডাউনলোড)' : 'PDF-এর নাম') + '"><input type="text" class="x-url" placeholder="ফাইলের লিংক"><button type="button" class="button x-media">মিডিয়া থেকে</button>' + posHtml;
       }
