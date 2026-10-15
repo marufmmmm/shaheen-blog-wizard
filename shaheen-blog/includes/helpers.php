@@ -16,6 +16,7 @@ function sb_defaults() {
         'cost_summary'   => 80,
         'cost_research'  => 50,
         'cost_rewrite'   => 150,
+        'cost_custom'    => 120,
         'cost_edit'      => 30,
         'cost_edit_many' => 45,
         'cost_phones'    => 100,
@@ -57,7 +58,7 @@ function sb_save_settings(array $new) {
 /** Feature => credit cost. */
 /** Model for a feature: article may use its own (better) model. */
 function sb_model_for($feature) {
-    $m = (in_array($feature, array('article', 'rewrite', 'rewrite_post', 'edit', 'edit_new'), true)) ? trim((string) sb_get('model_article')) : '';
+    $m = (in_array($feature, array('article', 'custom', 'rewrite', 'rewrite_post', 'edit', 'edit_new'), true)) ? trim((string) sb_get('model_article')) : '';
     return $m !== '' ? $m : sb_get('model');
 }
 
@@ -73,6 +74,7 @@ function sb_feature_cost($feature) {
         'edit'      => 'cost_edit',
         'edit_many' => 'cost_edit_many',
         'edit_new'  => 'cost_article',
+        'custom'    => 'cost_custom',
         'phones'    => 'cost_phones',
         'faq'       => 'cost_faq',
         'related'   => 'cost_related',
@@ -205,6 +207,7 @@ function sb_feature_labels() {
         'edit'      => 'সংশোধন (১–৫টি পরিবর্তন)',
         'edit_many' => 'সংশোধন (৬–১০টি পরিবর্তন)',
         'edit_new'  => 'নির্দেশ দিয়ে নতুন করে লেখা',
+        'custom'    => 'নিজের প্রম্পটে আর্টিকেল',
         'phones'    => 'নতুন মোবাইল মডেল খোঁজা',
         'faq'       => 'FAQ (প্রশ্ন-উত্তর)',
         'related'   => 'স্মার্ট সম্পর্কিত পোস্ট/পেজ',

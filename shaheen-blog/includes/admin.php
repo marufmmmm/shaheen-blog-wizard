@@ -150,7 +150,7 @@ function sb_handle_save_settings() {
         'site_urls'     => sanitize_textarea_field($in('site_urls')),
         'about'         => sanitize_textarea_field($in('about')),
     );
-    foreach (array('headlines', 'subtitle', 'meta', 'article', 'summary', 'rewrite', 'edit', 'edit_many', 'phones', 'faq', 'related') as $f) {
+    foreach (array('headlines', 'subtitle', 'meta', 'article', 'summary', 'rewrite', 'custom', 'edit', 'edit_many', 'phones', 'faq', 'related') as $f) {
         $new['cost_' . $f] = max(0, (int) $in('cost_' . $f, 0));
     }
     // API key: keep the saved one unless a new one is typed or removal is ticked.

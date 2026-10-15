@@ -253,6 +253,13 @@ $costs['research'] = max(0, (int) sb_get('cost_research'));
                 <div id="article-missing" class="sba-missing" hidden></div>
             </div>
 
+            <div class="sba-ai">
+                <div class="sba-ai-head"><h3>✍️ নিজের প্রম্পটে আর্টিকেল <small>(আপনি যা লিখবেন ঠিক তা-ই)</small></h3>
+                    <span><button type="button" class="button button-primary" data-ai="custom">🤖 প্রম্পট থেকে লিখুন <em>(<?php echo esc_html(sb_bn_digits($costs['custom'])); ?>)</em></button></span></div>
+                <p class="sba-muted">AI যদি আপনার ফাইল (PDF) থেকে ঠিকমতো তথ্য না নিতে পারে, PDF খুলে দরকারি অংশ কপি করে এখানে পেস্ট করুন এবং কী লিখতে হবে তা বিস্তারিত বলুন। AI ইন্টারনেট ঘাঁটবে না, শুধু আপনার প্রম্পটের তথ্য ও নির্দেশ মানবে; না থাকলে <code>[তথ্য দরকার: …]</code> লিখে রাখবে। লেখা ওপরের এডিটরে বসবে।</p>
+                <textarea id="f-custom" rows="10" style="width:100%" placeholder="যেমন: ভর্তি বিজ্ঞপ্তির আর্টিকেল লিখুন। ক্লাস: ৬ষ্ঠ–৯ম। আবেদন শুরু ১ নভেম্বর, শেষ ১৫ নভেম্বর। ফি: … (নিচে PDF-এর লেখা পেস্ট)। সুর: আনুষ্ঠানিক, অভিভাবকদের উদ্দেশে। শেষে যোগাযোগের নম্বর দিন।"></textarea>
+            </div>
+
             <?php sb_edit_box('ed'); ?>
 
             <div class="sba-ai">

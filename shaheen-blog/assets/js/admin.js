@@ -560,7 +560,7 @@
     return {
       feature: feature, post_id: postId, title: val('#f-title'), topic: val('#f-topic'), excerpt: val('#f-excerpt'),
       content: editorContent(), keywords: keywords(), length: val('#f-length'),
-      source: val('#f-source'), faq_count: val('#f-faqn') || '5',
+      source: val('#f-source'), instruction: (feature === 'custom') ? val('#f-custom') : '', faq_count: val('#f-faqn') || '5',
       research: ($('#f-research') && $('#f-research').checked) ? '1' : '0'
     };
   }
@@ -589,15 +589,17 @@
       var f = btn.dataset.ai;
       if (f === 'rewrite') {
         if (val('#f-source').trim().length < 200) { toast('আগে কপি করা লেখা (কমপক্ষে ২০০ অক্ষর) পেস্ট করুন।', 'err'); return; }
+      } else if (f === 'custom') {
+        if (val('#f-custom').trim().length < 30) { toast('প্রম্পট বক্সে বিস্তারিত নির্দেশ ও তথ্য লিখুন।', 'err'); return; }
       } else if ((f === 'headlines' || f === 'subtitle' || f === 'meta' || f === 'article') && keywords().length < 2) {
         toast('আগে ধাপ ২-এ কমা দিয়ে কমপক্ষে ২টি কীওয়ার্ড লিখুন।', 'err'); say(msg, 'কীওয়ার্ড দিন (ধাপ ২)।', 'err'); return;
       }
-      if (f !== 'headlines' && f !== 'rewrite' && !val('#f-title').trim()) { toast('আগে ধাপ ১-এ শিরোনাম লিখুন।', 'err'); return; }
+      if (f !== 'headlines' && f !== 'rewrite' && f !== 'custom' && !val('#f-title').trim()) { toast('আগে ধাপ ১-এ শিরোনাম লিখুন।', 'err'); return; }
       if ((f === 'summary' || f === 'faq') && editorContent().replace(/<[^>]+>/g, '').trim().length < 80) {
         toast('সামারি/FAQ মূল পোস্ট থেকে তৈরি হয়। আগে আর্টিকেল লিখুন বা তৈরি করুন।', 'err'); return;
       }
       var chain = [];
-      if (f === 'article' || f === 'rewrite') { if ($('#inc-summary').checked) { chain.push('summary'); } if ($('#inc-faq').checked) { chain.push('faq'); } if ($('#inc-related').checked) { chain.push('related'); } }
+      if (f === 'article' || f === 'custom' || f === 'rewrite') { if ($('#inc-summary').checked) { chain.push('summary'); } if ($('#inc-faq').checked) { chain.push('faq'); } if ($('#inc-related').checked) { chain.push('related'); } }
       var cost = SB.costs[f] + (f === 'article' && $('#f-research') && $('#f-research').checked ? SB.costs.research : 0);
       chain.forEach(function (c) { cost += SB.costs[c]; });
       if (SB.balance.remaining < cost) { toast('ক্রেডিট যথেষ্ট নয়। প্রয়োজন ' + fmt(cost) + ', আছে ' + fmt(SB.balance.remaining) + '।', 'err'); return; }
@@ -634,7 +636,7 @@
       });
     } else if (f === 'subtitle') { $('#f-subtitle').value = r.text; }
     else if (f === 'meta') { $('#f-meta').value = r.text; metaCount(); }
-    else if (f === 'article' || f === 'rewrite') {
+    else if (f === 'article' || f === 'custom' || f === 'rewrite') {
       setEditorContent(r.text);
       var sb = $('#article-sources'), mb = $('#article-missing');
       sb.innerHTML = ''; mb.innerHTML = '';

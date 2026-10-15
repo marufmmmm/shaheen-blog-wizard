@@ -79,7 +79,7 @@ function sb_ajax_ai() {
     if ($research && !empty($result['researched'])) {
         $cost += max(0, (int) sb_get('cost_research'));   // web search really ran
     }
-    if (in_array($feature, array('article', 'rewrite', 'edit', 'edit_new'), true)) {
+    if (in_array($feature, array('article', 'custom', 'rewrite', 'edit', 'edit_new'), true)) {
         preg_match_all('/\[তথ্য দরকার:[^\]]*\]/u', $result['text'], $m);
         $result['missing'] = array_values(array_unique($m[0]));
     }

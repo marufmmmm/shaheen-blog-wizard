@@ -92,6 +92,22 @@ class SB_AI {
                 $max = 3800;
                 break;
 
+            case 'custom':
+                $ins = isset($c['instruction']) ? trim($c['instruction']) : '';
+                if (mb_strlen($ins) < 30) {
+                    return new WP_Error('sb_short', 'প্রম্পট বক্সে কী লিখতে হবে তা বিস্তারিত লিখুন (কমপক্ষে ৩০ অক্ষর)।');
+                }
+                $user = "তুমি পোস্ট মালিকের দেওয়া প্রম্পট (নির্দেশ ও তথ্য) অনুযায়ী একটি বাংলা ব্লগ আর্টিকেল লিখবে।\n"
+                    . "কঠোর নিয়ম:\n- প্রম্পটে যা চাওয়া হয়েছে (বিষয়, কাঠামো, সুর, দৈর্ঘ্য, কোন কোন অংশ থাকবে) ঠিক তা-ই মানবে।\n"
+                    . "- প্রম্পটে বা নিচের তথ্যে যা আছে, সব নাম, তারিখ, সংখ্যা, অঙ্ক, শর্ত হুবহু ঠিক রাখবে; কিছু বাদ দেবে না, বদলাবে না।\n"
+                    . "- প্রম্পটে নেই এমন তথ্য, সংখ্যা বা উদ্ধৃতি বানাবে না; কোনো জরুরি তথ্য না থাকলে ওই জায়গায় ঠিক এভাবে লিখবে: [তথ্য দরকার: কী তথ্য লাগবে]।\n"
+                    . "- ইন্টারনেট বা নিজের অনুমান থেকে নতুন তথ্য যোগ করবে না।\n"
+                    . "আউটপুট শুধু HTML: <h2>, <h3>, <p>, <ul>, <li>, <strong>, দরকারে <table>। <h1>, <html>, <body> বা কোড-ব্লক দেবে না।\n\n"
+                    . ($title ? "শিরোনাম: {$title}\n" : '') . ($kw ? "কীওয়ার্ড (স্বাভাবিকভাবে ব্যবহার করবে): {$kw}\n" : '')
+                    . "\n--- পোস্ট মালিকের প্রম্পট ---\n" . mb_substr($ins, 0, 20000);
+                $max = 4200;
+                break;
+
             case 'summary':
                 $body = isset($c['content']) ? wp_strip_all_tags($c['content']) : '';
                 if (mb_strlen($body) < 80) {
@@ -312,7 +328,7 @@ class SB_AI {
                 'text'     => wp_kses_post($j['article']),
             );
         }
-        if (in_array($feature, array('article', 'rewrite', 'edit', 'edit_new'), true)) {
+        if (in_array($feature, array('article', 'custom', 'rewrite', 'edit', 'edit_new'), true)) {
             $text = preg_replace('/^```[a-z]*\s*|\s*```$/i', '', $text);
             return array('text' => wp_kses_post($text));
         }
