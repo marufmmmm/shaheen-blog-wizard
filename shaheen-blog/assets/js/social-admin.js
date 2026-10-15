@@ -55,7 +55,8 @@
           v.innerHTML = '';
           r.data.slides.forEach(function (sl) {
             var w = el('div'); w.style.cssText = 'margin-bottom:10px;text-align:center';
-            if (sl.kind === 'igcard') { w.innerHTML = '<a href="' + esc(sl.url) + '" target="_blank" rel="noopener">📸 ' + esc(sl.title) + '</a>'; }
+            if (sl.kind === 'fblink') { w.innerHTML = '<a href="' + esc(sl.url) + '" target="_blank" rel="noopener" style="display:inline-block;background:#1877f2;color:#fff;padding:10px 20px;border-radius:999px;font-weight:700;text-decoration:none">' + esc(sl.title) + '</a>'; }
+            else if (sl.kind === 'igcard') { w.innerHTML = '<a href="' + esc(sl.url) + '" target="_blank" rel="noopener">📸 ' + esc(sl.title) + '</a>'; }
             else if (sl.kind === 'yt') { w.innerHTML = '<img src="' + esc(sl.thumb) + '" style="max-width:100%"><div>' + esc(sl.title) + '</div>'; }
             else {
               var f = document.createElement('iframe'), pw = Math.max(180, Math.min(500, v.clientWidth || 400));

@@ -991,3 +991,5 @@ body.single-sb_post.shb-hide-title main .wp-block-separator { display: none; }
     .shb-single .post-body .sb-embed--fb, .shb-single .post-body .sb-embed--ig { max-width: none; }
     .sb-social .sb-soc-slide[data-r] { max-width: 100% !important; }
 }
+
+.sb-social .sb-soc-fbl { margin: 6px 0; }

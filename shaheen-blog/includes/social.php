@@ -62,7 +62,7 @@ function sb_social_clean_url($url, $only = '') {
 /* ------------------------------------------------------------ dynamic items */
 function sb_social_item_types() {
     return array(
-        'fb_like'     => 'ফেসবুক — শুধু লাইক বাটন',
+        'fb_like'     => 'ফেসবুক — লাইক/ফলো বাটন',
         'fb_card'     => 'ফেসবুক — পেজ কার্ড (কভার ছবি + ফলো বাটন)',
         'fb_timeline' => 'ফেসবুক — সর্বশেষ পোস্টসহ বড় বক্স',
         'fb_post'     => 'ফেসবুক — নির্দিষ্ট পোস্ট/ভিডিও (লিংক)',
@@ -152,8 +152,8 @@ function sb_social_item_slides($it, $s) {
     switch ($it['type']) {
         case 'fb_like':
             if (!$fb) { return array(); }
-            return array(array('kind' => 'fb', 'wa' => 1, 'h' => $h, 'title' => 'ফেসবুক লাইক',
-                'src' => 'https://www.facebook.com/plugins/like.php?href=' . rawurlencode($fb) . '&layout=button_count&action=like&size=large&show_faces=false&share=false&width=500&height=' . $h));
+            // The Facebook Like plugin often renders blank (no login / blocked cookies), so a plain link button is used: it always works.
+            return array(array('kind' => 'fblink', 'url' => $fb, 'title' => trim($s['fb_label']) !== '' ? $s['fb_label'] : '👍 ফেসবুকে লাইক/ফলো করুন'));
         case 'fb_card':
             return $fb ? array(array('kind' => 'fb', 'wa' => 1, 'h' => $h, 'title' => 'ফেসবুক পেজ', 'src' => $page('', $h))) : array();
         case 'fb_timeline':
@@ -322,7 +322,7 @@ function sb_social_html($ids = null) {
     }
     $stack = $s['layout'] === 'stack';
     // The Facebook plugin already has its own Like/Follow button, so a second "Like" button would be redundant.
-    $fb_plugin = (bool) array_filter($slides, function ($x) { return isset($x['src']) && preg_match('#plugins/page\.php#', $x['src']); });
+    $fb_plugin = (bool) array_filter($slides, function ($x) { return $x['kind'] === 'fblink' || (isset($x['src']) && preg_match('#plugins/page\.php#', $x['src'])); });
     $show_btns = !$s['hide_btns'];
     ob_start();
     ?>
@@ -337,6 +337,8 @@ function sb_social_html($ids = null) {
                             <img src="<?php echo esc_url($sl['thumb']); ?>" alt="" loading="lazy"><span class="sb-soc-play">▶</span>
                         </button>
                         <div class="sb-soc-cap"><?php echo esc_html($sl['title']); ?></div>
+                    <?php elseif ($sl['kind'] === 'fblink') : ?>
+                        <p class="sb-soc-fbl"><a class="sb-soc-btn is-fb" href="<?php echo esc_url($sl['url']); ?>" target="_blank" rel="noopener"><?php echo esc_html($sl['title']); ?></a></p>
                     <?php elseif ($sl['kind'] === 'igcard') : ?>
                         <a class="sb-soc-card" href="<?php echo esc_url($sl['url']); ?>" target="_blank" rel="noopener"><span>📸</span><strong><?php echo esc_html($sl['title']); ?></strong><small>ইনস্টাগ্রাম পেজ দেখুন ↗</small></a>
                     <?php endif; ?>

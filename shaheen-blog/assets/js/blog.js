@@ -168,7 +168,7 @@
         function mount(slide) {
             if (slide.getAttribute('data-ready')) { return; }
             var kind = slide.getAttribute('data-kind'), src = slide.getAttribute('data-src');
-            if (kind === 'yt' || kind === 'igcard' || !src) { slide.setAttribute('data-ready', '1'); return; }
+            if (kind === 'yt' || kind === 'igcard' || kind === 'fblink' || !src) { slide.setAttribute('data-ready', '1'); return; }
             var f = document.createElement('iframe');
             f.title = slide.getAttribute('data-title') || '';
             f.setAttribute('allow', 'encrypted-media; picture-in-picture; clipboard-write');
