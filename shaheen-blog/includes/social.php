@@ -98,6 +98,7 @@ function sb_social_clean_items($raw) {
             'name' => sanitize_text_field(isset($r['name']) ? $r['name'] : ''),
             'src' => in_array($r['type'], array('fb_post', 'yt_video', 'ig', 'code'), true) ? $src : esc_url_raw($src, array('http', 'https')),
             'h' => max(0, min(1400, (int) (isset($r['h']) ? $r['h'] : 0))),
+            'tabs' => (isset($r['tabs']) && in_array($r['tabs'], array('timeline', 'events', 'messages', 'timeline,events', 'timeline,messages', 'events,messages', 'timeline,events,messages'), true)) ? $r['tabs'] : 'timeline',
             'r' => in_array($r['type'], array('fb_post', 'yt_video', 'ig', 'yt_latest'), true) ? sb_ratio_clean(isset($r['r']) ? $r['r'] : '') : '',
             'n' => max(1, min(5, (int) (isset($r['n']) ? $r['n'] : 3))),
         );
@@ -156,7 +157,7 @@ function sb_social_item_slides($it, $s) {
         case 'fb_card':
             return $fb ? array(array('kind' => 'fb', 'wa' => 1, 'h' => $h, 'title' => 'ফেসবুক পেজ', 'src' => $page('', $h))) : array();
         case 'fb_timeline':
-            return $fb ? array(array('kind' => 'fb', 'wa' => 1, 'auto' => empty($it['h']) ? 1 : 0, 'h' => $h, 'title' => 'ফেসবুক পেজ', 'src' => $page('timeline', $h))) : array();
+            return $fb ? array(array('kind' => 'fb', 'wa' => 1, 'auto' => empty($it['h']) ? 1 : 0, 'h' => $h, 'title' => 'ফেসবুক পেজ', 'src' => $page(isset($it['tabs']) && $it['tabs'] !== '' ? $it['tabs'] : 'timeline', $h))) : array();
         case 'yt_latest':
             $out = array();
             foreach (sb_yt_latest($it['src'] !== '' ? $it['src'] : $s['yt'], (int) $it['n']) as $v) {
