@@ -67,7 +67,7 @@ $costs['research'] = max(0, (int) sb_get('cost_research'));
             <label>শিরোনাম *
                 <input type="text" id="f-title" value="<?php echo esc_attr($d['title']); ?>" placeholder="পোস্টের শিরোনাম">
             </label>
-            <label>সারাংশ (কার্ডে দেখাবে)
+            <label>সারাংশ (কার্ডে দেখাবে) <small>— এখন ফাঁকা রাখতে পারেন। আর্টিকেল তৈরি/লেখার পর ধাপ ৪-এ "সারাংশ" বানালে এটা নিজে ভরে যাবে</small>
                 <textarea id="f-excerpt" rows="3" placeholder="২-৩ লাইনের সংক্ষিপ্ত বিবরণ"><?php echo esc_textarea($d['excerpt']); ?></textarea>
             </label>
             <div class="sba-row">

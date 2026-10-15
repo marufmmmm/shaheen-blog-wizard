@@ -511,7 +511,7 @@
         toast('আর্টিকেলে ' + bn(r.missing.length) + 'টি জায়গায় আপনার তথ্য দরকার ([তথ্য দরকার: …] খুঁজুন)।', 'err');
       } else { mb.hidden = true; }
     }
-    else if (f === 'summary') { $('#f-summary').value = r.text; }
+    else if (f === 'summary') { $('#f-summary').value = r.text; if (!val('#f-excerpt')) { $('#f-excerpt').value = r.text; } }
   }
 
   /* review */
