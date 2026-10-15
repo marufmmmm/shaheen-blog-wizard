@@ -327,6 +327,7 @@
         var w = Math.round(box.clientWidth), h = Math.round(w * b / a);
         f.style.width = '100%'; f.style.height = '100%';
         var src = f.getAttribute('src') || f.getAttribute('data-fbsrc') || '';
+        if (/facebook\.com\/plugins\/video\.php/.test(src)) { box.classList.add('sb-embed--vid'); }
         if (/facebook\.com\/plugins\/(post|video)\.php/.test(src) && w > 0 && box.getAttribute('data-fw') !== w + 'x' + h) {
             box.setAttribute('data-fw', w + 'x' + h);
             var u = src.replace(/([?&])width=\d+/, '$1width=' + Math.max(180, Math.min(750, w)));

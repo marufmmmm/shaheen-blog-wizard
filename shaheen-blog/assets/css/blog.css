@@ -979,3 +979,15 @@ body.single-sb_post.shb-hide-title main .wp-block-separator { display: none; }
 .sb-social .sb-soc-slide[data-r="1:1"] .sb-soc-yt { aspect-ratio: 1/1; }
 .sb-social .sb-soc-slide[data-r="4:5"] .sb-soc-yt { aspect-ratio: 4/5; }
 .sb-social .sb-soc-slide[data-r="9:16"] .sb-soc-yt { aspect-ratio: 9/16; }
+
+/* a video that is narrower/shorter than the chosen box: fill the rest with black so it looks like part of the player */
+.shb .sb-embed--vid, .sb-social .sb-soc-slide.sb-embed--vid { background: #000; border-color: #000; border-radius: 12px; overflow: hidden; }
+
+/* phones: use the width we have */
+@media (max-width: 768px) {
+    .shb-single .post-wrap { padding: 0 6px 10px; }
+    .shb-single .post-inner { padding: 22px 14px 26px; }
+    .shb-single .post-body .sb-social { margin-left: -6px; margin-right: -6px; padding: 10px 8px; }
+    .shb-single .post-body .sb-embed--fb, .shb-single .post-body .sb-embed--ig { max-width: none; }
+    .sb-social .sb-soc-slide[data-r] { max-width: 100% !important; }
+}
