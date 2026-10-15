@@ -40,7 +40,7 @@ function sb_fetch_pages($raw, &$notes) {
             continue;
         }
         $n++;
-        $r = wp_safe_remote_get($u, array('timeout' => 20, 'redirection' => 3, 'user-agent' => 'Mozilla/5.0 (ShaheenBlog)'));
+        $r = wp_safe_remote_get($u, array('timeout' => 12, 'redirection' => 3, 'user-agent' => 'Mozilla/5.0 (ShaheenBlog)'));
         if (is_wp_error($r) || (int) wp_remote_retrieve_response_code($r) !== 200) {
             $notes[] = 'ওয়েবসাইট পড়া যায়নি: ' . $u;
             continue;
@@ -145,11 +145,16 @@ function sb_ajax_ai() {
 
 /** Runs one AI feature, post-processes and charges credits. Returns array(ok, message|data). */
 function sb_ai_execute($uid, $feature, $ctx, $cost, $research, &$notes) {
-    $post_id = (int) $ctx['post_id'];
     $result = SB_AI::generate($feature, $ctx);
     if (is_wp_error($result)) {
         return array('ok' => false, 'message' => $result->get_error_message());   // nothing charged
     }
+    return sb_ai_finish($uid, $feature, $ctx, $cost, $research, $result, $notes);
+}
+
+/** Post-processes a finished result and charges the credits. */
+function sb_ai_finish($uid, $feature, $ctx, $cost, $research, $result, &$notes) {
+    $post_id = (int) $ctx['post_id'];
     if ($feature === 'related' && empty($result['items'])) {
         return array('ok' => false, 'message' => 'সাইটে এই লেখার সাথে মেলে এমন পোস্ট/পেজ পাওয়া যায়নি, তাই ক্রেডিট কাটা হয়নি। নিজে খুঁজে যোগ করতে পারেন।');
     }
@@ -218,20 +223,15 @@ function sb_job_start($uid, $ctx, $cost, $research, $state) {
     wp_send_json_success(array('job' => $id));
 }
 
-/** The long request: runs the job. The browser may get a 504 for it; the job keeps going and the browser polls for the result. */
+/** Prepares the sources (web pages, files) and starts OpenAI's background generation. Short request. */
 add_action('wp_ajax_sb_job_run', function () {
     sb_ajax_guard();
-    ignore_user_abort(true);
-    if (function_exists('set_time_limit')) {
-        @set_time_limit(420); // phpcs:ignore
-    }
     $id = preg_replace('/[^a-z0-9]/', '', strtolower((string) sb_req('job')));
     $job = get_transient('sb_job_' . $id);
     if (!is_array($job) || (int) $job['uid'] !== get_current_user_id() || $job['status'] !== 'queued') {
         wp_send_json_error(array('message' => 'কাজটি পাওয়া যায়নি বা আগেই শুরু হয়েছে।'));
     }
-    $job['status'] = 'running';
-    $job['beat'] = time();
+    $job['status'] = 'starting';
     set_transient('sb_job_' . $id, $job, 6 * HOUR_IN_SECONDS);
 
     $notes = array();
@@ -248,39 +248,61 @@ add_action('wp_ajax_sb_job_run', function () {
         $ctx['parts'][] = $f['ext'] === 'pdf'
             ? array('type' => 'file', 'file' => array('filename' => $f['name'], 'file_data' => $uri))
             : array('type' => 'image_url', 'image_url' => array('url' => $uri));
-        @unlink($f['path']); // phpcs:ignore WordPress.WP.AlternativeFunctions
     }
-    $out = sb_ai_execute((int) $job['uid'], 'custom', $ctx, (int) $job['cost'], (bool) $job['research'], $notes);
-    $job['status'] = !empty($out['ok']) ? 'done' : 'error';
-    $job['out'] = $out;
+    $ctx['bg'] = true;
+    $r = SB_AI::generate('custom', $ctx);
+    foreach ($job['files'] as $f) {
+        if (!empty($f['path'])) {
+            @unlink($f['path']); // phpcs:ignore WordPress.WP.AlternativeFunctions
+        }
+    }
+    unset($ctx['parts']);
+    if (is_wp_error($r)) {
+        delete_transient('sb_job_' . $id);
+        wp_send_json_error(array('message' => $r->get_error_message()));
+    }
+    $job['status'] = 'waiting';
+    $job['bg_id'] = $r['bg_id'];
+    $job['notes'] = $notes;
+    $job['files'] = array();
     $job['beat'] = time();
     set_transient('sb_job_' . $id, $job, 6 * HOUR_IN_SECONDS);
-    if (!empty($out['ok'])) {
-        wp_send_json_success($out['data']);
-    }
-    wp_send_json_error(array('message' => $out['message']));
+    wp_send_json_success(array('state' => 'waiting'));
 });
 
+/** Polled by the browser: asks OpenAI how the background generation is doing; charges credits once when it is done. */
 add_action('wp_ajax_sb_job_status', function () {
     sb_ajax_guard();
     $id = preg_replace('/[^a-z0-9]/', '', strtolower((string) sb_req('job')));
     $job = get_transient('sb_job_' . $id);
-    if (!is_array($job) || (int) $job['uid'] !== get_current_user_id()) {
+    $uid = get_current_user_id();
+    if (!is_array($job) || (int) $job['uid'] !== $uid) {
         wp_send_json_error(array('message' => 'কাজটি পাওয়া যায়নি (সময় পেরিয়ে গেছে)।'));
     }
-    if ($job['status'] === 'done') {
-        delete_transient('sb_job_' . $id);
-        wp_send_json_success(array('state' => 'done', 'data' => $job['out']['data']));
+    if ($job['status'] !== 'waiting') {
+        wp_send_json_success(array('state' => 'running'));   // starting / finalizing
     }
-    if ($job['status'] === 'error') {
-        delete_transient('sb_job_' . $id);
-        wp_send_json_success(array('state' => 'error', 'message' => $job['out']['message'], 'balance' => SB_Credits::state((int) $job['uid'])));
+    $r = SB_AI::bg_fetch($job['bg_id']);
+    if ($r['state'] === 'running') {
+        if (time() - (int) $job['created'] > 20 * 60) {
+            SB_AI::bg_cancel($job['bg_id']);
+            delete_transient('sb_job_' . $id);
+            wp_send_json_success(array('state' => 'error', 'message' => 'AI ২০ মিনিটেও শেষ করতে পারেনি, বন্ধ করা হয়েছে। ক্রেডিট কাটা হয়নি। কম ফাইল বা ছোট দৈর্ঘ্যে আবার চেষ্টা করুন।', 'balance' => SB_Credits::state($uid)));
+        }
+        wp_send_json_success(array('state' => 'running'));
     }
-    if ($job['status'] === 'running' && time() - (int) $job['beat'] > 600) {
-        delete_transient('sb_job_' . $id);
-        wp_send_json_success(array('state' => 'error', 'message' => 'কাজটি শেষ হয়নি (সার্ভার সময় শেষ)। ক্রেডিট কাটা হয়নি। ছোট দৈর্ঘ্য বা কম ফাইল দিয়ে আবার চেষ্টা করুন।', 'balance' => SB_Credits::state((int) $job['uid'])));
+    $job['status'] = 'finalizing';
+    set_transient('sb_job_' . $id, $job, 6 * HOUR_IN_SECONDS);
+    delete_transient('sb_job_' . $id);
+    if ($r['state'] === 'error') {
+        wp_send_json_success(array('state' => 'error', 'message' => $r['message'], 'balance' => SB_Credits::state($uid)));
     }
-    wp_send_json_success(array('state' => $job['status']));
+    $notes = isset($job['notes']) ? $job['notes'] : array();
+    $out = sb_ai_finish($uid, 'custom', $job['ctx'], (int) $job['cost'], (bool) $job['research'], $r['result'], $notes);
+    if (empty($out['ok'])) {
+        wp_send_json_success(array('state' => 'error', 'message' => $out['message'], 'balance' => SB_Credits::state($uid)));
+    }
+    wp_send_json_success(array('state' => 'done', 'data' => $out['data']));
 });
 
 /* ---------- Save post (free: editing never costs credits) ---------- */

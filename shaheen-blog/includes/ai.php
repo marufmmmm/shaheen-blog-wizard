@@ -253,6 +253,9 @@ class SB_AI {
             $body['response_format'] = array('type' => 'json_object');
         }
 
+        if ($feature === 'custom' && !empty($c['bg'])) {
+            return self::bg_start($model, $user, !empty($c['parts']) ? $c['parts'] : array(), $max, !empty($c['research']));
+        }
         if (in_array($feature, array('article', 'custom'), true) && !empty($c['research'])) {
             $r = self::research_article($user, $max, ($feature === 'custom' && !empty($c['parts'])) ? $c['parts'] : array(), $model);
             if (!is_wp_error($r)) {
@@ -347,6 +350,115 @@ class SB_AI {
     }
 
     /** Article using OpenAI web search (Responses API). */
+    /** Responses-API input for a user text plus optional PDF/image parts. */
+    protected static function bg_input($user, $parts) {
+        $in = array(array('type' => 'input_text', 'text' => $user));
+        foreach ($parts as $p) {
+            $in[] = $p['type'] === 'file'
+                ? array('type' => 'input_file', 'filename' => $p['file']['filename'], 'file_data' => $p['file']['file_data'])
+                : array('type' => 'input_image', 'image_url' => $p['image_url']['url']);
+        }
+        return $in;
+    }
+
+    /** Starts a long generation in OpenAI's background mode: returns at once with an id (no long-open request, so no 504). */
+    public static function bg_start($model, $user, $parts, $max, $research) {
+        if (function_exists('set_time_limit')) {
+            @set_time_limit(120); // phpcs:ignore
+        }
+        $body = array(
+            'model' => $model,
+            'input' => array(
+                array('role' => 'system', 'content' => self::system_prompt()),
+                array('role' => 'user', 'content' => $parts ? self::bg_input($user, $parts) : $user),
+            ),
+            'background' => true,
+            'max_output_tokens' => $max * 2 + 2000,
+        );
+        if (preg_match('/^(gpt-5|o\d)/i', $model)) {
+            $body['reasoning'] = array('effort' => 'low');
+        }
+        if ($research) {
+            $body['tools'] = array(array('type' => 'web_search_preview'));
+        }
+        $resp = wp_remote_post('https://api.openai.com/v1/responses', array(
+            'timeout' => 100,
+            'headers' => array('Authorization' => 'Bearer ' . sb_get('api_key'), 'Content-Type' => 'application/json'),
+            'body'    => wp_json_encode($body),
+        ));
+        if (is_wp_error($resp)) {
+            return new WP_Error('sb_http', 'OpenAI-তে সংযোগ হয়নি: ' . $resp->get_error_message());
+        }
+        $code = wp_remote_retrieve_response_code($resp);
+        $data = json_decode(wp_remote_retrieve_body($resp), true);
+        if ($code !== 200 || empty($data['id'])) {
+            $msg = isset($data['error']['message']) ? $data['error']['message'] : ('HTTP ' . $code);
+            if ($code === 401) {
+                $msg = 'API কী ভুল বা বাতিল।';
+            } elseif ($code === 429) {
+                $msg = 'OpenAI ব্যালেন্স শেষ বা অনুরোধ বেশি হয়েছে। (' . $msg . ')';
+            }
+            return new WP_Error('sb_api', $msg);
+        }
+        return array('bg_id' => $data['id']);
+    }
+
+    /** Checks a background generation: array(state => running|done|error, result|message). */
+    public static function bg_fetch($id) {
+        $resp = wp_remote_get('https://api.openai.com/v1/responses/' . rawurlencode($id), array(
+            'timeout' => 30,
+            'headers' => array('Authorization' => 'Bearer ' . sb_get('api_key')),
+        ));
+        if (is_wp_error($resp)) {
+            return array('state' => 'running');   // transient network hiccup: ask again
+        }
+        $data = json_decode(wp_remote_retrieve_body($resp), true);
+        if (wp_remote_retrieve_response_code($resp) !== 200 || !is_array($data)) {
+            return array('state' => 'error', 'message' => isset($data['error']['message']) ? $data['error']['message'] : 'OpenAI থেকে উত্তর পাওয়া যায়নি।');
+        }
+        $st = isset($data['status']) ? $data['status'] : '';
+        if ($st === 'queued' || $st === 'in_progress') {
+            return array('state' => 'running');
+        }
+        if ($st !== 'completed') {
+            $why = isset($data['error']['message']) ? $data['error']['message'] : (isset($data['incomplete_details']['reason']) ? $data['incomplete_details']['reason'] : $st);
+            return array('state' => 'error', 'message' => 'AI লেখা শেষ করতে পারেনি (' . $why . ')। ক্রেডিট কাটা হয়নি।');
+        }
+        $text = '';
+        $sources = array();
+        $searched = false;
+        foreach (isset($data['output']) && is_array($data['output']) ? $data['output'] : array() as $item) {
+            if (isset($item['type']) && $item['type'] === 'web_search_call') {
+                $searched = true;
+            }
+            if (isset($item['type']) && $item['type'] === 'message' && !empty($item['content'])) {
+                foreach ($item['content'] as $c) {
+                    if (isset($c['text'])) {
+                        $text .= $c['text'];
+                    }
+                    foreach (!empty($c['annotations']) ? $c['annotations'] : array() as $a) {
+                        if (isset($a['url']) && !isset($sources[$a['url']])) {
+                            $sources[$a['url']] = isset($a['title']) ? sanitize_text_field($a['title']) : $a['url'];
+                        }
+                    }
+                }
+            }
+        }
+        $text = trim(preg_replace('/^```[a-z]*\s*|\s*```$/i', '', trim($text)));
+        if ($text === '') {
+            return array('state' => 'error', 'message' => 'AI কোনো লেখা দেয়নি। ক্রেডিট কাটা হয়নি।');
+        }
+        $list = array();
+        foreach ($sources as $u => $t) {
+            $list[] = array('url' => esc_url_raw($u), 'title' => $t);
+        }
+        return array('state' => 'done', 'result' => array('text' => wp_kses_post($text), 'sources' => array_slice($list, 0, 8), 'researched' => $searched));
+    }
+
+    public static function bg_cancel($id) {
+        wp_remote_post('https://api.openai.com/v1/responses/' . rawurlencode($id) . '/cancel', array('timeout' => 15, 'headers' => array('Authorization' => 'Bearer ' . sb_get('api_key'))));
+    }
+
     protected static function research_article($user, $max, $parts = array(), $model = '') {
         if ($parts) {
             $in = array(array('type' => 'input_text', 'text' => $user));

@@ -587,19 +587,18 @@
   function runCustom(btn) {
     return post('sb_ai', aiPayload('custom')).then(function (d) {
       var id = d.job, t0 = Date.now(), fails = 0;
-      post('sb_job_run', { job: id }).catch(function () { /* 504 / timeout: the job continues on the server */ });
-      return new Promise(function (resolve, reject) {
+      return post('sb_job_run', { job: id }).then(function () { return new Promise(function (resolve, reject) {
         (function poll() {
           setTimeout(function () {
-            if (btn) { btn.textContent = '⏳ লেখা হচ্ছে… ' + bn(Math.floor((Date.now() - t0) / 1000)) + ' সেকেন্ড (বড় লেখায় ১-৪ মিনিট লাগে, পেজ খোলা রাখুন)'; }
+            if (btn) { btn.textContent = '⏳ AI লিখছে… ' + bn(Math.floor((Date.now() - t0) / 1000)) + ' সেকেন্ড (বড় লেখায় ২-৮ মিনিট লাগে, পেজ খোলা রাখুন)'; }
             post('sb_job_status', { job: id }).then(function (s) {
               if (s.state === 'done') { updateBalance(s.data.balance); resolve(s.data); }
               else if (s.state === 'error') { reject(new Error(s.message)); }
               else { poll(); }
             }).catch(function (e) { if (++fails > 8) { reject(e); } else { poll(); } });
-          }, 3000);
+          }, 4000);
         })();
-      });
+      }); });
     });
   }
   var onlyBtn = $('#inc-only');
