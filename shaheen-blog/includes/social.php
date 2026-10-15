@@ -145,7 +145,7 @@ function sb_social_item_slides($it, $s) {
         case 'fb_card':
             return $fb ? array(array('kind' => 'fb', 'wa' => 1, 'h' => $h, 'title' => 'ফেসবুক পেজ', 'src' => $page('', $h))) : array();
         case 'fb_timeline':
-            return $fb ? array(array('kind' => 'fb', 'wa' => 1, 'h' => $h, 'title' => 'ফেসবুক পেজ', 'src' => $page('timeline', $h))) : array();
+            return $fb ? array(array('kind' => 'fb', 'wa' => 1, 'auto' => empty($it['h']) ? 1 : 0, 'h' => $h, 'title' => 'ফেসবুক পেজ', 'src' => $page('timeline', $h))) : array();
         case 'yt_latest':
             $out = array();
             foreach (sb_yt_latest($it['src'] !== '' ? $it['src'] : $s['yt'], (int) $it['n']) as $v) {
@@ -156,6 +156,18 @@ function sb_social_item_slides($it, $s) {
             $u = $it['src'] !== '' ? $it['src'] : $s['ig'];
             return $u ? array(array('kind' => 'igcard', 'url' => $u, 'title' => 'ইনস্টাগ্রামে আমাদের ফলো করুন')) : array();
         default: // fb_post, yt_video, ig, code
+            if (in_array($it['type'], array('fb_post', 'yt_video', 'ig'), true) && preg_match('/\R\s*\S/', $it['src'])) {
+                $out = array();
+                foreach (array_slice(preg_split('/\R+/', $it['src']), 0, 8) as $line) {
+                    $line = trim($line);
+                    if ($line !== '') {
+                        $one = $it;
+                        $one['src'] = $line;
+                        $out = array_merge($out, sb_social_item_slides($one, $s));
+                    }
+                }
+                return $out;
+            }
             $e = sb_embed_parse($it['src']);
             if (!$e || isset($e['link'])) {
                 return array();
@@ -307,7 +319,7 @@ function sb_social_html($ids = null) {
         <?php if ($slides) : ?>
         <div class="sb-soc-stage">
             <?php foreach ($slides as $i => $sl) : ?>
-                <div class="sb-soc-slide" data-kind="<?php echo esc_attr($sl['kind']); ?>"<?php echo !empty($sl['wa']) ? ' data-wa="1"' : ''; ?><?php echo isset($sl['src']) ? ' data-src="' . esc_url($sl['src']) . '"' : ''; ?> data-h="<?php echo isset($sl['h']) ? (int) $sl['h'] : 0; ?>" data-title="<?php echo esc_attr($sl['title']); ?>"<?php echo ($i && !$stack) ? ' hidden' : ''; ?>>
+                <div class="sb-soc-slide" data-kind="<?php echo esc_attr($sl['kind']); ?>"<?php echo !empty($sl['wa']) ? ' data-wa="1"' : ''; ?><?php echo isset($sl['src']) ? ' data-src="' . esc_url($sl['src']) . '"' : ''; ?> data-h="<?php echo isset($sl['h']) ? (int) $sl['h'] : 0; ?>"<?php echo !empty($sl['auto']) ? ' data-auto="1"' : ''; ?> data-title="<?php echo esc_attr($sl['title']); ?>"<?php echo ($i && !$stack) ? ' hidden' : ''; ?>>
                     <?php if ($sl['kind'] === 'yt') : ?>
                         <button type="button" class="sb-soc-yt" aria-label="ভিডিও চালান">
                             <img src="<?php echo esc_url($sl['thumb']); ?>" alt="" loading="lazy"><span class="sb-soc-play">▶</span>

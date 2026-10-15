@@ -156,9 +156,13 @@
             var f = slide.querySelector('iframe'), src = slide.getAttribute('data-src');
             if (!f || slide.getAttribute('data-wa') !== '1') { return; }
             var w = Math.max(180, Math.min(500, Math.floor(slide.clientWidth || box.clientWidth || 320)));
-            if (parseInt(slide.getAttribute('data-w'), 10) === w) { return; }
+            // Height follows the width when the owner left it on "auto" (phones get a shorter box, wide screens a taller one).
+            var auto = slide.getAttribute('data-auto') === '1', h = auto ? Math.max(420, Math.min(680, Math.round(w * 1.3))) : 0;
+            if (parseInt(slide.getAttribute('data-w'), 10) === w && (!auto || parseInt(slide.getAttribute('data-ah'), 10) === h)) { return; }
             slide.setAttribute('data-w', w);
-            f.src = src.replace(/([?&])width=\d+/, '$1width=' + w);
+            var url = src.replace(/([?&])width=\d+/, '$1width=' + w);
+            if (auto) { slide.setAttribute('data-ah', h); url = url.replace(/([?&])height=\d+/, '$1height=' + h); f.style.height = h + 'px'; }
+            f.src = url;
             f.style.width = w + 'px';
         }
         function mount(slide) {

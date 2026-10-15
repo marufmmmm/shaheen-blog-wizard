@@ -20,7 +20,7 @@
       var row = el('div', 'sba-card'); row.style.cssText = 'margin:10px 0;padding:12px;background:#fafcfb';
       var opts = Object.keys(C.types).map(function (k) { return '<option value="' + k + '"' + (k === it.type ? ' selected' : '') + '>' + esc(C.types[k]) + '</option>'; }).join('');
       var src = NEEDS_SRC[it.type]
-        ? '<label>' + (it.type === 'code' ? 'এমবেড কোড' : 'লিংক বা এমবেড কোড') + '<textarea class="i-src" rows="3" style="font-family:monospace;font-size:12px">' + esc(it.src) + '</textarea></label>'
+        ? '<label>' + (it.type === 'code' ? 'এমবেড কোড' : 'লিংক <small>(একাধিক পোস্ট/ভিডিও দেখাতে প্রতি লাইনে একটি লিংক দিন)</small>') + '<textarea class="i-src" rows="3" style="font-family:monospace;font-size:12px">' + esc(it.src) + '</textarea></label>'
         : '<label>লিংক <small>(ফাঁকা রাখলে ওপরের সাধারণ পেজ লিংক)</small><input type="text" class="i-src" value="' + esc(it.src) + '"></label>';
       var hh = (it.type in C.h || it.type === 'code') ? '<label>উচ্চতা (px) <small>(০ = নিজে ঠিক)</small><input type="number" class="i-h" min="0" max="1400" value="' + (it.h || 0) + '" style="max-width:110px"></label>' : '';
       var nn = it.type === 'yt_latest' ? '<label>কয়টি ভিডিও<input type="number" class="i-n" min="1" max="5" value="' + (it.n || 3) + '" style="max-width:90px"></label>' : '';
