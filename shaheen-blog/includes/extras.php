@@ -22,7 +22,7 @@ function sb_clean_pos($pos, $n = 1) {
 
 function sb_clean_extras($raw) {
     $raw = is_array($raw) ? $raw : array();
-    $out = array('refs' => array(), 'dls' => array(), 'pdfs' => array(), 'embeds' => array(), 'social_pos' => '');
+    $out = array('refs' => array(), 'dls' => array(), 'pdfs' => array(), 'embeds' => array(), 'social_pos' => '', 'social_ids' => null);
     foreach (array_slice(isset($raw['refs']) && is_array($raw['refs']) ? $raw['refs'] : array(), 0, 20) as $r) {
         $url = esc_url_raw(trim(isset($r['url']) ? $r['url'] : ''), array('http', 'https'));
         $label = sanitize_text_field(isset($r['label']) ? $r['label'] : '');
@@ -55,6 +55,10 @@ function sb_clean_extras($raw) {
     }
     $sp = isset($raw['social_pos']) ? (string) $raw['social_pos'] : '';
     $out['social_pos'] = ($sp === '' || $sp === 'off') ? $sp : sb_clean_pos($sp, isset($raw['social_n']) ? $raw['social_n'] : 1);
+    if (isset($raw['social_ids']) && is_array($raw['social_ids'])) {
+        $ids = array_values(array_filter(array_map('sanitize_key', $raw['social_ids'])));
+        $out['social_ids'] = $ids ? $ids : null;
+    }
     return $out;
 }
 

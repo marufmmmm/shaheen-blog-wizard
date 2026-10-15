@@ -505,9 +505,19 @@
     $('#ex-social-pos').value = m ? 'p' : sp; $('#ex-social-n').value = m ? m[1] : 2;
     var vis = function () { $('#ex-social-n').style.display = $('#ex-social-pos').value === 'p' ? '' : 'none'; };
     $('#ex-social-pos').addEventListener('change', vis); vis();
+    var ids = EX.social_ids || [];
+    if (ids.length) {
+      document.querySelector('input[name="ex-soc-mode"][value="pick"]').checked = true;
+      [].forEach.call(document.querySelectorAll('.ex-soc-id'), function (c) { c.checked = ids.indexOf(c.value) >= 0; });
+    }
   })();
+  function exSocIds() {
+    var pick = document.querySelector('input[name="ex-soc-mode"][value="pick"]');
+    if (!pick || !pick.checked) { return []; }
+    return [].filter.call(document.querySelectorAll('.ex-soc-id'), function (c) { return c.checked; }).map(function (c) { return c.value; });
+  }
   function exGet() {
-    return { refs: exRefs(), dls: exDls(), pdfs: exPdfs(), embeds: exEmb(), social_pos: $('#ex-social-pos').value, social_n: $('#ex-social-n').value };
+    return { refs: exRefs(), dls: exDls(), pdfs: exPdfs(), embeds: exEmb(), social_pos: $('#ex-social-pos').value, social_n: $('#ex-social-n').value, social_ids: exSocIds() };
   }
 
   $('#no-global').checked = !!Number(P.no_global || 0);

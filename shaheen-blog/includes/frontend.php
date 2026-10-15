@@ -64,7 +64,9 @@ function sb_ajax_view() {
     $views = sb_init_views($id);
     $ua = isset($_SERVER['HTTP_USER_AGENT']) ? strtolower(wp_unslash($_SERVER['HTTP_USER_AGENT'])) : '';
     $bot = $ua === '' || preg_match('/bot|crawl|spider|slurp|facebookexternalhit|preview|monitor/', $ua);
-    if (!$bot && !current_user_can('edit_posts')) {
+    $ip_key = 'sb_v_' . md5($id . '|' . (isset($_SERVER['REMOTE_ADDR']) ? $_SERVER['REMOTE_ADDR'] : ''));
+    if (!$bot && !current_user_can('edit_posts') && !get_transient($ip_key)) {
+        set_transient($ip_key, 1, 10 * MINUTE_IN_SECONDS);   // one count per visitor per post per 10 minutes
         $views++;
         update_post_meta($id, '_sb_views', $views);
     }

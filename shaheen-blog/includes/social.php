@@ -15,7 +15,7 @@ function sb_social_defaults() {
         'fb' => '', 'yt' => '', 'ig' => '',
         'fb_label' => '👍 ফেসবুকে লাইক দিন', 'yt_label' => '▶️ ইউটিউবে সাবস্ক্রাইব করুন', 'ig_label' => '📸 ইনস্টাগ্রামে ফলো করুন',
         'title' => '📣 আমাদের সাথে থাকুন',
-        'fb_embed' => 1, 'fb_mode' => 'card', 'codes' => '', 'hide_btns' => 0, 'yt_count' => 3, 'items' => '', 'pos' => 'middle', 'interval' => 8,
+        'fb_embed' => 1, 'fb_mode' => 'card', 'codes' => '', 'hide_btns' => 0, 'layout' => 'rotate', 'yt_count' => 3, 'items' => '', 'pos' => 'middle', 'interval' => 8,
     );
 }
 
@@ -48,6 +48,139 @@ function sb_social_clean_url($url, $only = '') {
     return $url;
 }
 
+
+/* ------------------------------------------------------------ dynamic items */
+function sb_social_item_types() {
+    return array(
+        'fb_like'     => 'ফেসবুক — শুধু লাইক বাটন',
+        'fb_card'     => 'ফেসবুক — পেজ কার্ড (কভার ছবি + ফলো বাটন)',
+        'fb_timeline' => 'ফেসবুক — সর্বশেষ পোস্টসহ বড় বক্স',
+        'fb_post'     => 'ফেসবুক — নির্দিষ্ট পোস্ট/ভিডিও (লিংক)',
+        'yt_latest'   => 'ইউটিউব — চ্যানেলের সর্বশেষ ভিডিও',
+        'yt_video'    => 'ইউটিউব — একটি নির্দিষ্ট ভিডিও (লিংক)',
+        'ig'          => 'ইনস্টাগ্রাম — পোস্ট/রিল (লিংক)',
+        'ig_card'     => 'ইনস্টাগ্রাম — প্রোফাইল ফলো কার্ড',
+        'code'        => 'এমবেড কোড (ফেসবুক/ইউটিউব/ইনস্টাগ্রাম থেকে কপি করা)',
+    );
+}
+
+/** Starting height (px) for each type; the owner can change it per item. */
+function sb_social_default_h($type) {
+    $h = array('fb_like' => 40, 'fb_card' => 135, 'fb_timeline' => 500, 'fb_post' => 560, 'ig' => 620, 'code' => 0);
+    return isset($h[$type]) ? $h[$type] : 0;
+}
+
+function sb_social_clean_items($raw) {
+    $out = array();
+    $types = sb_social_item_types();
+    foreach (array_slice(is_array($raw) ? $raw : array(), 0, 12) as $r) {
+        if (!is_array($r) || !isset($r['type'], $types[$r['type']])) {
+            continue;
+        }
+        $src = trim(wp_check_invalid_utf8(isset($r['src']) ? (string) $r['src'] : ''));
+        $src = mb_substr($src, 0, 4000);
+        if (in_array($r['type'], array('fb_post', 'yt_video', 'ig', 'code'), true) && !sb_embed_parse($src)) {
+            continue;   // nothing usable pasted
+        }
+        $id = (isset($r['id']) && preg_match('/^[a-z0-9]{6,20}$/', $r['id'])) ? $r['id'] : strtolower(wp_generate_password(8, false, false));
+        $out[] = array(
+            'id' => $id, 'on' => !empty($r['on']) ? 1 : 0, 'type' => $r['type'],
+            'name' => sanitize_text_field(isset($r['name']) ? $r['name'] : ''),
+            'src' => in_array($r['type'], array('fb_post', 'yt_video', 'ig', 'code'), true) ? $src : esc_url_raw($src, array('http', 'https')),
+            'h' => max(0, min(1400, (int) (isset($r['h']) ? $r['h'] : 0))),
+            'n' => max(1, min(5, (int) (isset($r['n']) ? $r['n'] : 3))),
+        );
+    }
+    return $out;
+}
+
+/** Saved items, or items derived from the older settings so nothing disappears after updating. */
+function sb_social_items() {
+    $saved = get_option('sb_social_items', null);
+    if (is_array($saved)) {
+        return sb_social_clean_items($saved);
+    }
+    $s = sb_social_get();
+    $mk = function ($type, $src = '', $extra = array()) {
+        return array_merge(array('id' => strtolower(wp_generate_password(8, false, false)), 'on' => 1, 'type' => $type, 'name' => '', 'src' => $src, 'h' => 0, 'n' => 3), $extra);
+    };
+    $items = array();
+    foreach (preg_split('/\R\s*\R/', trim((string) $s['codes'])) as $block) {
+        if (trim($block) !== '') {
+            $items[] = $mk('code', trim($block));
+        }
+    }
+    if ($s['fb'] && $s['fb_embed']) {
+        $items[] = $mk($s['fb_mode'] === 'timeline' ? 'fb_timeline' : 'fb_card');
+    }
+    if ($s['yt'] && (int) $s['yt_count'] > 0) {
+        $items[] = $mk('yt_latest', '', array('n' => (int) $s['yt_count']));
+    }
+    foreach (preg_split('/\R+/', (string) $s['items']) as $u) {
+        $u = trim($u);
+        $k = $u !== '' ? sb_social_host($u) : '';
+        if ($k) {
+            $items[] = $mk($k === 'fb' ? 'fb_post' : ($k === 'yt' ? 'yt_video' : 'ig'), $u);
+        }
+    }
+    if ($s['ig'] && !array_filter($items, function ($x) { return $x['type'] === 'ig'; })) {
+        $items[] = $mk('ig_card');
+    }
+    return sb_social_clean_items($items);
+}
+
+/** Slides (what is shown) for one item. */
+function sb_social_item_slides($it, $s) {
+    $h = $it['h'] ?: sb_social_default_h($it['type']);
+    $fb = $it['src'] !== '' ? $it['src'] : $s['fb'];
+    $page = function ($tabs, $hh) use ($fb) {
+        return 'https://www.facebook.com/plugins/page.php?href=' . rawurlencode($fb) . ($tabs ? '&tabs=' . $tabs : '')
+            . '&width=500&height=' . $hh . '&small_header=false&adapt_container_width=true&hide_cover=false&show_facepile=false';
+    };
+    switch ($it['type']) {
+        case 'fb_like':
+            if (!$fb) { return array(); }
+            return array(array('kind' => 'fb', 'wa' => 1, 'h' => $h, 'title' => 'ফেসবুক লাইক',
+                'src' => 'https://www.facebook.com/plugins/like.php?href=' . rawurlencode($fb) . '&layout=button_count&action=like&show_faces=false&share=false&width=500&height=' . $h));
+        case 'fb_card':
+            return $fb ? array(array('kind' => 'fb', 'wa' => 1, 'h' => $h, 'title' => 'ফেসবুক পেজ', 'src' => $page('', $h))) : array();
+        case 'fb_timeline':
+            return $fb ? array(array('kind' => 'fb', 'wa' => 1, 'h' => $h, 'title' => 'ফেসবুক পেজ', 'src' => $page('timeline', $h))) : array();
+        case 'yt_latest':
+            $out = array();
+            foreach (sb_yt_latest($it['src'] !== '' ? $it['src'] : $s['yt'], (int) $it['n']) as $v) {
+                $out[] = array('kind' => 'yt', 'src' => 'https://www.youtube-nocookie.com/embed/' . $v['id'], 'thumb' => 'https://i.ytimg.com/vi/' . $v['id'] . '/hqdefault.jpg', 'title' => $v['title']);
+            }
+            return $out;
+        case 'ig_card':
+            $u = $it['src'] !== '' ? $it['src'] : $s['ig'];
+            return $u ? array(array('kind' => 'igcard', 'url' => $u, 'title' => 'ইনস্টাগ্রামে আমাদের ফলো করুন')) : array();
+        default: // fb_post, yt_video, ig, code
+            $e = sb_embed_parse($it['src']);
+            if (!$e || isset($e['link'])) {
+                return array();
+            }
+            if ($e['kind'] === 'yt' && preg_match('#/embed/([\w-]{11})#', $e['src'], $m)) {
+                return array(array('kind' => 'yt', 'src' => 'https://www.youtube-nocookie.com/embed/' . $m[1], 'thumb' => 'https://i.ytimg.com/vi/' . $m[1] . '/hqdefault.jpg', 'title' => 'ইউটিউব ভিডিও'));
+            }
+            $hh = $it['h'] ?: ($e['h'] ?: 420);
+            return array(array('kind' => $e['kind'] === 'ig' ? 'ig' : 'fb', 'wa' => preg_match('#facebook\.com/plugins/(page|like)\.php#', $e['src']) ? 1 : 0, 'src' => $e['src'], 'h' => $hh, 'title' => 'সোশ্যাল মিডিয়া'));
+    }
+}
+
+add_action('wp_ajax_sb_social_preview', function () {
+    sb_ajax_guard('manage_options');
+    $it = sb_social_clean_items(array(json_decode((string) sb_req('item', '{}'), true)));
+    if (!$it) {
+        wp_send_json_error(array('message' => 'এই আইটেমে এখনো কিছু বসানো হয়নি বা কোডটি বোঝা যায়নি।'));
+    }
+    $slides = sb_social_item_slides($it[0], sb_social_get());
+    if (!$slides) {
+        wp_send_json_error(array('message' => 'দেখানোর মতো কিছু পাওয়া যায়নি। (ফেসবুক/ইউটিউব/ইনস্টাগ্রাম পেজের লিংক সেটিংসের ওপরে দিয়েছেন তো?)'));
+    }
+    wp_send_json_success(array('slides' => $slides));
+});
+
 /** Pasted embed codes / links, separated by blank lines. Only ones we can safely understand are kept. */
 function sb_social_clean_codes($raw) {
     $keep = array();
@@ -72,24 +205,17 @@ add_action('admin_post_sb_save_social', function () {
     if ($yt !== '' && !preg_match('#^https?://#i', $yt)) {
         $yt = 'https://www.youtube.com/' . ltrim($yt, '/');
     }
-    $items = array();
-    foreach (preg_split('/\R+/', $in('items')) as $line) {
-        $u = sb_social_clean_url($line);
-        if ($u) {
-            $items[] = $u;
-        }
-    }
     $pos = $in('pos', 'middle');
     update_option('sb_social', array(
         'fb' => sb_social_clean_url($in('fb'), 'fb'), 'yt' => sb_social_clean_url($yt, 'yt'), 'ig' => sb_social_clean_url($in('ig'), 'ig'),
         'fb_label' => sanitize_text_field($in('fb_label')), 'yt_label' => sanitize_text_field($in('yt_label')), 'ig_label' => sanitize_text_field($in('ig_label')),
         'title' => sanitize_text_field($in('title')),
-        'fb_embed' => $in('fb_embed') ? 1 : 0, 'fb_mode' => $in('fb_mode') === 'timeline' ? 'timeline' : 'card', 'hide_btns' => $in('hide_btns') ? 1 : 0,
-        'codes' => sb_social_clean_codes($in('codes')), 'yt_count' => max(0, min(5, (int) $in('yt_count', 3))),
-        'items' => implode("\n", array_slice(array_unique($items), 0, 12)),
+        'hide_btns' => $in('hide_btns') ? 1 : 0, 'layout' => $in('layout') === 'stack' ? 'stack' : 'rotate',
         'pos' => in_array($pos, array('off', 'start', 'middle', 'end'), true) ? $pos : 'middle',
         'interval' => max(4, min(30, (int) $in('interval', 8))),
     ), false);
+    $json = json_decode((string) $in('items_json', '[]'), true);
+    update_option('sb_social_items', sb_social_clean_items(is_array($json) ? $json : array()), false);
     delete_transient('sb_yt_feed');
     wp_safe_redirect(admin_url('admin.php?page=sb-social&saved=1'));
     exit;
@@ -153,71 +279,35 @@ function sb_yt_latest($input, $n) {
 }
 
 /* ----------------------------------------------------------------- slides */
-function sb_social_slides($s) {
+function sb_social_slides($s, $ids = null) {
     $slides = array();
-    // 1) Embed codes pasted by the owner (Facebook Page plugin, YouTube, Instagram …)
-    $has_fb_page = false;
-    foreach (preg_split('/\R\s*\R/', trim((string) $s['codes'])) as $block) {
-        $e = sb_embed_parse($block);
-        if (!$e || isset($e['link'])) {
+    foreach (sb_social_items() as $it) {
+        if (!$it['on'] || (is_array($ids) && !in_array($it['id'], $ids, true))) {
             continue;
         }
-        if ($e['kind'] === 'yt' && preg_match('#/embed/([\w-]{11})#', $e['src'], $m)) {
-            $slides[] = array('kind' => 'yt', 'src' => 'https://www.youtube-nocookie.com/embed/' . $m[1], 'thumb' => 'https://i.ytimg.com/vi/' . $m[1] . '/hqdefault.jpg', 'title' => 'ইউটিউব ভিডিও');
-        } else {
-            $has_fb_page = $has_fb_page || strpos($e['src'], 'plugins/page.php') !== false;
-            $slides[] = array('kind' => $e['kind'] === 'ig' ? 'ig' : 'fb', 'src' => $e['src'], 'h' => $e['h'] ?: 420, 'title' => 'সোশ্যাল মিডিয়া');
-        }
-    }
-    // 2) The Facebook page plugin from the page link
-    if ($s['fb'] && $s['fb_embed'] && !$has_fb_page) {
-        $tl = $s['fb_mode'] === 'timeline';
-        $slides[] = array('kind' => 'fb', 'src' => 'https://www.facebook.com/plugins/page.php?href=' . rawurlencode($s['fb'])
-            . ($tl ? '&tabs=timeline' : '') . '&width=500&height=' . ($tl ? 500 : 220) . '&small_header=false&adapt_container_width=true&hide_cover=false&show_facepile=true',
-            'h' => $tl ? 500 : 220, 'title' => 'ফেসবুক পেজ');
-    }
-    foreach (sb_yt_latest($s['yt'], (int) $s['yt_count']) as $v) {
-        $slides[] = array('kind' => 'yt', 'src' => 'https://www.youtube-nocookie.com/embed/' . $v['id'], 'thumb' => 'https://i.ytimg.com/vi/' . $v['id'] . '/hqdefault.jpg', 'title' => $v['title']);
-    }
-    foreach (preg_split('/\R+/', (string) $s['items']) as $u) {
-        $u = sb_social_clean_url($u);
-        if (!$u) {
-            continue;
-        }
-        $kind = sb_social_host($u);
-        if ($kind === 'fb') {
-            $slides[] = array('kind' => 'fb', 'src' => 'https://www.facebook.com/plugins/post.php?href=' . rawurlencode($u) . '&width=500&show_text=true', 'h' => 520, 'title' => 'ফেসবুক পোস্ট');
-        } elseif ($kind === 'yt') {
-            if (preg_match('#(?:v=|youtu\.be/|shorts/|embed/)([\w-]{11})#', $u, $m)) {
-                $slides[] = array('kind' => 'yt', 'src' => 'https://www.youtube-nocookie.com/embed/' . $m[1], 'thumb' => 'https://i.ytimg.com/vi/' . $m[1] . '/hqdefault.jpg', 'title' => 'ইউটিউব ভিডিও');
-            }
-        } elseif ($kind === 'ig' && preg_match('#instagram\.com/(p|reel|tv)/([\w-]+)#', $u, $m)) {
-            $slides[] = array('kind' => 'ig', 'src' => 'https://www.instagram.com/' . $m[1] . '/' . $m[2] . '/embed/', 'h' => 560, 'title' => 'ইনস্টাগ্রাম পোস্ট');
-        }
-    }
-    if ($s['ig'] && !array_filter($slides, function ($x) { return $x['kind'] === 'ig'; })) {
-        $slides[] = array('kind' => 'igcard', 'url' => $s['ig'], 'title' => 'ইনস্টাগ্রামে আমাদের ফলো করুন');
+        $slides = array_merge($slides, sb_social_item_slides($it, $s));
     }
     return array_slice($slides, 0, 14);
 }
 
-function sb_social_html() {
+function sb_social_html($ids = null) {
     $s = sb_social_get();
-    if (!$s['fb'] && !$s['yt'] && !$s['ig'] && !trim((string) $s['codes'])) {
+    $slides = sb_social_slides($s, $ids);
+    if (!$slides && !$s['fb'] && !$s['yt'] && !$s['ig']) {
         return '';
     }
-    $slides = sb_social_slides($s);
+    $stack = $s['layout'] === 'stack';
     // The Facebook plugin already has its own Like/Follow button, so a second "Like" button would be redundant.
-    $fb_plugin = (bool) array_filter($slides, function ($x) { return isset($x['src']) && strpos($x['src'], 'plugins/page.php') !== false; });
+    $fb_plugin = (bool) array_filter($slides, function ($x) { return isset($x['src']) && preg_match('#plugins/(page|like)\.php#', $x['src']); });
     $show_btns = !$s['hide_btns'];
     ob_start();
     ?>
-    <aside class="sb-social" data-interval="<?php echo (int) $s['interval']; ?>" aria-label="সোশ্যাল মিডিয়া">
+    <aside class="sb-social<?php echo $stack ? ' is-stack' : ''; ?>" data-layout="<?php echo $stack ? 'stack' : 'rotate'; ?>" data-interval="<?php echo (int) $s['interval']; ?>" aria-label="সোশ্যাল মিডিয়া">
         <div class="sb-soc-head"><?php echo esc_html($s['title']); ?></div>
         <?php if ($slides) : ?>
         <div class="sb-soc-stage">
             <?php foreach ($slides as $i => $sl) : ?>
-                <div class="sb-soc-slide" data-kind="<?php echo esc_attr($sl['kind']); ?>"<?php echo isset($sl['src']) ? ' data-src="' . esc_url($sl['src']) . '"' : ''; ?> data-h="<?php echo isset($sl['h']) ? (int) $sl['h'] : 0; ?>" data-title="<?php echo esc_attr($sl['title']); ?>"<?php echo $i ? ' hidden' : ''; ?>>
+                <div class="sb-soc-slide" data-kind="<?php echo esc_attr($sl['kind']); ?>"<?php echo !empty($sl['wa']) ? ' data-wa="1"' : ''; ?><?php echo isset($sl['src']) ? ' data-src="' . esc_url($sl['src']) . '"' : ''; ?> data-h="<?php echo isset($sl['h']) ? (int) $sl['h'] : 0; ?>" data-title="<?php echo esc_attr($sl['title']); ?>"<?php echo ($i && !$stack) ? ' hidden' : ''; ?>>
                     <?php if ($sl['kind'] === 'yt') : ?>
                         <button type="button" class="sb-soc-yt" aria-label="ভিডিও চালান">
                             <img src="<?php echo esc_url($sl['thumb']); ?>" alt="" loading="lazy"><span class="sb-soc-play">▶</span>
@@ -229,7 +319,7 @@ function sb_social_html() {
                 </div>
             <?php endforeach; ?>
         </div>
-        <?php if (count($slides) > 1) : ?>
+        <?php if (count($slides) > 1 && !$stack) : ?>
         <div class="sb-soc-nav">
             <button type="button" class="sb-soc-prev" aria-label="আগেরটি">‹</button>
             <span class="sb-soc-dots"></span>

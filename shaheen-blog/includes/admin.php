@@ -41,6 +41,9 @@ function sb_admin_assets() {
     if ($page === 'sb-phones') {
         wp_enqueue_script('sb-phones-admin', SB_URL . 'assets/js/phones-admin.js', array('sb-admin'), SB_VERSION . '.' . filemtime(SB_PATH . 'assets/js/phones-admin.js'), true);
     }
+    if ($page === 'sb-social') {
+        wp_enqueue_script('sb-social-admin', SB_URL . 'assets/js/social-admin.js', array('sb-admin'), SB_VERSION . '.' . filemtime(SB_PATH . 'assets/js/social-admin.js'), true);
+    }
     if (in_array($page, array('sb-new', 'sb-press', 'sb-rewrite'), true)) {
         wp_enqueue_media();
     }

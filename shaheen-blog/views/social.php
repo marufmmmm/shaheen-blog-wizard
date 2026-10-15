@@ -33,22 +33,19 @@ $s = sb_social_get();
         </div>
 
         <div class="sba-card">
-            <h2>সর্বশেষ পোস্ট নিজে নিজে আসা</h2>
-            <label class="sba-inline-check"><input type="checkbox" name="fb_embed" value="1" <?php checked($s['fb_embed']); ?>> ফেসবুক পেজের সর্বশেষ পোস্ট (টাইমলাইন) দেখাও <small>— ফেসবুক নিজেই নতুন পোস্ট এনে দেয়</small></label>
-            <label>ফেসবুক প্লাগইন কেমন দেখাবে
-                <select name="fb_mode"><option value="card" <?php selected($s['fb_mode'], 'card'); ?>>ছোট পেজ কার্ড (কভার ছবি + লাইক/ফলো বাটন)</option>
-                <option value="timeline" <?php selected($s['fb_mode'], 'timeline'); ?>>সর্বশেষ পোস্টসহ বড় (ফেসবুক পোস্ট না দিলে ফাঁকা দেখায়)</option></select></label>
-            <label>ইউটিউবের সর্বশেষ কয়টি ভিডিও ঘুরবে <small>(০ = বন্ধ; প্রতি ১ ঘণ্টায় নতুন ভিডিও খোঁজা হয়)</small>
-                <input type="number" min="0" max="5" name="yt_count" value="<?php echo esc_attr($s['yt_count']); ?>" style="max-width:120px"></label>
-            <label>ইনস্টাগ্রাম বা অন্য পোস্ট/ভিডিও/রিলের লিংক <small>(প্রতি লাইনে একটি, সর্বোচ্চ ১২টি। ইনস্টাগ্রামের সর্বশেষ পোস্ট নিজে নিজে আনার ফ্রি পথ নেই, তাই নতুন পোস্ট হলে এখানে লিংক যোগ করুন)</small>
-                <textarea name="items" rows="5" placeholder="https://www.instagram.com/p/…"><?php echo esc_textarea($s['items']); ?></textarea></label>
-        </div>
-
-        <div class="sba-card">
-            <h2>📋 এমবেড কোড বসান <small>(ফেসবুক Page Plugin, ইউটিউব, ইনস্টাগ্রাম)</small></h2>
-            <p class="sba-muted">ফেসবুক/ইউটিউব/ইনস্টাগ্রাম থেকে কপি করা এমবেড কোড এখানে পেস্ট করুন (বা শুধু লিংক)। প্রতিটি কোডের মাঝে একটি ফাঁকা লাইন রাখুন। ফেসবুক Page Plugin-এ নিজের লাইক/ফলো বাটন থাকে, তাই আলাদা "লাইক দিন" বাটন আর দেখাবে না। নিরাপত্তার জন্য কোড থেকে শুধু ঠিকানা নিয়ে সাইট নিজের ফ্রেম বানায়।</p>
-            <textarea name="codes" rows="7" style="font-family:monospace;font-size:12px" placeholder="&lt;div class=&quot;fb-page&quot; data-href=&quot;https://www.facebook.com/…&quot;&gt;&lt;/div&gt;"><?php echo esc_textarea($s['codes']); ?></textarea>
-            <label class="sba-inline-check"><input type="checkbox" name="hide_btns" value="1" <?php checked($s['hide_btns']); ?>> নিচের লাইক/ফলো/সাবস্ক্রাইব বাটনগুলো সব লুকিয়ে রাখো</label>
+            <h2>📦 বক্সের ভেতরে কী কী দেখাবে <small>(নিজের মতো যোগ/বাদ করুন)</small></h2>
+            <p class="sba-muted">প্রতিটি আইটেম আলাদা: শুধু ফেসবুক লাইক বাটন, সর্বশেষ পোস্টসহ বড় বক্স, ইউটিউবের সর্বশেষ ভিডিও, নির্দিষ্ট পোস্ট, বা এমবেড কোড। <strong>👁 দেখুন</strong> চাপলে সেভ করার আগেই এখানে দেখা যাবে। ফেসবুক প্লাগইন বক্সের চওড়ার সাথে নিজে মিলে যায়, দুই পাশে ফাঁকা থাকে না।</p>
+            <div id="soc-items"></div>
+            <p><button type="button" class="button" id="soc-add">＋ নতুন আইটেম যোগ করুন</button></p>
+            <input type="hidden" name="items_json" id="soc-json">
+            <div class="sba-row">
+                <label>একাধিক আইটেম থাকলে কীভাবে দেখাবে
+                    <select name="layout">
+                        <option value="rotate" <?php selected($s['layout'], 'rotate'); ?>>একটি একটি করে ঘুরবে (জায়গা কম লাগে)</option>
+                        <option value="stack" <?php selected($s['layout'], 'stack'); ?>>সবগুলো একসাথে, ওপর-নিচে</option>
+                    </select></label>
+                <label class="sba-inline-check"><input type="checkbox" name="hide_btns" value="1" <?php checked($s['hide_btns']); ?>> নিচের লাইক/ফলো/সাবস্ক্রাইব বাটনগুলো সব লুকিয়ে রাখো</label>
+            </div>
         </div>
 
         <div class="sba-card">
@@ -69,3 +66,4 @@ $s = sb_social_get();
         <p><button class="button button-primary button-hero">💾 সেভ করুন</button></p>
     </form>
 </div>
+<script>window.SBSOC = <?php echo wp_json_encode(array('items' => sb_social_items(), 'types' => sb_social_item_types(), 'h' => array('fb_like' => 40, 'fb_card' => 135, 'fb_timeline' => 500, 'fb_post' => 560, 'ig' => 620))); ?>;</script>

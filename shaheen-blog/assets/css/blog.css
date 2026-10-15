@@ -901,7 +901,11 @@ body.single-sb_post.shb-hide-title main .wp-block-separator { display: none; }
     border: 1px solid rgba(212,175,55,.45); font-family: 'Noto Sans Bengali', system-ui, sans-serif;
 }
 .sb-social .sb-soc-head { text-align: center; font-weight: 700; font-size: 1.05rem; margin-bottom: 12px; color: #0f5132; }
-.sb-social .sb-soc-stage { background: #fff; border-radius: 12px; overflow: hidden; min-height: 120px; }
+.sb-social .sb-soc-stage { border-radius: 12px; overflow: hidden; display: grid; gap: 14px; }
+.sb-social .sb-soc-slide { min-width: 0; text-align: center; }
+.sb-social .sb-soc-slide[data-kind="yt"], .sb-social .sb-soc-slide[data-kind="igcard"] { background: #fff; border-radius: 12px; overflow: hidden; text-align: left; }
+.sb-social .sb-soc-slide iframe { margin-left: auto; margin-right: auto; }
+@media (max-width: 600px) { .sb-social { padding: 12px; margin: 22px 0; border-radius: 14px; } }
 .sb-social .sb-soc-slide[hidden] { display: none !important; }
 .sb-social iframe { max-width: 100%; }
 .sb-social .sb-soc-yt { position: relative; display: block; width: 100%; padding: 0; border: 0; cursor: pointer; background: #000; aspect-ratio: 16/9; }

@@ -172,6 +172,15 @@ $costs['research'] = max(0, (int) sb_get('cost_research'));
                 <option value="top">লেখার একদম ওপরে</option><option value="p">N-তম অনুচ্ছেদের পর</option>
                 <option value="middle">লেখার মাঝখানে</option><option value="end">লেখার শেষে</option><option value="off">এই পোস্টে দেখাবো না</option></select>
                 <input type="number" id="ex-social-n" min="1" max="60" value="2" style="width:80px" title="কত নম্বর অনুচ্ছেদের পর"></div>
+            <div id="ex-social-pick" style="margin-top:8px">
+                <label class="sba-inline-check"><input type="radio" name="ex-soc-mode" value="all" checked> বক্সে সব চালু আইটেম দেখাও</label>
+                <label class="sba-inline-check"><input type="radio" name="ex-soc-mode" value="pick"> শুধু এই আইটেমগুলো দেখাও:</label>
+                <div id="ex-soc-list" style="margin:6px 0 0 24px">
+                <?php foreach (sb_social_items() as $sit) : if (!$sit['on']) { continue; } ?>
+                    <label class="sba-inline-check" style="display:block"><input type="checkbox" class="ex-soc-id" value="<?php echo esc_attr($sit['id']); ?>"> <?php echo esc_html($sit['name'] !== '' ? $sit['name'] : sb_social_item_types()[$sit['type']]); ?></label>
+                <?php endforeach; ?>
+                </div>
+            </div>
 
             <h3>সচরাচর জিজ্ঞাসা (FAQ) <small>ঐচ্ছিক</small></h3>
             <div id="faq-list"></div>

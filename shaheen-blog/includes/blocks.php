@@ -75,7 +75,7 @@ function sb_inject_blocks($html, array $blocks, $post_id = 0) {
     $soc = sb_social_get();
     $sp = $ex['social_pos'] !== '' ? $ex['social_pos'] : (isset($map[$soc['pos']]) ? $map[$soc['pos']] : 'off');
     if ($sp !== 'off' && !($post_id && get_post_meta($post_id, '_sb_no_social', true))) {
-        $items[] = array($sp, sb_social_html());
+        $items[] = array($sp, sb_social_html(isset($ex['social_ids']) ? $ex['social_ids'] : null));
     }
     foreach ($blocks as $b) {
         $items[] = array(isset($map[$b['pos']]) ? $map[$b['pos']] : 'middle', sb_render_block($b));
