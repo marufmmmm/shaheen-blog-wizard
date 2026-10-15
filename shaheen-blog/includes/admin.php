@@ -135,7 +135,7 @@ function sb_handle_save_settings() {
     };
 
     $new = array(
-        'model'         => sanitize_text_field($in('model', 'gpt-4o-mini')),
+        'model'         => sb_pick_model($in, 'model') ?: 'gpt-4o-mini',
         'default_limit' => max(0, (int) $in('default_limit', 20000)),
         'hero_title'    => sanitize_text_field($in('hero_title')),
         'hero_subtitle' => sanitize_text_field($in('hero_subtitle')),
@@ -146,7 +146,7 @@ function sb_handle_save_settings() {
         'hide_theme_title' => $in('hide_theme_title') ? 1 : 0,
         'content_width' => max(0, min(1600, (int) $in('content_width', 0))),
         'top_offset'    => max(-300, min(300, (int) $in('top_offset', 0))),
-        'model_article' => sanitize_text_field($in('model_article')),
+        'model_article' => sb_pick_model($in, 'model_article'),
         'style_note'    => sanitize_textarea_field($in('style_note')),
         'cost_research' => max(0, (int) $in('cost_research', 50)),
         'site_urls'     => sanitize_textarea_field($in('site_urls')),

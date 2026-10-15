@@ -58,6 +58,31 @@ function sb_save_settings(array $new) {
 }
 
 /** Feature => credit cost. */
+/**
+ * Models offered in Settings, with the estimated API cost of one prompt-article expressed in credits
+ * (1 credit = 0.0002 USD) for the three length tiers. Estimates: Bengali ~4 tokens/word, ~8k input tokens,
+ * thinking tokens included for reasoning models. Prices per 1M tokens (input/output) as of Oct 2026.
+ */
+function sb_model_catalog() {
+    return array(
+        'gpt-4o-mini'  => array('0.15 / 0.60', array(17, 21, 29), 'সবচেয়ে সস্তা; বাংলার মান মোটামুটি'),
+        'gpt-5.4-nano' => array('0.20 / 1.25', array(55, 73, 103), 'সস্তা, নতুন প্রজন্ম'),
+        'gpt-4.1-mini' => array('0.40 / 1.60', array(45, 56, 78), 'ভালো ও সস্তা'),
+        'gpt-5-mini'   => array('0.25 / 2.00', array(80, 110, 155), 'ভালো বাংলা, মাঝারি খরচ (প্রস্তাবিত আর্টিকেলে)'),
+        'gpt-5.4-mini' => array('0.75 / 4.50', array(190, 255, 360), 'আরও ভালো, দাম বেশি'),
+        'gpt-4.1'      => array('2.00 / 8.00', array(225, 280, 390), 'দামি'),
+        'gpt-4o'       => array('2.50 / 10.00', array(280, 340, 460), 'দামি'),
+        'gpt-5'        => array('1.25 / 10.00', array(410, 550, 750), 'সবচেয়ে দামি (চিন্তার টোকেনে)'),
+    );
+}
+
+/** Model chosen in the Settings select (or typed under "other"). */
+function sb_pick_model($in, $name) {
+    $sel = sanitize_text_field($in($name . '_sel', ''));
+    $v = $sel === '__other' ? sanitize_text_field($in($name . '_other', '')) : $sel;
+    return preg_match('/^[A-Za-z0-9._:\-]{1,60}$/', $v) ? $v : '';
+}
+
 /** Model for a feature: article may use its own (better) model. */
 function sb_model_for($feature) {
     $m = (in_array($feature, array('article', 'custom', 'rewrite', 'rewrite_post', 'edit', 'edit_new'), true)) ? trim((string) sb_get('model_article')) : '';

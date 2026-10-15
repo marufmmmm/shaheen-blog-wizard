@@ -33,16 +33,30 @@ if (!SB_Lock::is_unlocked()) : ?>
                 <input type="password" name="api_key" value="" autocomplete="new-password" placeholder="<?php echo $has_key ? '••••••••••• (সংরক্ষিত আছে, বদলাতে নতুন কী লিখুন)' : 'sk-…'; ?>">
             </label>
             <?php if ($has_key) : ?><label class="sba-inline-check"><input type="checkbox" name="remove_key" value="1"> সংরক্ষিত কী মুছে ফেলুন</label><?php endif; ?>
-            <label>মডেল
-                <input type="text" name="model" value="<?php echo esc_attr($s('model')); ?>">
-                <small>শিরোনাম, সাবটাইটেল, মেটা ও সামারির জন্য। প্রস্তাবিত: gpt-4o-mini (সস্তা ও দ্রুত)</small>
+<?php
+$cat = sb_model_catalog();
+$render = function ($name, $cur, $blank) use ($cat) {
+    $known = isset($cat[$cur]);
+    echo '<select name="' . esc_attr($name) . '_sel" class="sb-model-sel" data-for="' . esc_attr($name) . '">';
+    if ($blank) { echo '<option value=""' . selected($cur, '', false) . '>— ওপরের মডেলই ব্যবহার হবে —</option>'; }
+    foreach ($cat as $id => $m) {
+        $t = $id . ' — আর্টিকেলে ~' . implode(' / ', array_map('sb_bn_digits', $m[1])) . ' ক্রেডিট খরচ — ' . $m[2];
+        echo '<option value="' . esc_attr($id) . '" data-est="' . esc_attr(implode(',', $m[1])) . '"' . selected($cur, $id, false) . '>' . esc_html($t) . '</option>';
+    }
+    echo '<option value="__other"' . selected(!$known && $cur !== '', true, false) . '>অন্য মডেল (নিজে লিখব)</option></select> ';
+    echo '<input type="text" name="' . esc_attr($name) . '_other" value="' . esc_attr(!$known ? $cur : '') . '" placeholder="মডেলের নাম" style="' . ($known || $cur === '' ? 'display:none;' : '') . 'margin-top:6px">';
+};
+?>
+            <label>মডেল <small>(শিরোনাম, সাবটাইটেল, মেটা, সামারি, FAQ ইত্যাদির জন্য)</small>
+                <?php $render('model', $s('model'), false); ?>
+                <small>প্রস্তাবিত: gpt-4o-mini (সস্তা ও দ্রুত)। বাংলা মান ভালো চাইলে নিচে আর্টিকেলের মডেল আলাদা বাছুন।</small>
             </label>
             <label>লেখার ভাষা ও স্টাইল নির্দেশনা <small>(সব AI লেখায় মানা হবে)</small>
                 <textarea name="style_note" rows="3"><?php echo esc_textarea($s('style_note')); ?></textarea></label>
-            <label>আর্টিকেলের জন্য আলাদা মডেল <small>(ফাঁকা = উপরের মডেলই)</small>
-                <input type="text" name="model_article" list="sb-models" value="<?php echo esc_attr($s('model_article')); ?>" placeholder="যেমন: gpt-4.1-mini">
-                <datalist id="sb-models"><option value="gpt-4o-mini"><option value="gpt-4.1-mini"><option value="gpt-5-mini"><option value="gpt-4.1"><option value="gpt-5.4-mini"></datalist>
-                <small>ভালো মানের বাংলা লেখার জন্য আর্টিকেলে শক্তিশালী মডেল দিতে পারেন। খরচ মডেলভেদে অনেক বদলায়।</small>
+            <label>আর্টিকেলের জন্য আলাদা মডেল <small>(প্রম্পট থেকে লেখা, সংশোধন, রিরাইট)</small>
+                <?php $render('model_article', $s('model_article'), true); ?>
+                <small id="sb-model-warn" style="display:block;font-weight:600"></small>
+                <small>তালিকার ক্রেডিট সংখ্যা আনুমানিক খরচ: ৮০০–১০০০ / ১০০০–১৫০০ / ১৫০০+ শব্দের আর্টিকেলে (১ ক্রেডিট = ০.০০০২ ডলার; ইন্টারনেট যাচাইয়ের খরচ আলাদা)। আপনার চার্জের চেয়ে খরচ বেশি হলে নিচে লাল সতর্কতা দেখাবে। আসল খরচ OpenAI Usage পেজে মিলিয়ে নিন।</small>
             </label>
         </div>
 
@@ -96,6 +110,25 @@ if (!SB_Lock::is_unlocked()) : ?>
 
         <p><button class="button button-primary button-hero">💾 সেটিংস সেভ করুন</button></p>
     </form>
+    <script>
+    (function () {
+        var q = function (s) { return document.querySelector(s); };
+        function sync() {
+            document.querySelectorAll('.sb-model-sel').forEach(function (sel) {
+                var o = q('input[name="' + sel.dataset.for + '_other"]'); if (o) { o.style.display = sel.value === '__other' ? '' : 'none'; }
+            });
+            var sel = q('select[name="model_article_sel"]'), base = q('select[name="model_sel"]'), w = q('#sb-model-warn');
+            var opt = (sel.value ? sel : base).selectedOptions[0];
+            if (!opt || !opt.dataset.est) { w.textContent = ''; return; }
+            var est = opt.dataset.est.split(',').map(Number), prices = ['cost_custom', 'cost_custom2', 'cost_custom3'].map(function (n) { return parseInt((q('input[name="' + n + '"]') || {}).value, 10) || 0; });
+            var bad = []; est.forEach(function (e, i) { if (e > prices[i]) { bad.push((i === 0 ? '৮০০–১০০০' : i === 1 ? '১০০০–১৫০০' : '১৫০০+') + ' শব্দ: খরচ ~' + e + ' > চার্জ ' + prices[i]); } });
+            w.style.color = bad.length ? '#b32d2e' : '#1a6b3e';
+            w.textContent = bad.length ? '⚠️ এই মডেলে লোকসান হবে — ' + bad.join('; ') + '। চার্জ বাড়ান বা সস্তা মডেল বাছুন।' : '✓ তিনটি দৈর্ঘ্যেই খরচ আপনার চার্জের ভেতরে।';
+        }
+        document.addEventListener('change', sync); document.addEventListener('input', function (e) { if (/^cost_custom/.test(e.target.name || '')) { sync(); } });
+        sync();
+    })();
+    </script>
 
     <div class="sba-card">
         <h2>🔁 সাবস্ক্রিপশন (ম্যানুয়াল)</h2>
