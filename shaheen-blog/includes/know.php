@@ -103,6 +103,10 @@ class SB_Know {
         if ($local !== '') {
             $parts[] = "আমাদের সাইটের প্রাসঙ্গিক পেজ/পোস্ট:\n" . $local;
         }
+        $mem = function_exists('sb_site_mem_context') ? sb_site_mem_context($keywords) : '';
+        if ($mem !== '') {
+            $parts[] = "মনে রাখা ওয়েবসাইট (আগে পড়ে রাখা) থেকে:\n" . $mem;
+        }
         return implode("\n\n", $parts);
     }
 }

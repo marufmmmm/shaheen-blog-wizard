@@ -755,6 +755,8 @@
         mb.appendChild(ml); mb.hidden = false;
         toast('আর্টিকেলে ' + bn(r.missing.length) + 'টি জায়গায় আপনার তথ্য দরকার ([তথ্য দরকার: …] খুঁজুন)।', 'err');
       } else { mb.hidden = true; }
+      buildFacts(f === 'custom' ? r.facts : [], r.missing);
+      aiDraft = r.text;
     }
     else if (f === 'related') {
       if (!r.items.length) { toast('সাইটে এই লেখার সাথে মেলে এমন পোস্ট/পেজ পাওয়া যায়নি। নিজে খুঁজে যোগ করতে পারেন।', 'err'); }
@@ -781,6 +783,67 @@
     });
   }
 
+
+  /* ---- facts to correct after writing + auto-learn ---- */
+  var aiDraft = '';
+  function applyReplace(from, to) {
+    var cur = editorContent();
+    if (!from || cur.indexOf(from) === -1) { return false; }
+    setEditorContent(cur.split(from).join(to));
+    return true;
+  }
+  function buildFacts(facts, missing) {
+    var box = $('#article-facts'); if (!box) { return; }
+    box.innerHTML = '';
+    if (!(facts && facts.length) && !(missing && missing.length)) { box.hidden = true; return; }
+    var h = document.createElement('h4'); h.textContent = '✏️ তথ্য মিলিয়ে নিন ও ঠিক করুন'; box.appendChild(h);
+    var hint = document.createElement('div'); hint.className = 'sba-muted';
+    hint.textContent = 'লেখায় AI যে তথ্যগুলো ব্যবহার করেছে নিচে দেওয়া আছে। ভুল হলে এখানে ঠিক করে "লেখায় প্রয়োগ করুন" চাপুন — লেখার সব জায়গায় বদলে যাবে। "🧠 মনে রাখো" টিক দিলে পরের সব লেখায় এই তথ্যই ব্যবহার হবে। ক্রেডিট লাগে না।';
+    box.appendChild(hint);
+    var rows = [];
+    function addRow(label, value, isMissing, marker) {
+      var d = document.createElement('div'); d.className = 'sba-frow' + (isMissing ? ' is-missing' : '');
+      var l = document.createElement('span'); l.className = 'fl'; l.textContent = label;
+      var i = document.createElement('input'); i.type = 'text'; i.value = value; i.placeholder = isMissing ? 'এখানে সঠিক তথ্য লিখুন' : '';
+      var lab = document.createElement('label'); lab.className = 'sba-inline-check';
+      var c = document.createElement('input'); c.type = 'checkbox'; c.checked = true;
+      lab.appendChild(c); lab.appendChild(document.createTextNode(' 🧠 মনে রাখো'));
+      d.appendChild(l); d.appendChild(i); d.appendChild(lab); box.appendChild(d);
+      i.addEventListener('input', function () { d.classList.toggle('is-changed', i.value !== value); });
+      rows.push({ label: label, old: isMissing ? marker : value, input: i, chk: c, isMissing: isMissing, d: d, orig: value, cur: isMissing ? marker : value });
+    }
+    (missing || []).forEach(function (m) {
+      var lab = m.replace(/^\[তথ্য দরকার:\s*/, '').replace(/\]$/, '');
+      addRow(lab, '', true, m);
+    });
+    (facts || []).forEach(function (f) { addRow(f.label, f.value, false, f.value); });
+    var b = document.createElement('button'); b.type = 'button'; b.className = 'button button-primary'; b.textContent = '✔ লেখায় প্রয়োগ করুন';
+    var out = document.createElement('span'); out.className = 'sba-muted'; out.style.marginLeft = '8px';
+    box.appendChild(b); box.appendChild(out);
+    b.addEventListener('click', function () {
+      var done = 0, lost = 0, mem = [];
+      rows.forEach(function (r) {
+        var nv = r.input.value.trim();
+        if (nv === '' || nv === r.cur) { return; }
+        if (applyReplace(r.cur, nv)) { done++; r.cur = nv; r.d.classList.remove('is-missing'); r.d.classList.remove('is-changed'); }
+        else { lost++; }
+        if (r.chk.checked) { mem.push(r.label + '\u0001' + nv); }
+      });
+      mem.forEach(function (x) {
+        var p2 = x.split('\u0001'); post('sb_mem_fact', { label: p2[0], value: p2[1] }).catch(function () {});
+      });
+      out.textContent = '✓ ' + bn(done) + 'টি বদলানো হয়েছে' + (mem.length ? ', ' + bn(mem.length) + 'টি মেমোরিতে রাখা হয়েছে' : '') + (lost ? ' (' + bn(lost) + 'টির পুরোনো লেখা এডিটরে খুঁজে পাওয়া যায়নি — নিজে বদলান)' : '') + '।';
+    });
+    box.hidden = false;
+  }
+  function autoLearn(finalHtml) {
+    if (!SB.memAuto || !aiDraft || !finalHtml) { return; }
+    var draft = aiDraft; aiDraft = finalHtml;
+    post('sb_mem_learn', { draft: draft, final: finalHtml, title: val('#f-title'), post_id: postId }).then(function (d) {
+      if (d && d.added) { toast('🧠 মেমোরিতে ' + bn(d.added) + 'টি নতুন শিক্ষা জমা হয়েছে (' + fmt(d.cost) + ' ক্রেডিট)। দেখুন/বদলান: মেমোরি মেনু।', 'ok'); }
+    }).catch(function () {});
+  }
+
   /* save */
   $('#f-save').addEventListener('click', function () {
     var er = validate(1) || validate(2);
@@ -801,6 +864,7 @@
       if (d.status === 'publish') { var a = document.createElement('a'); a.href = d.url; a.target = '_blank'; a.textContent = 'পোস্ট দেখুন ↗'; t.appendChild(a); }
       p.appendChild(t); box.appendChild(p);
       if (history.replaceState) history.replaceState(null, '', d.edit);
+      autoLearn(editorContent());
     }).catch(function (e) { say(msg, e.message, 'err'); })
       .then(function () { btn.disabled = false; });
   });

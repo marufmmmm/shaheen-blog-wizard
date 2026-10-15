@@ -13,6 +13,7 @@ function sb_admin_menu() {
     add_submenu_page('sb-dashboard', 'সংবাদপত্রে শাহীন', '📰 সংবাদপত্রে শাহীন', 'edit_posts', 'sb-press', 'sb_page_press');
     add_submenu_page('sb-dashboard', 'বিজ্ঞাপন/লিংক ব্লক', '📚 ব্লক লাইব্রেরি', 'manage_options', 'sb-blocks', 'sb_page_blocks');
     add_submenu_page('sb-dashboard', 'মোবাইল মডেল', '📱 মোবাইল মডেল', 'manage_options', 'sb-phones', 'sb_page_phones');
+    add_submenu_page('sb-dashboard', 'মেমোরি', '🧠 মেমোরি', 'edit_posts', 'sb-memory', 'sb_page_memory');
     add_submenu_page('sb-dashboard', 'সব পোস্ট', 'সব পোস্ট', 'edit_posts', 'sb-posts', 'sb_page_posts');
     add_submenu_page('sb-dashboard', 'ক্যাটাগরি', 'ক্যাটাগরি', 'manage_categories', 'sb-categories', 'sb_page_categories');
     add_submenu_page('sb-dashboard', 'সেটিংস', 'সেটিংস', 'manage_options', 'sb-settings', 'sb_page_settings');
@@ -40,6 +41,9 @@ function sb_admin_assets() {
 
     if ($page === 'sb-phones') {
         wp_enqueue_script('sb-phones-admin', SB_URL . 'assets/js/phones-admin.js', array('sb-admin'), SB_VERSION . '.' . filemtime(SB_PATH . 'assets/js/phones-admin.js'), true);
+    }
+    if ($page === 'sb-memory') {
+        wp_enqueue_script('sb-memory-admin', SB_URL . 'assets/js/memory-admin.js', array('sb-admin'), SB_VERSION . '.' . filemtime(SB_PATH . 'assets/js/memory-admin.js'), true);
     }
     if ($page === 'sb-social') {
         wp_enqueue_script('sb-social-admin', SB_URL . 'assets/js/social-admin.js', array('sb-admin'), SB_VERSION . '.' . filemtime(SB_PATH . 'assets/js/social-admin.js'), true);
@@ -72,6 +76,7 @@ function sb_admin_assets() {
         'cats'    => $cats,
         'page'    => $page,
         'gblocks' => sb_block_library(),
+        'memAuto' => (int) sb_memory_cfg()['auto'],
         'postsUrl' => admin_url('admin.php?page=sb-posts'),
     ));
 }
@@ -112,6 +117,7 @@ function sb_credit_pill() {
 function sb_page_dashboard() { include SB_PATH . 'views/dashboard.php'; }
 function sb_page_new()       { include SB_PATH . 'views/wizard.php'; }
 function sb_page_rewrite()   { include SB_PATH . 'views/rewrite.php'; }
+function sb_page_memory()    { include SB_PATH . 'views/memory.php'; }
 function sb_page_social()    { include SB_PATH . 'views/social.php'; }
 function sb_page_press()     { include SB_PATH . 'views/press.php'; }
 function sb_page_phones()    { include SB_PATH . 'views/phones.php'; }
@@ -164,7 +170,7 @@ function sb_handle_save_settings() {
         }
     }
     $new['model_prices'] = $mp;
-    foreach (array('headlines', 'subtitle', 'meta', 'article', 'summary', 'rewrite', 'custom', 'custom2', 'custom3', 'edit', 'edit_many', 'phones', 'faq', 'related') as $f) {
+    foreach (array('headlines', 'subtitle', 'meta', 'article', 'summary', 'rewrite', 'custom', 'custom2', 'custom3', 'learn', 'edit', 'edit_many', 'phones', 'faq', 'related') as $f) {
         $new['cost_' . $f] = max(0, (int) $in('cost_' . $f, 0));
     }
     // API key: keep the saved one unless a new one is typed or removal is ticked.

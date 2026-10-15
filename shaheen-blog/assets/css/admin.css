@@ -84,3 +84,11 @@
 
 .sba-exrow{display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin-bottom:8px;padding:8px;background:#f8fafb;border:1px solid #dfe6e9;border-radius:8px}.sba-exrow input[type=text]{flex:1 1 180px;min-width:0}.sba-exrow select{max-width:200px}.sba-exrow .x-n{width:70px}
 .sba-exrow textarea.x-url{flex:1 1 100%;min-width:0;font-family:monospace;font-size:12px}
+
+.sba-facts{margin-top:10px;padding:12px 14px;border-radius:8px;background:#f1faf4;border:1px solid #a9d9b9;font-size:13px}
+.sba-facts h4{margin:0 0 4px;font-size:14px}
+.sba-frow{display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin:6px 0}
+.sba-frow .fl{min-width:170px;max-width:240px;font-weight:600}
+.sba-frow input[type=text]{flex:1;min-width:220px}
+.sba-frow.is-missing .fl{color:#b45309}
+.sba-frow.is-changed input[type=text]{border-color:#0a7a3d;background:#f6fff9}

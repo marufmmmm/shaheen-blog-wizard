@@ -200,6 +200,16 @@ function sb_custom_result($r) {
         $r['text'] = (string) $j['article'];
         $r['meta'] = isset($j['meta']) ? sanitize_text_field($j['meta']) : '';
         $r['excerpt'] = isset($j['excerpt']) ? sanitize_textarea_field($j['excerpt']) : '';
+        $facts = array();
+        $plain = wp_strip_all_tags((string) $j['article']);
+        foreach (!empty($j['facts']) && is_array($j['facts']) ? array_slice($j['facts'], 0, 20) : array() as $f) {
+            $l = isset($f['label']) ? sanitize_text_field($f['label']) : '';
+            $v = isset($f['value']) ? sanitize_text_field($f['value']) : '';
+            if ($l !== '' && $v !== '' && mb_strpos($plain, $v) !== false) {
+                $facts[] = array('label' => $l, 'value' => $v);
+            }
+        }
+        $r['facts'] = $facts;
     }
     $t = sb_md_to_html($r['text']);
     $t = preg_replace('/\[[^\]\[]*(এখানে যুক্ত করুন|এখানে যোগ করুন)[^\]\[]*\]/u', '[তথ্য দরকার: সরকারি/মূল তথ্য]', $t);

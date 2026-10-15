@@ -267,6 +267,7 @@ $costs['research'] = max(0, (int) sb_get('cost_research'));
                 ?>
                 <div id="article-sources" class="sba-sources" hidden></div>
                 <div id="article-missing" class="sba-missing" hidden></div>
+                <div id="article-facts" class="sba-facts" hidden></div>
             </div>
 
             <?php sb_edit_box('ed'); ?>
