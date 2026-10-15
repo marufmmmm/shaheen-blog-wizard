@@ -53,6 +53,7 @@ function sb_fetch_pages($raw, &$notes) {
             continue;
         }
         $out .= "\n[ওয়েবসাইট: {$u}]\n" . mb_substr($t, 0, 9000) . "\n";
+        $notes[] = '✓ ওয়েবসাইট পড়া হয়েছে (' . sb_bn_digits(mb_strlen($t)) . ' অক্ষর): ' . $u;
     }
     return $out;
 }
@@ -152,9 +153,66 @@ function sb_ai_execute($uid, $feature, $ctx, $cost, $research, &$notes) {
     return sb_ai_finish($uid, $feature, $ctx, $cost, $research, $result, $notes);
 }
 
+/** Markdown leftovers and AI web-search citation clutter -> clean HTML. */
+function sb_md_to_html($t) {
+    $t = preg_replace('/\s*\(\s*\[[^\]]+\]\(https?:[^)]*utm_source=openai[^)]*\)\s*\)/u', '', $t);       // ([site](url?utm_source=openai))
+    $t = preg_replace('/\[[^\]\s]+\.[^\]\s]+\]\(https?:[^)]*utm_source=openai[^)]*\)/u', '', $t);          // bare [domain.tld](url?utm...)
+    $t = preg_replace('/[?&]utm_source=openai/', '', $t);
+    $t = preg_replace('/\[([^\]]+)\]\((https?:[^)\s]+)\)/u', '<a href="$2" target="_blank" rel="noopener">$1</a>', $t);
+    $t = preg_replace('/\*\*(.+?)\*\*/us', '<strong>$1</strong>', $t);
+    if (!preg_match('/<(p|h[1-6]|ul|ol|table)\b/i', $t)) {
+        $out = array();
+        $list = array();
+        $flush = function () use (&$list, &$out) {
+            if ($list) {
+                $out[] = '<ul><li>' . implode('</li><li>', $list) . '</li></ul>';
+                $list = array();
+            }
+        };
+        foreach (preg_split('/\R/u', $t) as $line) {
+            $line = trim($line);
+            if ($line === '') {
+                $flush();
+            } elseif (preg_match('/^(#{1,6})\s*(.+)$/u', $line, $m)) {
+                $flush();
+                $out[] = strlen($m[1]) <= 2 ? '<h2>' . $m[2] . '</h2>' : '<h3>' . $m[2] . '</h3>';
+            } elseif (preg_match('/^[-*•]\s+(.+)$/u', $line, $m)) {
+                $list[] = $m[1];
+            } else {
+                $flush();
+                $out[] = '<p>' . $line . '</p>';
+            }
+        }
+        $flush();
+        $t = implode("\n", $out);
+    }
+    return $t;
+}
+
+/** Custom prompt-article: read the JSON the AI was asked for, clean the body, standardise placeholders. */
+function sb_custom_result($r) {
+    $raw = trim((string) $r['text']);
+    $j = json_decode(preg_replace('/^```[a-z]*\s*|\s*```$/i', '', $raw), true);
+    if (!is_array($j) && preg_match('/\{.*\}/us', $raw, $m)) {
+        $j = json_decode($m[0], true);
+    }
+    if (is_array($j) && !empty($j['article'])) {
+        $r['text'] = (string) $j['article'];
+        $r['meta'] = isset($j['meta']) ? sanitize_text_field($j['meta']) : '';
+        $r['excerpt'] = isset($j['excerpt']) ? sanitize_textarea_field($j['excerpt']) : '';
+    }
+    $t = sb_md_to_html($r['text']);
+    $t = preg_replace('/\[[^\]\[]*(এখানে যুক্ত করুন|এখানে যোগ করুন)[^\]\[]*\]/u', '[তথ্য দরকার: সরকারি/মূল তথ্য]', $t);
+    $r['text'] = wp_kses_post($t);
+    return $r;
+}
+
 /** Post-processes a finished result and charges the credits. */
 function sb_ai_finish($uid, $feature, $ctx, $cost, $research, $result, &$notes) {
     $post_id = (int) $ctx['post_id'];
+    if ($feature === 'custom') {
+        $result = sb_custom_result($result);
+    }
     if ($feature === 'related' && empty($result['items'])) {
         return array('ok' => false, 'message' => 'সাইটে এই লেখার সাথে মেলে এমন পোস্ট/পেজ পাওয়া যায়নি, তাই ক্রেডিট কাটা হয়নি। নিজে খুঁজে যোগ করতে পারেন।');
     }
@@ -245,6 +303,7 @@ add_action('wp_ajax_sb_job_run', function () {
             continue;
         }
         $uri = 'data:' . $okx[$f['ext']] . ';base64,' . base64_encode((string) file_get_contents($f['path'])); // phpcs:ignore WordPress.WP.AlternativeFunctions
+        $notes[] = '✓ ফাইল AI-কে পাঠানো হয়েছে: ' . $f['name'];
         $ctx['parts'][] = $f['ext'] === 'pdf'
             ? array('type' => 'file', 'file' => array('filename' => $f['name'], 'file_data' => $uri))
             : array('type' => 'image_url', 'image_url' => array('url' => $uri));

@@ -675,7 +675,6 @@
     else if (f === 'meta') { $('#f-meta').value = r.text; metaCount(); }
     else if (f === 'article' || f === 'custom' || f === 'rewrite') {
       setEditorContent(r.text);
-      if (r.notes && r.notes.length) { toast('⚠️ ' + r.notes.join(' | '), 'err'); }
       var sb = $('#article-sources'), mb = $('#article-missing');
       sb.innerHTML = ''; mb.innerHTML = '';
       if (r.sources && r.sources.length) {
@@ -684,6 +683,17 @@
         r.sources.forEach(function (s) { var li = document.createElement('li'), a = document.createElement('a'); a.href = s.url; a.target = '_blank'; a.rel = 'noopener'; a.textContent = s.title || s.url; li.appendChild(a); ul.appendChild(li); });
         sb.appendChild(ul); sb.hidden = false;
       } else { sb.hidden = true; }
+      if (r.notes && r.notes.length) {
+        var nh = document.createElement('div'); nh.style.marginTop = '6px';
+        nh.innerHTML = '<strong>📋 আপনার দেওয়া উৎসের অবস্থা:</strong>';
+        var nl = document.createElement('ul'); r.notes.forEach(function (x) { var li = document.createElement('li'); li.textContent = x; nl.appendChild(li); });
+        nh.appendChild(nl); sb.appendChild(nh); sb.hidden = false;
+        if (r.notes.some(function (x) { return x.indexOf('✓') !== 0; })) { toast('⚠️ কিছু উৎস পড়া যায়নি — লেখার নিচে "উৎসের অবস্থা" দেখুন।', 'err'); }
+      }
+      if (f === 'custom') {
+        if (r.meta && !val('#f-meta').trim()) { $('#f-meta').value = r.meta; metaCount(); }
+        if (r.excerpt && !val('#f-excerpt').trim()) { $('#f-excerpt').value = r.excerpt; }
+      }
       if (r.missing && r.missing.length) {
         var m = document.createElement('strong'); m.textContent = '⚠️ AI-এর এই তথ্যগুলো দরকার, আর্টিকেলে লাল জায়গায় নিজে লিখে দিন:'; mb.appendChild(m);
         var ml = document.createElement('ul');
