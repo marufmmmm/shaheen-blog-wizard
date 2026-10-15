@@ -16,7 +16,8 @@
       var v = data[k];
       if (Array.isArray(v)) {
         v.forEach(function (x, i) {
-          if (x && typeof x === 'object') {
+          if (typeof File !== 'undefined' && x instanceof File) { fd.append(k + '[]', x); }
+          else if (x && typeof x === 'object') {
             Object.keys(x).forEach(function (kk) { fd.append(k + '[' + i + '][' + kk + ']', x[kk]); });
           } else { fd.append(k + '[]', x); }
         });
@@ -557,12 +558,16 @@
 
   /* AI */
   function aiPayload(feature) {
-    return {
+    var extra = {};
+    if (feature === 'custom') { extra = { tier: val('#f-clen') || '1', urls: val('#f-curls'), files: [].slice.call(($('#f-cfiles') || {}).files || []) }; }
+    var base = {
       feature: feature, post_id: postId, title: val('#f-title'), topic: val('#f-topic'), excerpt: val('#f-excerpt'),
       content: editorContent(), keywords: keywords(), length: val('#f-length'),
       source: val('#f-source'), instruction: (feature === 'custom') ? val('#f-custom') : '', faq_count: val('#f-faqn') || '5',
       research: ($('#f-research') && $('#f-research').checked) ? '1' : '0'
     };
+    Object.keys(extra).forEach(function (k) { base[k] = extra[k]; });
+    return base;
   }
   var onlyBtn = $('#inc-only');
   if (onlyBtn) {
@@ -600,7 +605,7 @@
       }
       var chain = [];
       if (f === 'article' || f === 'custom' || f === 'rewrite') { if ($('#inc-summary').checked) { chain.push('summary'); } if ($('#inc-faq').checked) { chain.push('faq'); } if ($('#inc-related').checked) { chain.push('related'); } }
-      var cost = SB.costs[f] + (f === 'article' && $('#f-research') && $('#f-research').checked ? SB.costs.research : 0);
+      var cost = (f === 'custom' ? SB.costs[['custom', 'custom', 'custom2', 'custom3'][parseInt(val('#f-clen'), 10) || 1]] : SB.costs[f]) + (f === 'article' && $('#f-research') && $('#f-research').checked ? SB.costs.research : 0);
       chain.forEach(function (c) { cost += SB.costs[c]; });
       if (SB.balance.remaining < cost) { toast('ক্রেডিট যথেষ্ট নয়। প্রয়োজন ' + fmt(cost) + ', আছে ' + fmt(SB.balance.remaining) + '।', 'err'); return; }
       var old = btn.innerHTML; btn.disabled = true; btn.textContent = '⏳ তৈরি হচ্ছে… (আর্টিকেলে ১ মিনিট লাগতে পারে)';
@@ -638,6 +643,7 @@
     else if (f === 'meta') { $('#f-meta').value = r.text; metaCount(); }
     else if (f === 'article' || f === 'custom' || f === 'rewrite') {
       setEditorContent(r.text);
+      if (r.notes && r.notes.length) { toast('⚠️ ' + r.notes.join(' | '), 'err'); }
       var sb = $('#article-sources'), mb = $('#article-missing');
       sb.innerHTML = ''; mb.innerHTML = '';
       if (r.sources && r.sources.length) {

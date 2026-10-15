@@ -59,6 +59,8 @@ function sb_admin_assets() {
     foreach (array_keys(sb_feature_labels()) as $f) {
         $costs[$f] = sb_feature_cost($f);
     }
+    $costs['custom2'] = sb_custom_cost(2);
+    $costs['custom3'] = sb_custom_cost(3);
     $costs['research'] = max(0, (int) sb_get('cost_research'));
     wp_localize_script('sb-admin', 'SB', array(
         'ajax'    => admin_url('admin-ajax.php'),
@@ -150,7 +152,7 @@ function sb_handle_save_settings() {
         'site_urls'     => sanitize_textarea_field($in('site_urls')),
         'about'         => sanitize_textarea_field($in('about')),
     );
-    foreach (array('headlines', 'subtitle', 'meta', 'article', 'summary', 'rewrite', 'custom', 'edit', 'edit_many', 'phones', 'faq', 'related') as $f) {
+    foreach (array('headlines', 'subtitle', 'meta', 'article', 'summary', 'rewrite', 'custom', 'custom2', 'custom3', 'edit', 'edit_many', 'phones', 'faq', 'related') as $f) {
         $new['cost_' . $f] = max(0, (int) $in('cost_' . $f, 0));
     }
     // API key: keep the saved one unless a new one is typed or removal is ticked.

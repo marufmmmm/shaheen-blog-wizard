@@ -44,6 +44,8 @@ $costs = array();
 foreach (array_keys(sb_feature_labels()) as $f) {
     $costs[$f] = sb_feature_cost($f);
 }
+$costs['custom2'] = sb_custom_cost(2);
+$costs['custom3'] = sb_custom_cost(3);
 $costs['research'] = max(0, (int) sb_get('cost_research'));
 ?>
 <div class="wrap sba">
@@ -231,16 +233,22 @@ $costs['research'] = max(0, (int) sb_get('cost_research'));
             </div>
 
             <div class="sba-ai">
-                <div class="sba-ai-head"><h3>সম্পূর্ণ আর্টিকেল</h3>
-                    <span>
-                        <select id="f-length" title="দৈর্ঘ্য">
-                            <option value="short">ছোট (৫০০-৮০০ শব্দ)</option>
-                            <option value="medium" selected>মাঝারি (৮০০-১২০০)</option>
-                            <option value="long">বড় (১৫০০+)</option>
-                        </select>
-                        <label class="sba-research"><input type="checkbox" id="f-research" checked> 🌐 ইন্টারনেট থেকে সর্বশেষ তথ্য <em>(+<?php echo esc_html(sb_bn_digits($costs['research'])); ?>)</em></label>
-                        <button type="button" class="button" data-ai="article">🤖 তৈরি করুন <em>(<?php echo esc_html(sb_bn_digits($costs['article'])); ?>)</em></button>
-                    </span></div>
+                <div class="sba-ai-head"><h3>✍️ লেখার প্রম্পট <small>(আপনার নির্দেশ ও তথ্যই AI মানবে)</small></h3></div>
+                <p class="sba-muted">এখানে কী লিখতে হবে, কোন তথ্য থেকে লিখবে, সুর কেমন, কোন কোন অংশ থাকবে — সব বিস্তারিত লিখুন। নিচে ওয়েবসাইটের লিংক ও PDF/ছবি দিলে AI সেগুলো পড়ে তথ্য নেবে। AI নিজে ইন্টারনেট ঘাঁটবে না, আপনার দেওয়া তথ্যের বাইরে কিছু বানাবে না; কোনো তথ্য না থাকলে <code>[তথ্য দরকার: …]</code> লিখে রাখবে। শিরোনাম ও কীওয়ার্ডও (ধাপ ১-২) প্রম্পটের সাথে যাবে।</p>
+                <textarea id="f-custom" rows="10" style="width:100%" placeholder="যেমন: ভর্তি বিজ্ঞপ্তির আর্টিকেল লিখুন। ক্লাস ৬ষ্ঠ–৯ম। আবেদন ১–১৫ নভেম্বর। ফি … । সুর আনুষ্ঠানিক, অভিভাবকদের উদ্দেশে। শেষে যোগাযোগের নম্বর দিন। (PDF-এর কোন অংশ কীভাবে ব্যবহার হবে তাও লিখুন)"></textarea>
+                <label style="display:block;margin-top:8px">🌐 তথ্যের ওয়েবসাইট লিংক <small>(প্রতি লাইনে একটি, সর্বোচ্চ ৪টি; সাইট নিজে পড়ে লেখাটুকু AI-কে দেওয়া হবে)</small>
+                    <textarea id="f-curls" rows="3" style="width:100%" placeholder="https://…"></textarea></label>
+                <label style="display:block;margin-top:8px">📎 PDF / ছবি <small>(সর্বোচ্চ ৪টি ফাইল, প্রতিটি ১০ MB-এর মধ্যে; PDF, JPG, PNG, WEBP। স্ক্যান করা PDF বা ছবির লেখাও AI পড়ে)</small>
+                    <input type="file" id="f-cfiles" multiple accept=".pdf,.jpg,.jpeg,.png,.webp,application/pdf,image/*"></label>
+                <div style="margin-top:10px;display:flex;gap:10px;align-items:center;flex-wrap:wrap">
+                    <select id="f-clen" title="আর্টিকেলের দৈর্ঘ্য">
+                        <option value="1">৮০০–১০০০ শব্দ (<?php echo esc_html(sb_bn_digits($costs['custom'])); ?> ক্রেডিট)</option>
+                        <option value="2">১০০০–১৫০০ শব্দ (<?php echo esc_html(sb_bn_digits($costs['custom2'])); ?> ক্রেডিট)</option>
+                        <option value="3">১৫০০+ শব্দ (<?php echo esc_html(sb_bn_digits($costs['custom3'])); ?> ক্রেডিট)</option>
+                    </select>
+                    <button type="button" class="button button-primary" data-ai="custom">🤖 প্রম্পট থেকে লিখুন</button>
+                </div>
+                <div class="sba-ai-head" style="margin-top:14px"><h3>আর্টিকেল</h3></div>
                 <?php
                 wp_editor($post ? $post->post_content : '', 'sb_content', array(
                     'textarea_name' => 'sb_content',
@@ -251,13 +259,6 @@ $costs['research'] = max(0, (int) sb_get('cost_research'));
                 ?>
                 <div id="article-sources" class="sba-sources" hidden></div>
                 <div id="article-missing" class="sba-missing" hidden></div>
-            </div>
-
-            <div class="sba-ai">
-                <div class="sba-ai-head"><h3>✍️ নিজের প্রম্পটে আর্টিকেল <small>(আপনি যা লিখবেন ঠিক তা-ই)</small></h3>
-                    <span><button type="button" class="button button-primary" data-ai="custom">🤖 প্রম্পট থেকে লিখুন <em>(<?php echo esc_html(sb_bn_digits($costs['custom'])); ?>)</em></button></span></div>
-                <p class="sba-muted">AI যদি আপনার ফাইল (PDF) থেকে ঠিকমতো তথ্য না নিতে পারে, PDF খুলে দরকারি অংশ কপি করে এখানে পেস্ট করুন এবং কী লিখতে হবে তা বিস্তারিত বলুন। AI ইন্টারনেট ঘাঁটবে না, শুধু আপনার প্রম্পটের তথ্য ও নির্দেশ মানবে; না থাকলে <code>[তথ্য দরকার: …]</code> লিখে রাখবে। লেখা ওপরের এডিটরে বসবে।</p>
-                <textarea id="f-custom" rows="10" style="width:100%" placeholder="যেমন: ভর্তি বিজ্ঞপ্তির আর্টিকেল লিখুন। ক্লাস: ৬ষ্ঠ–৯ম। আবেদন শুরু ১ নভেম্বর, শেষ ১৫ নভেম্বর। ফি: … (নিচে PDF-এর লেখা পেস্ট)। সুর: আনুষ্ঠানিক, অভিভাবকদের উদ্দেশে। শেষে যোগাযোগের নম্বর দিন।"></textarea>
             </div>
 
             <?php sb_edit_box('ed'); ?>

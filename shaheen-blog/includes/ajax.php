@@ -30,6 +30,61 @@ function sb_req_list($key, $max = 10) {
     return array_slice(array_values(array_unique($out)), 0, $max);
 }
 
+/** Text of the web pages the owner listed (max 4), for the prompt-article feature. */
+function sb_fetch_pages($raw, &$notes) {
+    $out = '';
+    $n = 0;
+    foreach (preg_split('/\R+/', trim((string) $raw)) as $u) {
+        $u = esc_url_raw(trim($u), array('http', 'https'));
+        if ($u === '' || $n >= 4) {
+            continue;
+        }
+        $n++;
+        $r = wp_safe_remote_get($u, array('timeout' => 20, 'redirection' => 3, 'user-agent' => 'Mozilla/5.0 (ShaheenBlog)'));
+        if (is_wp_error($r) || (int) wp_remote_retrieve_response_code($r) !== 200) {
+            $notes[] = 'ওয়েবসাইট পড়া যায়নি: ' . $u;
+            continue;
+        }
+        $h = wp_remote_retrieve_body($r);
+        $h = preg_replace('#<(script|style|noscript|svg|nav|footer|header)\b[^>]*>.*?</\1>#is', ' ', $h);
+        $t = trim(preg_replace('/\s+/u', ' ', html_entity_decode(wp_strip_all_tags($h), ENT_QUOTES, 'UTF-8')));
+        if (mb_strlen($t) < 80) {
+            $notes[] = 'পেজে পড়ার মতো লেখা পাওয়া যায়নি (জাভাস্ক্রিপ্টে লোড হওয়া পেজ হতে পারে): ' . $u;
+            continue;
+        }
+        $out .= "\n[ওয়েবসাইট: {$u}]\n" . mb_substr($t, 0, 9000) . "\n";
+    }
+    return $out;
+}
+
+/** Uploaded PDFs / images as OpenAI message parts. */
+function sb_upload_parts(&$notes) {
+    $parts = array();
+    if (empty($_FILES['files']) || !is_array($_FILES['files']['name'])) { // phpcs:ignore WordPress.Security.NonceVerification
+        return $parts;
+    }
+    $f = $_FILES['files']; // phpcs:ignore WordPress.Security.NonceVerification
+    $ok = array('pdf' => 'application/pdf', 'jpg' => 'image/jpeg', 'jpeg' => 'image/jpeg', 'png' => 'image/png', 'webp' => 'image/webp');
+    foreach (array_slice(array_keys($f['name']), 0, 4) as $i) {
+        $name = sanitize_file_name($f['name'][$i]);
+        $ext = strtolower(pathinfo($name, PATHINFO_EXTENSION));
+        if ((int) $f['error'][$i] !== UPLOAD_ERR_OK || !is_uploaded_file($f['tmp_name'][$i])) {
+            $notes[] = 'ফাইল আপলোড হয়নি (সম্ভবত বড়): ' . $name;
+            continue;
+        }
+        if (!isset($ok[$ext]) || (int) $f['size'][$i] > 10 * 1024 * 1024) {
+            $notes[] = 'ফাইল বাদ (শুধু PDF/JPG/PNG/WEBP, ১০ MB পর্যন্ত): ' . $name;
+            continue;
+        }
+        $data = base64_encode((string) file_get_contents($f['tmp_name'][$i])); // phpcs:ignore WordPress.WP.AlternativeFunctions
+        $uri = 'data:' . $ok[$ext] . ';base64,' . $data;
+        $parts[] = $ext === 'pdf'
+            ? array('type' => 'file', 'file' => array('filename' => $name, 'file_data' => $uri))
+            : array('type' => 'image_url', 'image_url' => array('url' => $uri));
+    }
+    return $parts;
+}
+
 /* ---------- AI generation (costs credits) ---------- */
 add_action('wp_ajax_sb_ai', 'sb_ajax_ai');
 function sb_ajax_ai() {
@@ -38,6 +93,10 @@ function sb_ajax_ai() {
     $cost = sb_feature_cost($feature);
     if ($feature === 'edit' && (int) sb_req('ins_count', 1) > 5) {
         $cost = sb_feature_cost('edit_many');
+    }
+    $tier = max(1, min(3, (int) sb_req('tier', 1)));
+    if ($feature === 'custom') {
+        $cost = sb_custom_cost($tier);
     }
     if (!$cost) {
         wp_send_json_error(array('message' => 'অজানা AI ফিচার।'));
@@ -66,6 +125,15 @@ function sb_ajax_ai() {
         'faq_count' => (int) sb_req('faq_count', 5),
         'post_id'  => (int) sb_req('post_id', 0),
     );
+    $notes = array();
+    if ($feature === 'custom') {
+        $ctx['tier'] = $tier;
+        $ctx['web'] = sb_fetch_pages(sb_req('urls'), $notes);
+        $ctx['parts'] = sb_upload_parts($notes);
+        if (mb_strlen(trim($ctx['instruction'])) < 30) {
+            wp_send_json_error(array('message' => 'প্রম্পট বক্সে বিস্তারিত নির্দেশ লিখুন (কমপক্ষে ৩০ অক্ষর)।', 'balance' => $state));
+        }
+    }
     $result = SB_AI::generate($feature, $ctx);
     if (is_wp_error($result)) {
         // Nothing was charged: the call failed.
@@ -91,6 +159,7 @@ function sb_ajax_ai() {
     if (is_wp_error($new)) {
         wp_send_json_error(array('message' => $new->get_error_message(), 'balance' => $state));
     }
+    $result['notes'] = $notes;
     wp_send_json_success(array('result' => $result, 'cost' => $cost, 'balance' => $new));
 }
 

@@ -56,6 +56,8 @@ if (!SB_Lock::is_unlocked()) : ?>
                 <?php foreach (sb_feature_labels() as $f => $label) : if (in_array($f, array('rewrite_post', 'edit_new'), true)) { continue; } ?>
                     <label><?php echo esc_html($label); ?><input type="number" min="0" name="cost_<?php echo esc_attr($f); ?>" value="<?php echo esc_attr($s('cost_' . $f)); ?>"></label>
                 <?php endforeach; ?>
+                <label>নিজের প্রম্পটে আর্টিকেল: ১০০০–১৫০০ শব্দ<input type="number" min="0" name="cost_custom2" value="<?php echo esc_attr($s('cost_custom2')); ?>"></label>
+                <label>নিজের প্রম্পটে আর্টিকেল: ১৫০০+ শব্দ<input type="number" min="0" name="cost_custom3" value="<?php echo esc_attr($s('cost_custom3')); ?>"></label>
             </div>
         </div>
 

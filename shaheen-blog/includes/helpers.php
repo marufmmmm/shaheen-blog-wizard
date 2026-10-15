@@ -17,6 +17,8 @@ function sb_defaults() {
         'cost_research'  => 50,
         'cost_rewrite'   => 150,
         'cost_custom'    => 120,
+        'cost_custom2'   => 150,
+        'cost_custom3'   => 180,
         'cost_edit'      => 30,
         'cost_edit_many' => 45,
         'cost_phones'    => 100,
@@ -60,6 +62,12 @@ function sb_save_settings(array $new) {
 function sb_model_for($feature) {
     $m = (in_array($feature, array('article', 'custom', 'rewrite', 'rewrite_post', 'edit', 'edit_new'), true)) ? trim((string) sb_get('model_article')) : '';
     return $m !== '' ? $m : sb_get('model');
+}
+
+/** Prompt-article price by length tier: 1 = 800-1000 words, 2 = 1000-1500, 3 = 1500+. */
+function sb_custom_cost($tier) {
+    $k = array(1 => 'cost_custom', 2 => 'cost_custom2', 3 => 'cost_custom3');
+    return max(0, (int) sb_get(isset($k[(int) $tier]) ? $k[(int) $tier] : 'cost_custom'));
 }
 
 function sb_feature_cost($feature) {
@@ -207,7 +215,7 @@ function sb_feature_labels() {
         'edit'      => 'সংশোধন (১–৫টি পরিবর্তন)',
         'edit_many' => 'সংশোধন (৬–১০টি পরিবর্তন)',
         'edit_new'  => 'নির্দেশ দিয়ে নতুন করে লেখা',
-        'custom'    => 'নিজের প্রম্পটে আর্টিকেল',
+        'custom'    => 'নিজের প্রম্পটে আর্টিকেল (৮০০–১০০০ শব্দ)',
         'phones'    => 'নতুন মোবাইল মডেল খোঁজা',
         'faq'       => 'FAQ (প্রশ্ন-উত্তর)',
         'related'   => 'স্মার্ট সম্পর্কিত পোস্ট/পেজ',
