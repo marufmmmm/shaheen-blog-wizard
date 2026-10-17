@@ -178,6 +178,16 @@
       }).catch(function (e) { say($('#sub-msg'), e.message, 'err'); });
     });
   }
+  var crGo = $('#cr-go');
+  if (crGo) {
+    crGo.addEventListener('click', function () {
+      crGo.disabled = true;
+      post('sb_credit_refresh', { limit: $('#cr-limit').value, scope: $('#cr-scope').value }).then(function (d) {
+        say($('#cr-msg'), '✓ রিফ্রেশ হয়েছে (' + d.users + ' জন)। এখন আছে ' + fmt(d.balance.remaining) + '; পরবর্তী রিসেট ' + d.balance.next_reset_bn, 'ok');
+        setTimeout(function () { location.reload(); }, 1200);
+      }).catch(function (e) { say($('#cr-msg'), e.message, 'err'); }).then(function () { crGo.disabled = false; });
+    });
+  }
   var demoDel = $('#demo-del');
   if (demoDel) {
     demoDel.addEventListener('click', function () {
@@ -625,8 +635,14 @@
     return base;
   }
   /* Prompt-article: price by model + length, shown in the length list */
+  function per100(m) { var p1 = (SB.modelPrices && SB.modelPrices[m]) ? SB.modelPrices[m][0] : SB.costs.custom; return Math.max(1, Math.ceil(p1 / 9)); }
+  function refreshWordsCost() {
+    var el = $('#words-cost'), w = parseInt(val('#f-words'), 10) || 0; if (!el) { return; }
+    el.textContent = w >= 300 ? fmt(customPrice()) + ' ক্রেডিট (' + fmt(per100(val('#f-cmodel'))) + '/১০০ শব্দ)' : fmt(per100(val('#f-cmodel'))) + ' ক্রেডিট/১০০ শব্দ; শব্দসংখ্যা না দিলে দৈর্ঘ্যের হিসাব';
+  }
   function customPrice() {
-    var m = val('#f-cmodel'), t = (parseInt(val('#f-clen'), 10) || 1) - 1;
+    var m = val('#f-cmodel'), t = (parseInt(val('#f-clen'), 10) || 1) - 1, w = parseInt(val('#f-words'), 10) || 0;
+    if (w >= 300) { return per100(m) * Math.ceil(Math.min(5000, w) / 100); }
     return (SB.modelPrices && SB.modelPrices[m]) ? SB.modelPrices[m][t] : SB.costs[['custom', 'custom2', 'custom3'][t]];
   }
   function refreshCustomPrices() {
@@ -637,7 +653,8 @@
       o.textContent = names[i] + ' — ' + fmt(p) + ' ক্রেডিট';
     });
   }
-  if ($('#f-cmodel')) { $('#f-cmodel').addEventListener('change', refreshCustomPrices); refreshCustomPrices(); }
+  if ($('#f-cmodel')) { $('#f-cmodel').addEventListener('change', function () { refreshCustomPrices(); refreshWordsCost(); }); refreshCustomPrices(); }
+  if ($('#f-words')) { $('#f-words').addEventListener('input', refreshWordsCost); refreshWordsCost(); }
   /* Long job: start it, fire the worker request (the server may answer 504, the job keeps running), poll for the result */
   /* Page images from a PDF, drawn in the browser (PDF.js), so old-font PDFs are read by sight */
   function loadPdfJs() {

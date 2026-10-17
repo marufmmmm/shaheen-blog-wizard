@@ -153,6 +153,18 @@ $render = function ($name, $cur, $blank) use ($cat) {
     </script>
 
     <div class="sba-card">
+        <h2>🔄 ক্রেডিট রিফ্রেশ</h2>
+        <p class="sba-muted">এক ক্লিকে ব্যবহৃত ক্রেডিট ০ হয়ে যাবে, আজ থেকে নতুন এক মাসের চক্র শুরু হবে এবং নিচের লিমিট সবার ডিফল্ট হিসেবে সেভ হবে।</p>
+        <div class="sba-row">
+            <label>ক্রেডিট লিমিট<input type="number" min="0" id="cr-limit" value="80000"></label>
+            <label>কার জন্য
+                <select id="cr-scope"><option value="me">শুধু আমার</option><option value="all">সব ইউজারের</option></select>
+            </label>
+        </div>
+        <p><button type="button" class="button button-primary" id="cr-go">🔄 এখনই রিফ্রেশ করুন</button> <span id="cr-msg" class="sba-msg"></span></p>
+    </div>
+
+    <div class="sba-card">
         <h2>🔁 সাবস্ক্রিপশন (ম্যানুয়াল)</h2>
         <p class="sba-muted">পেমেন্ট কোড যুক্ত হওয়ার আগে এখান থেকে ইউজারের সাবস্ক্রিপশন তারিখ ও ক্রেডিট সেট করুন। প্রতি মাসে এই তারিখে ক্রেডিট রিসেট হবে।</p>
         <div class="sba-row">

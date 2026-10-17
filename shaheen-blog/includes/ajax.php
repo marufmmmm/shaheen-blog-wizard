@@ -110,7 +110,7 @@ function sb_ajax_ai() {
         if (!in_array($cmodel, sb_allowed_models(), true)) {
             $cmodel = trim((string) sb_get('model_article')) ?: sb_get('model');
         }
-        $cost = ($feature === 'brief') ? max($cost, (int) round(sb_custom_cost(1, $cmodel) * 0.2)) : sb_custom_cost($tier, $cmodel);   // the brief costs about 1/5 of an article on the chosen model
+        $cost = ($feature === 'brief') ? max($cost, (int) round(sb_custom_cost(1, $cmodel) * 0.2)) : (((int) sb_req('words', 0) >= 300) ? sb_words_cost((int) sb_req('words'), $cmodel) : sb_custom_cost($tier, $cmodel));   // the brief costs about 1/5 of an article on the chosen model
     }
     if ($feature === 'rewrite_post') {
         $rm = sanitize_text_field(sb_req('model'));
@@ -815,6 +815,33 @@ function sb_ajax_delete_demo() {
         wp_delete_post($id, true);
     }
     wp_send_json_success(array('deleted' => count($ids)));
+}
+
+add_action('wp_ajax_sb_credit_refresh', 'sb_ajax_credit_refresh');
+/** One-click credit refresh: used = 0, new cycle from today, limit applied (and saved as the default for everyone). */
+function sb_ajax_credit_refresh() {
+    sb_ajax_guard('manage_options');
+    if (!SB_Lock::is_unlocked()) {
+        wp_send_json_error(array('message' => 'আগে সেটিংসে PIN দিয়ে আনলক করুন।'), 403);
+    }
+    $limit = max(0, min(10000000, (int) sb_req('limit', 80000)));
+    $scope = sb_req('scope') === 'all' ? 'all' : 'me';
+    $s = get_option('sb_settings', array());
+    $s = is_array($s) ? $s : array();
+    $s['default_limit'] = $limit;
+    update_option('sb_settings', $s);
+    $ids = array(get_current_user_id());
+    if ($scope === 'all') {
+        $ids = wp_list_pluck(get_users(array('capability' => 'edit_posts', 'number' => 500, 'fields' => array('ID'))), 'ID');
+    }
+    $n = 0;
+    foreach ($ids as $id) {
+        $r = SB_Credits::set_subscription((int) $id, SB_Credits::today(), $limit);
+        if (!is_wp_error($r)) {
+            $n++;
+        }
+    }
+    wp_send_json_success(array('users' => $n, 'balance' => SB_Credits::state(get_current_user_id())));
 }
 
 add_action('wp_ajax_sb_set_subscription', 'sb_ajax_set_subscription');

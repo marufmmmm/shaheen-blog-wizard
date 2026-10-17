@@ -146,7 +146,7 @@ function sb_handle_save_settings() {
 
     $new = array(
         'model'         => sb_pick_model($in, 'model') ?: 'gpt-4o-mini',
-        'default_limit' => max(0, (int) $in('default_limit', 20000)),
+        'default_limit' => max(0, (int) $in('default_limit', 80000)),
         'hero_title'    => sanitize_text_field($in('hero_title')),
         'hero_subtitle' => sanitize_text_field($in('hero_subtitle')),
         'intro'         => sanitize_textarea_field($in('intro')),

@@ -138,7 +138,7 @@ $costs['research'] = max(0, (int) sb_get('cost_research'));
                     <label>🤖 মডেল<br><?php $cur_m = trim((string) sb_get('model_article')) ?: sb_get('model'); ?>
                     <select id="f-cmodel" title="কোন AI মডেলে লিখবে">
                         <?php foreach (sb_model_catalog() as $mid => $mm) : ?>
-                            <option value="<?php echo esc_attr($mid); ?>" <?php selected($cur_m, $mid); ?>><?php echo esc_html($mid . ' — ' . $mm[2]); ?></option>
+                            <option value="<?php echo esc_attr($mid); ?>" <?php selected($cur_m, $mid); ?>><?php echo esc_html($mid . ' — ' . $mm[2] . ' — ' . sb_bn_digits(sb_per100($mid)) . ' ক্রেডিট/১০০ শব্দ'); ?></option>
                         <?php endforeach; ?>
                         <?php if (!isset(sb_model_catalog()[$cur_m])) : ?><option value="<?php echo esc_attr($cur_m); ?>" selected><?php echo esc_html($cur_m); ?></option><?php endif; ?>
                     </select></label>
@@ -154,7 +154,7 @@ $costs['research'] = max(0, (int) sb_get('cost_research'));
                             <option value="both">প্যারা + পয়েন্ট দুটোই</option>
                             <option value="ai">AI-র পরামর্শ অনুযায়ী</option>
                         </select></label>
-                    <label>🔢 শব্দসংখ্যা (প্রায়)<br><input type="number" id="f-words" min="300" max="5000" step="50" placeholder="যেমন ১২০০" style="width:110px"></label>
+                    <label>🔢 শব্দসংখ্যা (প্রায়)<br><input type="number" id="f-words" min="300" max="5000" step="50" placeholder="যেমন ১২০০" style="width:110px"><small id="words-cost" class="sba-muted" style="display:block"></small></label>
                 </div>
 
                 <div class="sba-presets" style="margin-top:10px;display:flex;gap:8px;align-items:center;flex-wrap:wrap">

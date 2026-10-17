@@ -8,7 +8,7 @@ function sb_defaults() {
     return array(
         'api_key'       => '',
         'model'         => 'gpt-4o-mini',
-        'default_limit' => 20000,
+        'default_limit' => 80000,
         'cost_headlines' => 50,
         'cost_subtitle'  => 30,
         'cost_meta'      => 20,
@@ -98,7 +98,7 @@ function sb_model_catalog() {
         'gpt-5.4-mini' => array('0.75 / 4.50', array(190, 255, 360), 'আরও ভালো, দাম বেশি', array(310, 410, 580)),
         'gpt-4.1'      => array('2.00 / 8.00', array(225, 280, 390), 'দামি', array(360, 450, 630)),
         'gpt-4o'       => array('2.50 / 10.00', array(280, 340, 460), 'দামি', array(450, 550, 740)),
-        'gpt-6-astra'  => array('10.00 / 50.00', array(2283, 2983, 3983), 'OpenAI-র সবচেয়ে সক্ষম মডেল; খুব দামি (প্রতি লেখা প্রায় $০.৪৫–০.৮)', array(2300, 3000, 4000)),
+        'gpt-6-astra'  => array('10.00 / 50.00', array(2283, 2983, 3983), 'OpenAI-র সবচেয়ে সক্ষম মডেল; খুব দামি', array(2300, 3000, 4000)),
         'gpt-5'        => array('1.25 / 10.00', array(410, 550, 750), 'সবচেয়ে দামি (চিন্তার টোকেনে)', array(660, 880, 1200)),
     ));
 }
@@ -152,6 +152,17 @@ function sb_custom_cost($tier, $model = '') {
     }
     $k = array(1 => 'cost_custom', 2 => 'cost_custom2', 3 => 'cost_custom3');
     return max(0, (int) sb_get($k[$tier]));
+}
+
+/** Credits per 100 words of an article on a model (derived from its 800-1000 word price: ~900 words). */
+function sb_per100($model = '') {
+    return (int) max(1, ceil(sb_custom_cost(1, $model) / 9));
+}
+
+/** Article price by word count: per 100 words (rounded up), at least 300 words. */
+function sb_words_cost($words, $model = '') {
+    $words = max(300, min(5000, (int) $words));
+    return (int) (ceil($words / 100) * sb_per100($model));
 }
 
 function sb_feature_cost($feature) {
