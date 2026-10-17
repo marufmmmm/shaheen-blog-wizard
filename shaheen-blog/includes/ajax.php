@@ -11,6 +11,14 @@ function sb_ajax_guard($cap = 'edit_posts') {
     }
 }
 
+/** Fresh security token for a page that has been open for a long time (logged-in users only). */
+add_action('wp_ajax_sb_nonce', function () {
+    if (!current_user_can('edit_posts')) {
+        wp_send_json_error(array('message' => 'login'), 403);
+    }
+    wp_send_json_success(array('nonce' => wp_create_nonce('sb_admin')));
+});
+
 function sb_req($key, $default = '') {
     return isset($_POST[$key]) ? wp_unslash($_POST[$key]) : $default;
 }

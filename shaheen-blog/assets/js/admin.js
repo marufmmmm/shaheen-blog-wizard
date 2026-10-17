@@ -8,7 +8,7 @@
   function bn(n) { return String(n).replace(/\d/g, function (d) { return BN[d]; }); }
   function fmt(n) { return bn(Number(n).toLocaleString('en-US')); }
 
-  function post(action, data) {
+  function post(action, data, retried) {
     var fd = new FormData();
     fd.append('action', action);
     fd.append('nonce', SB.nonce);
@@ -33,6 +33,15 @@
         });
       })
       .then(function (j) {
+        if ((j === -1 || j === 0) && !retried) {
+          // WordPress answers -1 (or 0) when the page's security token has expired: get a fresh one and retry once
+          var f2 = new FormData(); f2.append('action', 'sb_nonce');
+          return fetch(SB.ajax, { method: 'POST', credentials: 'same-origin', body: f2 }).then(function (r) { return r.json(); }).then(function (n) {
+            if (n && n.success && n.data && n.data.nonce) { SB.nonce = n.data.nonce; return post(action, data, true); }
+            throw new Error('Your login session has ended. Open the dashboard in a new tab, log in, then come back: your text is autosaved here.');
+          });
+        }
+        if (j === -1 || j === 0) { throw new Error('Your login session has ended. Log in again in a new tab and retry.'); }
         if (j && j.data && j.data.balance) updateBalance(j.data.balance);
         if (!j || !j.success) throw new Error((j && j.data && j.data.message) || 'কিছু একটা ভুল হয়েছে।');
         return j.data;
