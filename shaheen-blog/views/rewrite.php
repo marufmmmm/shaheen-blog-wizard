@@ -14,6 +14,10 @@ $cost = sb_feature_cost('rewrite_post');
         <h2>১. মূল লেখা পেস্ট করুন</h2>
         <label>মূল শিরোনাম<input type="text" id="rw-title" placeholder="যে লেখা থেকে নিচ্ছেন তার শিরোনাম"></label>
         <label>মূল লেখা *<textarea id="rw-source" rows="10" placeholder="এখানে পুরো লেখা পেস্ট করুন (কমপক্ষে ২০০ অক্ষর)"></textarea></label>
+        <label>🌐 একই বিষয়ে অন্য সাইটের লিংক <small>(প্রতি লাইনে একটি, ৩-৪টি ভালো। AI সবগুলো ও মূল লেখা একসাথে বিশ্লেষণ করে আপনার ঢঙে একটিই সম্পূর্ণ নতুন লেখা লিখবে; তথ্য না মিললে জানাবে। শুধু লিংক দিলেও চলবে, তখন মূল লেখা ফাঁকা রাখতে পারেন)</small>
+            <textarea id="rw-refs" rows="4" placeholder="https://site-1.com/news&#10;https://site-2.com/news&#10;https://site-3.com/news"></textarea></label>
+        <label>🤖 মডেল <select id="rw-model"><option value="">সেটিংসের ডিফল্ট</option>
+            <?php foreach (sb_model_catalog() as $mid => $mm) : ?><option value="<?php echo esc_attr($mid); ?>"><?php echo esc_html($mid); ?></option><?php endforeach; ?></select></label>
         <div class="sba-row">
             <label>সূত্র <small>(পত্রিকা/সাইটের নাম, ঐচ্ছিক)</small><input type="text" id="rw-src-name" placeholder="যেমন: প্রথম আলো"></label>
             <label>সূত্রের লিংক <small>(ঐচ্ছিক)</small><input type="text" id="rw-src-url" placeholder="https://…"></label>

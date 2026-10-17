@@ -27,6 +27,7 @@ function sb_defaults() {
         'cost_related'   => 30,
         'cost_chat'      => 30,
         'cost_brief'     => 30,
+        'cost_caption'   => 30,
         'ai_lang'        => 'bn',
         'ai_lang_other'  => '',
         'style_note'     => 'প্রচলিত চলিত ভাষায় লিখবে। কঠিন, সাধু বা বইয়ের মতো ভারী শব্দ এড়িয়ে প্রতিদিনের সহজ শব্দ ব্যবহার করবে। যেখানে জনপ্রিয় ইংরেজি শব্দ (যেমন: ক্লাস, কোচিং, অনলাইন) বেশি চলে সেখানে সেটাই লিখবে।',
@@ -172,6 +173,7 @@ function sb_feature_cost($feature) {
         'related'   => 'cost_related',
         'chat'      => 'cost_chat',
         'brief'     => 'cost_brief',
+        'caption'   => 'cost_caption',
     );
     return isset($map[$feature]) ? max(0, (int) sb_get($map[$feature])) : 0;
 }
@@ -308,6 +310,7 @@ function sb_feature_labels() {
         'related'   => 'স্মার্ট সম্পর্কিত পোস্ট/পেজ',
         'chat'      => 'চ্যাট সহকারী (প্রতি সফল পরিবর্তন)',
         'brief'     => 'লেখার আগে বোঝাপড়া ও গবেষণা',
+        'caption'   => 'Facebook ক্যাপশন',
     );
 }
 
@@ -467,4 +470,15 @@ function sb_presets_get($uid = 0) {
     $uid = $uid ?: get_current_user_id();
     $p = get_user_meta($uid, 'sb_presets', true);
     return is_array($p) ? $p : array();
+}
+
+
+/** Reader and tone choices for the writing prompt. */
+function sb_audiences() {
+    return array('all' => array('সবাই (অভিভাবক ও শিক্ষার্থী)', ''), 'parents' => array('অভিভাবক', 'পাঠক মূলত অভিভাবক: সন্তানের ভবিষ্যৎ, নিরাপত্তা, খরচ ও ভরসার কথা বেশি ভাববেন, সরাসরি আপনি-সম্বোধনে লিখবে।'),
+        'students' => array('শিক্ষার্থী', 'পাঠক মূলত শিক্ষার্থী: ছোট বাক্যে, উৎসাহ দিয়ে, বন্ধুসুলভ ভাষায়; কঠিন ধারণা উদাহরণ দিয়ে বোঝাবে।'));
+}
+function sb_tones() {
+    return array('warm' => array('আন্তরিক ও মমতাময়', 'সুর: আন্তরিক, মমতাময়, আপন মানুষ পাশে বসে বোঝানোর মতো।'), 'formal' => array('আনুষ্ঠানিক', 'সুর: আনুষ্ঠানিক ও মার্জিত, বিজ্ঞপ্তির মতো পরিষ্কার; আবেগের বাড়াবাড়ি নয়।'),
+        'motivating' => array('উৎসাহব্যঞ্জক', 'সুর: উৎসাহ ও আত্মবিশ্বাস জাগানো, ইতিবাচক, কিন্তু বাড়িয়ে বলা বা মিথ্যা আশা নয়।'), 'news' => array('সংবাদধর্মী', 'সুর: নিরপেক্ষ, তথ্যনির্ভর, সংবাদের মতো; প্রথম অনুচ্ছেদেই মূল খবর।'));
 }

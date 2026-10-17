@@ -112,6 +112,13 @@ function sb_ajax_ai() {
         }
         $cost = ($feature === 'brief') ? max($cost, (int) round(sb_custom_cost(1, $cmodel) * 0.2)) : sb_custom_cost($tier, $cmodel);   // the brief costs about 1/5 of an article on the chosen model
     }
+    if ($feature === 'rewrite_post') {
+        $rm = sanitize_text_field(sb_req('model'));
+        if ($rm !== '' && in_array($rm, sb_allowed_models(), true)) {
+            $cmodel = $rm;
+            $cost = max($cost, sb_custom_cost(1, $rm));   // a rewrite on a pricier model costs like a short article on it
+        }
+    }
     if (!$cost) {
         wp_send_json_error(array('message' => 'অজানা AI ফিচার।'));
     }
@@ -146,6 +153,8 @@ function sb_ajax_ai() {
         'mode'     => in_array(sb_req('mode'), array('links', 'paste', 'both'), true) ? sb_req('mode') : 'both',
         'paste'    => mb_substr(sanitize_textarea_field(sb_req('paste')), 0, 40000),
         'ptype'    => isset(sb_ptypes()[sb_req('ptype')]) ? sb_req('ptype') : 'general',
+        'aud'      => isset(sb_audiences()[sb_req('aud')]) ? sb_req('aud') : 'all',
+        'tone'     => isset(sb_tones()[sb_req('tone')]) ? sb_req('tone') : 'warm',
         'brief'    => mb_substr(sanitize_textarea_field(sb_req('brief')), 0, 8000),
     );
     if ($feature === 'chat') {
@@ -155,7 +164,7 @@ function sb_ajax_ai() {
         $ctx['state'] = sb_chat_state(sb_req('state'));
         $ctx['history'] = sb_chat_history(sb_req('history'));
     }
-    if ($feature === 'custom' || $feature === 'brief') {
+    if ($feature === 'custom' || $feature === 'brief' || $feature === 'rewrite_post') {
         sb_job_start($uid, $ctx, $cost, $research, $state, $feature);   // exits (long job: runs in the background, the browser polls)
     }
     $notes = array();
@@ -435,7 +444,10 @@ function sb_keep_pdfs() {
 }
 
 function sb_job_start($uid, $ctx, $cost, $research, $state, $feature = 'custom') {
-    if (mb_strlen(trim($ctx['instruction'])) < 30) {
+    if ($feature === 'rewrite_post' && mb_strlen(trim($ctx['source'])) < 200 && trim((string) sb_req('urls')) === '') {
+        wp_send_json_error(array('message' => 'কমপক্ষে ২০০ অক্ষরের মূল লেখা পেস্ট করুন, অথবা সাইটের লিংক দিন।'));
+    }
+    if ($feature !== 'rewrite_post' && mb_strlen(trim($ctx['instruction'])) < 30) {
         wp_send_json_error(array('message' => 'প্রম্পট বক্সে বিস্তারিত নির্দেশ লিখুন (কমপক্ষে ৩০ অক্ষর)।', 'balance' => $state));
     }
     $id = strtolower(wp_generate_password(16, false, false));
@@ -555,6 +567,25 @@ add_action('wp_ajax_sb_job_status', function () {
     $notes = isset($job['notes']) ? $job['notes'] : array();
     $jf = isset($job['feature']) ? $job['feature'] : 'custom';
     $res = $r['result'];
+    if ($jf === 'rewrite_post') {
+        $rt = trim(preg_replace('/^```[a-z]*\s*|\s*```$/i', '', (string) $res['text']));
+        $rj = json_decode($rt, true);
+        if (!is_array($rj) && preg_match('/\{.*\}/us', $rt, $rm)) {
+            $rj = json_decode($rm[0], true);
+        }
+        if (!is_array($rj) || empty($rj['article'])) {
+            wp_send_json_success(array('state' => 'error', 'message' => 'AI-এর উত্তর পড়া যায়নি। ক্রেডিট কাটা হয়নি। আবার চেষ্টা করুন।', 'balance' => SB_Credits::state($uid)));
+        }
+        $cf = array();
+        foreach (isset($rj['conflicts']) && is_array($rj['conflicts']) ? array_slice($rj['conflicts'], 0, 8) : array() as $cx) {
+            $cx = is_string($cx) ? sanitize_text_field($cx) : '';
+            if (mb_strlen($cx) > 8) {
+                $cf[] = $cx;
+            }
+        }
+        $res = array('headline' => sanitize_text_field(isset($rj['headline']) ? $rj['headline'] : ''), 'excerpt' => sanitize_textarea_field(isset($rj['excerpt']) ? $rj['excerpt'] : ''),
+            'text' => wp_kses_post(sb_md_to_html((string) $rj['article'])), 'conflicts' => $cf);
+    }
     if ($jf === 'brief') {
         $pb = SB_AI::parse_brief($res['text']);
         if (is_wp_error($pb)) {
@@ -608,6 +639,14 @@ function sb_ajax_save_post() {
     }
     if ($id) {
         $postarr['ID'] = $id;
+        // keep the last 3 earlier versions of the article so a bad edit can be rolled back
+        $old_content = (string) get_post_field('post_content', $id);
+        if (mb_strlen(wp_strip_all_tags($old_content)) >= 50 && trim($old_content) !== trim((string) $postarr['post_content'])) {
+            $vers = get_post_meta($id, '_sb_versions', true);
+            $vers = is_array($vers) ? $vers : array();
+            array_unshift($vers, array('t' => time(), 'c' => $old_content));
+            update_post_meta($id, '_sb_versions', array_slice($vers, 0, 3));
+        }
         $res = wp_update_post(wp_slash($postarr), true);
     } else {
         $postarr['post_author'] = get_current_user_id();
@@ -1128,7 +1167,7 @@ add_action('wp_ajax_sb_preset_save', function () {
         wp_send_json_error(array('message' => 'প্রিসেটের একটা নাম দিন।'));
     }
     $raw = json_decode((string) sb_req('data'), true);
-    $keys = array('ptype', 'style', 'words', 'mode', 'model', 'clen', 'research', 'inc_summary', 'inc_faq', 'faqn');
+    $keys = array('ptype', 'aud', 'tone', 'style', 'words', 'mode', 'model', 'clen', 'research', 'inc_summary', 'inc_faq', 'faqn');
     $data = array();
     foreach ($keys as $k) {
         $data[$k] = is_array($raw) && isset($raw[$k]) && is_scalar($raw[$k]) ? sanitize_text_field((string) $raw[$k]) : '';

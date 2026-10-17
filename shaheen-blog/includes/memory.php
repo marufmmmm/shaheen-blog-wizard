@@ -89,7 +89,7 @@ function sb_words_apply_result($feature, $r) {
         return $r;
     }
     if (isset($r['text']) && is_string($r['text'])) {
-        $r['text'] = in_array($feature, array('subtitle', 'meta', 'summary'), true) ? sb_words_apply_text($r['text']) : sb_words_apply_html($r['text']);
+        $r['text'] = in_array($feature, array('subtitle', 'meta', 'summary', 'caption'), true) ? sb_words_apply_text($r['text']) : sb_words_apply_html($r['text']);
     }
     foreach (array('meta', 'excerpt', 'summary', 'subtitle', 'headline') as $k) {
         if (isset($r[$k]) && is_string($r[$k])) {

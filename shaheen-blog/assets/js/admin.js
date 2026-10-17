@@ -48,6 +48,25 @@
       });
   }
 
+  /* Long AI job: start it, kick the worker, poll until done (the server may answer 504 while the job keeps running) */
+  function runJob(pl, btn) {
+    return post('sb_ai', pl).then(function (d) {
+      var id = d.job, t0 = Date.now(), fails = 0;
+      return post('sb_job_run', { job: id }).then(function () { return new Promise(function (resolve, reject) {
+        (function poll() {
+          setTimeout(function () {
+            if (btn) { btn.textContent = '⏳ AI কাজ করছে… ' + bn(Math.floor((Date.now() - t0) / 1000)) + ' সেকেন্ড (পেজ খোলা রাখুন)'; }
+            post('sb_job_status', { job: id }).then(function (s) {
+              if (s.state === 'done') { updateBalance(s.data.balance); resolve(s.data); }
+              else if (s.state === 'error') { reject(new Error(s.message)); }
+              else { poll(); }
+            }).catch(function (e) { if (++fails > 8) { reject(e); } else { poll(); } });
+          }, 4000);
+        })();
+      }); });
+    });
+  }
+
   function updateBalance(b) {
     SB.balance = b;
     $$('[data-sb="remaining"]').forEach(function (e) { e.textContent = fmt(b.remaining); });
@@ -307,10 +326,11 @@
 
     $('#rw-go').addEventListener('click', function () {
       var btn = this, src = val('#rw-source').trim(), cost = Number(btn.dataset.cost);
-      if (src.length < 200) { toastR('কমপক্ষে ২০০ অক্ষরের মূল লেখা পেস্ট করুন।', 'err'); return; }
+      var refs = val('#rw-refs').trim();
+      if (src.length < 200 && !refs) { toastR('কমপক্ষে ২০০ অক্ষরের মূল লেখা পেস্ট করুন, অথবা নিচে সাইটের লিংক দিন।', 'err'); return; }
       if (SB.balance.remaining < cost) { toastR('ক্রেডিট যথেষ্ট নয়। প্রয়োজন ' + fmt(cost) + ', আছে ' + fmt(SB.balance.remaining) + '।', 'err'); return; }
       var old = btn.innerHTML; btn.disabled = true; btn.textContent = '⏳ লেখা হচ্ছে… (১ মিনিট পর্যন্ত লাগতে পারে)'; say(rwMsg, '');
-      post('sb_ai', { feature: 'rewrite_post', post_id: 0, title: val('#rw-title'), source: src, keywords: rwKw() }).then(function (d) {
+      runJob({ feature: 'rewrite_post', post_id: 0, title: val('#rw-title'), source: src, keywords: rwKw(), urls: refs, model: val('#rw-model') }, btn).then(function (d) {
         var r = d.result;
         $('#rw-new-title').value = r.headline || ''; $('#rw-new-excerpt').value = r.excerpt || '';
         var html = r.text, nm = val('#rw-src-name').trim(), url = val('#rw-src-url').trim();
@@ -323,6 +343,10 @@
         if (r.facts_missing && r.facts_missing.length) {
           var s = document.createElement('strong'); s.textContent = '⚠️ মূল লেখার এই সংখ্যা/তারিখগুলো নতুন লেখায় পাওয়া যায়নি, মিলিয়ে নিন: ' + r.facts_missing.join(', '); fb.appendChild(s); fb.hidden = false;
         } else { fb.hidden = true; }
+        if (r.conflicts && r.conflicts.length) {
+          var ch = document.createElement('div'); ch.style.marginTop = '6px'; ch.innerHTML = '<strong>⚖️ সাইটগুলোর মধ্যে যে তথ্য মেলেনি (প্রকাশের আগে নিজে যাচাই করুন):</strong>';
+          var cl = document.createElement('ul'); r.conflicts.forEach(function (x) { var li = document.createElement('li'); li.textContent = x; cl.appendChild(li); }); ch.appendChild(cl); fb.appendChild(ch); fb.hidden = false;
+        }
         toastR('✓ হয়েছে। ' + fmt(d.cost) + ' ক্রেডিট কেটেছে। প্রকাশের আগে তথ্য মিলিয়ে নিন।', 'ok');
         $('#rw-result').scrollIntoView({ behavior: 'smooth' });
       }).catch(function (e) { toastR(e.message, 'err'); })
@@ -590,7 +614,7 @@
   function modeVal() { var r = $('input[name="f-mode"]:checked'); return r ? r.value : 'both'; }
   function aiPayload(feature) {
     var extra = {};
-    if (feature === 'custom' || feature === 'brief') { extra = { style: val('#f-style') || 'para', words: val('#f-words'), mode: modeVal(), paste: val('#f-paste'), ptype: val('#f-ptype') || 'general', brief: (feature === 'custom') ? (SB.briefText || '') : '', comp: val('#f-comp'), ansi: looksAnsi(val('#f-custom')) ? '1' : '0', tier: val('#f-clen') || '1', model: val('#f-cmodel'), urls: val('#f-curls'), files: [].slice.call(($('#f-cfiles') || {}).files || []) }; }
+    if (feature === 'custom' || feature === 'brief') { extra = { style: val('#f-style') || 'para', words: val('#f-words'), mode: modeVal(), paste: val('#f-paste'), ptype: val('#f-ptype') || 'general', aud: val('#f-aud') || 'all', tone: val('#f-tone') || 'warm', brief: (feature === 'custom') ? (SB.briefText || '') : '', comp: val('#f-comp'), ansi: looksAnsi(val('#f-custom')) ? '1' : '0', tier: val('#f-clen') || '1', model: val('#f-cmodel'), urls: val('#f-curls'), files: [].slice.call(($('#f-cfiles') || {}).files || []) }; }
     var base = {
       feature: feature, post_id: postId, title: val('#f-title'), topic: val('#f-topic'), excerpt: val('#f-excerpt'),
       content: editorContent(), keywords: keywords(), length: val('#f-length'),
@@ -837,12 +861,12 @@
       sel.value = presets[cur] ? cur : ''; del.hidden = !sel.value;
     }
     function collect() {
-      return { ptype: val('#f-ptype'), style: val('#f-style'), words: val('#f-words'), mode: modeVal(), model: val('#f-cmodel'), clen: val('#f-clen'),
+      return { ptype: val('#f-ptype'), aud: val('#f-aud'), tone: val('#f-tone'), style: val('#f-style'), words: val('#f-words'), mode: modeVal(), model: val('#f-cmodel'), clen: val('#f-clen'),
         research: ($('#f-research') && $('#f-research').checked) ? '1' : '0', inc_summary: $('#inc-summary').checked ? '1' : '0', inc_faq: $('#inc-faq').checked ? '1' : '0', faqn: val('#f-faqn') };
     }
     function setSel(id, v) { var e = $(id); if (e && v !== undefined && v !== '') { e.value = v; e.dispatchEvent(new Event('change')); } }
     function apply(d) {
-      setSel('#f-ptype', d.ptype); setSel('#f-style', d.style); setSel('#f-words', d.words); setSel('#f-cmodel', d.model); setSel('#f-clen', d.clen); setSel('#f-faqn', d.faqn);
+      setSel('#f-ptype', d.ptype); setSel('#f-aud', d.aud); setSel('#f-tone', d.tone); setSel('#f-style', d.style); setSel('#f-words', d.words); setSel('#f-cmodel', d.model); setSel('#f-clen', d.clen); setSel('#f-faqn', d.faqn);
       var r = $('input[name="f-mode"][value="' + d.mode + '"]'); if (r) { r.checked = true; applyMode(); }
       if ($('#f-research') && d.research !== '') { $('#f-research').checked = d.research === '1'; }
       if (d.inc_summary !== '') { $('#inc-summary').checked = d.inc_summary === '1'; }
@@ -860,6 +884,43 @@
     });
     fill();
   })();
+  /* ---- earlier versions of the article + hard-word check ---- */
+  (function () {
+    var vs = $('#ver-sel'), vw = $('#ver-wrap'); var vers = P.versions || [];
+    if (vs && vers.length) {
+      vw.hidden = false;
+      vers.forEach(function (v, i) { var o = document.createElement('option'); o.value = i; o.textContent = v.label + ' (' + bn(v.len) + ' অক্ষর)'; vs.appendChild(o); });
+      vs.addEventListener('change', function () {
+        if (vs.value === '') { return; }
+        var v = vers[Number(vs.value)]; if (!v) { return; }
+        if (window.confirm('এডিটরের এখনকার লেখা এই আগের ভার্সন দিয়ে বদলে যাবে (সেভ না করা পর্যন্ত স্থায়ী নয়)। এগোবেন?')) { setEditorContent(v.c); toast('✓ আগের ভার্সন এডিটরে বসেছে। ঠিক থাকলে সেভ করুন।', 'ok'); }
+        vs.value = '';
+      });
+    }
+    var hb = $('#hard-check'), box = $('#hard-box'); if (!hb) { return; }
+    hb.addEventListener('click', function () {
+      var html = editorContent(); if (html.replace(/<[^>]+>/g, '').trim().length < 30) { toast('আগে আর্টিকেল লিখুন।', 'err'); return; }
+      var words = SB.words || [], found = [], text = html.replace(/<[^>]+>/g, ' ');
+      words.forEach(function (r) { var n = text.split(r.from).length - 1; if (n > 0) { found.push({ w: r.from, to: r.to, n: n }); } });
+      box.innerHTML = ''; box.hidden = false;
+      if (!found.length) { box.innerHTML = '<strong>✅ আপনার "বাদ দেওয়া কঠিন শব্দ" তালিকার কোনো শব্দ লেখায় নেই।</strong> <span class="sba-muted">(তালিকা বাড়াতে Memory পেজে শব্দ যোগ করুন, বা সেভের পর শব্দ বদলালে সিস্টেম নিজে শিখে নেয়)</span>'; return; }
+      box.innerHTML = '<strong>🔍 এই কঠিন শব্দগুলো লেখায় আছে:</strong>';
+      var ul = document.createElement('ul');
+      found.forEach(function (f) {
+        var li = document.createElement('li'); li.textContent = '“' + f.w + '” (' + bn(f.n) + ' বার) → “' + f.to + '” ';
+        var b = document.createElement('button'); b.type = 'button'; b.className = 'button button-small'; b.textContent = 'বদলান';
+        b.addEventListener('click', function () { setEditorContent(editorContent().split(f.w).join(f.to)); li.remove(); toast('✓ বদলানো হয়েছে।', 'ok'); });
+        li.appendChild(b); ul.appendChild(li);
+      });
+      box.appendChild(ul);
+    });
+  })();
+  if ($('#caption-copy')) {
+    $('#caption-copy').addEventListener('click', function () {
+      var t = $('#f-caption'); t.select();
+      try { (navigator.clipboard ? navigator.clipboard.writeText(t.value) : Promise.reject()).then(function () { toast('✓ কপি হয়েছে।', 'ok'); }).catch(function () { document.execCommand('copy'); toast('✓ কপি হয়েছে।', 'ok'); }); } catch (e) { document.execCommand('copy'); }
+    });
+  }
   var onlyBtn = $('#inc-only');
   if (onlyBtn) {
     onlyBtn.addEventListener('click', function () {
@@ -891,7 +952,7 @@
         toast('আগে পেজ ১-এ কমা দিয়ে কমপক্ষে ২টি কীওয়ার্ড লিখুন।', 'err'); say(msg, 'কীওয়ার্ড দিন (ধাপ ২)।', 'err'); return;
       }
       if (f !== 'headlines' && f !== 'rewrite' && f !== 'custom' && !val('#f-title').trim()) { toast('আগে পেজ ১-এ শিরোনাম লিখুন।', 'err'); return; }
-      if ((f === 'summary' || f === 'faq') && editorContent().replace(/<[^>]+>/g, '').trim().length < 80) {
+      if ((f === 'summary' || f === 'faq' || f === 'caption') && editorContent().replace(/<[^>]+>/g, '').trim().length < 80) {
         toast('সামারি/FAQ মূল পোস্ট থেকে তৈরি হয়। আগে আর্টিকেল লিখুন বা তৈরি করুন।', 'err'); return;
       }
       var chain = [];
@@ -996,6 +1057,7 @@
     else if (f === 'faq') {
       faqList.innerHTML = ''; r.faq.forEach(function (x) { addFaq(x.q, x.a); }); $('#inc-faq').checked = true;
     }
+    else if (f === 'caption') { $('#f-caption').value = r.text; }
     else if (f === 'summary') { $('#inc-summary').checked = true; $('#f-summary').value = r.text; if (!val('#f-excerpt')) { $('#f-excerpt').value = r.text; } }
   }
 

@@ -176,7 +176,7 @@ function sb_handle_save_settings() {
     }
     $new['model_prices'] = $mp;
     $new['extra_models'] = sanitize_textarea_field($in('extra_models', ''));
-    foreach (array('headlines', 'subtitle', 'meta', 'article', 'summary', 'rewrite', 'custom', 'custom2', 'custom3', 'learn', 'edit', 'edit_many', 'phones', 'faq', 'related', 'chat', 'brief') as $f) {
+    foreach (array('headlines', 'subtitle', 'meta', 'article', 'summary', 'rewrite', 'custom', 'custom2', 'custom3', 'learn', 'edit', 'edit_many', 'phones', 'faq', 'related', 'chat', 'brief', 'caption') as $f) {
         $new['cost_' . $f] = max(0, (int) $in('cost_' . $f, 0));
     }
     // API key: keep the saved one unless a new one is typed or removal is ticked.

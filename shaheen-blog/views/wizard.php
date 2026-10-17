@@ -39,6 +39,7 @@ $d = array(
     'status'      => $post ? $post->post_status : 'draft',
     'url'         => $post ? get_permalink($pid) : '',
     'presets'     => (object) sb_presets_get(),
+    'versions'    => $post ? array_values(array_map(function ($v) { return array('label' => wp_date('d M, h:i A', (int) $v['t']), 'len' => mb_strlen(wp_strip_all_tags($v['c'])), 'c' => $v['c']); }, (array) (get_post_meta($pid, '_sb_versions', true) ?: array()))) : array(),
 );
 $cats = get_terms(array('taxonomy' => 'sb_category', 'hide_empty' => false, 'orderby' => 'term_id'));
 $costs = array();
@@ -104,6 +105,10 @@ $costs['research'] = max(0, (int) sb_get('cost_research'));
                     <?php endforeach; ?>
                     </select></label>
 
+                <div style="margin-top:10px;display:flex;gap:10px;flex-wrap:wrap">
+                    <label>👥 পাঠক <select id="f-aud"><?php foreach (sb_audiences() as $ak => $av) : ?><option value="<?php echo esc_attr($ak); ?>"><?php echo esc_html($av[0]); ?></option><?php endforeach; ?></select></label>
+                    <label>🎙️ সুর <select id="f-tone"><?php foreach (sb_tones() as $tk => $tv) : ?><option value="<?php echo esc_attr($tk); ?>"><?php echo esc_html($tv[0]); ?></option><?php endforeach; ?></select></label>
+                </div>
                 <label class="sba-comp" style="display:block;margin-top:10px"><strong>৪. Websites to beat</strong> <small class="sba-muted">(প্রতি লাইনে একটি লিংক, সর্বোচ্চ ৫টি)</small>
                     <textarea id="f-comp" rows="3" style="width:100%" placeholder="https://site-1.com/their-article&#10;https://site-2.com/their-article"></textarea>
                     <small class="sba-muted">AI এই পেজগুলো পড়ে দেখবে ওরা কী বলেছে ও কী বলেনি, তারপর আপনার কীওয়ার্ড ও বিবরণ মিশিয়ে নিজের ভাষায় নতুন লেখা লিখবে (হুবহু কপি নয়)।</small></label>
@@ -186,6 +191,11 @@ $costs['research'] = max(0, (int) sb_get('cost_research'));
                 <div id="article-missing" class="sba-missing" hidden></div>
                 <div id="article-facts" class="sba-facts" hidden></div>
             
+                <div class="sba-tools" style="margin-top:10px;display:flex;gap:8px;flex-wrap:wrap;align-items:center">
+                    <button type="button" class="button" id="hard-check">🔍 কঠিন শব্দ চেক (বিনামূল্যে)</button>
+                    <label id="ver-wrap" hidden>🕘 আগের ভার্সন <select id="ver-sel"><option value="">— ফিরে যান —</option></select></label>
+                </div>
+                <div id="hard-box" class="sba-factpanel" hidden></div>
                 <div id="fact-panel" class="sba-factpanel" hidden></div>
                 <div id="cover-panel" class="sba-coverpanel" hidden></div>
             </div>
@@ -300,6 +310,13 @@ $costs['research'] = max(0, (int) sb_get('cost_research'));
                     </div>
                 </div>
             </div>
+            <div class="sba-ai">
+                <div class="sba-ai-head"><h3>📣 Facebook ক্যাপশন <small class="sba-muted">(আর্টিকেল থেকে; পেজে পোস্টের সময় কপি করুন)</small></h3>
+                    <button type="button" class="button" data-ai="caption">🤖 তৈরি করুন <em>(<?php echo esc_html(sb_bn_digits($costs['caption'])); ?>)</em></button></div>
+                <textarea id="f-caption" rows="5" placeholder="ক্যাপশন এখানে আসবে (সেভ হয় না, কপি করে নিন)"></textarea>
+                <button type="button" class="button button-small" id="caption-copy">📋 কপি</button>
+            </div>
+
             <h3 style="margin-top:18px">🗂️ ক্যাটাগরি ও অন্যান্য সেটিং</h3>
             <label>ক্যাটাগরি
                 <select id="f-category">
