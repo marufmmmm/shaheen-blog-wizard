@@ -498,7 +498,7 @@ class SB_AI {
             return array('faq' => $out);
         }
         if ($feature === 'chat') {
-            return array('text' => $text);
+            return array('text' => $text, 'finish' => isset($data['choices'][0]['finish_reason']) ? (string) $data['choices'][0]['finish_reason'] : '');
         }
         if ($feature === 'brief') {
             return self::parse_brief($text);

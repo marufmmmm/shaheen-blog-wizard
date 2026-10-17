@@ -1071,7 +1071,17 @@ function sb_chat_result($r, $ctx) {
     }
     $out = array('reply' => '', 'rule' => '', 'changes' => array(), 'article' => null, 'applied' => 0, 'failed' => array(), 'missing' => array());
     if (!is_array($j)) {
-        $out['reply'] = 'AI-এর উত্তর অসম্পূর্ণ এসেছে (সম্ভবত বেশি বড় লেখা বদলাতে গিয়ে কেটে গেছে)। বদলটা ছোট করে বা একটা অংশ ধরে লিখুন, যেমন "ফোন নম্বরের লাইনটা বদলাও"। (ক্রেডিট কাটা হয়নি)';
+        $cut = isset($r['finish']) && $r['finish'] === 'length';
+        // salvage the spoken part of a cut-off or plain-text answer
+        $say = '';
+        if (preg_match('/"reply"\s*:\s*"((?:[^"\\\\]|\\\\.)*)"/us', $raw, $rm)) {
+            $say = (string) json_decode('"' . $rm[1] . '"');
+        } elseif ($raw !== '' && $raw[0] !== '{') {
+            $say = $raw;
+        }
+        $out['reply'] = ($say !== '' ? mb_substr(sanitize_textarea_field($say), 0, 500) . "\n" : '')
+            . ($cut ? '⚠️ AI-র উত্তর সীমা ছাড়িয়ে কেটে গেছে (বেশি বড় লেখা বদলাতে চেয়েছিল), তাই কিছু বদলায়নি। বদলটা ছোট করে বা একটা অংশ ধরে লিখুন, যেমন "ফোন নম্বরের লাইনটা বদলাও"। (ক্রেডিট কাটা হয়নি)'
+                : '⚠️ AI-র উত্তর ঠিক ফরম্যাটে আসেনি, কিছু বদলায়নি; আবার চেষ্টা করুন। (ক্রেডিট কাটা হয়নি)' . ($raw !== '' ? ' [উত্তরের শুরু: ' . mb_substr(sanitize_text_field($raw), 0, 120) . ']' : ''));
         $r['chat'] = $out;
         return $r;
     }
