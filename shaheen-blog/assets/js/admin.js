@@ -808,45 +808,87 @@
     else if (f === 'summary') { $('#inc-summary').checked = true; $('#f-summary').value = r.text; if (!val('#f-excerpt')) { $('#f-excerpt').value = r.text; } }
   }
 
-  /* ---------- Chat assistant: change one point at a time ---------- */
+  /* ---------- Chat assistant: works on a draft inside the chat; the final version goes to the editor on request ---------- */
   (function () {
     var log = $('#chat-log'), txt = $('#chat-text'), send = $('#chat-send'), undo = $('#chat-undo');
     if (!log) { return; }
-    var hist = [], snaps = [], ruleBox = { t: '' };
-    function srcShow() { var w = $('#chat-src-wrap'); if (w) { w.hidden = !SB.hasSrc; } }
-    srcShow(); window.__sbSrcShow = srcShow;
-    $('#chat-rule-yes').addEventListener('click', function () {
-      post('sb_mem_rule', { text: ruleBox.t }).then(function () { toast('✓ Remembered for all future posts (see Memory).', 'ok'); }).catch(function (e) { toast(e.message, 'err'); });
-      $('#chat-rule').hidden = true;
-    });
-    $('#chat-rule-no').addEventListener('click', function () { $('#chat-rule').hidden = true; });
-    function flash() {
-      var ed = window.tinymce && tinymce.get('sb_content'); if (!ed || ed.isHidden()) { return; }
-      try { ed.getBody().style.transition = 'background .4s'; ed.getBody().style.background = '#fff8c5'; setTimeout(function () { ed.getBody().style.background = ''; }, 2500); } catch (e) {}
-    }
+    var hist = [], dsnaps = [], esnaps = [], ruleBox = { t: '' }, draft = null, synced = '', direct = $('#chat-direct');
+    var LBL = { subtitle: 'subtitle', meta: 'meta description', excerpt: 'excerpt', summary: 'summary', slug: 'slug', faq: 'FAQ' };
     function snap() {
       return { subtitle: val('#f-subtitle'), meta: val('#f-meta'), excerpt: val('#f-excerpt'), summary: val('#f-summary'),
         slug: val('#f-slug'), faq: faqData(), content: editorContent(), incS: $('#inc-summary').checked, incF: $('#inc-faq').checked };
     }
+    function same(a, b) { return JSON.stringify(a) === JSON.stringify(b); }
     function restore(o) {
       $('#f-subtitle').value = o.subtitle; $('#f-meta').value = o.meta; metaCount();
       $('#f-excerpt').value = o.excerpt; $('#f-summary').value = o.summary; $('#f-slug').value = o.slug;
       faqList.innerHTML = ''; o.faq.forEach(function (x) { addFaq(x.q, x.a); });
       $('#inc-summary').checked = o.incS; $('#inc-faq').checked = o.incF; setEditorContent(o.content);
     }
+    function srcShow() { var w = $('#chat-src-wrap'); if (w) { w.hidden = !SB.hasSrc; } }
+    srcShow(); window.__sbSrcShow = srcShow;
     function add(cls, t, note) {
       var d = document.createElement('div'); d.className = 'sba-msg ' + cls; d.textContent = t;
       if (note) { var sm = document.createElement('small'); sm.textContent = note; d.appendChild(sm); }
       log.appendChild(d); log.scrollTop = log.scrollHeight; return d;
     }
-    var LBL = { subtitle: 'subtitle', meta: 'meta description', excerpt: 'excerpt', summary: 'summary', slug: 'slug', faq: 'FAQ' };
+    function ensureDraft() {
+      var cur = snap();
+      if (!draft) { draft = cur; synced = JSON.stringify(cur); }
+      else if (!draftDirty() && JSON.stringify(cur) !== synced) { draft = cur; synced = JSON.stringify(cur); }   // editor was changed by hand and nothing is pending: start again from the editor
+    }
+    function draftDirty() { return !!draft && JSON.stringify(draft) !== synced; }
+    function render() {
+      var box = $('#chat-draft'), body = $('#chat-draft-body'), st = $('#chat-draft-state'), btn = $('#chat-apply');
+      if (!box) { return; }
+      box.hidden = !draft;
+      if (!draft) { return; }
+      var dirty = draftDirty();
+      st.textContent = dirty ? 'Draft has changes that are NOT in the editor yet' : 'Same as the editor';
+      st.style.color = dirty ? '#b26a00' : '#1a7f4b';
+      btn.disabled = !dirty;
+      var h = draft.content || '<em>(empty)</em>';
+      var extra = '';
+      if (draft.subtitle) { extra += '<p><b>Subtitle:</b> ' + esc(draft.subtitle) + '</p>'; }
+      if (draft.meta) { extra += '<p><b>Meta:</b> ' + esc(draft.meta) + '</p>'; }
+      if (draft.excerpt) { extra += '<p><b>Excerpt:</b> ' + esc(draft.excerpt) + '</p>'; }
+      if (draft.slug) { extra += '<p><b>Slug:</b> ' + esc(draft.slug) + '</p>'; }
+      if (draft.summary) { extra += '<p><b>Summary:</b> ' + esc(draft.summary) + '</p>'; }
+      if (draft.faq && draft.faq.length) { extra += '<p><b>FAQ:</b></p><ul>' + draft.faq.map(function (f) { return '<li><b>' + esc(f.q) + '</b> ' + esc(f.a) + '</li>'; }).join('') + '</ul>'; }
+      body.innerHTML = '<div class="sba-draft-art">' + h + '</div>' + (extra ? '<div class="sba-draft-extra">' + extra + '</div>' : '');
+    }
+    function esc(t) { return String(t == null ? '' : t).replace(/[&<>"]/g, function (c) { return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]; }); }
+    function flash() {
+      var ed = window.tinymce && tinymce.get('sb_content'); if (!ed || ed.isHidden()) { return; }
+      try { ed.getBody().style.transition = 'background .4s'; ed.getBody().style.background = '#fff8c5'; setTimeout(function () { ed.getBody().style.background = ''; }, 2500); } catch (e) {}
+    }
+    function toEditor() {
+      if (!draft) { return; }
+      esnaps.push(snap()); if (esnaps.length > 5) { esnaps.shift(); }
+      restore(draft); synced = JSON.stringify(snap()); draft = snap(); flash(); render();
+      $('#chat-undo-editor').hidden = false;
+      add('ai', '✅ Final version sent to the editor.');
+    }
+    $('#chat-apply').addEventListener('click', toEditor);
+    $('#chat-reset').addEventListener('click', function () { draft = snap(); synced = JSON.stringify(draft); dsnaps = []; undo.hidden = true; render(); add('ai', '↺ Draft reset from the editor.'); });
+    $('#chat-undo-editor').addEventListener('click', function () {
+      var o = esnaps.pop(); if (!o) { return; }
+      restore(o); draft = snap(); synced = JSON.stringify(draft); render(); if (!esnaps.length) { $('#chat-undo-editor').hidden = true; }
+      add('ai', '↩ Editor restored to the version before the last send.');
+    });
+    $('#chat-rule-yes').addEventListener('click', function () {
+      post('sb_mem_rule', { text: ruleBox.t }).then(function () { toast('✓ Remembered for all future posts (see Memory).', 'ok'); }).catch(function (e) { toast(e.message, 'err'); });
+      $('#chat-rule').hidden = true;
+    });
+    $('#chat-rule-no').addEventListener('click', function () { $('#chat-rule').hidden = true; });
     function go() {
       var t = txt.value.trim();
       if (!t) { return; }
       var cost = SB.costs.chat;
       if (SB.balance.remaining < cost) { toast('Not enough credits. Need ' + fmt(cost) + ', have ' + fmt(SB.balance.remaining) + '.', 'err'); return; }
+      ensureDraft();
       add('me', t); txt.value = ''; send.disabled = true;
-      var wait = add('ai', '⏳ Thinking…'), before = snap();
+      var wait = add('ai', '⏳ Thinking… (a full rewrite can take a minute)'), before = JSON.parse(JSON.stringify(draft));
       post('sb_ai', { feature: 'chat', post_id: postId, instruction: t, content: before.content, keywords: keywords(),
         use_src: ($('#chat-src') && $('#chat-src').checked && SB.hasSrc) ? '1' : '0',
         state: JSON.stringify({ subtitle: before.subtitle, meta: before.meta, excerpt: before.excerpt, summary: before.summary, slug: before.slug, faq: before.faq }),
@@ -855,36 +897,36 @@
         wait.remove();
         hist.push({ role: 'me', text: t });
         if (c.applied) {
-          snaps.push(before); if (snaps.length > 10) { snaps.shift(); }
+          dsnaps.push(before); if (dsnaps.length > 10) { dsnaps.shift(); }
           Object.keys(c.changes).forEach(function (k) {
             var v = c.changes[k];
-            if (k === 'faq') { faqList.innerHTML = ''; v.forEach(function (x) { addFaq(x.q, x.a); }); $('#inc-faq').checked = true; }
-            else if (k === 'summary') { $('#f-summary').value = v; $('#inc-summary').checked = true; }
-            else if (k === 'meta') { $('#f-meta').value = v; metaCount(); }
-            else { $('#f-' + k).value = v; }
+            if (k === 'faq') { draft.faq = v; draft.incF = true; }
+            else if (k === 'summary') { draft.summary = v; draft.incS = true; }
+            else { draft[k] = v; }
             done.push(LBL[k]);
           });
-          if (c.article !== null) { setEditorContent(c.article); done.push('article'); flash(); }
+          if (c.article !== null) { draft.content = c.article; done.push('article'); }
           undo.hidden = false;
           (window.__sbIns = window.__sbIns || []).push(t);
-          if (c.article !== null) { aiDraft = aiDraft || before.content; }
         }
-        var note = c.applied ? '✓ Changed: ' + done.join(', ') + ' — ' + fmt(d.cost) + ' credits used' : 'Nothing changed · free';
-        if (c.failed && c.failed.length) { note += '\n⚠️ Could not find this exact text, so it was not changed: "' + c.failed.join('", "') + '" — paste that part in the chat.'; }
+        var note = c.applied ? '✓ Changed in the draft: ' + done.join(', ') + ' — ' + fmt(d.cost) + ' credits used' : 'Nothing changed · free';
+        if (c.failed && c.failed.length) { note += '\n⚠️ Not changed: "' + c.failed.join('", "') + '"'; }
         if (c.missing && c.missing.length) { note += '\n⚠️ Information needed from you: ' + c.missing.join(' '); }
         add('ai', c.reply || (c.applied ? 'Done.' : 'I did not understand, please rephrase.'), note);
-        if (c.rule) { ruleBox.t = c.rule; $('#chat-rule-text').textContent = 'Remember for all future posts: "' + c.rule + '"'; $('#chat-rule').hidden = false; }
         hist.push({ role: 'ai', text: c.reply || '' });
+        if (c.rule) { ruleBox.t = c.rule; $('#chat-rule-text').textContent = 'Remember for all future posts: "' + c.rule + '"'; $('#chat-rule').hidden = false; }
+        if (c.applied && direct && direct.checked) { toEditor(); } else { render(); }
       }).catch(function (e) { wait.remove(); add('ai err', e.message); })
         .then(function () { send.disabled = false; txt.focus(); });
     }
     send.addEventListener('click', go);
     txt.addEventListener('keydown', function (e) { if (e.key === 'Enter' && (e.ctrlKey || e.metaKey)) { e.preventDefault(); go(); } });
     undo.addEventListener('click', function () {
-      var o = snaps.pop(); if (!o) { return; }
-      restore(o); if (!snaps.length) { undo.hidden = true; }
-      add('ai', '↩ Last change undone.');
+      var o = dsnaps.pop(); if (!o) { return; }
+      draft = o; render(); if (!dsnaps.length) { undo.hidden = true; }
+      add('ai', '↩ Last draft change undone.');
     });
+    txt.addEventListener('focus', function () { if (!draft) { ensureDraft(); render(); } });
   })();
 
   /* review */

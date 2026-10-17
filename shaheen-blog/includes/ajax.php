@@ -218,12 +218,12 @@ function sb_custom_result($r) {
             }
         }
         $r['facts'] = $facts;
-        $r['subtitle'] = isset($j['subtitle']) ? mb_substr(sanitize_text_field($j['subtitle']), 0, 200) : '';
+        $r['subtitle'] = isset($j['subtitle']) && mb_strpos($j['subtitle'], 'সর্বোচ্চ ১৪০') === false ? mb_substr(sanitize_text_field($j['subtitle']), 0, 200) : '';
         $r['slug'] = isset($j['slug']) ? trim(preg_replace('/[^a-z0-9]+/', '-', strtolower((string) $j['slug'])), '-') : '';
         $gaps = array();
         foreach (isset($j['gaps']) && is_array($j['gaps']) ? array_slice($j['gaps'], 0, 6) : array() as $g) {
             $g = is_string($g) ? sanitize_text_field($g) : '';
-            if (mb_strlen($g) > 8) {
+            if (mb_strlen($g) > 8 && mb_strpos($g, 'প্রতিযোগী সাইটগুলোর') === false) {
                 $gaps[] = $g;
             }
         }
@@ -868,7 +868,15 @@ function sb_chat_result($r, $ctx) {
     }
     $new = $cur;
     if (!empty($j['article']) && is_string($j['article'])) {
-        $new = wp_kses_post(sb_md_to_html(preg_replace('/^```[a-z]*\s*|\s*```$/i', '', trim($j['article']))));
+        $cand = wp_kses_post(sb_md_to_html(preg_replace('/^```[a-z]*\s*|\s*```$/i', '', trim($j['article']))));
+        $cl = mb_strlen(wp_strip_all_tags($cand));
+        $ol = mb_strlen(wp_strip_all_tags($cur));
+        // a truncated or placeholder answer must never replace the owner's article
+        if ($cl < 150 || ($ol > 600 && $cl < $ol * 0.4)) {
+            $out['failed'][] = 'AI returned an incomplete article; the article was left unchanged';
+        } else {
+            $new = $cand;
+        }
     } elseif (!empty($j['edits']) && is_array($j['edits'])) {
         foreach (array_slice($j['edits'], 0, 12) as $e) {
             $f = isset($e['find']) && is_string($e['find']) ? $e['find'] : '';

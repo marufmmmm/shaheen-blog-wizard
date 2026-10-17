@@ -115,3 +115,10 @@
   .sba-step[data-step="4"] > .sba-chat{grid-column:2;grid-row:1 / span 40;position:sticky;top:80px;max-height:calc(100vh - 110px);overflow:auto;display:flex;flex-direction:column}
   .sba-step[data-step="4"] .sba-chat .sba-chat-log{flex:1;max-height:none;min-height:160px}
 }
+
+.sba-chat-draft{border:1px solid #c3c4c7;border-radius:6px;margin:8px 0;background:#fff}
+.sba-chat-draft-head{padding:6px 10px;border-bottom:1px solid #dcdcde;display:flex;gap:8px;flex-wrap:wrap;justify-content:space-between}
+.sba-chat-draft-body{max-height:320px;overflow:auto;padding:8px 12px;font-size:13.5px;line-height:1.7}
+.sba-chat-draft-body p{margin:0 0 8px}
+.sba-draft-extra{border-top:1px dashed #dcdcde;margin-top:8px;padding-top:6px;color:#50575e}
+.sba-chat-draft-act{padding:6px 10px;border-top:1px solid #dcdcde;display:flex;gap:6px;flex-wrap:wrap}
