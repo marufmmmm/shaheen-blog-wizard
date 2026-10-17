@@ -122,3 +122,14 @@
 .sba-chat-draft-body p{margin:0 0 8px}
 .sba-draft-extra{border-top:1px dashed #dcdcde;margin-top:8px;padding-top:6px;color:#50575e}
 .sba-chat-draft-act{padding:6px 10px;border-top:1px solid #dcdcde;display:flex;gap:6px;flex-wrap:wrap}
+
+/* "Understand first" brief card */
+.sba-brief{margin-top:14px;padding:14px 16px;border:1px solid #c7d2fe;border-left:4px solid #4f46e5;border-radius:8px;background:#f8f9ff}
+.sba-brief h3{margin:0 0 6px}.sba-brief h4{margin:16px 0 6px;font-size:14px}
+.sba-b-row{display:flex;gap:10px;align-items:flex-start;justify-content:space-between;padding:7px 0;border-bottom:1px dashed #dfe3f3;flex-wrap:wrap}
+.sba-b-ctl{display:flex;gap:10px;align-items:center;flex-wrap:wrap}
+.sba-b-adv{justify-content:flex-start;cursor:pointer}
+.sba-b-out{justify-content:flex-start;align-items:center}
+.sba-b-out .sba-b-h{flex:1;min-width:180px}.sba-b-out .sba-b-w{width:80px}
+.sba-b-fix,.sba-b-ans{min-width:220px}
+.sba-b-actions{display:flex;gap:8px;flex-wrap:wrap;margin-top:14px}

@@ -244,6 +244,17 @@ $costs['research'] = max(0, (int) sb_get('cost_research'));
                 <label class="sba-inline-check" style="display:block;margin-top:6px"><input type="checkbox" id="f-cimg" checked> 🖼️ PDF-এর পাতাগুলো ছবি করে AI-কে দাও <em>(সরকারি PDF প্রায়ই পুরনো বিজয় ফন্টে থাকে, লেখা হিজিবিজি হয়ে যায়, ছবি করে পড়ালে ঠিক পড়ে; বেশি পাতা হলে প্রথম ১২ পাতা)</em></label>
                 <label class="sba-inline-check" style="display:block;margin-top:4px"><input type="checkbox" id="f-ckeep" checked> 📥 PDF সাইটের মিডিয়ায় রেখে এই পোস্টে <strong>ডাউনলোড বাটন</strong> ও <strong>পেজে পড়ার ঘর</strong> যোগ করো <em>(ধাপ ৩-এর নিচে দেখা যাবে, সরাতেও পারবেন)</em></label>
                 <label class="sba-research" style="display:block;margin-top:8px"><input type="checkbox" id="f-research" checked> 🌐 সঠিক ও সর্বশেষ খবরের জন্য AI ইন্টারনেটেও যাচাই করুক <em>(+<?php echo esc_html(sb_bn_digits($costs['research'])); ?> ক্রেডিট, শুধু সফল হলে)</em></label>
+                <div class="sba-style" style="margin-top:10px;display:flex;gap:10px;align-items:center;flex-wrap:wrap">
+                    <label>📝 লেখার ধরন
+                        <select id="f-style">
+                            <option value="para">প্যারা ভিত্তিক (গল্পের মতো, পয়েন্ট কম)</option>
+                            <option value="points">পয়েন্ট ভিত্তিক</option>
+                            <option value="both">প্যারা + পয়েন্ট দুটোই</option>
+                            <option value="ai">AI-র পরামর্শ অনুযায়ী</option>
+                        </select></label>
+                    <label>🔢 শব্দসংখ্যা (প্রায়) <input type="number" id="f-words" min="300" max="5000" step="50" placeholder="যেমন ১২০০" style="width:110px"></label>
+                </div>
+                <p class="sba-muted" style="margin:6px 0 0">💡 <strong>আগে বুঝে নিন:</strong> AI পুরো লেখা না লিখে আপনার প্রম্পট, সাইট ও ইন্টারনেট ঘেঁটে বলবে সে কী বুঝেছে, কী জানতে চায় আর কী যোগ করলে লেখা তথ্যবহুল হবে। আপনি ঠিক করে দিলে তবেই লেখা শুরু হবে।</p>
                 <div style="margin-top:10px;display:flex;gap:10px;align-items:center;flex-wrap:wrap">
                     <?php $cur_m = trim((string) sb_get('model_article')) ?: sb_get('model'); ?>
                     <select id="f-cmodel" title="কোন AI মডেলে লিখবে">
@@ -257,8 +268,10 @@ $costs['research'] = max(0, (int) sb_get('cost_research'));
                         <option value="2">১০০০–১৫০০ শব্দ (<?php echo esc_html(sb_bn_digits($costs['custom2'])); ?> ক্রেডিট)</option>
                         <option value="3">১৫০০+ শব্দ (<?php echo esc_html(sb_bn_digits($costs['custom3'])); ?> ক্রেডিট)</option>
                     </select>
-                    <button type="button" class="button button-primary" data-ai="custom">🤖 প্রম্পট থেকে লিখুন</button>
+                    <button type="button" class="button button-primary" id="brief-go">🧭 আগে বুঝে নিন (<?php echo esc_html(sb_bn_digits($costs['brief'])); ?> ক্রেডিট)</button>
+                    <button type="button" class="button" data-ai="custom">🤖 সরাসরি লিখুন</button>
                 </div>
+                <div id="brief-box" class="sba-brief" hidden></div>
                 <div class="sba-ai-head" style="margin-top:14px"><h3>আর্টিকেল</h3></div>
                 <?php
                 wp_editor($post ? $post->post_content : '', 'sb_content', array(

@@ -117,7 +117,7 @@ function sb_ajax_ai() {
     }
     $uid = get_current_user_id();
     $state = SB_Credits::state($uid);
-    $research = (in_array($feature, array('article', 'custom'), true) && sb_req('research') === '1');
+    $research = (in_array($feature, array('article', 'custom', 'brief'), true) && sb_req('research') === '1');
     $need = $cost + ($research ? max(0, (int) sb_get('cost_research')) : 0);
     if ($state['remaining'] < $need) {
         wp_send_json_error(array(
@@ -141,6 +141,9 @@ function sb_ajax_ai() {
         'tier'     => $tier,
         'model'    => $cmodel,
         'ansi'     => sb_req('ansi') === '1',
+        'style'    => in_array(sb_req('style'), array('para', 'points', 'both', 'ai'), true) ? sb_req('style') : 'para',
+        'words'    => max(0, min(5000, (int) sb_req('words', 0))),
+        'brief'    => mb_substr(sanitize_textarea_field(sb_req('brief')), 0, 8000),
     );
     if ($feature === 'chat') {
         if (sb_req('use_src') === '1') {
@@ -148,6 +151,22 @@ function sb_ajax_ai() {
         }
         $ctx['state'] = sb_chat_state(sb_req('state'));
         $ctx['history'] = sb_chat_history(sb_req('history'));
+    }
+    if ($feature === 'brief') {
+        $bn = array();
+        $ctx['web'] = sb_fetch_pages((string) sb_req('urls'), $bn);
+        if (trim((string) sb_req('comp')) !== '') {
+            $cn = array();
+            $ctx['comp_web'] = sb_fetch_pages((string) sb_req('comp'), $cn, 5, 'প্রতিযোগী সাইট');
+            $bn = array_merge($bn, $cn);
+        }
+        $ctx['parts'] = sb_upload_parts($bn);
+        $notes = array_merge($bn, SB_Know::status(isset($ctx['keywords']) ? $ctx['keywords'] : array()));
+        $out = sb_ai_execute($uid, 'brief', $ctx, $cost, $research, $notes);
+        if (empty($out['ok'])) {
+            wp_send_json_error(array('message' => $out['message'], 'balance' => $state));
+        }
+        wp_send_json_success($out['data']);
     }
     if ($feature === 'custom') {
         sb_job_start($uid, $ctx, $cost, $research, $state);   // exits

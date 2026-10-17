@@ -122,7 +122,7 @@ class SB_AI {
                     . "গ) ভাষা হবে সরল, চলিত, প্রচলিত; কঠিন শব্দ নয়। ছোট বাক্য, ছোট অনুচ্ছেদ। অভিভাবক ও শিক্ষার্থী যেন লেখাটা পড়েই সব বুঝে কাজ করতে পারে।\n"
                     . "ঘ) শাহীনের অংশে শুধু দেওয়া তথ্য ও 'আমাদের তথ্য' থেকে লিখবে (কোচিংয়ের ধরন, ফলাফল, হেল্পলাইন)। অনুমানে কোনো সুবিধা, ক্লাসের ধরন বা ফিজিক্যাল/মেডিকেল প্রস্তুতির কথা লিখবে না।\n"
                     . "ঙ) লেখা শেষ করার আগে প্রতিটি সংখ্যা ও তারিখ উৎসের সাথে আবার মিলিয়ে নেবে; উৎসে যা আছে তার উল্টো বা বাড়তি কিছু (যেমন 'সর্বোচ্চ'-কে 'সর্বনিম্ন') লিখবে না। শব্দসংখ্যার লক্ষ্য মানবে, তবে তার জন্য কোনো তথ্য বাদ দেবে না।\n"
-                    . "কঠোর নিয়ম:\n- আর্টিকেল ঠিক " . (isset($range[$tier]) ? $range[$tier] : $range[1]) . " শব্দের হবে।\n"
+                    . "কঠোর নিয়ম:\n- আর্টিকেল " . (!empty($c['words']) ? 'প্রায় ' . (int) $c['words'] . ' শব্দের (বড়জোর ১০% কমবেশি)' : 'ঠিক ' . (isset($range[$tier]) ? $range[$tier] : $range[1]) . ' শব্দের') . " হবে।\n"
                     . "- সব নাম, তারিখ, সংখ্যা, অঙ্ক, শর্ত উৎসের সাথে ঠিক রাখবে; কিছু বানাবে না।\n"
                     . "- কোনো জরুরি তথ্য কোথাও না পেলে শুধুমাত্র ঠিক এই ছাঁচে লিখবে: [তথ্য দরকার: কী তথ্য লাগবে]। অন্য কোনো ধরনের প্লেসহোল্ডার (যেমন 'এখানে যুক্ত করুন') লিখবে না।\n"
                     . "- 'article' অংশে শুধু পাঠকের পড়ার মতো মূল লেখা থাকবে। এগুলো কখনোই article-এ দেবে না: SEO টাইটেল, কীওয়ার্ড তালিকা, মেটা বর্ণনা, URL স্লাগ, ছবির alt text, ফাইলের নাম, WordPress বা প্রকাশনার পরামর্শ, লেখকের নোট, 'চূড়ান্ত নোট/সতর্কতা', সারসংক্ষেপ ও FAQ (এগুলো ওয়েবসাইট আলাদাভাবে বানায়)।\n"
@@ -135,6 +135,8 @@ class SB_AI {
                     . ($title ? "শিরোনাম: {$title}\n" : '') . ($kw ? "কীওয়ার্ড (স্বাভাবিকভাবে ব্যবহার করবে): {$kw}\n" : '')
                     . (!empty($c['ansi']) ? "\nগুরুত্বপূর্ণ: নিচের প্রম্পটটি পুরোনো বিজয় (ANSI) ফন্টের এনকোডিংয়ে পেস্ট করা হয়েছে, তাই দেখতে অদ্ভুত চিহ্ন ও ইংরেজি অক্ষরের মতো লাগবে। আগে এটিকে সঠিক ইউনিকোড বাংলায় পড়ে বুঝে নেবে, তারপর সেই অনুযায়ী লিখবে।\n" : '')
                     . "\n--- পোস্ট মালিকের প্রম্পট ---\n" . mb_substr($ins, 0, 20000)
+                    . (!empty($c['brief']) ? "\n\n--- মালিকের নিশ্চিত করা বোঝাপড়া (এটাই চূড়ান্ত: ✔ পয়েন্ট ও উত্তরগুলো লেখায় আনবে, রূপরেখা ও শব্দ-বরাদ্দ মানবে; 'বাদ' দেওয়া বিষয় লিখবে না; এর বাইরে কোনো তথ্য বানাবে না) ---\n" . $c['brief'] : '')
+                    . self::style_line(isset($c['style']) ? $c['style'] : 'para')
                     . (!empty($c['web']) ? "\n\n--- ওয়েবসাইট থেকে নেওয়া লেখা ---" . $c['web'] : '');
                 if (!empty($c['comp_web'])) {
                     $user .= "\n\n--- যেসব সাইটকে ছাড়িয়ে যেতে চাই (প্রতিযোগীর লেখা, শুধু বিশ্লেষণের জন্য) ---" . $c['comp_web']
@@ -152,6 +154,45 @@ class SB_AI {
                     $content = array_merge(array(array('type' => 'text', 'text' => $user)), $c['parts']);
                 }
                 $max = 6000;
+                break;
+
+            case 'brief':
+                $ins = isset($c['instruction']) ? trim($c['instruction']) : '';
+                if (mb_strlen($ins) < 30) {
+                    return new WP_Error('sb_short', 'আগে প্রম্পট বক্সে বিষয়ের বিবরণ লিখুন (কমপক্ষে ৩০ অক্ষর)।');
+                }
+                $styles = array('para' => 'প্যারা ভিত্তিক (গল্পের মতো অনুচ্ছেদ)', 'points' => 'পয়েন্ট ভিত্তিক (তালিকা ও ছোট ব্যাখ্যা)', 'both' => 'প্যারা ও পয়েন্ট দুটোই (প্রতি অংশে প্যারা, তারপর মূল কথা পয়েন্টে)', 'ai' => 'AI-র পরামর্শ অনুযায়ী');
+                $stl = isset($c['style']) && isset($styles[$c['style']]) ? $styles[$c['style']] : $styles['para'];
+                $wc = isset($c['words']) ? (int) $c['words'] : 0;
+                $user = "তুমি একজন অভিজ্ঞ কনটেন্ট গবেষক ও সম্পাদক। মালিক একটি ব্লগ আর্টিকেল লিখতে চান। **এখনই আর্টিকেল লিখবে না।** আগে মালিকের প্রম্পট, দেওয়া সাইট/ফাইল ও (থাকলে) ইন্টারনেট ঘেঁটে বের করো তুমি কী বুঝলে, কী জানতে চাও, আর কী কী যোগ করলে লেখাটি তথ্যবহুল ও সত্যিই কাজের হবে। মালিক সব দেখে ঠিক করার পরই লেখা শুরু হবে।\n"
+                    . "নিয়ম:\n- সব মালিকের ভাষায়: সহজ, প্রচলিত বাংলা। ছোট, পরিষ্কার বাক্য।\n"
+                    . "- understood: প্রম্পট ও উৎস থেকে বোঝা ৪ থেকে ১০টি মূল পয়েন্ট (বিষয়, কাদের জন্য, মূল তথ্য, তারিখ/সংখ্যা, সুর)। মালিক যা বলেননি তা এখানে লিখবে না।\n"
+                    . "- questions: শুধু সেই জরুরি তথ্য যা লেখার জন্য দরকার অথচ প্রম্পট, উৎস বা 'আমাদের তথ্য'-তে নেই (যেমন ফি, তারিখ, ঠিকানা, সিট)। সর্বোচ্চ ৬টি, বেশি জিজ্ঞেস করবে না, যা আছে তা আবার জিজ্ঞেস করবে না।\n"
+                    . "- advice: ৩ থেকে ৮টি পরামর্শ: আর্টিকেলে কী কী বিষয়, প্রশ্নের উত্তর, উদাহরণ বা তথ্য যোগ করলে পাঠক বেশি উপকার পাবে ও লেখা অন্যদের থেকে আলাদা ও তথ্যবহুল হবে। প্রতিটির সাথে সংক্ষেপে কারণ ও (জানা থাকলে) উৎসের লিংক দেবে। উৎসে যা নেই তা বানাবে না; সংখ্যা বা তারিখ নিশ্চিত না হলে সেটা 'যাচাই দরকার' বলবে।\n"
+                    . "- outline: প্রস্তাবিত রূপরেখা, ৪ থেকে ৯টি অংশ, প্রতিটির শিরোনাম (heading), আনুমানিক শব্দ (words, সংখ্যা) ও এক লাইনে কী থাকবে (note)।\n"
+                    . "- শিরোনাম (title) মালিকের নিজের, তুমি বদলাবে না বা নতুন বানাবে না।\n"
+                    . "লেখার ধরন: {$stl}\n" . ($wc > 0 ? "মোট শব্দসংখ্যার লক্ষ্য: প্রায় {$wc} শব্দ (রূপরেখার শব্দ যোগ করলে এর কাছাকাছি হবে)\n" : '')
+                    . "আউটপুট শুধু একটি JSON অবজেক্ট, এই কাঠামোয়: {\"understood\":[{\"id\":\"\",\"text\":\"\"}],\"questions\":[{\"id\":\"\",\"q\":\"\",\"why\":\"\"}],\"advice\":[{\"id\":\"\",\"text\":\"\",\"why\":\"\",\"source\":\"\"}],\"outline\":[{\"id\":\"\",\"heading\":\"\",\"words\":0,\"note\":\"\"}]}। id হবে u1,u2… q1,q2… a1,a2… o1,o2…। কাঠামোর ফাঁকা মান নিজের লেখায় বদলাবে।\n\n"
+                    . ($title ? "শিরোনাম: {$title}\n" : '') . ($kw ? "কীওয়ার্ড: {$kw}\n" : '')
+                    . "\n--- মালিকের প্রম্পট ---\n" . mb_substr($ins, 0, 12000)
+                    . (!empty($c['web']) ? "\n\n--- ওয়েবসাইট থেকে নেওয়া লেখা ---" . $c['web'] : '');
+                if (!empty($c['comp_web'])) {
+                    $user .= "\n\n--- যেসব সাইটকে ছাড়িয়ে যেতে চাই (প্রতিযোগীর লেখা, শুধু বিশ্লেষণের জন্য) ---" . $c['comp_web']
+                        . "\n\nএদের লেখায় কোন বিষয়, প্রশ্ন, তথ্য আছে আর কোনটা নেই বা অস্পষ্ট, তা বিশ্লেষণ করে advice-এ 'ওরা বলেনি কিন্তু পাঠকের দরকার' ধরনের পয়েন্ট দেবে; তাদের বাক্য বা তথ্য কপি করবে না।";
+                }
+                $know = SB_Know::context($keywords);
+                if ($know !== '') {
+                    $user .= "\n\n--- আমাদের (শাহীন শিক্ষা পরিবারের) তথ্য ---\n" . $know;
+                }
+                if (!empty($c['research'])) {
+                    $user .= "\n\nইন্টারনেটে খুঁজে (সরকারি ও অফিসিয়াল সাইটকে অগ্রাধিকার দিয়ে) বিষয়টির সর্বশেষ সঠিক তথ্য বের করে advice ও questions-এ কাজে লাগাবে; উৎসের লিংক source-এ দেবে।";
+                }
+                if (!empty($c['parts'])) {
+                    $user .= "\n\n(সংযুক্ত PDF/ছবিগুলোও তথ্যের উৎস।)";
+                    $content = array_merge(array(array('type' => 'text', 'text' => $user)), $c['parts']);
+                }
+                $json = true;
+                $max = 4000;
                 break;
 
             case 'chat':
@@ -357,6 +398,18 @@ class SB_AI {
         if ($feature === 'custom' && !empty($c['bg'])) {
             return self::bg_start($model, $user, !empty($c['parts']) ? $c['parts'] : array(), $max, !empty($c['research']));
         }
+        if ($feature === 'brief' && !empty($c['research'])) {
+            $r = self::research_article($user, $max, !empty($c['parts']) ? $c['parts'] : array(), $model);
+            if (!is_wp_error($r)) {
+                $o = self::parse_brief($r['text']);
+                if (!is_wp_error($o)) {
+                    $o['sources'] = $r['sources'];
+                    $o['researched'] = true;
+                    return $o;
+                }
+            }
+            // web search not available: fall back to a normal brief
+        }
         if (in_array($feature, array('article', 'custom'), true) && !empty($c['research'])) {
             $r = self::research_article($user, $max, ($feature === 'custom' && !empty($c['parts'])) ? $c['parts'] : array(), $model);
             if (!is_wp_error($r)) {
@@ -435,6 +488,9 @@ class SB_AI {
         if ($feature === 'chat') {
             return array('text' => $text);
         }
+        if ($feature === 'brief') {
+            return self::parse_brief($text);
+        }
         if ($feature === 'learn') {
             $j = json_decode($text, true);
             $o = array('rules' => array(), 'facts' => array());
@@ -464,6 +520,59 @@ class SB_AI {
             return array('text' => wp_kses_post($text));
         }
         return array('text' => trim(wp_strip_all_tags($text), " \t\n\r\0\x0B\"'“”"));
+    }
+
+    /** Owner's chosen article style, placed after the universal rules so it wins over the paragraph-first default. */
+    protected static function style_line($st) {
+        $m = array(
+            'para'   => "\n\nলেখার ধরন (মালিক বেছেছেন): প্যারা ভিত্তিক। বেশিরভাগ অনুচ্ছেদ আকারে; পয়েন্ট শুধু সত্যিই মনে রাখার তথ্যে।",
+            'points' => "\n\nলেখার ধরন (মালিক বেছেছেন, এটি সাধারণ নিয়মের ওপরে): পয়েন্ট ভিত্তিক। প্রতি অংশে ছোট ভূমিকা-বাক্য, তারপর <ul><li> তালিকা (প্রতিটি পয়েন্টে এক-দুই বাক্যের স্পষ্ট ব্যাখ্যা)। পড়তে সহজ ও স্ক্যান করার মতো হবে।",
+            'both'   => "\n\nলেখার ধরন (মালিক বেছেছেন, এটি সাধারণ নিয়মের ওপরে): প্যারা ও পয়েন্ট দুটোই। প্রতিটি অংশে আগে ১-২টি প্যারা (বোঝানো, অনুভূতি, প্রেক্ষাপট), তারপর সেই অংশের মূল কথা/ধাপ/তথ্য ছোট পয়েন্টে।",
+            'ai'     => "\n\nলেখার ধরন: মালিক ঠিক করার ভার তোমাকে দিয়েছেন। বিষয় দেখে প্রতিটি অংশের জন্য প্যারা, পয়েন্ট বা দুটোর মিশ্রণ — যেটা পাঠকের জন্য সবচেয়ে সহজ ও সুন্দর, সেটা বেছে নেবে।",
+        );
+        return isset($m[$st]) ? $m[$st] : '';
+    }
+
+    /** JSON from the brief step -> clean arrays (ids kept so the owner's ticks map back). */
+    public static function parse_brief($text) {
+        $text = html_entity_decode((string) $text, ENT_QUOTES, 'UTF-8');
+        $a = strpos($text, '{');
+        $b = strrpos($text, '}');
+        $j = ($a !== false && $b !== false && $b > $a) ? json_decode(substr($text, $a, $b - $a + 1), true) : null;
+        if (!is_array($j)) {
+            return new WP_Error('sb_json', 'AI-এর উত্তর পড়া যায়নি। আবার চেষ্টা করুন।');
+        }
+        $out = array('understood' => array(), 'questions' => array(), 'advice' => array(), 'outline' => array());
+        foreach (array_slice(isset($j['understood']) && is_array($j['understood']) ? $j['understood'] : array(), 0, 12) as $i => $r) {
+            $t = sanitize_text_field(is_array($r) && isset($r['text']) ? $r['text'] : '');
+            if ($t !== '') {
+                $out['understood'][] = array('id' => 'u' . ($i + 1), 'text' => $t);
+            }
+        }
+        foreach (array_slice(isset($j['questions']) && is_array($j['questions']) ? $j['questions'] : array(), 0, 6) as $i => $r) {
+            $t = sanitize_text_field(is_array($r) && isset($r['q']) ? $r['q'] : '');
+            if ($t !== '') {
+                $out['questions'][] = array('id' => 'q' . ($i + 1), 'q' => $t, 'why' => sanitize_text_field(isset($r['why']) ? $r['why'] : ''));
+            }
+        }
+        foreach (array_slice(isset($j['advice']) && is_array($j['advice']) ? $j['advice'] : array(), 0, 10) as $i => $r) {
+            $t = sanitize_text_field(is_array($r) && isset($r['text']) ? $r['text'] : '');
+            if ($t !== '') {
+                $out['advice'][] = array('id' => 'a' . ($i + 1), 'text' => $t, 'why' => sanitize_text_field(isset($r['why']) ? $r['why'] : ''),
+                    'source' => esc_url_raw(isset($r['source']) ? $r['source'] : ''));
+            }
+        }
+        foreach (array_slice(isset($j['outline']) && is_array($j['outline']) ? $j['outline'] : array(), 0, 12) as $i => $r) {
+            $t = sanitize_text_field(is_array($r) && isset($r['heading']) ? $r['heading'] : '');
+            if ($t !== '') {
+                $out['outline'][] = array('id' => 'o' . ($i + 1), 'heading' => $t, 'words' => max(0, (int) (isset($r['words']) ? $r['words'] : 0)),
+                    'note' => sanitize_text_field(isset($r['note']) ? $r['note'] : ''));
+            }
+        }
+        if (!$out['understood'] && !$out['advice'] && !$out['outline']) {
+            return new WP_Error('sb_json', 'AI-এর উত্তর পড়া যায়নি। আবার চেষ্টা করুন।');
+        }
+        return $out;
     }
 
     /** Article using OpenAI web search (Responses API). */

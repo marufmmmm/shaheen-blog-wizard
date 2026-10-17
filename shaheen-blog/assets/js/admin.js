@@ -589,11 +589,11 @@
   })();
   function aiPayload(feature) {
     var extra = {};
-    if (feature === 'custom') { extra = { comp: val('#f-comp'), ansi: looksAnsi(val('#f-custom')) ? '1' : '0', tier: val('#f-clen') || '1', model: val('#f-cmodel'), urls: val('#f-curls'), files: [].slice.call(($('#f-cfiles') || {}).files || []) }; }
+    if (feature === 'custom' || feature === 'brief') { extra = { style: val('#f-style') || 'para', words: val('#f-words'), brief: (feature === 'custom') ? (SB.briefText || '') : '', comp: val('#f-comp'), ansi: looksAnsi(val('#f-custom')) ? '1' : '0', tier: val('#f-clen') || '1', model: val('#f-cmodel'), urls: val('#f-curls'), files: [].slice.call(($('#f-cfiles') || {}).files || []) }; }
     var base = {
       feature: feature, post_id: postId, title: val('#f-title'), topic: val('#f-topic'), excerpt: val('#f-excerpt'),
       content: editorContent(), keywords: keywords(), length: val('#f-length'),
-      source: val('#f-source'), instruction: (feature === 'custom') ? val('#f-custom') : '', faq_count: val('#f-faqn') || '5',
+      source: val('#f-source'), instruction: (feature === 'custom' || feature === 'brief') ? val('#f-custom') : '', faq_count: val('#f-faqn') || '5',
       research: ($('#f-research') && $('#f-research').checked) ? '1' : '0'
     };
     Object.keys(extra).forEach(function (k) { base[k] = extra[k]; });
@@ -686,6 +686,106 @@
       }); });
     });
   }
+
+  /* "Understand first": AI reads prompt + sources + web, owner confirms point by point, then the article is written from the confirmed brief */
+  (function () {
+    var go = $('#brief-go'), box = $('#brief-box'); if (!go || !box) { return; }
+    function esc(t) { return String(t == null ? '' : t).replace(/[&<>"]/g, function (c) { return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]; }); }
+    function render(r) {
+      var h = '<h3>🧭 AI যা বুঝল ও পরামর্শ দিচ্ছে <small>(ঠিক করে নিচে "এই তথ্য নিয়ে লিখুন" চাপুন)</small></h3>';
+      if (r.understood && r.understood.length) {
+        h += '<h4>১. আমি যা বুঝলাম</h4>';
+        r.understood.forEach(function (u) {
+          h += '<div class="sba-b-row" data-k="u" data-id="' + u.id + '"><div>' + esc(u.text) + '</div><div class="sba-b-ctl">' +
+            '<label><input type="radio" name="bu-' + u.id + '" value="ok" checked> ✔ ঠিক</label> ' +
+            '<label><input type="radio" name="bu-' + u.id + '" value="fix"> ✏ বদলাব</label> ' +
+            '<label><input type="radio" name="bu-' + u.id + '" value="no"> ✖ ভুল</label>' +
+            '<input type="text" class="sba-b-fix" placeholder="ঠিক কী হবে লিখুন" hidden></div></div>';
+        });
+      }
+      if (r.questions && r.questions.length) {
+        h += '<h4>২. আপনার কাছে কয়েকটি প্রশ্ন</h4>';
+        r.questions.forEach(function (q) {
+          h += '<div class="sba-b-row" data-k="q" data-id="' + q.id + '"><div><strong>' + esc(q.q) + '</strong>' + (q.why ? '<br><small class="sba-muted">' + esc(q.why) + '</small>' : '') + '</div>' +
+            '<div class="sba-b-ctl"><input type="text" class="sba-b-ans" placeholder="আপনার উত্তর"> <label><input type="checkbox" class="sba-b-skip"> লেখায় রাখব না</label></div></div>';
+        });
+      }
+      if (r.advice && r.advice.length) {
+        h += '<h4>৩. যা যোগ করলে লেখা তথ্যবহুল হবে <small>(টিক দেওয়াগুলো ঢুকবে)</small></h4>';
+        r.advice.forEach(function (a) {
+          h += '<label class="sba-b-row sba-b-adv" data-k="a" data-id="' + a.id + '"><input type="checkbox" checked> <span>' + esc(a.text) +
+            (a.why ? '<br><small class="sba-muted">' + esc(a.why) + '</small>' : '') +
+            (a.source ? ' <a href="' + esc(a.source) + '" target="_blank" rel="noopener">সোর্স ↗</a>' : '') + '</span></label>';
+        });
+      }
+      if (r.outline && r.outline.length) {
+        h += '<h4>৪. প্রস্তাবিত রূপরেখা <small>(শিরোনাম ও শব্দ বদলাতে পারেন, মুছতে চাইলে টিক তুলে দিন)</small></h4>';
+        r.outline.forEach(function (o) {
+          h += '<div class="sba-b-row sba-b-out" data-k="o" data-id="' + o.id + '"><input type="checkbox" checked> <input type="text" class="sba-b-h" value="' + esc(o.heading) + '"> ' +
+            '<input type="number" class="sba-b-w" min="0" step="50" value="' + (o.words || 0) + '"> শব্দ' + (o.note ? '<br><small class="sba-muted">' + esc(o.note) + '</small>' : '') + '</div>';
+        });
+      }
+      h += '<h4>৫. আপনি আর কী যোগ করতে চান?</h4><textarea id="brief-extra" rows="3" style="width:100%" placeholder="যেমন: এই এই বিষয়ও থাকবে / এই কথাটা বলবেন না"></textarea>';
+      if (r.sources && r.sources.length) {
+        h += '<p class="sba-muted">🌐 ইন্টারনেটে দেখা উৎস: ' + r.sources.map(function (s) { return '<a href="' + esc(s.url) + '" target="_blank" rel="noopener">' + esc(s.title || s.url) + '</a>'; }).join(' · ') + '</p>';
+      }
+      if (r.notes && r.notes.length) { h += '<details><summary class="sba-muted">সাইট/ফাইল পড়ার অবস্থা</summary><ul>' + r.notes.map(function (n) { return '<li>' + esc(n) + '</li>'; }).join('') + '</ul></details>'; }
+      h += '<p class="sba-b-actions"><button type="button" class="button button-primary" id="brief-write">✅ এই তথ্য নিয়ে লিখুন</button> <button type="button" class="button" id="brief-again">🔄 আবার বুঝে নিন</button> <button type="button" class="button" id="brief-close">বন্ধ করুন</button></p>';
+      box.innerHTML = h; box.hidden = false;
+      $$('.sba-b-row[data-k="u"] input[type=radio]', box).forEach(function (rd) {
+        rd.addEventListener('change', function () { var row = rd.closest('.sba-b-row'); row.querySelector('.sba-b-fix').hidden = (row.querySelector('input[type=radio]:checked').value !== 'fix'); });
+      });
+      $('#brief-write').addEventListener('click', function () { SB.briefText = compile(r); box.hidden = true; var b = $('[data-ai="custom"]'); if (b) { b.click(); } });
+      $('#brief-again').addEventListener('click', function () { SB.briefText = ''; run(); });
+      $('#brief-close').addEventListener('click', function () { box.hidden = true; });
+      box.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+    }
+    function compile(r) {
+      var L = [], ok = [], fix = [], no = [], ans = [], skip = [], adv = [], out = [];
+      $$('.sba-b-row[data-k="u"]', box).forEach(function (row) {
+        var u = r.understood.filter(function (x) { return x.id === row.dataset.id; })[0]; if (!u) { return; }
+        var v = row.querySelector('input[type=radio]:checked').value, f = row.querySelector('.sba-b-fix').value.trim();
+        if (v === 'ok') { ok.push(u.text); } else if (v === 'fix' && f) { fix.push('"' + u.text + '" নয়, বরং: ' + f); } else if (v === 'no') { no.push(u.text); }
+      });
+      $$('.sba-b-row[data-k="q"]', box).forEach(function (row) {
+        var q = r.questions.filter(function (x) { return x.id === row.dataset.id; })[0]; if (!q) { return; }
+        var a = row.querySelector('.sba-b-ans').value.trim();
+        if (row.querySelector('.sba-b-skip').checked || !a) { skip.push(q.q); } else { ans.push(q.q + ' → ' + a); }
+      });
+      $$('.sba-b-adv', box).forEach(function (row) {
+        var a = r.advice.filter(function (x) { return x.id === row.dataset.id; })[0]; if (a && row.querySelector('input').checked) { adv.push(a.text); }
+      });
+      $$('.sba-b-out', box).forEach(function (row) {
+        if (!row.querySelector('input[type=checkbox]').checked) { return; }
+        var w = parseInt(row.querySelector('.sba-b-w').value, 10) || 0;
+        out.push(row.querySelector('.sba-b-h').value.trim() + (w ? ' (প্রায় ' + w + ' শব্দ)' : ''));
+      });
+      var extra = ($('#brief-extra') || {}).value || '';
+      if (ok.length) { L.push('মালিক নিশ্চিত করেছেন (সঠিক):\n- ' + ok.join('\n- ')); }
+      if (fix.length) { L.push('মালিক সংশোধন করেছেন:\n- ' + fix.join('\n- ')); }
+      if (no.length) { L.push('এগুলো ভুল, লেখায় আনবে না:\n- ' + no.join('\n- ')); }
+      if (ans.length) { L.push('মালিকের উত্তর:\n- ' + ans.join('\n- ')); }
+      if (skip.length) { L.push('এই তথ্য নেই বা মালিক রাখতে বলেননি; এ নিয়ে কিছু লিখবে না, বানাবেও না:\n- ' + skip.join('\n- ')); }
+      if (adv.length) { L.push('লেখায় অবশ্যই যোগ করবে:\n- ' + adv.join('\n- ')); }
+      if (out.length) { L.push('রূপরেখা (এই ক্রমে ও এই শব্দ-বরাদ্দে):\n' + out.map(function (x, i) { return (i + 1) + '. ' + x; }).join('\n')); }
+      if (extra.trim()) { L.push('মালিক আরও চান:\n' + extra.trim()); }
+      return L.join('\n\n');
+    }
+    function run() {
+      if (val('#f-custom').trim().length < 30) { toast('আগে প্রম্পট বক্সে বিষয়ের বিবরণ লিখুন (কমপক্ষে ৩০ অক্ষর)।', 'err'); return; }
+      var cost = SB.costs.brief + ($('#f-research') && $('#f-research').checked ? SB.costs.research : 0);
+      if (SB.balance.remaining < cost) { toast('ক্রেডিট যথেষ্ট নয়। প্রয়োজন ' + fmt(cost) + '।', 'err'); return; }
+      var old = go.innerHTML; go.disabled = true; go.textContent = '⏳ AI পড়ছে ও গবেষণা করছে…';
+      prepareCustomFiles(go).then(function (pf) {
+        var pl = aiPayload('brief'); pl.files = pf.files; pl.keep_pdf = pf.keep_pdf;
+        if (pf.files.length) { SB.hasSrc = 1; if (window.__sbSrcShow) { window.__sbSrcShow(); } }
+        return post('sb_ai', pl);
+      }).then(function (d) { render(d.result || d); toast('✓ বোঝাপড়া তৈরি। ' + fmt(d.cost || cost) + ' ক্রেডিট কেটেছে।', 'ok'); })
+        .catch(function (e) { toast(e.message, 'err'); })
+        .then(function () { go.disabled = false; go.innerHTML = old; });
+    }
+    go.addEventListener('click', run);
+  })();
   var onlyBtn = $('#inc-only');
   if (onlyBtn) {
     onlyBtn.addEventListener('click', function () {
@@ -809,7 +909,7 @@
         dm.appendChild(dl); mb.appendChild(dm); mb.hidden = false;
         toast('⚠️ AI কিছু তথ্য লিখেনি, শুধু PDF-এর দিকে ইঙ্গিত করেছে — লেখার নিচের লাল তালিকা দেখুন।', 'err');
       }
-      if (f === 'custom') { (window.__sbIns = window.__sbIns || []).push(val('#f-custom')); }
+      if (f === 'custom') { (window.__sbIns = window.__sbIns || []).push(val('#f-custom')); SB.briefText = ''; }
       buildFacts(f === 'custom' ? r.facts : [], r.missing);
       aiDraft = r.text;
     }
