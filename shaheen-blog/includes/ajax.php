@@ -281,10 +281,28 @@ function sb_custom_result($r, $ctx = array()) {
     if (!is_array($j) && preg_match('/\{.*\}/us', $raw, $m)) {
         $j = json_decode($m[0], true);
     }
+    if (is_array($j) && empty($j['article'])) {
+        // the model answered with a note or a question instead of the article: never show raw JSON in the editor
+        $note = '';
+        foreach (array('excerpt', 'subtitle', 'meta') as $nk) {
+            if (!empty($j[$nk]) && is_string($j[$nk]) && mb_strlen($j[$nk]) > mb_strlen($note)) {
+                $note = $j[$nk];
+            }
+        }
+        $r['text'] = '';
+        $r['no_article'] = mb_substr(sanitize_textarea_field($note), 0, 600);
+        return $r;
+    }
     if (is_array($j) && !empty($j['article'])) {
         $r['text'] = (string) $j['article'];
         $r['meta'] = isset($j['meta']) ? sanitize_text_field($j['meta']) : '';
         $r['excerpt'] = isset($j['excerpt']) ? sanitize_textarea_field($j['excerpt']) : '';
+        if (mb_strlen($r['excerpt']) > 400 || preg_match('/[?？]|নির্দেশ|বোঝাপড়া|রূপরেখা|অনুমোদন/u', $r['excerpt'])) {
+            $r['excerpt'] = '';   // a chat-style note, not an excerpt
+        }
+        if (mb_strlen($r['meta']) > 320) {
+            $r['meta'] = mb_substr($r['meta'], 0, 160);
+        }
         $facts = array();
         $plain = wp_strip_all_tags((string) $j['article']);
         foreach (!empty($j['facts']) && is_array($j['facts']) ? array_slice($j['facts'], 0, 20) : array() as $f) {
@@ -328,6 +346,10 @@ function sb_ai_finish($uid, $feature, $ctx, $cost, $research, $result, &$notes) 
     $post_id = (int) $ctx['post_id'];
     if ($feature === 'custom') {
         $result = sb_custom_result($result, $ctx);
+    }
+    if ($feature === 'custom' && (isset($result['no_article']) || mb_strlen(wp_strip_all_tags((string) $result['text'])) < 200)) {
+        $why = !empty($result['no_article']) ? ' AI বলছে: "' . $result['no_article'] . '"' : '';
+        return array('ok' => false, 'message' => 'AI আর্টিকেল লেখেনি, তাই ক্রেডিট কাটা হয়নি।' . $why . ' আবার "লিখুন" চাপুন; বারবার হলে প্রম্পট বক্সে "আগে অনুমোদন নাও/প্রশ্ন করো" ধরনের কথা থাকলে মুছে দিন।');
     }
     $result = sb_words_apply_result($feature, $result);
     if ($feature === 'chat') {
