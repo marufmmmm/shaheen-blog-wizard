@@ -580,7 +580,7 @@
   })();
   function aiPayload(feature) {
     var extra = {};
-    if (feature === 'custom') { extra = { ansi: looksAnsi(val('#f-custom')) ? '1' : '0', tier: val('#f-clen') || '1', model: val('#f-cmodel'), urls: val('#f-curls'), files: [].slice.call(($('#f-cfiles') || {}).files || []) }; }
+    if (feature === 'custom') { extra = { comp: val('#f-comp'), ansi: looksAnsi(val('#f-custom')) ? '1' : '0', tier: val('#f-clen') || '1', model: val('#f-cmodel'), urls: val('#f-curls'), files: [].slice.call(($('#f-cfiles') || {}).files || []) }; }
     var base = {
       feature: feature, post_id: postId, title: val('#f-title'), topic: val('#f-topic'), excerpt: val('#f-excerpt'),
       content: editorContent(), keywords: keywords(), length: val('#f-length'),
@@ -759,6 +759,12 @@
         r.sources.forEach(function (s) { var li = document.createElement('li'), a = document.createElement('a'); a.href = s.url; a.target = '_blank'; a.rel = 'noopener'; a.textContent = s.title || s.url; li.appendChild(a); ul.appendChild(li); });
         sb.appendChild(ul); sb.hidden = false;
       } else { sb.hidden = true; }
+      if (r.gaps && r.gaps.length) {
+        var gh = document.createElement('div'); gh.style.marginTop = '6px';
+        gh.innerHTML = '<strong>🎯 How this article goes beyond the sites you wanted to beat:</strong>';
+        var gl = document.createElement('ul'); r.gaps.forEach(function (x) { var li = document.createElement('li'); li.textContent = x; gl.appendChild(li); });
+        gh.appendChild(gl); sb.appendChild(gh); sb.hidden = false;
+      }
       if (r.notes && r.notes.length) {
         var nh = document.createElement('div'); nh.style.marginTop = '6px';
         nh.innerHTML = '<strong>📋 আপনার দেওয়া উৎসের অবস্থা:</strong>';

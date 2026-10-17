@@ -31,18 +31,18 @@ function sb_req_list($key, $max = 10) {
 }
 
 /** Text of the web pages the owner listed (max 4), for the prompt-article feature. */
-function sb_fetch_pages($raw, &$notes) {
+function sb_fetch_pages($raw, &$notes, $max = 4, $tag = 'ওয়েবসাইট') {
     $out = '';
     $n = 0;
     foreach (preg_split('/\R+/', trim((string) $raw)) as $u) {
         $u = esc_url_raw(trim($u), array('http', 'https'));
-        if ($u === '' || $n >= 4) {
+        if ($u === '' || $n >= $max) {
             continue;
         }
         $n++;
         $r = wp_safe_remote_get($u, array('timeout' => 12, 'redirection' => 3, 'user-agent' => 'Mozilla/5.0 (ShaheenBlog)'));
         if (is_wp_error($r) || (int) wp_remote_retrieve_response_code($r) !== 200) {
-            $notes[] = 'ওয়েবসাইট পড়া যায়নি: ' . $u;
+            $notes[] = $tag . ' পড়া যায়নি: ' . $u;
             continue;
         }
         $h = wp_remote_retrieve_body($r);
@@ -52,8 +52,8 @@ function sb_fetch_pages($raw, &$notes) {
             $notes[] = 'পেজে পড়ার মতো লেখা পাওয়া যায়নি (জাভাস্ক্রিপ্টে লোড হওয়া পেজ হতে পারে): ' . $u;
             continue;
         }
-        $out .= "\n[ওয়েবসাইট: {$u}]\n" . mb_substr($t, 0, 9000) . "\n";
-        $notes[] = '✓ ওয়েবসাইট পড়া হয়েছে (' . sb_bn_digits(mb_strlen($t)) . ' অক্ষর): ' . $u;
+        $out .= "\n[{$tag}: {$u}]\n" . mb_substr($t, 0, 9000) . "\n";
+        $notes[] = '✓ ' . $tag . ' পড়া হয়েছে (' . sb_bn_digits(mb_strlen($t)) . ' অক্ষর): ' . $u;
     }
     return $out;
 }
@@ -219,9 +219,15 @@ function sb_custom_result($r) {
         }
         $r['facts'] = $facts;
         $r['subtitle'] = isset($j['subtitle']) ? mb_substr(sanitize_text_field($j['subtitle']), 0, 200) : '';
-        $r['summary'] = isset($j['summary']) ? sanitize_textarea_field($j['summary']) : '';
         $r['slug'] = isset($j['slug']) ? trim(preg_replace('/[^a-z0-9]+/', '-', strtolower((string) $j['slug'])), '-') : '';
-        $r['faq'] = sb_chat_faq(isset($j['faq']) ? $j['faq'] : array());
+        $gaps = array();
+        foreach (isset($j['gaps']) && is_array($j['gaps']) ? array_slice($j['gaps'], 0, 6) : array() as $g) {
+            $g = is_string($g) ? sanitize_text_field($g) : '';
+            if (mb_strlen($g) > 8) {
+                $gaps[] = $g;
+            }
+        }
+        $r['gaps'] = $gaps;
     }
     $deferral = array();
     $plain_all = wp_strip_all_tags((string) $r['text']);
@@ -335,7 +341,7 @@ function sb_job_start($uid, $ctx, $cost, $research, $state) {
     }
     $job = array(
         'status' => 'queued', 'uid' => $uid, 'ctx' => $ctx, 'cost' => $cost, 'research' => $research ? 1 : 0,
-        'urls' => (string) sb_req('urls'), 'files' => $files, 'created' => time(), 'beat' => time(),
+        'urls' => (string) sb_req('urls'), 'comp' => (string) sb_req('comp'), 'files' => $files, 'created' => time(), 'beat' => time(),
     );
     set_transient('sb_job_' . $id, $job, 6 * HOUR_IN_SECONDS);
     wp_send_json_success(array('job' => $id, 'pdfs' => sb_keep_pdfs()));
@@ -355,6 +361,13 @@ add_action('wp_ajax_sb_job_run', function () {
     $notes = array();
     $ctx = $job['ctx'];
     $ctx['web'] = sb_fetch_pages($job['urls'], $notes);
+    if (!empty($job['comp'])) {
+        $cn = array();
+        $ctx['comp_web'] = sb_fetch_pages($job['comp'], $cn, 5, 'প্রতিযোগী সাইট');
+        foreach ($cn as $x) {
+            $notes[] = $x;
+        }
+    }
     $ctx['parts'] = array();
     $okx = array('pdf' => 'application/pdf', 'jpg' => 'image/jpeg', 'jpeg' => 'image/jpeg', 'png' => 'image/png', 'webp' => 'image/webp');
     foreach ($job['files'] as $f) {

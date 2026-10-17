@@ -185,9 +185,6 @@ $costs['research'] = max(0, (int) sb_get('cost_research'));
                 </div>
             </div>
 
-            <h3>সচরাচর জিজ্ঞাসা (FAQ) <small>ঐচ্ছিক</small></h3>
-            <div id="faq-list"></div>
-            <button type="button" class="button" id="faq-add">+ প্রশ্ন যোগ করুন</button>
         </section>
 
         <!-- Step 4 -->
@@ -239,6 +236,9 @@ $costs['research'] = max(0, (int) sb_get('cost_research'));
                 <div id="ansi-note" class="sba-muted" hidden>🔤 This text looks like old Bijoy (ANSI). AI will decode it to Unicode Bangla first.</div><textarea id="f-custom" rows="10" style="width:100%" placeholder="যেমন: ভর্তি বিজ্ঞপ্তির আর্টিকেল লিখুন। ক্লাস ৬ষ্ঠ–৯ম। আবেদন ১–১৫ নভেম্বর। ফি … । সুর আনুষ্ঠানিক, অভিভাবকদের উদ্দেশে। শেষে যোগাযোগের নম্বর দিন। (PDF-এর কোন অংশ কীভাবে ব্যবহার হবে তাও লিখুন)"></textarea>
                 <label style="display:block;margin-top:8px">🌐 তথ্যের ওয়েবসাইট লিংক <small>(প্রতি লাইনে একটি, সর্বোচ্চ ৪টি; সাইট নিজে পড়ে লেখাটুকু AI-কে দেওয়া হবে)</small>
                     <textarea id="f-curls" rows="3" style="width:100%" placeholder="https://…"></textarea></label>
+                <label class="sba-comp">🎯 Websites to beat <small class="sba-muted">(one link per line, up to 5)</small>
+                    <textarea id="f-comp" rows="3" style="width:100%" placeholder="https://competitor-site-1.com/their-article&#10;https://competitor-site-2.com/their-article"></textarea>
+                    <small class="sba-muted">AI reads these pages, finds what they cover and what they miss, and writes a more complete, clearer article in its own words (nothing is copied; their facts are not used unless your sources confirm them).</small></label>
                 <label style="display:block;margin-top:8px">📎 PDF / ছবি <small>(সর্বোচ্চ ৪টি ফাইল, প্রতিটি ১০ MB-এর মধ্যে; PDF, JPG, PNG, WEBP। স্ক্যান করা PDF বা ছবির লেখাও AI পড়ে)</small>
                     <input type="file" id="f-cfiles" multiple accept=".pdf,.jpg,.jpeg,.png,.webp,application/pdf,image/*"></label>
                 <label class="sba-inline-check" style="display:block;margin-top:6px"><input type="checkbox" id="f-cimg" checked> 🖼️ PDF-এর পাতাগুলো ছবি করে AI-কে দাও <em>(সরকারি PDF প্রায়ই পুরনো বিজয় ফন্টে থাকে, লেখা হিজিবিজি হয়ে যায়, ছবি করে পড়ালে ঠিক পড়ে; বেশি পাতা হলে প্রথম ১২ পাতা)</em></label>
@@ -295,6 +295,13 @@ $costs['research'] = max(0, (int) sb_get('cost_research'));
                     <button type="button" class="button" data-ai="summary">🤖 তৈরি করুন <em>(<?php echo esc_html(sb_bn_digits($costs['summary'])); ?>)</em></button></div>
                 <textarea id="f-summary" rows="4"><?php echo esc_textarea($d['summary']); ?></textarea>
                 <small class="sba-muted">আর্টিকেলের ওপরে "সংক্ষেপে" বক্সে দেখাবে। আর্টিকেল থেকে তৈরি হয়।</small>
+            </div>
+
+            <div class="sba-ai">
+                <div class="sba-ai-head"><h3>FAQ (প্রশ্ন-উত্তর) <small class="sba-muted">(আর্টিকেল লেখার পর বাটনে তৈরি হয়)</small></h3>
+                    <button type="button" class="button" data-ai="faq">🤖 তৈরি করুন <em>(<?php echo esc_html(sb_bn_digits($costs['faq'])); ?>)</em></button></div>
+                <div id="faq-list"></div>
+                <button type="button" class="button" id="faq-add">+ প্রশ্ন যোগ করুন</button>
             </div>
         </section>
 
