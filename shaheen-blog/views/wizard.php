@@ -215,7 +215,7 @@ $costs['research'] = max(0, (int) sb_get('cost_research'));
                         <button type="button" class="button" id="chat-undo-editor" hidden>↩ Undo last send to editor</button>
                     </div>
                 </div>
-                <label class="sba-inline-check"><input type="checkbox" id="chat-direct"> Also send every change straight to the editor (otherwise changes stay in the draft until you press "Send final to editor")</label>
+                <label class="sba-inline-check"><input type="checkbox" id="chat-direct" checked> Also send every change straight to the editor (otherwise changes stay in the draft until you press "Send final to editor")</label>
                 <div class="sba-chat-log" id="chat-log" aria-live="polite"></div>
                 <div class="sba-chat-in">
                     <textarea id="chat-text" rows="3" placeholder="What do you want to change? (Ctrl+Enter to send)"></textarea>

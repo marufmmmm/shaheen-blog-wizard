@@ -1071,7 +1071,7 @@ function sb_chat_result($r, $ctx) {
     }
     $out = array('reply' => '', 'rule' => '', 'changes' => array(), 'article' => null, 'applied' => 0, 'failed' => array(), 'missing' => array());
     if (!is_array($j)) {
-        $out['reply'] = 'AI-এর উত্তর পড়া যায়নি, আবার লিখুন। (ক্রেডিট কাটা হয়নি)';
+        $out['reply'] = 'AI-এর উত্তর অসম্পূর্ণ এসেছে (সম্ভবত বেশি বড় লেখা বদলাতে গিয়ে কেটে গেছে)। বদলটা ছোট করে বা একটা অংশ ধরে লিখুন, যেমন "ফোন নম্বরের লাইনটা বদলাও"। (ক্রেডিট কাটা হয়নি)';
         $r['chat'] = $out;
         return $r;
     }

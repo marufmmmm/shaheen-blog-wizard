@@ -241,7 +241,7 @@ class SB_AI {
                     $content = array_merge(array(array('type' => 'text', 'text' => $user)), $c['parts']);
                 }
                 $json = true;
-                $max = 6000;
+                $max = (int) min(16000, max(6000, 3000 + mb_strlen($art) * 1.6));   // a full-article answer must not be cut off (that breaks the JSON)
                 break;
 
             case 'learn':
