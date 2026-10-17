@@ -38,6 +38,7 @@ $d = array(
     'date'        => $post ? get_the_date('Y-m-d', $pid) : wp_date('Y-m-d'),
     'status'      => $post ? $post->post_status : 'draft',
     'url'         => $post ? get_permalink($pid) : '',
+    'presets'     => (object) sb_presets_get(),
 );
 $cats = get_terms(array('taxonomy' => 'sb_category', 'hide_empty' => false, 'orderby' => 'term_id'));
 $costs = array();
@@ -60,22 +61,220 @@ $costs['research'] = max(0, (int) sb_get('cost_research'));
     <div class="notice notice-info inline" id="restore-box" hidden><p><span id="restore-text"></span> <button type="button" class="button" id="restore-yes">Restore it</button> <button type="button" class="button-link" id="restore-no">Ignore</button></p></div>
 
     <ol class="sba-steps" id="sb-steps">
-        <li><button type="button" data-go="1"><span>১</span> মূল তথ্য</button></li>
-        <li><button type="button" data-go="2"><span>২</span> কীওয়ার্ড</button></li>
-        <li><button type="button" data-go="3"><span>৩</span> ক্যাটাগরি</button></li>
-        <li><button type="button" data-go="4"><span>৪</span> AI কনটেন্ট</button></li>
-        <li><button type="button" data-go="5"><span>৫</span> রিভিউ ও প্রকাশ</button></li>
+        <li><button type="button" data-go="1"><span>১</span> লিখুন</button></li>
+        <li><button type="button" data-go="2"><span>২</span> ঠিক করুন</button></li>
+        <li><button type="button" data-go="3"><span>৩</span> শেষ করুন</button></li>
     </ol>
 
     <form id="sb-form" class="sba-form" autocomplete="off" onsubmit="return false;">
 
-        <!-- Step 1 -->
+        <!-- Page 1: write -->
         <section class="sba-step" data-step="1">
-            <h2>ধাপ ১: মূল তথ্য</h2>
-            <label>শিরোনাম *
+            <h2>পেজ ১: লিখুন</h2>
+            <label><strong>১. শিরোনাম *</strong> <small>(আপনি নিজে লিখবেন, AI বদলাবে না)</small>
                 <input type="text" id="f-title" value="<?php echo esc_attr($d['title']); ?>" placeholder="পোস্টের শিরোনাম">
             </label>
-            <label>সারাংশ (কার্ডে দেখাবে) <small>— এখন ফাঁকা রাখতে পারেন। আর্টিকেল তৈরি/লেখার পর ধাপ ৪-এ "সারাংশ" বানালে এটা নিজে ভরে যাবে</small>
+
+            <div class="sba-ai">
+                <div class="sba-ai-head"><h3>৫টি শিরোনাম</h3>
+                    <button type="button" class="button button-primary" data-ai="headlines">🤖 তৈরি করুন <em>(<?php echo esc_html(sb_bn_digits($costs['headlines'])); ?> ক্রেডিট)</em></button></div>
+                <p class="sba-muted">ওপরের কীওয়ার্ড ব্যবহার করে। পছন্দেরটিতে ক্লিক করলে শিরোনাম হিসেবে বসবে।</p>
+                <ul id="headline-results" class="sba-headlines"></ul>
+            </div>
+
+            <h3 style="margin-top:14px">২. কীওয়ার্ড</h3>
+            <p class="sba-muted">মূল কীওয়ার্ডগুলো কমা দিয়ে লিখুন। AI শিরোনাম, সাবটাইটেল, আর্টিকেল ও মেটা বর্ণনায় এগুলো ব্যবহার করবে।</p>
+            <label>কীওয়ার্ড * <small>(কমা দিয়ে আলাদা করুন, কমপক্ষে ২টি, বেশিও দিতে পারেন)</small>
+                <input type="text" id="f-kw" value="<?php echo esc_attr(implode(', ', array_filter($d['keywords']))); ?>" placeholder="যেমন: ক্যাডেট কলেজ, ভর্তি প্রস্তুতি, মডেল টেস্ট">
+            </label>
+            <div id="kw-chips" class="sba-chips"></div>
+            <input type="hidden" id="f-topic" value="<?php echo esc_attr($d['topic']); ?>">
+
+            <div class="sba-ai sba-write">
+                <div class="sba-ai-head"><h3>✍️ কী লিখবেন <small>(১ম পেজের সব কাজ এখানে)</small></h3></div>
+
+                <label><strong>৩. বিবরণ</strong> <small>(বিষয়টি নিয়ে আপনার জানা আসল তথ্য ও নির্দেশ: কী লিখবে, কাদের জন্য, কোন তথ্য থাকবে। এটাই লেখার মূল প্রম্পট)</small>
+                <div id="ansi-note" class="sba-muted" hidden>🔤 This text looks like old Bijoy (ANSI). AI will decode it to Unicode Bangla first.</div>
+                <textarea id="f-custom" rows="8" style="width:100%" placeholder="যেমন: ক্যাডেট কলেজ ভর্তি নিয়ে লিখুন। ষষ্ঠ শ্রেণি, ছেলেদের জন্য। আবেদন ১–১৫ নভেম্বর। ফি … । অভিভাবকদের উদ্দেশে, আন্তরিক সুরে।"></textarea></label>
+
+                <label style="display:block;margin-top:10px">📂 পোস্টের ধরন <small>(ধরন অনুযায়ী AI জানবে কোন তথ্য লাগে ও লেখা কীভাবে সাজাবে)</small>
+                    <select id="f-ptype">
+                    <?php foreach (sb_ptypes() as $ptk => $ptv) : ?>
+                        <option value="<?php echo esc_attr($ptk); ?>"><?php echo esc_html($ptv[0]); ?></option>
+                    <?php endforeach; ?>
+                    </select></label>
+
+                <label class="sba-comp" style="display:block;margin-top:10px"><strong>৪. Websites to beat</strong> <small class="sba-muted">(প্রতি লাইনে একটি লিংক, সর্বোচ্চ ৫টি)</small>
+                    <textarea id="f-comp" rows="3" style="width:100%" placeholder="https://site-1.com/their-article&#10;https://site-2.com/their-article"></textarea>
+                    <small class="sba-muted">AI এই পেজগুলো পড়ে দেখবে ওরা কী বলেছে ও কী বলেনি, তারপর আপনার কীওয়ার্ড ও বিবরণ মিশিয়ে নিজের ভাষায় নতুন লেখা লিখবে (হুবহু কপি নয়)।</small></label>
+
+                <fieldset class="sba-mode" style="margin-top:10px;border:1px solid #dcdcde;padding:8px 12px;border-radius:6px">
+                    <legend><strong>৫. লেখা কোন উৎস থেকে হবে?</strong></legend>
+                    <label class="sba-inline-check" style="display:block"><input type="radio" name="f-mode" value="links"> (ক) শুধু ওপরের লিংকগুলো থেকে পড়ে, কীওয়ার্ড ও বিবরণ মিশিয়ে</label>
+                    <label class="sba-inline-check" style="display:block"><input type="radio" name="f-mode" value="paste"> (খ) নিচের বক্সে পেস্ট করা লেখা থেকে, কীওয়ার্ড ও বিবরণ মিশিয়ে</label>
+                    <label class="sba-inline-check" style="display:block"><input type="radio" name="f-mode" value="both" checked> (গ) লিংক ও পেস্ট করা লেখা দুটোই</label>
+                </fieldset>
+                <div id="paste-wrap" style="margin-top:8px">
+                    <label>📋 পেস্ট করা লেখা <small>(অন্য কোথাও থেকে কপি করা লেখা বা নিজের নোট; AI নিজের ভাষায় নতুন করে লিখবে, হুবহু কপি নয়)</small>
+                    <textarea id="f-paste" rows="6" style="width:100%" placeholder="এখানে লেখা পেস্ট করুন (ঐচ্ছিক)"></textarea></label>
+                </div>
+
+                <details class="sba-more" style="margin-top:10px"><summary>➕ আরও উৎস: তথ্যের সাইট, PDF ও ছবি (ঐচ্ছিক)</summary>
+                    <label style="display:block;margin-top:8px">🌐 তথ্যের ওয়েবসাইট লিংক <small>(প্রতি লাইনে একটি, সর্বোচ্চ ৪টি; সাইট নিজে পড়ে লেখাটুকু AI-কে দেওয়া হবে)</small>
+                    <textarea id="f-curls" rows="3" style="width:100%" placeholder="https://…"></textarea></label>
+                    <label style="display:block;margin-top:8px">📎 PDF / ছবি <small>(সর্বোচ্চ ৪টি ফাইল, প্রতিটি ১০ MB-এর মধ্যে; PDF, JPG, PNG, WEBP। স্ক্যান করা PDF বা ছবির লেখাও AI পড়ে)</small>
+                    <input type="file" id="f-cfiles" multiple accept=".pdf,.jpg,.jpeg,.png,.webp,application/pdf,image/*"></label>
+                    <label class="sba-inline-check" style="display:block;margin-top:6px"><input type="checkbox" id="f-cimg" checked> 🖼️ PDF-এর পাতাগুলো ছবি করে AI-কে দাও <em>(সরকারি PDF প্রায়ই পুরনো বিজয় ফন্টে থাকে, লেখা হিজিবিজি হয়ে যায়, ছবি করে পড়ালে ঠিক পড়ে; বেশি পাতা হলে প্রথম ১২ পাতা)</em></label>
+                    <label class="sba-inline-check" style="display:block;margin-top:4px"><input type="checkbox" id="f-ckeep" checked> 📥 PDF সাইটের মিডিয়ায় রেখে এই পোস্টে <strong>ডাউনলোড বাটন</strong> ও <strong>পেজে পড়ার ঘর</strong> যোগ করো <em>(পেজ ৩-এর নিচে দেখা যাবে, সরাতেও পারবেন)</em></label>
+                </details>
+                <label class="sba-research" style="display:block;margin-top:8px"><input type="checkbox" id="f-research" checked> 🌐 সঠিক ও সর্বশেষ খবরের জন্য AI ইন্টারনেটেও যাচাই করুক <em>(+<?php echo esc_html(sb_bn_digits($costs['research'])); ?> ক্রেডিট, শুধু সফল হলে)</em></label>
+
+                <div class="sba-style" style="margin-top:12px;display:flex;gap:10px;align-items:flex-end;flex-wrap:wrap">
+                    <label>🤖 মডেল<br><?php $cur_m = trim((string) sb_get('model_article')) ?: sb_get('model'); ?>
+                    <select id="f-cmodel" title="কোন AI মডেলে লিখবে">
+                        <?php foreach (sb_model_catalog() as $mid => $mm) : ?>
+                            <option value="<?php echo esc_attr($mid); ?>" <?php selected($cur_m, $mid); ?>><?php echo esc_html($mid . ' — ' . $mm[2]); ?></option>
+                        <?php endforeach; ?>
+                        <?php if (!isset(sb_model_catalog()[$cur_m])) : ?><option value="<?php echo esc_attr($cur_m); ?>" selected><?php echo esc_html($cur_m); ?></option><?php endif; ?>
+                    </select></label>
+                    <label>📏 দৈর্ঘ্য<br><select id="f-clen" title="আর্টিকেলের দৈর্ঘ্য">
+                        <option value="1">৮০০–১০০০ শব্দ (<?php echo esc_html(sb_bn_digits($costs['custom'])); ?> ক্রেডিট)</option>
+                        <option value="2">১০০০–১৫০০ শব্দ (<?php echo esc_html(sb_bn_digits($costs['custom2'])); ?> ক্রেডিট)</option>
+                        <option value="3">১৫০০+ শব্দ (<?php echo esc_html(sb_bn_digits($costs['custom3'])); ?> ক্রেডিট)</option>
+                    </select></label>
+                    <label>📝 লেখার ধরন<br>
+                        <select id="f-style">
+                            <option value="para">প্যারা ভিত্তিক (গল্পের মতো, পয়েন্ট কম)</option>
+                            <option value="points">পয়েন্ট ভিত্তিক</option>
+                            <option value="both">প্যারা + পয়েন্ট দুটোই</option>
+                            <option value="ai">AI-র পরামর্শ অনুযায়ী</option>
+                        </select></label>
+                    <label>🔢 শব্দসংখ্যা (প্রায়)<br><input type="number" id="f-words" min="300" max="5000" step="50" placeholder="যেমন ১২০০" style="width:110px"></label>
+                </div>
+
+                <div class="sba-presets" style="margin-top:10px;display:flex;gap:8px;align-items:center;flex-wrap:wrap">
+                    <label>💾 প্রিসেট <select id="preset-sel"><option value="">— সেভ করা সেটিং বসান —</option></select></label>
+                    <button type="button" class="button" id="preset-save">এই সেটিং সেভ করুন</button>
+                    <button type="button" class="button-link-delete" id="preset-del" hidden>মুছুন</button>
+                    <small class="sba-muted">ধরন, লেখার ধরন, শব্দসংখ্যা, মডেল, সামারি/FAQ ইত্যাদি মনে রাখে। বিনামূল্যে।</small>
+                </div>
+
+                <p class="sba-muted" style="margin:10px 0 0">💡 <strong>আগে বুঝে নিন:</strong> AI পুরো লেখা না লিখে আপনার তথ্য, সাইট ও ইন্টারনেট ঘেঁটে বলবে সে কী বুঝেছে, কী জানতে চায় ও কী যোগ করলে লেখা তথ্যবহুল হবে। আপনি ঠিক করে দিলে তবেই লেখা শুরু হবে।</p>
+                <div style="margin-top:8px;display:flex;gap:10px;align-items:center;flex-wrap:wrap">
+                    <button type="button" class="button button-primary" id="brief-go">🧭 আগে বুঝে নিন (<?php echo esc_html(sb_bn_digits($costs['brief'])); ?> ক্রেডিট)</button>
+                    <button type="button" class="button" data-ai="custom">🤖 সরাসরি লিখুন</button>
+                </div>
+                <div id="brief-box" class="sba-brief" hidden></div>
+            </div>
+        </section>
+
+        <!-- Page 2: fix -->
+        <section class="sba-step" data-step="2" hidden>
+            <h2>পেজ ২: ঠিক করুন</h2>
+            <p class="sba-muted">লেখা এখানে আসবে। সরাসরি এডিট করুন (বিনামূল্যে), অথবা নিচের বক্সে AI-কে বলুন কী বদলাতে হবে।</p>
+            <div class="sba-ai sba-article">
+<div class="sba-ai-head"><h3>আর্টিকেল <small class="sba-muted">(WordPress এডিটর, সরাসরি এডিট করা যায়, বিনামূল্যে)</small></h3></div>
+                <?php
+                wp_editor($post ? $post->post_content : '', 'sb_content', array(
+                    'textarea_name' => 'sb_content',
+                    'media_buttons' => true,
+                    'editor_height' => 360,
+                    'teeny'         => false,
+                ));
+                ?>
+                <div id="article-sources" class="sba-sources" hidden></div>
+                <div id="article-missing" class="sba-missing" hidden></div>
+                <div id="article-facts" class="sba-facts" hidden></div>
+            
+                <div id="fact-panel" class="sba-factpanel" hidden></div>
+                <div id="cover-panel" class="sba-coverpanel" hidden></div>
+            </div>
+
+            <div class="sba-ai sba-chat" id="chat-box">
+                <div class="sba-ai-head"><h3>💬 Tell AI what to change</h3>
+                    <button type="button" class="button" id="chat-undo" hidden>↩ Undo last draft change</button></div>
+                <p class="sba-muted">One box for everything. Type like a chat, in Bangla or English. AI works on a <strong>working draft</strong> shown here; the editor stays untouched until you press <strong>Send final to editor</strong>. AI changes only what you ask, and the rest of the draft stays the same. Examples: <em>"make paragraph 3 shorter"</em>, <em>"add the fee after the first paragraph"</em>, <em>"add an FAQ about the exam date"</em>. Each change that is applied costs <strong><?php echo esc_html(sb_bn_digits($costs['chat'])); ?> credits</strong>; a question or no change is free. Your title is never changed.</p>
+                <label class="sba-inline-check" id="chat-src-wrap" hidden><input type="checkbox" id="chat-src" checked> Let AI look at the attached PDF / images again (reads the source pages)</label>
+                <div class="sba-chat-draft" id="chat-draft" hidden>
+                    <div class="sba-chat-draft-head"><strong>📝 Working draft</strong> <span id="chat-draft-state" class="sba-muted"></span></div>
+                    <div class="sba-chat-draft-body" id="chat-draft-body"></div>
+                    <div class="sba-chat-draft-act">
+                        <button type="button" class="button button-primary" id="chat-apply" disabled>✅ Send final to editor</button>
+                        <button type="button" class="button" id="chat-reset">↺ Reset draft from editor</button>
+                        <button type="button" class="button" id="chat-undo-editor" hidden>↩ Undo last send to editor</button>
+                    </div>
+                </div>
+                <label class="sba-inline-check"><input type="checkbox" id="chat-direct"> Also send every change straight to the editor (otherwise changes stay in the draft until you press "Send final to editor")</label>
+                <div class="sba-chat-log" id="chat-log" aria-live="polite"></div>
+                <div class="sba-chat-in">
+                    <textarea id="chat-text" rows="3" placeholder="What do you want to change? (Ctrl+Enter to send)"></textarea>
+                    <button type="button" class="button button-primary" id="chat-send">Send <small>· <?php echo esc_html(sb_bn_digits($costs['chat'])); ?> credits</small></button>
+                </div>
+                <div class="sba-chat-rule" id="chat-rule" hidden><span id="chat-rule-text"></span> <button type="button" class="button" id="chat-rule-yes">Remember for all posts</button> <button type="button" class="button-link" id="chat-rule-no">No</button></div>
+            </div>
+
+            <details class="sba-oldedit"><summary>পুরোনো পদ্ধতি: কপি করা লেখা নতুন করে লেখা</summary>
+
+            <div class="sba-ai" style="margin-top:8px">
+                <div class="sba-ai-head"><h3>📋 কপি করা লেখা নতুন করে লেখা</h3>
+                    <button type="button" class="button" data-ai="rewrite">🤖 নতুন করে লিখুন <em>(<?php echo esc_html(sb_bn_digits($costs['rewrite'])); ?>)</em></button></div>
+                <textarea id="f-source" rows="6" placeholder="অন্য উৎস থেকে কপি করা লেখা এখানে পেস্ট করুন। AI এটি বুঝে নিজের ভাষায়, প্রচলিত বাংলায় নতুন করে লিখে নিচের আর্টিকেল বক্সে বসাবে।"></textarea>
+                <small class="sba-muted">অন্যের লেখার তথ্য নতুন ভাষায় লেখা হয়, তবে অন্যের লেখা হুবহু বা সামান্য বদলে ছাপলে কপিরাইট ও গুগলের স্প্যাম নীতির ঝুঁকি থাকে। প্রকাশের আগে তথ্য যাচাই করুন, দরকারে সূত্র উল্লেখ করুন।</small>
+            </div>
+
+            </details>
+
+            <details class="sba-oldedit"><summary>পুরোনো পদ্ধতি: ঘরে ঘরে নির্দেশ দিয়ে শুধু আর্টিকেল বদলানো</summary>
+            <?php sb_edit_box('ed'); ?>
+            </details>
+
+        </section>
+
+        <!-- Page 3: finish -->
+        <section class="sba-step" data-step="3" hidden>
+            <h2>পেজ ৩: শেষ করুন <small>(সব ঐচ্ছিক, আর্টিকেল তৈরির পরে)</small></h2>
+
+            <div class="sba-ai sba-include">
+                <div class="sba-ai-head"><h3>📌 পোস্টের সাথে কী কী থাকবে?</h3></div>
+                <label class="sba-inline-check"><input type="checkbox" id="inc-summary" <?php checked($d['inc_summary']); ?>> সামারি <em>(আর্টিকেলের ওপরে "সংক্ষেপে" বক্স — AI হলে +<?php echo esc_html(sb_bn_digits($costs['summary'])); ?> ক্রেডিট)</em></label><br>
+                <label class="sba-inline-check"><input type="checkbox" id="inc-faq" <?php checked($d['inc_faq']); ?>> FAQ <em>(আর্টিকেলের নিচে প্রশ্ন-উত্তর — AI হলে +<?php echo esc_html(sb_bn_digits($costs['faq'])); ?> ক্রেডিট)</em></label>
+                <select id="f-faqn" title="FAQ কয়টি"><option value="3">৩</option><option value="5" selected>৫</option><option value="7">৭</option></select> টি<br>
+                <label class="sba-inline-check"><input type="checkbox" id="inc-related"> স্মার্ট সম্পর্কিত পোস্ট/পেজ <em>(পাশে — AI সাইট থেকে মিলগুলো বেছে দেবে, +<?php echo esc_html(sb_bn_digits($costs['related'])); ?> ক্রেডিট)</em></label>
+                <p class="sba-muted">পুরনো পোস্টে শুধু এগুলো যোগ করতে: টিক দিয়ে "শুধু টিক দেওয়াগুলো বানান" চাপুন — আর্টিকেল একদম বদলাবে না। নতুন পোস্টে টিক দিয়ে নিচের "সম্পূর্ণ আর্টিকেল" তৈরি করলে AI আর্টিকেল থেকে টিক দেওয়াগুলো নিজে বানিয়ে দেবে। হাতে লিখতে চাইলে নিচের সামারি ঘরে ও পেজ ৩-এর FAQ অংশে লিখুন। <strong>টিক না দিলে সামারি/FAQ বানানো হবে না, পোস্টেও দেখাবে না।</strong>
+                <button type="button" class="button button-primary" id="inc-only">🤖 শুধু টিক দেওয়াগুলো বানান (আর্টিকেল বদলাবে না)</button>
+                <button type="button" class="button" data-ai="faq">🤖 শুধু FAQ তৈরি করুন (<?php echo esc_html(sb_bn_digits($costs['faq'])); ?>)</button></p>
+            </div>
+
+            <div class="sba-ai">
+                <div class="sba-ai-head"><h3>সামারি <small class="sba-muted">(মূল পোস্ট থেকে তৈরি হয়)</small></h3>
+                    <button type="button" class="button" data-ai="summary">🤖 তৈরি করুন <em>(<?php echo esc_html(sb_bn_digits($costs['summary'])); ?>)</em></button></div>
+                <textarea id="f-summary" rows="4"><?php echo esc_textarea($d['summary']); ?></textarea>
+                <small class="sba-muted">আর্টিকেলের ওপরে "সংক্ষেপে" বক্সে দেখাবে। আর্টিকেল থেকে তৈরি হয়।</small>
+            </div>
+
+            <div class="sba-ai">
+                <div class="sba-ai-head"><h3>FAQ (প্রশ্ন-উত্তর) <small class="sba-muted">(আর্টিকেল লেখার পর বাটনে তৈরি হয়)</small></h3>
+                    <button type="button" class="button" data-ai="faq">🤖 তৈরি করুন <em>(<?php echo esc_html(sb_bn_digits($costs['faq'])); ?>)</em></button></div>
+                <div id="faq-list"></div>
+                <button type="button" class="button" id="faq-add">+ প্রশ্ন যোগ করুন</button>
+            </div>
+        
+
+
+            <div class="sba-ai">
+                <div class="sba-ai-head"><h3>সাবটাইটেল</h3>
+                    <button type="button" class="button" data-ai="subtitle">🤖 তৈরি করুন <em>(<?php echo esc_html(sb_bn_digits($costs['subtitle'])); ?>)</em></button></div>
+                <input type="text" id="f-subtitle" value="<?php echo esc_attr($d['subtitle']); ?>">
+            </div>
+
+            <div class="sba-ai">
+                <div class="sba-ai-head"><h3>মেটা বর্ণনা (SEO)</h3>
+                    <button type="button" class="button" data-ai="meta">🤖 তৈরি করুন <em>(<?php echo esc_html(sb_bn_digits($costs['meta'])); ?>)</em></button></div>
+                <textarea id="f-meta" rows="2"><?php echo esc_textarea($d['meta_desc']); ?></textarea>
+                <small class="sba-muted">গুগলে দেখানোর জন্য ১২০-১৬০ অক্ষর ভালো। <span id="meta-count"></span></small>
+            </div>
+
+            <label>সারাংশ (কার্ডে দেখাবে) <small>— এখন ফাঁকা রাখতে পারেন। আর্টিকেল তৈরি/লেখার পর পেজ ৩-এ "সারাংশ" বানালে এটা নিজে ভরে যাবে</small>
                 <textarea id="f-excerpt" rows="3" placeholder="২-৩ লাইনের সংক্ষিপ্ত বিবরণ"><?php echo esc_textarea($d['excerpt']); ?></textarea>
             </label>
             <div class="sba-row">
@@ -89,6 +288,7 @@ $costs['research'] = max(0, (int) sb_get('cost_research'));
                     <input type="text" id="f-slug" value="<?php echo esc_attr($d['slug']); ?>" placeholder="যেমন: cadet-admission-tips">
                 </label>
             </div>
+            
             <div class="sba-image">
                 <span class="sba-label">ফিচার্ড ছবি</span>
                 <div class="sba-image-box">
@@ -100,22 +300,7 @@ $costs['research'] = max(0, (int) sb_get('cost_research'));
                     </div>
                 </div>
             </div>
-        </section>
-
-        <!-- Step 2 -->
-        <section class="sba-step" data-step="2" hidden>
-            <h2>ধাপ ২: কীওয়ার্ড</h2>
-            <p class="sba-muted">মূল কীওয়ার্ডগুলো কমা দিয়ে লিখুন। AI শিরোনাম, সাবটাইটেল, আর্টিকেল ও মেটা বর্ণনায় এগুলো ব্যবহার করবে।</p>
-            <label>কীওয়ার্ড * <small>(কমা দিয়ে আলাদা করুন, কমপক্ষে ২টি, বেশিও দিতে পারেন)</small>
-                <input type="text" id="f-kw" value="<?php echo esc_attr(implode(', ', array_filter($d['keywords']))); ?>" placeholder="যেমন: ক্যাডেট কলেজ, ভর্তি প্রস্তুতি, মডেল টেস্ট">
-            </label>
-            <div id="kw-chips" class="sba-chips"></div>
-            <input type="hidden" id="f-topic" value="<?php echo esc_attr($d['topic']); ?>">
-        </section>
-
-        <!-- Step 3 -->
-        <section class="sba-step" data-step="3" hidden>
-            <h2>ধাপ ৩: ক্যাটাগরি</h2>
+            <h3 style="margin-top:18px">🗂️ ক্যাটাগরি ও অন্যান্য সেটিং</h3>
             <label>ক্যাটাগরি
                 <select id="f-category">
                     <option value="0">— বেছে নিন —</option>
@@ -185,152 +370,8 @@ $costs['research'] = max(0, (int) sb_get('cost_research'));
                 </div>
             </div>
 
-        </section>
 
-        <!-- Step 4 -->
-        <section class="sba-step" data-step="4" hidden>
-            <h2>ধাপ ৪: AI কনটেন্ট <small>(সব ঐচ্ছিক)</small></h2>
-            <p class="sba-muted">প্রতিটি অংশ হাতেও লেখা যায় (বিনামূল্যে)। AI বাটনে ক্লিক করলেই শুধু ক্রেডিট কাটবে।</p>
-
-            <div class="sba-ai">
-                <div class="sba-ai-head"><h3>৫টি শিরোনাম</h3>
-                    <button type="button" class="button button-primary" data-ai="headlines">🤖 তৈরি করুন <em>(<?php echo esc_html(sb_bn_digits($costs['headlines'])); ?> ক্রেডিট)</em></button></div>
-                <p class="sba-muted">ধাপ ২-এর কীওয়ার্ড ব্যবহার করে। পছন্দেরটিতে ক্লিক করলে শিরোনাম হিসেবে বসবে।</p>
-                <ul id="headline-results" class="sba-headlines"></ul>
-            </div>
-
-            <div class="sba-ai">
-                <div class="sba-ai-head"><h3>সাবটাইটেল</h3>
-                    <button type="button" class="button" data-ai="subtitle">🤖 তৈরি করুন <em>(<?php echo esc_html(sb_bn_digits($costs['subtitle'])); ?>)</em></button></div>
-                <input type="text" id="f-subtitle" value="<?php echo esc_attr($d['subtitle']); ?>">
-            </div>
-
-            <div class="sba-ai">
-                <div class="sba-ai-head"><h3>মেটা বর্ণনা (SEO)</h3>
-                    <button type="button" class="button" data-ai="meta">🤖 তৈরি করুন <em>(<?php echo esc_html(sb_bn_digits($costs['meta'])); ?>)</em></button></div>
-                <textarea id="f-meta" rows="2"><?php echo esc_textarea($d['meta_desc']); ?></textarea>
-                <small class="sba-muted">গুগলে দেখানোর জন্য ১২০-১৬০ অক্ষর ভালো। <span id="meta-count"></span></small>
-            </div>
-
-            <div class="sba-ai">
-                <div class="sba-ai-head"><h3>📋 কপি করা লেখা নতুন করে লেখা</h3>
-                    <button type="button" class="button" data-ai="rewrite">🤖 নতুন করে লিখুন <em>(<?php echo esc_html(sb_bn_digits($costs['rewrite'])); ?>)</em></button></div>
-                <textarea id="f-source" rows="6" placeholder="অন্য উৎস থেকে কপি করা লেখা এখানে পেস্ট করুন। AI এটি বুঝে নিজের ভাষায়, প্রচলিত বাংলায় নতুন করে লিখে নিচের আর্টিকেল বক্সে বসাবে।"></textarea>
-                <small class="sba-muted">অন্যের লেখার তথ্য নতুন ভাষায় লেখা হয়, তবে অন্যের লেখা হুবহু বা সামান্য বদলে ছাপলে কপিরাইট ও গুগলের স্প্যাম নীতির ঝুঁকি থাকে। প্রকাশের আগে তথ্য যাচাই করুন, দরকারে সূত্র উল্লেখ করুন।</small>
-            </div>
-
-            <div class="sba-ai sba-include">
-                <div class="sba-ai-head"><h3>📌 পোস্টের সাথে কী কী থাকবে?</h3></div>
-                <label class="sba-inline-check"><input type="checkbox" id="inc-summary" <?php checked($d['inc_summary']); ?>> সামারি <em>(আর্টিকেলের ওপরে "সংক্ষেপে" বক্স — AI হলে +<?php echo esc_html(sb_bn_digits($costs['summary'])); ?> ক্রেডিট)</em></label><br>
-                <label class="sba-inline-check"><input type="checkbox" id="inc-faq" <?php checked($d['inc_faq']); ?>> FAQ <em>(আর্টিকেলের নিচে প্রশ্ন-উত্তর — AI হলে +<?php echo esc_html(sb_bn_digits($costs['faq'])); ?> ক্রেডিট)</em></label>
-                <select id="f-faqn" title="FAQ কয়টি"><option value="3">৩</option><option value="5" selected>৫</option><option value="7">৭</option></select> টি<br>
-                <label class="sba-inline-check"><input type="checkbox" id="inc-related"> স্মার্ট সম্পর্কিত পোস্ট/পেজ <em>(পাশে — AI সাইট থেকে মিলগুলো বেছে দেবে, +<?php echo esc_html(sb_bn_digits($costs['related'])); ?> ক্রেডিট)</em></label>
-                <p class="sba-muted">পুরনো পোস্টে শুধু এগুলো যোগ করতে: টিক দিয়ে "শুধু টিক দেওয়াগুলো বানান" চাপুন — আর্টিকেল একদম বদলাবে না। নতুন পোস্টে টিক দিয়ে নিচের "সম্পূর্ণ আর্টিকেল" তৈরি করলে AI আর্টিকেল থেকে টিক দেওয়াগুলো নিজে বানিয়ে দেবে। হাতে লিখতে চাইলে নিচের সামারি ঘরে ও ধাপ ৩-এর FAQ অংশে লিখুন। <strong>টিক না দিলে সামারি/FAQ বানানো হবে না, পোস্টেও দেখাবে না।</strong>
-                <button type="button" class="button button-primary" id="inc-only">🤖 শুধু টিক দেওয়াগুলো বানান (আর্টিকেল বদলাবে না)</button>
-                <button type="button" class="button" data-ai="faq">🤖 শুধু FAQ তৈরি করুন (<?php echo esc_html(sb_bn_digits($costs['faq'])); ?>)</button></p>
-            </div>
-
-            <div class="sba-ai">
-                <div class="sba-ai-head"><h3>✍️ লেখার প্রম্পট <small>(আপনার নির্দেশ ও তথ্যই AI মানবে)</small></h3></div>
-                <p class="sba-muted">এখানে কী লিখতে হবে, কোন তথ্য থেকে লিখবে, সুর কেমন, কোন কোন অংশ থাকবে — সব বিস্তারিত লিখুন। নিচে ওয়েবসাইটের লিংক ও PDF/ছবি দিলে AI সেগুলো পড়ে তথ্য নেবে। আপনার দেওয়া তথ্যই সবার আগে; নিচের টিক দিলে AI ইন্টারনেটে সর্বশেষ খবরও যাচাই করবে, তবু বানিয়ে কিছু লিখবে না; কোনো তথ্য না থাকলে <code>[তথ্য দরকার: …]</code> লিখে রাখবে। শিরোনাম ও কীওয়ার্ডও (ধাপ ১-২) প্রম্পটের সাথে যাবে।</p>
-                <div id="ansi-note" class="sba-muted" hidden>🔤 This text looks like old Bijoy (ANSI). AI will decode it to Unicode Bangla first.</div><textarea id="f-custom" rows="10" style="width:100%" placeholder="যেমন: ভর্তি বিজ্ঞপ্তির আর্টিকেল লিখুন। ক্লাস ৬ষ্ঠ–৯ম। আবেদন ১–১৫ নভেম্বর। ফি … । সুর আনুষ্ঠানিক, অভিভাবকদের উদ্দেশে। শেষে যোগাযোগের নম্বর দিন। (PDF-এর কোন অংশ কীভাবে ব্যবহার হবে তাও লিখুন)"></textarea>
-                <label style="display:block;margin-top:8px">🌐 তথ্যের ওয়েবসাইট লিংক <small>(প্রতি লাইনে একটি, সর্বোচ্চ ৪টি; সাইট নিজে পড়ে লেখাটুকু AI-কে দেওয়া হবে)</small>
-                    <textarea id="f-curls" rows="3" style="width:100%" placeholder="https://…"></textarea></label>
-                <label class="sba-comp">🎯 Websites to beat <small class="sba-muted">(one link per line, up to 5)</small>
-                    <textarea id="f-comp" rows="3" style="width:100%" placeholder="https://competitor-site-1.com/their-article&#10;https://competitor-site-2.com/their-article"></textarea>
-                    <small class="sba-muted">AI reads these pages, finds what they cover and what they miss, and writes a more complete, clearer article in its own words (nothing is copied; their facts are not used unless your sources confirm them).</small></label>
-                <label style="display:block;margin-top:8px">📎 PDF / ছবি <small>(সর্বোচ্চ ৪টি ফাইল, প্রতিটি ১০ MB-এর মধ্যে; PDF, JPG, PNG, WEBP। স্ক্যান করা PDF বা ছবির লেখাও AI পড়ে)</small>
-                    <input type="file" id="f-cfiles" multiple accept=".pdf,.jpg,.jpeg,.png,.webp,application/pdf,image/*"></label>
-                <label class="sba-inline-check" style="display:block;margin-top:6px"><input type="checkbox" id="f-cimg" checked> 🖼️ PDF-এর পাতাগুলো ছবি করে AI-কে দাও <em>(সরকারি PDF প্রায়ই পুরনো বিজয় ফন্টে থাকে, লেখা হিজিবিজি হয়ে যায়, ছবি করে পড়ালে ঠিক পড়ে; বেশি পাতা হলে প্রথম ১২ পাতা)</em></label>
-                <label class="sba-inline-check" style="display:block;margin-top:4px"><input type="checkbox" id="f-ckeep" checked> 📥 PDF সাইটের মিডিয়ায় রেখে এই পোস্টে <strong>ডাউনলোড বাটন</strong> ও <strong>পেজে পড়ার ঘর</strong> যোগ করো <em>(ধাপ ৩-এর নিচে দেখা যাবে, সরাতেও পারবেন)</em></label>
-                <label class="sba-research" style="display:block;margin-top:8px"><input type="checkbox" id="f-research" checked> 🌐 সঠিক ও সর্বশেষ খবরের জন্য AI ইন্টারনেটেও যাচাই করুক <em>(+<?php echo esc_html(sb_bn_digits($costs['research'])); ?> ক্রেডিট, শুধু সফল হলে)</em></label>
-                <div class="sba-style" style="margin-top:10px;display:flex;gap:10px;align-items:center;flex-wrap:wrap">
-                    <label>📝 লেখার ধরন
-                        <select id="f-style">
-                            <option value="para">প্যারা ভিত্তিক (গল্পের মতো, পয়েন্ট কম)</option>
-                            <option value="points">পয়েন্ট ভিত্তিক</option>
-                            <option value="both">প্যারা + পয়েন্ট দুটোই</option>
-                            <option value="ai">AI-র পরামর্শ অনুযায়ী</option>
-                        </select></label>
-                    <label>🔢 শব্দসংখ্যা (প্রায়) <input type="number" id="f-words" min="300" max="5000" step="50" placeholder="যেমন ১২০০" style="width:110px"></label>
-                </div>
-                <p class="sba-muted" style="margin:6px 0 0">💡 <strong>আগে বুঝে নিন:</strong> AI পুরো লেখা না লিখে আপনার প্রম্পট, সাইট ও ইন্টারনেট ঘেঁটে বলবে সে কী বুঝেছে, কী জানতে চায় আর কী যোগ করলে লেখা তথ্যবহুল হবে। আপনি ঠিক করে দিলে তবেই লেখা শুরু হবে।</p>
-                <div style="margin-top:10px;display:flex;gap:10px;align-items:center;flex-wrap:wrap">
-                    <?php $cur_m = trim((string) sb_get('model_article')) ?: sb_get('model'); ?>
-                    <select id="f-cmodel" title="কোন AI মডেলে লিখবে">
-                        <?php foreach (sb_model_catalog() as $mid => $mm) : ?>
-                            <option value="<?php echo esc_attr($mid); ?>" <?php selected($cur_m, $mid); ?>><?php echo esc_html($mid . ' — ' . $mm[2]); ?></option>
-                        <?php endforeach; ?>
-                        <?php if (!isset(sb_model_catalog()[$cur_m])) : ?><option value="<?php echo esc_attr($cur_m); ?>" selected><?php echo esc_html($cur_m); ?></option><?php endif; ?>
-                    </select>
-                    <select id="f-clen" title="আর্টিকেলের দৈর্ঘ্য">
-                        <option value="1">৮০০–১০০০ শব্দ (<?php echo esc_html(sb_bn_digits($costs['custom'])); ?> ক্রেডিট)</option>
-                        <option value="2">১০০০–১৫০০ শব্দ (<?php echo esc_html(sb_bn_digits($costs['custom2'])); ?> ক্রেডিট)</option>
-                        <option value="3">১৫০০+ শব্দ (<?php echo esc_html(sb_bn_digits($costs['custom3'])); ?> ক্রেডিট)</option>
-                    </select>
-                    <button type="button" class="button button-primary" id="brief-go">🧭 আগে বুঝে নিন (<?php echo esc_html(sb_bn_digits($costs['brief'])); ?> ক্রেডিট)</button>
-                    <button type="button" class="button" data-ai="custom">🤖 সরাসরি লিখুন</button>
-                </div>
-                <div id="brief-box" class="sba-brief" hidden></div>
-                <div class="sba-ai-head" style="margin-top:14px"><h3>আর্টিকেল</h3></div>
-                <?php
-                wp_editor($post ? $post->post_content : '', 'sb_content', array(
-                    'textarea_name' => 'sb_content',
-                    'media_buttons' => true,
-                    'editor_height' => 360,
-                    'teeny'         => false,
-                ));
-                ?>
-                <div id="article-sources" class="sba-sources" hidden></div>
-                <div id="article-missing" class="sba-missing" hidden></div>
-                <div id="article-facts" class="sba-facts" hidden></div>
-            </div>
-
-            <div class="sba-ai sba-chat" id="chat-box">
-                <div class="sba-ai-head"><h3>💬 Tell AI what to change</h3>
-                    <button type="button" class="button" id="chat-undo" hidden>↩ Undo last draft change</button></div>
-                <p class="sba-muted">One box for everything. Type like a chat, in Bangla or English. AI works on a <strong>working draft</strong> shown here; the editor stays untouched until you press <strong>Send final to editor</strong>. AI changes only what you ask, and the rest of the draft stays the same. Examples: <em>"make paragraph 3 shorter"</em>, <em>"add the fee after the first paragraph"</em>, <em>"add an FAQ about the exam date"</em>. Each change that is applied costs <strong><?php echo esc_html(sb_bn_digits($costs['chat'])); ?> credits</strong>; a question or no change is free. Your title is never changed.</p>
-                <label class="sba-inline-check" id="chat-src-wrap" hidden><input type="checkbox" id="chat-src" checked> Let AI look at the attached PDF / images again (reads the source pages)</label>
-                <div class="sba-chat-draft" id="chat-draft" hidden>
-                    <div class="sba-chat-draft-head"><strong>📝 Working draft</strong> <span id="chat-draft-state" class="sba-muted"></span></div>
-                    <div class="sba-chat-draft-body" id="chat-draft-body"></div>
-                    <div class="sba-chat-draft-act">
-                        <button type="button" class="button button-primary" id="chat-apply" disabled>✅ Send final to editor</button>
-                        <button type="button" class="button" id="chat-reset">↺ Reset draft from editor</button>
-                        <button type="button" class="button" id="chat-undo-editor" hidden>↩ Undo last send to editor</button>
-                    </div>
-                </div>
-                <label class="sba-inline-check"><input type="checkbox" id="chat-direct"> Also send every change straight to the editor (otherwise changes stay in the draft until you press "Send final to editor")</label>
-                <div class="sba-chat-log" id="chat-log" aria-live="polite"></div>
-                <div class="sba-chat-in">
-                    <textarea id="chat-text" rows="3" placeholder="What do you want to change? (Ctrl+Enter to send)"></textarea>
-                    <button type="button" class="button button-primary" id="chat-send">Send <small>· <?php echo esc_html(sb_bn_digits($costs['chat'])); ?> credits</small></button>
-                </div>
-                <div class="sba-chat-rule" id="chat-rule" hidden><span id="chat-rule-text"></span> <button type="button" class="button" id="chat-rule-yes">Remember for all posts</button> <button type="button" class="button-link" id="chat-rule-no">No</button></div>
-            </div>
-
-            <details class="sba-oldedit"><summary>পুরোনো পদ্ধতি: ঘরে ঘরে নির্দেশ দিয়ে শুধু আর্টিকেল বদলানো</summary>
-            <?php sb_edit_box('ed'); ?>
-            </details>
-
-            <div class="sba-ai">
-                <div class="sba-ai-head"><h3>সামারি <small class="sba-muted">(মূল পোস্ট থেকে তৈরি হয়)</small></h3>
-                    <button type="button" class="button" data-ai="summary">🤖 তৈরি করুন <em>(<?php echo esc_html(sb_bn_digits($costs['summary'])); ?>)</em></button></div>
-                <textarea id="f-summary" rows="4"><?php echo esc_textarea($d['summary']); ?></textarea>
-                <small class="sba-muted">আর্টিকেলের ওপরে "সংক্ষেপে" বক্সে দেখাবে। আর্টিকেল থেকে তৈরি হয়।</small>
-            </div>
-
-            <div class="sba-ai">
-                <div class="sba-ai-head"><h3>FAQ (প্রশ্ন-উত্তর) <small class="sba-muted">(আর্টিকেল লেখার পর বাটনে তৈরি হয়)</small></h3>
-                    <button type="button" class="button" data-ai="faq">🤖 তৈরি করুন <em>(<?php echo esc_html(sb_bn_digits($costs['faq'])); ?>)</em></button></div>
-                <div id="faq-list"></div>
-                <button type="button" class="button" id="faq-add">+ প্রশ্ন যোগ করুন</button>
-            </div>
-        </section>
-
-        <!-- Step 5 -->
-        <section class="sba-step" data-step="5" hidden>
-            <h2>ধাপ ৫: রিভিউ ও প্রকাশ</h2>
+            <h3 style="margin-top:18px">✅ রিভিউ ও প্রকাশ</h3>
             <dl class="sba-review" id="review"></dl>
             <fieldset class="sba-status">
                 <label><input type="radio" name="f-status" value="draft" <?php checked($d['status'] !== 'publish'); ?>> খসড়া হিসেবে সেভ</label>

@@ -133,3 +133,9 @@
 .sba-b-out .sba-b-h{flex:1;min-width:180px}.sba-b-out .sba-b-w{width:80px}
 .sba-b-fix,.sba-b-ans{min-width:220px}
 .sba-b-actions{display:flex;gap:8px;flex-wrap:wrap;margin-top:14px}
+
+/* page 2/3 panels */
+.sba-factpanel,.sba-coverpanel{margin-top:10px;padding:10px 14px;border:1px solid #f0d9a8;border-left:4px solid #dba617;border-radius:6px;background:#fffaf0}
+.sba-coverpanel{border-color:#cfe3d4;border-left-color:#2e7d32;background:#f6fbf7}
+.sba-cover-bar{height:8px;border-radius:4px;background:#e3e6ea;overflow:hidden;margin-top:6px}.sba-cover-bar span{display:block;height:100%;background:#2e7d32}
+.sba-write .sba-more summary{cursor:pointer;font-weight:600}

@@ -143,6 +143,9 @@ function sb_ajax_ai() {
         'ansi'     => sb_req('ansi') === '1',
         'style'    => in_array(sb_req('style'), array('para', 'points', 'both', 'ai'), true) ? sb_req('style') : 'para',
         'words'    => max(0, min(5000, (int) sb_req('words', 0))),
+        'mode'     => in_array(sb_req('mode'), array('links', 'paste', 'both'), true) ? sb_req('mode') : 'both',
+        'paste'    => mb_substr(sanitize_textarea_field(sb_req('paste')), 0, 40000),
+        'ptype'    => isset(sb_ptypes()[sb_req('ptype')]) ? sb_req('ptype') : 'general',
         'brief'    => mb_substr(sanitize_textarea_field(sb_req('brief')), 0, 8000),
     );
     if ($feature === 'chat') {
@@ -323,6 +326,22 @@ function sb_custom_result($r, $ctx = array()) {
             }
         }
         $r['gaps'] = $gaps;
+        $verify = array();
+        foreach (isset($j['verify']) && is_array($j['verify']) ? array_slice($j['verify'], 0, 12) : array() as $v) {
+            $it = is_array($v) && isset($v['item']) ? sanitize_text_field($v['item']) : (is_string($v) ? sanitize_text_field($v) : '');
+            if (mb_strlen($it) > 5 && mb_strpos($it, 'কী তথ্য ও মান') === false) {
+                $verify[] = array('item' => $it, 'source' => is_array($v) && isset($v['source']) ? esc_url_raw($v['source']) : '');
+            }
+        }
+        $r['verify'] = $verify;
+        $cov = array();
+        foreach (isset($j['coverage']) && is_array($j['coverage']) ? array_slice($j['coverage'], 0, 14) : array() as $v) {
+            $tp = is_array($v) && isset($v['topic']) ? sanitize_text_field($v['topic']) : '';
+            if (mb_strlen($tp) > 3 && mb_strpos($tp, 'বিষয়') !== 0) {
+                $cov[] = array('topic' => $tp, 'covered' => !empty($v['covered']) && $v['covered'] !== 'false');
+            }
+        }
+        $r['coverage'] = $cov;
     }
     $deferral = array();
     $plain_all = wp_strip_all_tags((string) $r['text']);
@@ -463,7 +482,7 @@ add_action('wp_ajax_sb_job_run', function () {
     $notes = array();
     $ctx = $job['ctx'];
     $ctx['web'] = sb_fetch_pages($job['urls'], $notes);
-    if (!empty($job['comp'])) {
+    if (!empty($job['comp']) && (!isset($ctx['mode']) || $ctx['mode'] !== 'paste')) {
         $cn = array();
         $ctx['comp_web'] = sb_fetch_pages($job['comp'], $cn, 5, 'প্রতিযোগী সাইট');
         foreach ($cn as $x) {
@@ -1099,3 +1118,34 @@ function sb_autosave_get($pid) {
     $a = get_user_meta(get_current_user_id(), 'sb_auto_' . (int) $pid, true);
     return (is_array($a) && !empty($a['data'])) ? array('t' => (int) $a['t'], 'data' => json_decode($a['data'], true)) : null;
 }
+
+
+/* ---------- Writing presets (saved settings; free) ---------- */
+add_action('wp_ajax_sb_preset_save', function () {
+    sb_ajax_guard();
+    $name = mb_substr(sanitize_text_field(sb_req('name')), 0, 40);
+    if ($name === '') {
+        wp_send_json_error(array('message' => 'প্রিসেটের একটা নাম দিন।'));
+    }
+    $raw = json_decode((string) sb_req('data'), true);
+    $keys = array('ptype', 'style', 'words', 'mode', 'model', 'clen', 'research', 'inc_summary', 'inc_faq', 'faqn');
+    $data = array();
+    foreach ($keys as $k) {
+        $data[$k] = is_array($raw) && isset($raw[$k]) && is_scalar($raw[$k]) ? sanitize_text_field((string) $raw[$k]) : '';
+    }
+    $all = sb_presets_get();
+    if (!isset($all[$name]) && count($all) >= 20) {
+        wp_send_json_error(array('message' => 'সর্বোচ্চ ২০টি প্রিসেট রাখা যায়; আগে একটি মুছুন।'));
+    }
+    $all[$name] = $data;
+    update_user_meta(get_current_user_id(), 'sb_presets', $all);
+    wp_send_json_success(array('presets' => $all));
+});
+add_action('wp_ajax_sb_preset_del', function () {
+    sb_ajax_guard();
+    $name = mb_substr(sanitize_text_field(sb_req('name')), 0, 40);
+    $all = sb_presets_get();
+    unset($all[$name]);
+    update_user_meta(get_current_user_id(), 'sb_presets', $all);
+    wp_send_json_success(array('presets' => $all));
+});

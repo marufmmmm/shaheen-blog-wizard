@@ -352,7 +352,7 @@
   var form = $('#sb-form');
   if (!form) return;
   var P = window.SB_POST || {};
-  var step = 1, TOTAL = 5, postId = P.id || 0, msg = $('#msg');
+  var step = 1, TOTAL = 3, postId = P.id || 0, msg = $('#msg');
 
   function editorContent() {
     if (window.tinymce && tinymce.get('sb_content') && !tinymce.get('sb_content').isHidden()) {
@@ -386,7 +386,7 @@
 
   function validate(s) {
     if (s === 1 && !val('#f-title').trim()) return 'শিরোনাম লিখুন।';
-    if (s === 2 && !postId && keywords().length < 2) return 'কমপক্ষে ২টি কীওয়ার্ড দিন, প্রতিটির মাঝে কমা (,) দিন। এখন পাওয়া গেছে: ' + bn(keywords().length) + 'টি।';
+    if (s === 1 && !postId && keywords().length < 2) return 'কমপক্ষে ২টি কীওয়ার্ড দিন, প্রতিটির মাঝে কমা (,) দিন। এখন পাওয়া গেছে: ' + bn(keywords().length) + 'টি।';
     return '';
   }
 
@@ -587,9 +587,10 @@
     var chk = function () { var n = $('#ansi-note'); if (n) { n.hidden = !looksAnsi(f.value); } };
     f.addEventListener('input', chk); chk();
   })();
+  function modeVal() { var r = $('input[name="f-mode"]:checked'); return r ? r.value : 'both'; }
   function aiPayload(feature) {
     var extra = {};
-    if (feature === 'custom' || feature === 'brief') { extra = { style: val('#f-style') || 'para', words: val('#f-words'), brief: (feature === 'custom') ? (SB.briefText || '') : '', comp: val('#f-comp'), ansi: looksAnsi(val('#f-custom')) ? '1' : '0', tier: val('#f-clen') || '1', model: val('#f-cmodel'), urls: val('#f-curls'), files: [].slice.call(($('#f-cfiles') || {}).files || []) }; }
+    if (feature === 'custom' || feature === 'brief') { extra = { style: val('#f-style') || 'para', words: val('#f-words'), mode: modeVal(), paste: val('#f-paste'), ptype: val('#f-ptype') || 'general', brief: (feature === 'custom') ? (SB.briefText || '') : '', comp: val('#f-comp'), ansi: looksAnsi(val('#f-custom')) ? '1' : '0', tier: val('#f-clen') || '1', model: val('#f-cmodel'), urls: val('#f-curls'), files: [].slice.call(($('#f-cfiles') || {}).files || []) }; }
     var base = {
       feature: feature, post_id: postId, title: val('#f-title'), topic: val('#f-topic'), excerpt: val('#f-excerpt'),
       content: editorContent(), keywords: keywords(), length: val('#f-length'),
@@ -670,7 +671,7 @@
       if (btn) { btn.textContent = '⏳ ফাইল পাঠানো হচ্ছে…'; }
       return post('sb_ai', pl);
     }).then(function (d) {
-      if (d.pdfs && d.pdfs.length) { addPdfRows(d.pdfs); toast('✓ PDF মিডিয়ায় রাখা হয়েছে; ধাপ ৩-এর ডাউনলোড বাটন ও পড়ার ঘরে যোগ হয়েছে।', 'ok'); }
+      if (d.pdfs && d.pdfs.length) { addPdfRows(d.pdfs); toast('✓ PDF মিডিয়ায় রাখা হয়েছে; পেজ ৩-এর ডাউনলোড বাটন ও পড়ার ঘরে যোগ হয়েছে।', 'ok'); }
       var id = d.job, t0 = Date.now(), fails = 0;
       return post('sb_job_run', { job: id }).then(function () { return new Promise(function (resolve, reject) {
         (function poll() {
@@ -785,6 +786,80 @@
     }
     go.addEventListener('click', run);
   })();
+
+  /* ---- fact-check list (numbers/dates that came only from the "websites to beat") and coverage meter ---- */
+  function unverifiedCount() { return $$('#fact-panel input.fv:not(:checked)').length; }
+  function renderVerify(list) {
+    var box = $('#fact-panel'); if (!box) { return; }
+    box.innerHTML = '';
+    if (!list || !list.length) { box.hidden = true; return; }
+    var h = document.createElement('div'); h.innerHTML = '<strong>🔎 তথ্য-যাচাই তালিকা</strong> <span class="sba-muted">(এই তথ্যগুলো শুধু উৎস সাইট থেকে এসেছে, আপনার বিবরণে ছিল না। নিজে মিলিয়ে টিক দিন; টিক না পড়লে রিভিউতে সতর্কতা দেখাবে)</span>';
+    box.appendChild(h);
+    var ul = document.createElement('ul'); ul.style.listStyle = 'none'; ul.style.paddingLeft = '0';
+    list.forEach(function (v) {
+      var li = document.createElement('li'), lb = document.createElement('label'), cb = document.createElement('input');
+      cb.type = 'checkbox'; cb.className = 'fv';
+      lb.appendChild(cb); lb.appendChild(document.createTextNode(' ' + v.item + ' '));
+      if (v.source) { var a = document.createElement('a'); a.href = v.source; a.target = '_blank'; a.rel = 'noopener'; a.textContent = 'সোর্স ↗'; lb.appendChild(a); }
+      li.appendChild(lb); ul.appendChild(li);
+    });
+    box.appendChild(ul); box.hidden = false;
+  }
+  function renderCoverage(list) {
+    var box = $('#cover-panel'); if (!box) { return; }
+    box.innerHTML = '';
+    if (!list || !list.length) { box.hidden = true; return; }
+    var got = list.filter(function (x) { return x.covered; }).length, pc = Math.round(got * 100 / list.length);
+    var h = document.createElement('div');
+    h.innerHTML = '<strong>📊 উৎস সাইটের বিষয় কভারেজ: ' + bn(got) + '/' + bn(list.length) + ' (' + bn(pc) + '%)</strong> <span class="sba-muted">(AI-র নিজের হিসাব, চোখ বুলিয়ে নিন)</span>';
+    var bar = document.createElement('div'); bar.className = 'sba-cover-bar'; var fill = document.createElement('span'); fill.style.width = pc + '%'; bar.appendChild(fill);
+    box.appendChild(h); box.appendChild(bar);
+    var ul = document.createElement('ul'); ul.style.marginTop = '6px';
+    list.forEach(function (x) { var li = document.createElement('li'); li.textContent = (x.covered ? '✅ ' : '❌ ') + x.topic; ul.appendChild(li); });
+    box.appendChild(ul); box.hidden = false;
+  }
+
+  /* ---- source mode (links / paste / both) and writing presets ---- */
+  (function () {
+    function applyMode() {
+      var m = modeVal(), pw = $('#paste-wrap'), cw = $('.sba-comp');
+      if (pw) { pw.hidden = (m === 'links'); }
+      if (cw) { cw.style.opacity = (m === 'paste') ? '.45' : '1'; }
+    }
+    $$('input[name="f-mode"]').forEach(function (r) { r.addEventListener('change', applyMode); });
+    applyMode();
+
+    var sel = $('#preset-sel'), del = $('#preset-del'), saveB = $('#preset-save'); if (!sel) { return; }
+    var presets = P.presets || {};
+    function fill() {
+      var cur = sel.value; sel.innerHTML = '<option value="">— সেভ করা সেটিং বসান —</option>';
+      Object.keys(presets).forEach(function (n) { var o = document.createElement('option'); o.value = n; o.textContent = n; sel.appendChild(o); });
+      sel.value = presets[cur] ? cur : ''; del.hidden = !sel.value;
+    }
+    function collect() {
+      return { ptype: val('#f-ptype'), style: val('#f-style'), words: val('#f-words'), mode: modeVal(), model: val('#f-cmodel'), clen: val('#f-clen'),
+        research: ($('#f-research') && $('#f-research').checked) ? '1' : '0', inc_summary: $('#inc-summary').checked ? '1' : '0', inc_faq: $('#inc-faq').checked ? '1' : '0', faqn: val('#f-faqn') };
+    }
+    function setSel(id, v) { var e = $(id); if (e && v !== undefined && v !== '') { e.value = v; e.dispatchEvent(new Event('change')); } }
+    function apply(d) {
+      setSel('#f-ptype', d.ptype); setSel('#f-style', d.style); setSel('#f-words', d.words); setSel('#f-cmodel', d.model); setSel('#f-clen', d.clen); setSel('#f-faqn', d.faqn);
+      var r = $('input[name="f-mode"][value="' + d.mode + '"]'); if (r) { r.checked = true; applyMode(); }
+      if ($('#f-research') && d.research !== '') { $('#f-research').checked = d.research === '1'; }
+      if (d.inc_summary !== '') { $('#inc-summary').checked = d.inc_summary === '1'; }
+      if (d.inc_faq !== '') { $('#inc-faq').checked = d.inc_faq === '1'; }
+    }
+    sel.addEventListener('change', function () { del.hidden = !sel.value; if (sel.value && presets[sel.value]) { apply(presets[sel.value]); toast('✓ "' + sel.value + '" সেটিং বসানো হয়েছে।', 'ok'); } });
+    saveB.addEventListener('click', function () {
+      var name = (window.prompt ? window.prompt('প্রিসেটের নাম দিন (যেমন: ভর্তি বিজ্ঞপ্তি ১২০০ শব্দ):', sel.value || '') : '') || '';
+      name = name.trim(); if (!name) { return; }
+      post('sb_preset_save', { name: name, data: JSON.stringify(collect()) }).then(function (d) { presets = d.presets; fill(); sel.value = name; del.hidden = false; toast('✓ প্রিসেট সেভ হয়েছে।', 'ok'); }).catch(function (e) { toast(e.message, 'err'); });
+    });
+    del.addEventListener('click', function () {
+      if (!sel.value) { return; }
+      post('sb_preset_del', { name: sel.value }).then(function (d) { presets = d.presets; fill(); toast('প্রিসেট মোছা হয়েছে।', 'ok'); }).catch(function (e) { toast(e.message, 'err'); });
+    });
+    fill();
+  })();
   var onlyBtn = $('#inc-only');
   if (onlyBtn) {
     onlyBtn.addEventListener('click', function () {
@@ -813,9 +888,9 @@
       } else if (f === 'custom') {
         if (val('#f-custom').trim().length < 30) { toast('প্রম্পট বক্সে বিস্তারিত নির্দেশ ও তথ্য লিখুন।', 'err'); return; }
       } else if ((f === 'headlines' || f === 'subtitle' || f === 'meta' || f === 'article') && keywords().length < 2) {
-        toast('আগে ধাপ ২-এ কমা দিয়ে কমপক্ষে ২টি কীওয়ার্ড লিখুন।', 'err'); say(msg, 'কীওয়ার্ড দিন (ধাপ ২)।', 'err'); return;
+        toast('আগে পেজ ১-এ কমা দিয়ে কমপক্ষে ২টি কীওয়ার্ড লিখুন।', 'err'); say(msg, 'কীওয়ার্ড দিন (ধাপ ২)।', 'err'); return;
       }
-      if (f !== 'headlines' && f !== 'rewrite' && f !== 'custom' && !val('#f-title').trim()) { toast('আগে ধাপ ১-এ শিরোনাম লিখুন।', 'err'); return; }
+      if (f !== 'headlines' && f !== 'rewrite' && f !== 'custom' && !val('#f-title').trim()) { toast('আগে পেজ ১-এ শিরোনাম লিখুন।', 'err'); return; }
       if ((f === 'summary' || f === 'faq') && editorContent().replace(/<[^>]+>/g, '').trim().length < 80) {
         toast('সামারি/FAQ মূল পোস্ট থেকে তৈরি হয়। আগে আর্টিকেল লিখুন বা তৈরি করুন।', 'err'); return;
       }
@@ -873,6 +948,7 @@
         var gl = document.createElement('ul'); r.gaps.forEach(function (x) { var li = document.createElement('li'); li.textContent = x; gl.appendChild(li); });
         gh.appendChild(gl); sb.appendChild(gh); sb.hidden = false;
       }
+      renderVerify(r.verify); renderCoverage(r.coverage);
       if (r.notes && r.notes.length) {
         var nh = document.createElement('div'); nh.style.marginTop = '6px';
         nh.innerHTML = '<strong>📋 আপনার দেওয়া উৎসের অবস্থা:</strong>';
@@ -911,6 +987,7 @@
       if (f === 'custom') { (window.__sbIns = window.__sbIns || []).push(val('#f-custom')); SB.briefText = ''; }
       buildFacts(f === 'custom' ? r.facts : [], r.missing);
       aiDraft = r.text;
+      if (step === 1 && (f === 'custom' || f === 'rewrite' || f === 'article')) { show(2); }   // the article is on page 2
     }
     else if (f === 'related') {
       if (!r.items.length) { toast('সাইটে এই লেখার সাথে মেলে এমন পোস্ট/পেজ পাওয়া যায়নি। নিজে খুঁজে যোগ করতে পারেন।', 'err'); }
@@ -1052,7 +1129,8 @@
      ['ক্যাটাগরি', catText], ['তারিখ', val('#f-date')], ['আর্টিকেল', plain ? bn(plain.split(/\s+/).length) + ' শব্দ' : 'খালি'],
      ['সামারি', $('#inc-summary').checked ? (val('#f-summary').trim() ? 'থাকবে' : '⚠️ টিক আছে কিন্তু লেখা নেই') : 'থাকবে না'],
      ['FAQ', $('#inc-faq').checked ? (faqData().length ? bn(faqData().length) + 'টি থাকবে' : '⚠️ টিক আছে কিন্তু লেখা নেই') : 'থাকবে না'],
-     ['ছবি', imgId ? 'আছে' : 'নেই']].forEach(function (p) {
+     ['ছবি', imgId ? 'আছে' : 'নেই'],
+     ['যাচাই-তালিকা', unverifiedCount() ? '⚠️ ' + bn(unverifiedCount()) + 'টি তথ্য এখনো যাচাই হয়নি (পেজ ২)' : 'ঠিক আছে']].forEach(function (p) {
       var dt = document.createElement('dt'), dd = document.createElement('dd');
       dt.textContent = p[0]; dd.textContent = p[1]; dl.appendChild(dt); dl.appendChild(dd);
     });
@@ -1122,7 +1200,7 @@
 
   /* save */
   $('#f-save').addEventListener('click', function () {
-    var er = validate(1) || validate(2);
+    var er = validate(1);
     if (er) { say(msg, er, 'err'); return; }
     var btn = this; btn.disabled = true;
     var st = $('input[name="f-status"]:checked');
