@@ -638,7 +638,7 @@
   function per100(m) { var p1 = (SB.modelPrices && SB.modelPrices[m]) ? SB.modelPrices[m][0] : SB.costs.custom; return Math.max(1, Math.ceil(p1 / 9)); }
   function refreshWordsCost() {
     var el = $('#words-cost'), w = parseInt(val('#f-words'), 10) || 0; if (!el) { return; }
-    el.textContent = w >= 300 ? fmt(customPrice()) + ' ক্রেডিট (' + fmt(per100(val('#f-cmodel'))) + '/১০০ শব্দ)' : fmt(per100(val('#f-cmodel'))) + ' ক্রেডিট/১০০ শব্দ; শব্দসংখ্যা না দিলে দৈর্ঘ্যের হিসাব';
+    el.textContent = (w >= 300 ? 'আনুমানিক ' + fmt(customPrice()) + ' ক্রেডিট (' + fmt(per100(val('#f-cmodel'))) + '/১০০ শব্দ)' : fmt(per100(val('#f-cmodel'))) + ' ক্রেডিট/১০০ শব্দ') + ' — লেখা শেষে আসল শব্দ অনুযায়ী কাটবে';
   }
   function customPrice() {
     var m = val('#f-cmodel'), t = (parseInt(val('#f-clen'), 10) || 1) - 1, w = parseInt(val('#f-words'), 10) || 0;

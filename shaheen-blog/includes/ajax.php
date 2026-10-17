@@ -416,6 +416,15 @@ function sb_ai_finish($uid, $feature, $ctx, $cost, $research, $result, &$notes) 
         $have = sb_numbers($result['headline'] . ' ' . $result['excerpt'] . ' ' . wp_strip_all_tags($result['text']));
         $result['facts_missing'] = array_values(array_map('sb_bn_digits', array_diff(sb_numbers($ctx['source'] . ' ' . $ctx['title']), $have)));
     }
+    if (in_array($feature, array('custom', 'rewrite_post'), true) && !empty($result['text'])) {
+        // charged after writing: by the words actually produced, per 100 words; never more than the user has
+        $wc = count(preg_split('/\s+/u', trim(wp_strip_all_tags((string) $result['text'])), -1, PREG_SPLIT_NO_EMPTY));
+        $actual = max(1, (int) ceil($wc / 100)) * sb_per100(isset($ctx['model']) ? (string) $ctx['model'] : '');
+        $rp = ($research && !empty($result['researched'])) ? max(0, (int) sb_get('cost_research')) : 0;
+        $rem = SB_Credits::state($uid)['remaining'];
+        $cost = max(0, min($actual + $rp, $rem));
+        $result['words'] = $wc;
+    }
     $new = $cost > 0 ? SB_Credits::charge($uid, $feature, $cost, $post_id) : SB_Credits::state($uid);
     if (is_wp_error($new)) {
         return array('ok' => false, 'message' => $new->get_error_message());
