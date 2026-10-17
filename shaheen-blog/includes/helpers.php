@@ -540,3 +540,18 @@ function sb_ref_clean($html, $beat_hosts) {
     }
     return $parts[0] . $parts[1];
 }
+
+
+/** Credits for a real API call: read (prompt) + write (completion incl. thinking), from the model's $/1M-token prices (1 credit = $0.0002). */
+function sb_usage_credits($model, $usage) {
+    $cat = sb_model_catalog();
+    if (!isset($cat[$model]) || !is_array($usage) || empty($usage['prompt_tokens'])) {
+        return array();
+    }
+    if (!preg_match('/([\d.]+)\s*\/\s*([\d.]+)/', (string) $cat[$model][0], $m)) {
+        return array();
+    }
+    $read = ((int) $usage['prompt_tokens']) * (float) $m[1] / 1000000 / 0.0002;
+    $write = ((int) (isset($usage['completion_tokens']) ? $usage['completion_tokens'] : 0)) * (float) $m[2] / 1000000 / 0.0002;
+    return array('read' => (int) ceil($read), 'write' => (int) ceil($write));
+}

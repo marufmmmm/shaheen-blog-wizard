@@ -220,12 +220,16 @@ class SB_AI {
                     . "- আর্টিকেলে [sb_slot …] ধরনের চিহ্ন থাকলে সেগুলো যেমন আছে তেমন রাখবে, বদলাবে না বা মুছবে না।\n"
                     . "- যদি মালিকের অভিযোগ শুধু এই পোস্টের নয়, ভবিষ্যতের সব লেখায় খাটে (যেমন 'কঠিন শব্দ লিখো না'), তাহলে \"rule\" কী-তে সেটা একটি ছোট নির্দেশ-বাক্যে দাও।\n"
                     . "- মালিক শুধু প্রশ্ন করলে বা পরামর্শ চাইলে কিছু বদলাবে না, শুধু reply দেবে।\n"
-                    . "আউটপুট শুধু একটি JSON অবজেক্ট, এই কাঠামোয়: {\"reply\":\"\",\"changes\":{},\"edits\":[],\"article\":\"\",\"rule\":\"\"}। কী-গুলোর মানে (এগুলো উদাহরণ নয়, নিজের উত্তর দিয়ে ভরবে; এই বর্ণনা কখনো মান হিসেবে লিখবে না): reply = মালিককে ১-২ বাক্যে বলো কী বদলালে (মালিকের ভাষায়)। changes = শুধু যে অংশ বদলাচ্ছে সেটাই, কী: subtitle, meta, excerpt, summary, slug, faq (faq হলে [{\"q\":..,\"a\":..}] পুরো নতুন তালিকা)। edits = আর্টিকেলের ছোট বদল [{\"find\":..,\"replace\":..}]। article = পুরো লেখা নতুন করে লিখতে হলে তার সম্পূর্ণ HTML (কখনো ছোট করে বা একটি বাক্য দিয়ে নয়, পুরো আর্টিকেল শুরু থেকে শেষ পর্যন্ত)। rule = ঐচ্ছিক, ভবিষ্যতের সব লেখার জন্য একটি ছোট নির্দেশ-বাক্য। যে কী-তে কিছু বদলানোর নেই সেটা খালি রাখবে।\n"
+                    . "আউটপুট শুধু একটি JSON অবজেক্ট, এই কাঠামোয়: {\"reply\":\"\",\"changes\":{},\"edits\":[],\"article\":\"\",\"rule\":\"\"}। কী-গুলোর মানে (এগুলো উদাহরণ নয়, নিজের উত্তর দিয়ে ভরবে; এই বর্ণনা কখনো মান হিসেবে লিখবে না): reply = মালিককে ১-২ বাক্যে বলো কী বদলালে (মালিকের ভাষায়)। changes = শুধু যে অংশ বদলাচ্ছে সেটাই, কী: subtitle, meta, excerpt, summary, slug, faq (faq হলে [{\"q\":..,\"a\":..}] পুরো নতুন তালিকা), এবং পোস্টের অন্য অংশও: spos (সামারি কোথায় বসবে: top, middle, end, অথবা p:N যেমন p:3 = ৩য় অনুচ্ছেদের পর), author (লেখকের নাম), caption (Facebook ক্যাপশনের লেখা), incS ও incF (সামারি/FAQ পোস্টে থাকবে কি না: true/false), category (নিচের ক্যাটাগরি তালিকার হুবহু একটি নাম), keywords (কীওয়ার্ডের তালিকা)। শিরোনাম (title) কখনো বদলাবে না। মালিক যে অংশের কথা বলেনি সেটা ছোঁবে না। edits = আর্টিকেলের ছোট বদল [{\"find\":..,\"replace\":..}]। article = পুরো লেখা নতুন করে লিখতে হলে তার সম্পূর্ণ HTML (কখনো ছোট করে বা একটি বাক্য দিয়ে নয়, পুরো আর্টিকেল শুরু থেকে শেষ পর্যন্ত)। rule = ঐচ্ছিক, ভবিষ্যতের সব লেখার জন্য একটি ছোট নির্দেশ-বাক্য। যে কী-তে কিছু বদলানোর নেই সেটা খালি রাখবে।\n"
                     . "- মালিকের বার্তা যদি পুরো লেখার ভাষা, ধরন, বিস্তার বা গুছিয়ে লেখা নিয়ে হয় (যেমন 'ভাষা সহজ করো', 'আরও বিস্তারিত লেখো', 'সংক্ষিপ্ত না করে সাধারণ মানুষের ভাষায় গুছিয়ে লেখো'), তাহলে পুরো আর্টিকেল নতুন করে সম্পূর্ণ লিখে 'article'-এ দেবে, তথ্য, ছবি, লিংক ও [sb_slot …] চিহ্ন ঠিক রেখে; এখানে edits বা ছোট অংশ দিয়ে কাজ সারবে না। একই সাথে rule-ও দেবে।\n\n"
                     . ($hist !== '' ? "--- আগের চ্যাট ---\n{$hist}\n" : '')
                     . "--- বর্তমান পোস্ট ---\ntitle: " . (isset($st['title']) ? $st['title'] : '') . "\nsubtitle: " . (isset($st['subtitle']) ? $st['subtitle'] : '')
                     . "\nmeta: " . (isset($st['meta']) ? $st['meta'] : '') . "\nexcerpt: " . (isset($st['excerpt']) ? $st['excerpt'] : '')
                     . "\nsummary: " . (isset($st['summary']) ? $st['summary'] : '') . "\nslug: " . (isset($st['slug']) ? $st['slug'] : '')
+                    . "\nspos: " . (isset($st['spos']) ? $st['spos'] : 'top') . "\nauthor: " . (isset($st['author']) ? $st['author'] : '') . "\ncaption: " . (isset($st['caption']) ? $st['caption'] : '')
+                    . "\nincS: " . (!empty($st['incS']) ? 'true' : 'false') . " incF: " . (!empty($st['incF']) ? 'true' : 'false')
+                    . "\ncategory: " . (isset($st['category']) ? $st['category'] : '') . " | ক্যাটাগরি তালিকা: " . (!empty($st['cats']) ? implode(', ', $st['cats']) : '(নেই)')
+                    . "\nkeywords: " . (!empty($st['kw']) ? implode(', ', $st['kw']) : '')
                     . "\nfaq:\n" . ($faqs !== '' ? $faqs : "(নেই)\n")
                     . "\nআর্টিকেল (HTML):\n" . ($art !== '' ? $art : '(খালি)')
                     ;
@@ -498,7 +502,7 @@ class SB_AI {
             return array('faq' => $out);
         }
         if ($feature === 'chat') {
-            return array('text' => $text, 'finish' => isset($data['choices'][0]['finish_reason']) ? (string) $data['choices'][0]['finish_reason'] : '');
+            return array('text' => $text, 'model' => $model, 'usage' => isset($data['usage']) && is_array($data['usage']) ? $data['usage'] : array(), 'finish' => isset($data['choices'][0]['finish_reason']) ? (string) $data['choices'][0]['finish_reason'] : '');
         }
         if ($feature === 'brief') {
             return self::parse_brief($text);

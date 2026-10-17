@@ -1117,17 +1117,25 @@
     var log = $('#chat-log'), txt = $('#chat-text'), send = $('#chat-send'), undo = $('#chat-undo');
     if (!log) { return; }
     var hist = [], dsnaps = [], esnaps = [], ruleBox = { t: '' }, draft = null, synced = '', direct = $('#chat-direct');
-    var LBL = { subtitle: 'subtitle', meta: 'meta description', excerpt: 'excerpt', summary: 'summary', slug: 'slug', faq: 'FAQ' };
+    var LBL = { subtitle: 'subtitle', meta: 'meta description', excerpt: 'excerpt', summary: 'summary', slug: 'slug', faq: 'FAQ', spos: 'summary position', author: 'author', caption: 'Facebook caption', incS: 'summary on/off', incF: 'FAQ on/off', category: 'category', keywords: 'keywords' };
     function snap() {
       return { subtitle: val('#f-subtitle'), meta: val('#f-meta'), excerpt: val('#f-excerpt'), summary: val('#f-summary'),
-        slug: val('#f-slug'), faq: faqData(), content: editorContent(), incS: $('#inc-summary').checked, incF: $('#inc-faq').checked };
+        slug: val('#f-slug'), faq: faqData(), content: editorContent(), incS: $('#inc-summary').checked, incF: $('#inc-faq').checked,
+        spos: val('#f-summary_pos') || 'top', author: val('#f-author'), caption: val('#f-caption'), kw: keywords(), cat: catText() };
     }
+    function catText() { var c = $('#f-category'); return c && c.value !== '0' ? c.options[c.selectedIndex].text : ''; }
+    function catList() { var c = $('#f-category'); return c ? [].map.call(c.options, function (o) { return o.value !== '0' ? o.text : ''; }).filter(Boolean) : []; }
     function same(a, b) { return JSON.stringify(a) === JSON.stringify(b); }
     function restore(o) {
       $('#f-subtitle').value = o.subtitle; $('#f-meta').value = o.meta; metaCount();
       $('#f-excerpt').value = o.excerpt; $('#f-summary').value = o.summary; $('#f-slug').value = o.slug;
       faqList.innerHTML = ''; o.faq.forEach(function (x) { addFaq(x.q, x.a); });
       $('#inc-summary').checked = o.incS; $('#inc-faq').checked = o.incF; setEditorContent(o.content);
+      if ($('#f-summary_pos')) { $('#f-summary_pos').value = o.spos || 'top'; }
+      if ($('#f-author')) { $('#f-author').value = o.author || ''; }
+      if ($('#f-caption')) { $('#f-caption').value = o.caption || ''; }
+      if (o.kw && $('#f-kw')) { $('#f-kw').value = o.kw.join(', '); $('#f-kw').dispatchEvent(new Event('input')); }
+      var cs = $('#f-category'); if (cs && o.cat !== undefined) { var hit = [].filter.call(cs.options, function (x) { return x.text === o.cat; })[0]; cs.value = hit ? hit.value : (o.cat === '' ? '0' : cs.value); }
     }
     function srcShow() { var w = $('#chat-src-wrap'); if (w) { w.hidden = !SB.hasSrc; } }
     srcShow(); window.__sbSrcShow = srcShow;
@@ -1157,6 +1165,11 @@
       if (draft.meta) { extra += '<p><b>Meta:</b> ' + esc(draft.meta) + '</p>'; }
       if (draft.excerpt) { extra += '<p><b>Excerpt:</b> ' + esc(draft.excerpt) + '</p>'; }
       if (draft.slug) { extra += '<p><b>Slug:</b> ' + esc(draft.slug) + '</p>'; }
+      if (draft.spos && draft.spos !== 'top') { extra += '<p><b>Summary position:</b> ' + esc(draft.spos) + '</p>'; }
+      if (draft.author) { extra += '<p><b>Author:</b> ' + esc(draft.author) + '</p>'; }
+      if (draft.cat) { extra += '<p><b>Category:</b> ' + esc(draft.cat) + '</p>'; }
+      if (draft.kw && draft.kw.length) { extra += '<p><b>Keywords:</b> ' + esc(draft.kw.join(', ')) + '</p>'; }
+      if (draft.caption) { extra += '<p><b>Facebook caption:</b> ' + esc(draft.caption) + '</p>'; }
       if (draft.summary) { extra += '<p><b>Summary:</b> ' + esc(draft.summary) + '</p>'; }
       if (draft.faq && draft.faq.length) { extra += '<p><b>FAQ:</b></p><ul>' + draft.faq.map(function (f) { return '<li><b>' + esc(f.q) + '</b> ' + esc(f.a) + '</li>'; }).join('') + '</ul>'; }
       body.innerHTML = '<div class="sba-draft-art">' + h + '</div>' + (extra ? '<div class="sba-draft-extra">' + extra + '</div>' : '');
@@ -1196,7 +1209,7 @@
       var wait = add('ai', '⏳ Thinking… (a full rewrite can take a minute)'), before = JSON.parse(JSON.stringify(draft));
       post('sb_ai', { feature: 'chat', post_id: postId, instruction: retry ? t + '\n\n(আগের উত্তরে শুধু কথা দিয়েছ, লেখা বদলাওনি। এখনই এই বদল edits বা article দিয়ে করে ফেলো; "করব" বলে থেমো না।)' : t, comp: val('#f-comp'), content: before.content, keywords: keywords(),
         use_src: ($('#chat-src') && $('#chat-src').checked && SB.hasSrc) ? '1' : '0',
-        state: JSON.stringify({ subtitle: before.subtitle, meta: before.meta, excerpt: before.excerpt, summary: before.summary, slug: before.slug, faq: before.faq }),
+        state: JSON.stringify({ title: val('#f-title'), subtitle: before.subtitle, meta: before.meta, excerpt: before.excerpt, summary: before.summary, slug: before.slug, faq: before.faq, spos: before.spos, author: before.author, caption: before.caption, incS: before.incS, incF: before.incF, category: before.cat, cats: catList(), kw: before.kw }),
         history: JSON.stringify(hist) }).then(function (d) {
         var c = d.result.chat, done = [];
         wait.remove();
@@ -1209,6 +1222,8 @@
             var v = c.changes[k];
             if (k === 'faq') { draft.faq = v; draft.incF = true; }
             else if (k === 'summary') { draft.summary = v; draft.incS = true; }
+            else if (k === 'category') { draft.cat = v; }
+            else if (k === 'keywords') { draft.kw = v; }
             else { draft[k] = v; }
             done.push(LBL[k]);
           });
@@ -1216,7 +1231,7 @@
           undo.hidden = false;
           (window.__sbIns = window.__sbIns || []).push(t);
         }
-        var note = c.applied ? '✓ Changed in the draft: ' + done.join(', ') + ' — ' + fmt(d.cost) + ' credits used' : 'Nothing changed · free';
+        var note = c.applied ? '✓ Changed: ' + done.join(', ') + ' — total ' + fmt(d.cost) + ' credits' + (c.cost_note ? ' (' + c.cost_note + ')' : '') : 'Nothing changed · free';
         if (c.failed && c.failed.length) { note += '\n⚠️ Not changed: "' + c.failed.join('", "') + '"'; }
         if (c.missing && c.missing.length) { note += '\n⚠️ Information needed from you: ' + c.missing.join(' '); }
         add('ai', c.reply || (c.applied ? 'Done.' : 'I did not understand, please rephrase.'), note);

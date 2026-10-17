@@ -414,6 +414,13 @@ function sb_ai_finish($uid, $feature, $ctx, $cost, $research, $result, &$notes) 
         }
         if (empty($result['chat']['applied'])) {
             $cost = 0;   // a question or nothing applied: free
+        } else {
+            // charged by the real work done: what the AI read + what it wrote (+ PDFs), priced at the model's rates
+            $u = sb_usage_credits(isset($result['model']) ? $result['model'] : '', isset($result['usage']) ? $result['usage'] : array());
+            if ($u) {
+                $cost = max(5, $u['read'] + $u['write']);
+                $result['chat']['cost_note'] = 'পড়া ' . sb_bn_digits($u['read']) . ' + লেখা/চিন্তা ' . sb_bn_digits($u['write']) . ' ক্রেডিট';
+            }
         }
     }
     if ($feature === 'related' && empty($result['items'])) {
@@ -1050,6 +1057,20 @@ function sb_chat_state($json) {
         $o[$k] = isset($j[$k]) ? sanitize_textarea_field($j[$k]) : '';
     }
     $o['faq'] = sb_chat_faq(isset($j['faq']) ? $j['faq'] : array());
+    $o['spos'] = isset($j['spos']) && preg_match('/^(top|middle|end|p:\d{1,2})$/', (string) $j['spos']) ? $j['spos'] : 'top';
+    $o['author'] = isset($j['author']) ? sanitize_text_field($j['author']) : '';
+    $o['caption'] = isset($j['caption']) ? sanitize_textarea_field($j['caption']) : '';
+    $o['incS'] = !empty($j['incS']);
+    $o['incF'] = !empty($j['incF']);
+    $o['category'] = isset($j['category']) ? sanitize_text_field($j['category']) : '';
+    $o['cats'] = array();
+    foreach (isset($j['cats']) && is_array($j['cats']) ? array_slice($j['cats'], 0, 60) : array() as $c) {
+        $o['cats'][] = sanitize_text_field($c);
+    }
+    $o['kw'] = array();
+    foreach (isset($j['kw']) && is_array($j['kw']) ? array_slice($j['kw'], 0, 10) : array() as $k) {
+        $o['kw'][] = sanitize_text_field($k);
+    }
     return $o;
 }
 
@@ -1107,6 +1128,38 @@ function sb_chat_result($r, $ctx) {
             if ($v !== '' && $v !== (isset($st[$k]) ? $st[$k] : '')) {
                 $out['changes'][$k] = $v;
             }
+        }
+    }
+    // the rest of the post (the chat can manage every part of the page)
+    if (isset($ch['spos']) && is_string($ch['spos']) && preg_match('/^(top|middle|end|p:([1-9]|10))$/', $ch['spos']) && $ch['spos'] !== (isset($st['spos']) ? $st['spos'] : 'top')) {
+        $out['changes']['spos'] = $ch['spos'];
+    }
+    foreach (array('author' => 'author', 'caption' => 'caption') as $k => $sk) {
+        if (isset($ch[$k]) && is_string($ch[$k])) {
+            $v = $k === 'caption' ? sanitize_textarea_field($ch[$k]) : sanitize_text_field($ch[$k]);
+            if ($v !== '' && $v !== (isset($st[$sk]) ? $st[$sk] : '')) {
+                $out['changes'][$k] = $v;
+            }
+        }
+    }
+    foreach (array('incS', 'incF') as $k) {
+        if (isset($ch[$k]) && is_bool($ch[$k]) && $ch[$k] !== !empty($st[$k])) {
+            $out['changes'][$k] = $ch[$k];
+        }
+    }
+    if (isset($ch['category']) && is_string($ch['category']) && !empty($st['cats']) && in_array(sanitize_text_field($ch['category']), $st['cats'], true) && sanitize_text_field($ch['category']) !== (isset($st['category']) ? $st['category'] : '')) {
+        $out['changes']['category'] = sanitize_text_field($ch['category']);
+    }
+    if (isset($ch['keywords']) && is_array($ch['keywords'])) {
+        $kw = array();
+        foreach (array_slice($ch['keywords'], 0, 10) as $k) {
+            $k = is_string($k) ? sanitize_text_field($k) : '';
+            if ($k !== '' && !in_array($k, $kw, true)) {
+                $kw[] = $k;
+            }
+        }
+        if ($kw && $kw !== (isset($st['kw']) ? $st['kw'] : array())) {
+            $out['changes']['keywords'] = $kw;
         }
     }
     if (isset($ch['faq']) && is_array($ch['faq'])) {
