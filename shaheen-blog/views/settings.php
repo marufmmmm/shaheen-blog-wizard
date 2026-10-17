@@ -66,6 +66,10 @@ $render = function ($name, $cur, $blank) use ($cat) {
                 <?php $render('model_article', $s('model_article'), true); ?>
                 <small>প্রতিটি মডেলের চার্জ নিচের তালিকায় ঠিক করুন। লেখার সময় পোস্ট এডিটরেও মডেল বাছা যাবে।</small>
             </label>
+            <label>➕ নিজের মডেল যোগ করুন <small>(OpenAI অ্যাকাউন্টে যে মডেলের API নাম আছে, প্রতি লাইনে একটি। চাইলে চার্জও দিন: <code>মডেল-নাম | ৮০০–১০০০ শব্দের চার্জ | ১০০০–১৫০০ | ১৫০০+</code>)</small>
+                <textarea name="extra_models" rows="3" placeholder="model-id-here | 400 | 550 | 750"><?php echo esc_textarea($s('extra_models')); ?></textarea>
+                <small>সেভ করলে এই মডেল পোস্ট এডিটরের মডেল-তালিকায় ও ওপরের সিলেক্টে আসবে। নামটি OpenAI-র API নামের সাথে হুবহু মিলতে হবে, নইলে লেখার সময় OpenAI ত্রুটি দেবে।</small>
+            </label>
             <h3 style="margin-top:18px">💰 মডেল অনুযায়ী আর্টিকেলের চার্জ <small>(ক্রেডিট; সব মডেলের জন্য নিজে ঠিক করুন)</small></h3>
             <p class="sba-muted">১ ক্রেডিট = ০.০০০২ ডলার (২০,০০০ ক্রেডিট = ৪ ডলার)। "আনুমানিক খরচ" বাংলায় ১ শব্দ ≈ ৪ টোকেন ধরে হিসাব, ইনপুট ফাইলসহ। লাল ঘর মানে চার্জ খরচের চেয়ে কম, অর্থাৎ লোকসান। ইন্টারনেট যাচাইয়ের চার্জ আলাদা (নিচে "ইন্টারনেট রিসার্চের অতিরিক্ত ক্রেডিট")।</p>
             <div style="overflow-x:auto"><table class="widefat striped" id="sb-mp" style="max-width:900px">

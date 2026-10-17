@@ -31,6 +31,7 @@ function sb_defaults() {
         'ai_lang_other'  => '',
         'style_note'     => 'প্রচলিত চলিত ভাষায় লিখবে। কঠিন, সাধু বা বইয়ের মতো ভারী শব্দ এড়িয়ে প্রতিদিনের সহজ শব্দ ব্যবহার করবে। যেখানে জনপ্রিয় ইংরেজি শব্দ (যেমন: ক্লাস, কোচিং, অনলাইন) বেশি চলে সেখানে সেটাই লিখবে।',
         'model_article'  => '',
+        'extra_models'   => '',
         'top_offset'     => 0,
         'content_width'  => 0,
         'site_urls'      => "https://shaheen.edu.bd/",
@@ -68,9 +69,27 @@ function sb_save_settings(array $new) {
  * (1 credit = 0.0002 USD) for the three length tiers. Estimates: Bengali ~4 tokens/word, ~8k input tokens,
  * thinking tokens included for reasoning models. Prices per 1M tokens (input/output) as of Oct 2026.
  */
+/** Models the owner added in Settings (one per line: model-id | charge for 800-1000 | 1000-1500 | 1500+ words). */
+function sb_extra_models() {
+    $out = array();
+    foreach (preg_split('/\R/u', (string) sb_get('extra_models')) as $line) {
+        $p = array_map('trim', explode('|', $line));
+        $id = $p[0];
+        if (!preg_match('/^[A-Za-z0-9][A-Za-z0-9._:\-]{1,59}$/', $id)) {
+            continue;
+        }
+        $c = array();
+        for ($i = 1; $i <= 3; $i++) {
+            $c[] = isset($p[$i]) && (int) $p[$i] > 0 ? (int) $p[$i] : array(360, 450, 630)[$i - 1];
+        }
+        $out[$id] = array('—', array(0, 0, 0), 'আপনার যোগ করা মডেল', $c);
+    }
+    return $out;
+}
+
 function sb_model_catalog() {
     // id => [price text, [est credits t1,t2,t3], note, [default charge t1,t2,t3]]
-    return array(
+    return array_merge(sb_extra_models(), array(
         'gpt-4o-mini'  => array('0.15 / 0.60', array(17, 21, 29), 'সবচেয়ে সস্তা; বাংলার মান মোটামুটি', array(120, 150, 180)),
         'gpt-5.4-nano' => array('0.20 / 1.25', array(55, 73, 103), 'সস্তা, নতুন প্রজন্ম', array(120, 150, 180)),
         'gpt-4.1-mini' => array('0.40 / 1.60', array(45, 56, 78), 'ভালো ও সস্তা', array(120, 150, 180)),
@@ -79,7 +98,7 @@ function sb_model_catalog() {
         'gpt-4.1'      => array('2.00 / 8.00', array(225, 280, 390), 'দামি', array(360, 450, 630)),
         'gpt-4o'       => array('2.50 / 10.00', array(280, 340, 460), 'দামি', array(450, 550, 740)),
         'gpt-5'        => array('1.25 / 10.00', array(410, 550, 750), 'সবচেয়ে দামি (চিন্তার টোকেনে)', array(660, 880, 1200)),
-    );
+    ));
 }
 
 /** Charge (credits) per model for the three length tiers; owner-editable in Settings. */
