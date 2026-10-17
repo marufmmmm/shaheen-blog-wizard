@@ -316,6 +316,7 @@ function sb_custom_result($r, $ctx = array()) {
             $r['no_article'] = 'AI পূর্ণ আর্টিকেলের বদলে পরিকল্পনা/রূপরেখা লিখেছে।';
             return $r;
         }
+        $r['pdf_docs'] = isset($j['pdfs']) ? sb_pdf_docs($j['pdfs']) : array();
         $r['meta'] = isset($j['meta']) ? sanitize_text_field($j['meta']) : '';
         $r['excerpt'] = isset($j['excerpt']) ? sanitize_textarea_field($j['excerpt']) : '';
         if (mb_strlen($r['excerpt']) > 400 || preg_match('/[?？]|নির্দেশ|বোঝাপড়া|রূপরেখা|অনুমোদন/u', $r['excerpt'])) {
@@ -376,6 +377,19 @@ function sb_custom_result($r, $ctx = array()) {
     $t = preg_replace('/\[[^\]\[]*(এখানে যুক্ত করুন|এখানে যোগ করুন)[^\]\[]*\]/u', '[তথ্য দরকার: সরকারি/মূল তথ্য]', $t);
     $r['text'] = wp_kses_post($t);
     return $r;
+}
+
+/** Sanitised PDF documents the AI was asked to produce (title + html), at most 2. */
+function sb_pdf_docs($arr) {
+    $out = array();
+    foreach (is_array($arr) ? array_slice($arr, 0, 2) : array() as $d) {
+        if (!is_array($d) || empty($d['html']) || !is_string($d['html'])) {
+            continue;
+        }
+        $t = isset($d['title']) ? sanitize_text_field($d['title']) : '';
+        $out[] = array('title' => $t !== '' ? mb_substr($t, 0, 80) : 'PDF', 'html' => wp_kses_post($d['html']));
+    }
+    return $out;
 }
 
 /** Post-processes a finished result and charges the credits. */
@@ -1125,7 +1139,8 @@ function sb_chat_result($r, $ctx) {
         preg_match_all('/\[তথ্য দরকার:[^\]]*\]/u', $new, $mm);
         $out['missing'] = array_values(array_unique($mm[0]));
     }
-    $out['applied'] = count($out['changes']) + ($out['article'] !== null ? 1 : 0);
+    $out['pdf_docs'] = isset($j['pdfs']) ? sb_pdf_docs($j['pdfs']) : array();
+    $out['applied'] = count($out['changes']) + ($out['article'] !== null ? 1 : 0) + ($out['pdf_docs'] ? 1 : 0);
     $out['promise'] = (!$out['applied'] && empty($out['failed']) && preg_match('/(করব|করছি|যুক্ত করে দেব|যোগ করব|দিচ্ছি|লিখব|বদলাব|সরিয়ে দেব)/u', $out['reply'])) ? 1 : 0;
     if (!$out['applied'] && $out['reply'] === '') {
         $out['reply'] = 'কিছু বদলানো যায়নি। কোন অংশ কীভাবে বদলাবেন আরও স্পষ্ট করে লিখুন।';
@@ -1241,3 +1256,28 @@ add_action('wp_ajax_sb_preset_del', function () {
     update_user_meta(get_current_user_id(), 'sb_presets', $all);
     wp_send_json_success(array('presets' => $all));
 });
+
+
+add_action('wp_ajax_sb_pdf_upload', 'sb_ajax_pdf_upload');
+/** A PDF made in the browser (from AI-written content) is kept in the Media Library. */
+function sb_ajax_pdf_upload() {
+    sb_ajax_guard('upload_files');
+    if (empty($_FILES['pdf']) || (int) $_FILES['pdf']['error'] !== UPLOAD_ERR_OK || (int) $_FILES['pdf']['size'] > 25 * 1024 * 1024) { // phpcs:ignore WordPress.Security.NonceVerification
+        wp_send_json_error(array('message' => 'PDF ফাইল আসেনি।'));
+    }
+    require_once ABSPATH . 'wp-admin/includes/file.php';
+    require_once ABSPATH . 'wp-admin/includes/media.php';
+    require_once ABSPATH . 'wp-admin/includes/image.php';
+    $name = sanitize_text_field(sb_req('name'));
+    $base = sanitize_file_name(($name !== '' ? $name : 'document') . '-' . wp_date('Ymd-His'));
+    $head = (string) file_get_contents($_FILES['pdf']['tmp_name'], false, null, 0, 5); // phpcs:ignore
+    if ($head !== '%PDF-') {
+        wp_send_json_error(array('message' => 'ফাইলটি PDF নয়।'));
+    }
+    $file = array('name' => $base . '.pdf', 'type' => 'application/pdf', 'tmp_name' => $_FILES['pdf']['tmp_name'], 'error' => 0, 'size' => $_FILES['pdf']['size']); // phpcs:ignore
+    $aid = media_handle_sideload($file, 0, $name !== '' ? $name : 'PDF');
+    if (is_wp_error($aid)) {
+        wp_send_json_error(array('message' => $aid->get_error_message()));
+    }
+    wp_send_json_success(array('name' => $name !== '' ? $name : 'PDF', 'url' => wp_get_attachment_url($aid)));
+}

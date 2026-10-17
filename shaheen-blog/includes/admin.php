@@ -69,6 +69,7 @@ function sb_admin_assets() {
     wp_localize_script('sb-admin', 'SB', array(
         'ajax'    => admin_url('admin-ajax.php'),
         'nonce'   => wp_create_nonce('sb_admin'),
+        'h2p'     => SB_URL . 'assets/vendor/html2pdf.bundle.min.js',
         'balance' => SB_Credits::state(get_current_user_id()),
         'costs'   => $costs,
         'modelPrices' => sb_model_prices(),

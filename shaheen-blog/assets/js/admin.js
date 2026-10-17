@@ -705,6 +705,39 @@
       }
     });
   }
+  /* AI-written documents (routine, checklist …) -> PDF in the browser -> Media Library -> download button + reader */
+  function loadH2p() {
+    if (window.html2pdf) { return Promise.resolve(); }
+    return new Promise(function (res, rej) { var s = document.createElement('script'); s.src = SB.h2p; s.onload = res; s.onerror = function () { rej(new Error('PDF library did not load')); }; document.head.appendChild(s); });
+  }
+  function makePdfs(docs) {
+    if (!docs || !docs.length) { return Promise.resolve(); }
+    toast('📄 PDF বানানো হচ্ছে…', 'ok');
+    return loadH2p().then(function () {
+      return docs.reduce(function (chain, d) {
+        return chain.then(function () {
+          var wrap = document.createElement('div'); wrap.className = 'sb-pdf-wrap';
+          wrap.style.cssText = 'position:fixed;left:0;top:0;right:0;bottom:0;z-index:999999;background:rgba(255,255,255,.96);overflow:auto;padding:12px';
+          var note = document.createElement('div'); note.textContent = '📄 PDF বানানো হচ্ছে… একটু অপেক্ষা করুন'; note.style.cssText = 'font:600 14px sans-serif;margin-bottom:8px;color:#0f5132'; wrap.appendChild(note);
+          var el = document.createElement('div');
+          el.style.cssText = 'box-sizing:border-box;width:720px;padding:24px;background:#fff;color:#111;font:15px/1.8 "Noto Sans Bengali","Hind Siliguri",sans-serif';
+          el.innerHTML = '<style>h1{font-size:24px;margin:0 0 12px}h2{font-size:18px;margin:16px 0 6px}table{border-collapse:collapse;width:100%}th,td{border:1px solid #888;padding:6px 8px;text-align:left;vertical-align:top}th{background:#e8efe9}</style>' + d.html;
+          wrap.appendChild(el); document.body.appendChild(wrap);
+          return (document.fonts && document.fonts.ready ? document.fonts.ready : Promise.resolve()).then(function () {
+            return window.html2pdf().set({ margin: 10, image: { type: 'jpeg', quality: 0.95 }, html2canvas: { scale: 2, useCORS: true, scrollX: 0, scrollY: 0 }, jsPDF: { unit: 'mm', format: 'a4', orientation: 'portrait' }, pagebreak: { mode: ['css', 'legacy'] } }).from(el).outputPdf('blob');
+          }).then(function (blob) {
+            wrap.remove();
+            var fd = new FormData(); fd.append('action', 'sb_pdf_upload'); fd.append('nonce', SB.nonce); fd.append('name', d.title); fd.append('pdf', blob, 'doc.pdf');
+            return fetch(SB.ajax, { method: 'POST', body: fd, credentials: 'same-origin' }).then(function (r) { return r.json(); });
+          }).then(function (j) {
+            if (!j || !j.success) { throw new Error(j && j.data && j.data.message ? j.data.message : 'PDF upload failed'); }
+            addPdfRows([j.data]);
+          });
+        });
+      }, Promise.resolve());
+    }).then(function () { toast('✓ PDF তৈরি হয়েছে; পেজ ৩-এর ডাউনলোড বাটন ও পড়ার ঘরে যোগ হয়েছে।', 'ok'); })
+      .catch(function (e) { [].forEach.call(document.querySelectorAll('.sb-pdf-wrap'), function (w) { w.remove(); }); toast('PDF বানানো যায়নি: ' + e.message, 'err'); });
+  }
   function runCustom(btn, feature) {
     return prepareCustomFiles(btn).then(function (pf) {
       var pl = aiPayload(feature || 'custom'); pl.files = pf.files; pl.keep_pdf = pf.keep_pdf;
@@ -1065,6 +1098,7 @@
       if (f === 'custom') { (window.__sbIns = window.__sbIns || []).push(val('#f-custom')); SB.briefText = ''; }
       buildFacts(f === 'custom' ? r.facts : [], r.missing);
       aiDraft = r.text;
+      if (f === 'custom' && r.pdf_docs && r.pdf_docs.length) { makePdfs(r.pdf_docs); }
       if (step === 1 && (f === 'custom' || f === 'rewrite' || f === 'article')) { show(2); }   // the article is on page 2
     }
     else if (f === 'related') {
@@ -1168,6 +1202,7 @@
         wait.remove();
         if (!retry) { hist.push({ role: 'me', text: t }); }
         if (c.promise && !retry) { again = true; }
+        if (c.pdf_docs && c.pdf_docs.length) { makePdfs(c.pdf_docs); done.push('PDF'); }
         if (c.applied) {
           dsnaps.push(before); if (dsnaps.length > 10) { dsnaps.shift(); }
           Object.keys(c.changes).forEach(function (k) {

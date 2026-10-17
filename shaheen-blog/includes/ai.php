@@ -140,7 +140,7 @@ class SB_AI {
                     . self::style_line(isset($c['style']) ? $c['style'] : 'para')
                     . (!empty($c['web']) ? "\n\n--- ওয়েবসাইট থেকে নেওয়া লেখা ---" . $c['web'] : '');
                 $user .= self::source_blocks($c, 'custom');
-                $user .= self::ref_rules($c);
+                $user .= self::ref_rules($c) . self::table_pdf_rules();
                 $user .= "\n\n=== শেষ কথা (সবচেয়ে গুরুত্বপূর্ণ) ===\nউপরের প্রম্পট বা বোঝাপড়ায় 'অনুমোদনের পর লিখব', 'পরিকল্পনা/রূপরেখা দিলাম', 'তথ্য পেলে লিখব' ধরনের কোনো ভাব থাকলেও তুমি এখনই পাঠকের জন্য পূর্ণ, প্রকাশযোগ্য আর্টিকেল লিখবে। যে তথ্য নেই সেখানে শুধু [তথ্য দরকার: …] বসিয়ে বাকিটা লিখে যাবে। রূপরেখা, পরিকল্পনা, প্রতিযোগী-বিশ্লেষণ বা মালিকের উদ্দেশে কোনো মন্তব্য article-এ থাকবে না; সেসব দরকার হলে gaps-এ এক লাইনে লিখবে।";
                 $know = SB_Know::context($keywords);
                 if ($know !== '') {
@@ -233,7 +233,7 @@ class SB_AI {
                 if ($know !== '') {
                     $user .= "\n\n--- আমাদের তথ্য ---\n" . $know;
                 }
-                $user .= self::ref_rules($c);
+                $user .= self::ref_rules($c) . self::table_pdf_rules();
                 $user .= "\n\nগুরুত্বপূর্ণ: মালিক কিছু যোগ, বাদ বা বদলাতে বললে এই উত্তরেই সেটা সত্যিই করে ফেলবে (edits বা article দিয়ে)। শুধু 'করব/যুক্ত করব' বলে reply দিয়ে থেমে থাকবে না; reply-তে কেবল জানাবে কী করেছ।";
                 $user .= "\n\n--- মালিকের নতুন বার্তা ---\n" . mb_substr($ins, 0, 2000);
                 if (!empty($c['parts'])) {
@@ -578,6 +578,13 @@ class SB_AI {
     }
 
     /** JSON from the brief step -> clean arrays (ids kept so the owner's ticks map back). */
+    /** Tables and PDFs on request (custom + chat). */
+    public static function table_pdf_rules() {
+        return "\n\nটেবিল ও PDF:\n"
+            . "- মালিক লেখায় টেবিল/ছক চাইলে (বা রুটিন, ফি, সময়সূচি, তুলনার মতো তথ্য টেবিলেই পরিষ্কার হলে) article-এ সাধারণ HTML <table><thead><tr><th>…</th></tr></thead><tbody><tr><td>…</td></tr></tbody></table> দেবে; কোনো style, class বা Markdown নয়। ঘর ছোট ও পরিষ্কার রাখবে; টেবিলের আগে এক লাইনে বলবে এটা কীসের।\n"
+            . "- মালিক স্পষ্টভাবে PDF/ছাপানোর মতো ছক (যেমন পড়ার রুটিন, চেকলিস্ট) চাইলে JSON-এ অতিরিক্ত একটি কী দেবে: \"pdfs\":[{\"title\":\"ফাইলের নাম\",\"html\":\"পুরো PDF-এর HTML\"}] (সর্বোচ্চ ২টি)। html-এ <h1> শিরোনাম, দরকারে <h2>, <p>, <ul>, <table> থাকবে; নতুন তথ্য বানাবে না; শেষে ছোট করে 'শাহীন শিক্ষা পরিবার' লিখবে। মালিক PDF না চাইলে এই কী দেবেই না। PDF-এর কথা article-এ এক লাইনে উল্লেখ করা যায় ('নিচে রুটিনটি PDF হিসেবে নামানো যাবে')।\n";
+    }
+
     /** Reference / link rules shared by the article-writing features. */
     public static function ref_rules($c) {
         $hosts = function_exists('sb_beat_hosts') ? sb_beat_hosts(isset($c['beat_urls']) ? $c['beat_urls'] : '') : array();
