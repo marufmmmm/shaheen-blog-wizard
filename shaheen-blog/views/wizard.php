@@ -223,20 +223,7 @@ $costs['research'] = max(0, (int) sb_get('cost_research'));
                 <div class="sba-chat-rule" id="chat-rule" hidden><span id="chat-rule-text"></span> <button type="button" class="button" id="chat-rule-yes">Remember for all posts</button> <button type="button" class="button-link" id="chat-rule-no">No</button></div>
             </div>
 
-            <details class="sba-oldedit"><summary>পুরোনো পদ্ধতি: কপি করা লেখা নতুন করে লেখা</summary>
-
-            <div class="sba-ai" style="margin-top:8px">
-                <div class="sba-ai-head"><h3>📋 কপি করা লেখা নতুন করে লেখা</h3>
-                    <button type="button" class="button" data-ai="rewrite">🤖 নতুন করে লিখুন <em>(<?php echo esc_html(sb_bn_digits($costs['rewrite'])); ?>)</em></button></div>
-                <textarea id="f-source" rows="6" placeholder="অন্য উৎস থেকে কপি করা লেখা এখানে পেস্ট করুন। AI এটি বুঝে নিজের ভাষায়, প্রচলিত বাংলায় নতুন করে লিখে নিচের আর্টিকেল বক্সে বসাবে।"></textarea>
-                <small class="sba-muted">অন্যের লেখার তথ্য নতুন ভাষায় লেখা হয়, তবে অন্যের লেখা হুবহু বা সামান্য বদলে ছাপলে কপিরাইট ও গুগলের স্প্যাম নীতির ঝুঁকি থাকে। প্রকাশের আগে তথ্য যাচাই করুন, দরকারে সূত্র উল্লেখ করুন।</small>
-            </div>
-
-            </details>
-
-            <details class="sba-oldedit"><summary>পুরোনো পদ্ধতি: ঘরে ঘরে নির্দেশ দিয়ে শুধু আর্টিকেল বদলানো</summary>
-            <?php sb_edit_box('ed'); ?>
-            </details>
+            <textarea id="f-source" hidden></textarea>
 
         </section>
 

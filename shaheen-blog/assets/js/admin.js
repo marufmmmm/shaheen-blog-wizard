@@ -1134,21 +1134,23 @@
       $('#chat-rule').hidden = true;
     });
     $('#chat-rule-no').addEventListener('click', function () { $('#chat-rule').hidden = true; });
-    function go() {
-      var t = txt.value.trim();
+    function go(retry) {
+      var t = retry && retry.t ? retry.t : txt.value.trim(), again = false;
       if (!t) { return; }
       var cost = SB.costs.chat;
       if (SB.balance.remaining < cost) { toast('Not enough credits. Need ' + fmt(cost) + ', have ' + fmt(SB.balance.remaining) + '.', 'err'); return; }
       ensureDraft();
-      add('me', t); txt.value = ''; send.disabled = true;
+      if (!retry) { add('me', t); txt.value = ''; }
+      send.disabled = true;
       var wait = add('ai', '⏳ Thinking… (a full rewrite can take a minute)'), before = JSON.parse(JSON.stringify(draft));
-      post('sb_ai', { feature: 'chat', post_id: postId, instruction: t, content: before.content, keywords: keywords(),
+      post('sb_ai', { feature: 'chat', post_id: postId, instruction: retry ? t + '\n\n(আগের উত্তরে শুধু কথা দিয়েছ, লেখা বদলাওনি। এখনই এই বদল edits বা article দিয়ে করে ফেলো; "করব" বলে থেমো না।)' : t, comp: val('#f-comp'), content: before.content, keywords: keywords(),
         use_src: ($('#chat-src') && $('#chat-src').checked && SB.hasSrc) ? '1' : '0',
         state: JSON.stringify({ subtitle: before.subtitle, meta: before.meta, excerpt: before.excerpt, summary: before.summary, slug: before.slug, faq: before.faq }),
         history: JSON.stringify(hist) }).then(function (d) {
         var c = d.result.chat, done = [];
         wait.remove();
-        hist.push({ role: 'me', text: t });
+        if (!retry) { hist.push({ role: 'me', text: t }); }
+        if (c.promise && !retry) { again = true; }
         if (c.applied) {
           dsnaps.push(before); if (dsnaps.length > 10) { dsnaps.shift(); }
           Object.keys(c.changes).forEach(function (k) {
@@ -1170,9 +1172,9 @@
         if (c.rule) { ruleBox.t = c.rule; $('#chat-rule-text').textContent = 'Remember for all future posts: "' + c.rule + '"'; $('#chat-rule').hidden = false; }
         if (c.applied && direct && direct.checked) { toEditor(); } else { render(); }
       }).catch(function (e) { wait.remove(); add('ai err', e.message); })
-        .then(function () { send.disabled = false; txt.focus(); });
+        .then(function () { send.disabled = false; txt.focus(); if (again) { add('ai', '↻ AI only promised; asking it to actually make the change…'); go({ t: t }); } });
     }
-    send.addEventListener('click', go);
+    send.addEventListener('click', function () { go(); });
     txt.addEventListener('keydown', function (e) { if (e.key === 'Enter' && (e.ctrlKey || e.metaKey)) { e.preventDefault(); go(); } });
     undo.addEventListener('click', function () {
       var o = dsnaps.pop(); if (!o) { return; }

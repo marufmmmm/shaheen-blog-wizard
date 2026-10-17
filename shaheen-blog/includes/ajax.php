@@ -156,6 +156,7 @@ function sb_ajax_ai() {
         'aud'      => isset(sb_audiences()[sb_req('aud')]) ? sb_req('aud') : 'all',
         'tone'     => isset(sb_tones()[sb_req('tone')]) ? sb_req('tone') : 'warm',
         'brief'    => mb_substr(sanitize_textarea_field(sb_req('brief')), 0, 8000),
+        'beat_urls' => mb_substr(sanitize_textarea_field(sb_req('comp') . ' ' . ($feature === 'rewrite_post' ? sb_req('urls') : '')), 0, 3000),
     );
     if ($feature === 'chat') {
         if (sb_req('use_src') === '1') {
@@ -388,8 +389,15 @@ function sb_ai_finish($uid, $feature, $ctx, $cost, $research, $result, &$notes) 
         return array('ok' => false, 'message' => 'AI আর্টিকেল লেখেনি, তাই ক্রেডিট কাটা হয়নি।' . $why . ' আবার "লিখুন" চাপুন; বারবার হলে প্রম্পট বক্সে "আগে অনুমোদন নাও/প্রশ্ন করো" ধরনের কথা থাকলে মুছে দিন।');
     }
     $result = sb_words_apply_result($feature, $result);
+    $bh = sb_beat_hosts(isset($ctx['beat_urls']) ? $ctx['beat_urls'] : '');
+    if (in_array($feature, array('custom', 'rewrite_post'), true) && !empty($result['text'])) {
+        $result['text'] = sb_ref_clean($result['text'], $bh);
+    }
     if ($feature === 'chat') {
         $result = sb_chat_result($result, $ctx);
+        if (isset($result['chat']['article']) && is_string($result['chat']['article'])) {
+            $result['chat']['article'] = sb_ref_clean($result['chat']['article'], $bh);
+        }
         if (empty($result['chat']['applied'])) {
             $cost = 0;   // a question or nothing applied: free
         }
@@ -1082,6 +1090,7 @@ function sb_chat_result($r, $ctx) {
         $out['missing'] = array_values(array_unique($mm[0]));
     }
     $out['applied'] = count($out['changes']) + ($out['article'] !== null ? 1 : 0);
+    $out['promise'] = (!$out['applied'] && empty($out['failed']) && preg_match('/(করব|করছি|যুক্ত করে দেব|যোগ করব|দিচ্ছি|লিখব|বদলাব|সরিয়ে দেব)/u', $out['reply'])) ? 1 : 0;
     if (!$out['applied'] && $out['reply'] === '') {
         $out['reply'] = 'কিছু বদলানো যায়নি। কোন অংশ কীভাবে বদলাবেন আরও স্পষ্ট করে লিখুন।';
     }

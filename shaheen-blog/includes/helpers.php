@@ -482,3 +482,50 @@ function sb_tones() {
     return array('warm' => array('আন্তরিক ও মমতাময়', 'সুর: আন্তরিক, মমতাময়, আপন মানুষ পাশে বসে বোঝানোর মতো।'), 'formal' => array('আনুষ্ঠানিক', 'সুর: আনুষ্ঠানিক ও মার্জিত, বিজ্ঞপ্তির মতো পরিষ্কার; আবেগের বাড়াবাড়ি নয়।'),
         'motivating' => array('উৎসাহব্যঞ্জক', 'সুর: উৎসাহ ও আত্মবিশ্বাস জাগানো, ইতিবাচক, কিন্তু বাড়িয়ে বলা বা মিথ্যা আশা নয়।'), 'news' => array('সংবাদধর্মী', 'সুর: নিরপেক্ষ, তথ্যনির্ভর, সংবাদের মতো; প্রথম অনুচ্ছেদেই মূল খবর।'));
 }
+
+
+/** Hostnames (without www.) found in a pasted list of URLs. */
+function sb_beat_hosts($txt) {
+    $out = array();
+    if (preg_match_all('#https?://[^\s"\'<>,]+#iu', (string) $txt, $m)) {
+        foreach ($m[0] as $u) {
+            $h = strtolower((string) wp_parse_url($u, PHP_URL_HOST));
+            $h = preg_replace('/^www\./', '', $h);
+            if ($h !== '') {
+                $out[$h] = true;
+            }
+        }
+    }
+    return array_keys($out);
+}
+
+/**
+ * Link hygiene for AI articles: never link to the sites the owner wants to beat;
+ * keep at most 2 outside links in the body (the "তথ্যসূত্র" list at the bottom may keep its own).
+ */
+function sb_ref_clean($html, $beat_hosts) {
+    $html = (string) $html;
+    if (stripos($html, '<a ') === false) {
+        return $html;
+    }
+    $own = preg_replace('/^www\./', '', strtolower((string) wp_parse_url(home_url(), PHP_URL_HOST)));
+    $split = preg_match('/<h[23][^>]*>[^<]*তথ্যসূত্র/u', $html, $mm, PREG_OFFSET_CAPTURE) ? $mm[0][1] : strlen($html);
+    $parts = array(substr($html, 0, $split), substr($html, $split));
+    $kept = 0;
+    foreach ($parts as $i => $part) {
+        $parts[$i] = preg_replace_callback('#<a\s[^>]*href=["\']([^"\']*)["\'][^>]*>(.*?)</a>#isu', function ($m) use ($beat_hosts, $own, &$kept, $i) {
+            $h = preg_replace('/^www\./', '', strtolower((string) wp_parse_url($m[1], PHP_URL_HOST)));
+            if ($h === '' || $h === $own) {
+                return $m[0];   // internal link
+            }
+            if (in_array($h, $beat_hosts, true)) {
+                return $m[2];   // competitor: plain text only
+            }
+            if ($i === 0 && ++$kept > 2) {
+                return $m[2];
+            }
+            return $m[0];
+        }, $part);
+    }
+    return $parts[0] . $parts[1];
+}
