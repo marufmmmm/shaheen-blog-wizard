@@ -395,7 +395,7 @@ class SB_AI {
             $body['response_format'] = array('type' => 'json_object');
         }
 
-        if ($feature === 'custom' && !empty($c['bg'])) {
+        if (in_array($feature, array('custom', 'brief'), true) && !empty($c['bg'])) {
             return self::bg_start($model, $user, !empty($c['parts']) ? $c['parts'] : array(), $max, !empty($c['research']));
         }
         if ($feature === 'brief' && !empty($c['research'])) {

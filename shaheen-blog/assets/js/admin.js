@@ -663,9 +663,9 @@
       }
     });
   }
-  function runCustom(btn) {
+  function runCustom(btn, feature) {
     return prepareCustomFiles(btn).then(function (pf) {
-      var pl = aiPayload('custom'); pl.files = pf.files; pl.keep_pdf = pf.keep_pdf;
+      var pl = aiPayload(feature || 'custom'); pl.files = pf.files; pl.keep_pdf = pf.keep_pdf;
       if (pf.files.length) { SB.hasSrc = 1; if (window.__sbSrcShow) { window.__sbSrcShow(); } }
       if (btn) { btn.textContent = '⏳ ফাইল পাঠানো হচ্ছে…'; }
       return post('sb_ai', pl);
@@ -779,11 +779,7 @@
       var cost = briefPrice() + ($('#f-research') && $('#f-research').checked ? SB.costs.research : 0);
       if (SB.balance.remaining < cost) { toast('ক্রেডিট যথেষ্ট নয়। প্রয়োজন ' + fmt(cost) + '।', 'err'); return; }
       var old = go.innerHTML; go.disabled = true; go.textContent = '⏳ AI পড়ছে ও গবেষণা করছে…';
-      prepareCustomFiles(go).then(function (pf) {
-        var pl = aiPayload('brief'); pl.files = pf.files; pl.keep_pdf = pf.keep_pdf;
-        if (pf.files.length) { SB.hasSrc = 1; if (window.__sbSrcShow) { window.__sbSrcShow(); } }
-        return post('sb_ai', pl);
-      }).then(function (d) { render(d.result || d); toast('✓ বোঝাপড়া তৈরি। ' + fmt(d.cost || cost) + ' ক্রেডিট কেটেছে।', 'ok'); })
+      runCustom(go, 'brief').then(function (d) { render(d.result || d); toast('✓ বোঝাপড়া তৈরি। ' + fmt(d.cost || cost) + ' ক্রেডিট কেটেছে।', 'ok'); })
         .catch(function (e) { toast(e.message, 'err'); })
         .then(function () { go.disabled = false; go.innerHTML = old; });
     }

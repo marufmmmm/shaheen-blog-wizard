@@ -152,24 +152,8 @@ function sb_ajax_ai() {
         $ctx['state'] = sb_chat_state(sb_req('state'));
         $ctx['history'] = sb_chat_history(sb_req('history'));
     }
-    if ($feature === 'brief') {
-        $bn = array();
-        $ctx['web'] = sb_fetch_pages((string) sb_req('urls'), $bn);
-        if (trim((string) sb_req('comp')) !== '') {
-            $cn = array();
-            $ctx['comp_web'] = sb_fetch_pages((string) sb_req('comp'), $cn, 5, 'প্রতিযোগী সাইট');
-            $bn = array_merge($bn, $cn);
-        }
-        $ctx['parts'] = sb_upload_parts($bn);
-        $notes = array_merge($bn, SB_Know::status(isset($ctx['keywords']) ? $ctx['keywords'] : array()));
-        $out = sb_ai_execute($uid, 'brief', $ctx, $cost, $research, $notes);
-        if (empty($out['ok'])) {
-            wp_send_json_error(array('message' => $out['message'], 'balance' => $state));
-        }
-        wp_send_json_success($out['data']);
-    }
-    if ($feature === 'custom') {
-        sb_job_start($uid, $ctx, $cost, $research, $state);   // exits
+    if ($feature === 'custom' || $feature === 'brief') {
+        sb_job_start($uid, $ctx, $cost, $research, $state, $feature);   // exits (long job: runs in the background, the browser polls)
     }
     $notes = array();
     $out = sb_ai_execute($uid, $feature, $ctx, $cost, $research, $notes);
@@ -409,7 +393,7 @@ function sb_keep_pdfs() {
     return $out;
 }
 
-function sb_job_start($uid, $ctx, $cost, $research, $state) {
+function sb_job_start($uid, $ctx, $cost, $research, $state, $feature = 'custom') {
     if (mb_strlen(trim($ctx['instruction'])) < 30) {
         wp_send_json_error(array('message' => 'প্রম্পট বক্সে বিস্তারিত নির্দেশ লিখুন (কমপক্ষে ৩০ অক্ষর)।', 'balance' => $state));
     }
@@ -436,7 +420,7 @@ function sb_job_start($uid, $ctx, $cost, $research, $state) {
         }
     }
     $job = array(
-        'status' => 'queued', 'uid' => $uid, 'ctx' => $ctx, 'cost' => $cost, 'research' => $research ? 1 : 0,
+        'status' => 'queued', 'feature' => $feature, 'uid' => $uid, 'ctx' => $ctx, 'cost' => $cost, 'research' => $research ? 1 : 0,
         'urls' => (string) sb_req('urls'), 'comp' => (string) sb_req('comp'), 'files' => $files, 'created' => time(), 'beat' => time(),
     );
     set_transient('sb_job_' . $id, $job, 6 * HOUR_IN_SECONDS);
@@ -480,7 +464,7 @@ add_action('wp_ajax_sb_job_run', function () {
     sb_src_save($job['uid'], $job['files']);
     $notes = array_merge($notes, SB_Know::status(isset($ctx['keywords']) ? $ctx['keywords'] : array()));
     $ctx['bg'] = true;
-    $r = SB_AI::generate('custom', $ctx);
+    $r = SB_AI::generate(isset($job['feature']) ? $job['feature'] : 'custom', $ctx);
     foreach ($job['files'] as $f) {
         if (!empty($f['path'])) {
             @unlink($f['path']); // phpcs:ignore WordPress.WP.AlternativeFunctions
@@ -528,7 +512,18 @@ add_action('wp_ajax_sb_job_status', function () {
         wp_send_json_success(array('state' => 'error', 'message' => $r['message'], 'balance' => SB_Credits::state($uid)));
     }
     $notes = isset($job['notes']) ? $job['notes'] : array();
-    $out = sb_ai_finish($uid, 'custom', $job['ctx'], (int) $job['cost'], (bool) $job['research'], $r['result'], $notes);
+    $jf = isset($job['feature']) ? $job['feature'] : 'custom';
+    $res = $r['result'];
+    if ($jf === 'brief') {
+        $pb = SB_AI::parse_brief($res['text']);
+        if (is_wp_error($pb)) {
+            wp_send_json_success(array('state' => 'error', 'message' => $pb->get_error_message() . ' ক্রেডিট কাটা হয়নি।', 'balance' => SB_Credits::state($uid)));
+        }
+        $pb['sources'] = isset($res['sources']) ? $res['sources'] : array();
+        $pb['researched'] = !empty($res['researched']);
+        $res = $pb;
+    }
+    $out = sb_ai_finish($uid, $jf, $job['ctx'], (int) $job['cost'], (bool) $job['research'], $res, $notes);
     if (empty($out['ok'])) {
         wp_send_json_success(array('state' => 'error', 'message' => $out['message'], 'balance' => SB_Credits::state($uid)));
     }
