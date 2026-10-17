@@ -105,12 +105,12 @@ function sb_ajax_ai() {
     }
     $tier = max(1, min(3, (int) sb_req('tier', 1)));
     $cmodel = '';
-    if ($feature === 'custom') {
+    if ($feature === 'custom' || $feature === 'brief') {
         $cmodel = sanitize_text_field(sb_req('model'));
         if (!in_array($cmodel, sb_allowed_models(), true)) {
             $cmodel = trim((string) sb_get('model_article')) ?: sb_get('model');
         }
-        $cost = sb_custom_cost($tier, $cmodel);
+        $cost = ($feature === 'brief') ? max($cost, (int) round(sb_custom_cost(1, $cmodel) * 0.2)) : sb_custom_cost($tier, $cmodel);   // the brief costs about 1/5 of an article on the chosen model
     }
     if (!$cost) {
         wp_send_json_error(array('message' => 'অজানা AI ফিচার।'));

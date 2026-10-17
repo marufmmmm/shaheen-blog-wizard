@@ -771,9 +771,12 @@
       if (extra.trim()) { L.push('মালিক আরও চান:\n' + extra.trim()); }
       return L.join('\n\n');
     }
+    function briefPrice() { var m = val('#f-cmodel'), p = (SB.modelPrices && SB.modelPrices[m]) ? Math.round(SB.modelPrices[m][0] * 0.2) : 0; return Math.max(SB.costs.brief, p); }
+    function label() { go.innerHTML = '🧭 আগে বুঝে নিন (' + fmt(briefPrice()) + ' ক্রেডিট)'; }
+    if ($('#f-cmodel')) { $('#f-cmodel').addEventListener('change', label); label(); }
     function run() {
       if (val('#f-custom').trim().length < 30) { toast('আগে প্রম্পট বক্সে বিষয়ের বিবরণ লিখুন (কমপক্ষে ৩০ অক্ষর)।', 'err'); return; }
-      var cost = SB.costs.brief + ($('#f-research') && $('#f-research').checked ? SB.costs.research : 0);
+      var cost = briefPrice() + ($('#f-research') && $('#f-research').checked ? SB.costs.research : 0);
       if (SB.balance.remaining < cost) { toast('ক্রেডিট যথেষ্ট নয়। প্রয়োজন ' + fmt(cost) + '।', 'err'); return; }
       var old = go.innerHTML; go.disabled = true; go.textContent = '⏳ AI পড়ছে ও গবেষণা করছে…';
       prepareCustomFiles(go).then(function (pf) {

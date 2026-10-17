@@ -384,7 +384,7 @@ class SB_AI {
                 array('role' => 'user', 'content' => isset($content) ? $content : $user),
             ),
         );
-        if (preg_match('/^(gpt-5|o\d)/i', $model)) {
+        if (preg_match('/^(gpt-[5-9]|o\d)/i', $model)) {
             // Reasoning-style models: no temperature, and thinking tokens count against the limit.
             $body['max_completion_tokens'] = $max * 3;
         } else {
@@ -601,7 +601,7 @@ class SB_AI {
             'background' => true,
             'max_output_tokens' => $max * 2 + 2000,
         );
-        if (preg_match('/^(gpt-5|o\d)/i', $model)) {
+        if (preg_match('/^(gpt-[5-9]|o\d)/i', $model)) {
             $body['reasoning'] = array('effort' => 'low');
         }
         if ($research) {
