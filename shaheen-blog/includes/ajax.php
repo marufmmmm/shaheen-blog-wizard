@@ -307,6 +307,14 @@ function sb_custom_result($r, $ctx = array()) {
     }
     if (is_array($j) && !empty($j['article'])) {
         $r['text'] = (string) $j['article'];
+        // the article is really a plan / note to the owner, not a reader-facing article
+        $plain = wp_strip_all_tags($r['text']);
+        $hits = preg_match_all('/প্রস্তাবিত লেখার রূপরেখা|প্রস্তাবিত রূপরেখা|অনুমোদন(ের)? পর|অনুমোদন পেলে|পূর্ণ আর্টিকেল (নয়|লেখা যাবে)|পরিকল্পনা দেওয়া হলো|শব্দ-বরাদ্দ|চূড়ান্তভাবে নিশ্চিত|মালিকের দেওয়া/u', $plain);
+        if ($hits >= 2) {
+            $r['text'] = '';
+            $r['no_article'] = 'AI পূর্ণ আর্টিকেলের বদলে পরিকল্পনা/রূপরেখা লিখেছে।';
+            return $r;
+        }
         $r['meta'] = isset($j['meta']) ? sanitize_text_field($j['meta']) : '';
         $r['excerpt'] = isset($j['excerpt']) ? sanitize_textarea_field($j['excerpt']) : '';
         if (mb_strlen($r['excerpt']) > 400 || preg_match('/[?？]|নির্দেশ|বোঝাপড়া|রূপরেখা|অনুমোদন/u', $r['excerpt'])) {
