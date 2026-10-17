@@ -26,6 +26,13 @@ $seed  = $site['sites'] ? implode("\n", $site['sites']) : trim((string) sb_get('
     </div>
 
     <div class="sba-card">
+        <h2>🔤 Word replacements</h2>
+        <p class="sba-muted">Hard word → simple word. AI never uses the left word, and the site also replaces it automatically if AI slips. Whole words only: a changed form such as "প্রস্তুতির" needs its own row.</p>
+        <div id="words-list"></div>
+        <p><button type="button" class="button" id="words-add">＋ Add a word</button> <button type="button" class="button button-primary" id="words-save">💾 Save words</button> <span id="words-msg" class="sba-muted"></span></p>
+    </div>
+
+    <div class="sba-card">
         <h2>🌐 ওয়েবসাইট পড়ে মনে রাখা</h2>
         <p class="sba-muted">লিংক দিন (প্রতি লাইনে একটি, সর্বোচ্চ ৬টি)। প্লাগইন ওই সাইটের পেজ ও তার ভেতরের লিংক ঘুরে লেখাগুলো মনে রাখবে (একই সাইটের ভেতরেই থাকবে)। পরে যেকোনো লেখার সময় বিষয়ের সাথে মেলে এমন পেজ থেকে AI তথ্য নেবে। সাইট বদলালে আবার "পড়ো" চাপুন। এতে ক্রেডিট লাগে না।</p>
         <textarea id="site-urls" rows="4" style="width:100%" placeholder="https://shaheen.edu.bd/"><?php echo esc_textarea($seed); ?></textarea>
@@ -50,4 +57,4 @@ $seed  = $site['sites'] ? implode("\n", $site['sites']) : trim((string) sb_get('
         <?php endif; ?>
     </div>
 </div>
-<script>window.SBMEM = <?php echo wp_json_encode(array('items' => $items)); ?>;</script>
+<script>window.SBMEM = <?php echo wp_json_encode(array('items' => $items, 'words' => sb_words_all())); ?>;</script>

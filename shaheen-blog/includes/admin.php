@@ -5,18 +5,18 @@ if (!defined('ABSPATH')) {
 
 add_action('admin_menu', 'sb_admin_menu');
 function sb_admin_menu() {
-    add_menu_page('শাহীন ব্লগ', 'শাহীন ব্লগ', 'edit_posts', 'sb-dashboard', 'sb_page_dashboard', 'dashicons-welcome-write-blog', 26);
-    add_submenu_page('sb-dashboard', 'ড্যাশবোর্ড', 'ড্যাশবোর্ড', 'edit_posts', 'sb-dashboard', 'sb_page_dashboard');
-    add_submenu_page('sb-dashboard', 'নতুন পোস্ট', 'নতুন পোস্ট', 'edit_posts', 'sb-new', 'sb_page_new');
-    add_submenu_page('sb-dashboard', 'রিরাইট করে পোস্ট', '🔁 রিরাইট করে পোস্ট', 'edit_posts', 'sb-rewrite', 'sb_page_rewrite');
-    add_submenu_page('sb-dashboard', 'সোশ্যাল মিডিয়া', '🌐 সোশ্যাল মিডিয়া', 'manage_options', 'sb-social', 'sb_page_social');
-    add_submenu_page('sb-dashboard', 'সংবাদপত্রে শাহীন', '📰 সংবাদপত্রে শাহীন', 'edit_posts', 'sb-press', 'sb_page_press');
-    add_submenu_page('sb-dashboard', 'বিজ্ঞাপন/লিংক ব্লক', '📚 ব্লক লাইব্রেরি', 'manage_options', 'sb-blocks', 'sb_page_blocks');
-    add_submenu_page('sb-dashboard', 'মোবাইল মডেল', '📱 মোবাইল মডেল', 'manage_options', 'sb-phones', 'sb_page_phones');
-    add_submenu_page('sb-dashboard', 'মেমোরি', '🧠 মেমোরি', 'edit_posts', 'sb-memory', 'sb_page_memory');
-    add_submenu_page('sb-dashboard', 'সব পোস্ট', 'সব পোস্ট', 'edit_posts', 'sb-posts', 'sb_page_posts');
-    add_submenu_page('sb-dashboard', 'ক্যাটাগরি', 'ক্যাটাগরি', 'manage_categories', 'sb-categories', 'sb_page_categories');
-    add_submenu_page('sb-dashboard', 'সেটিংস', 'সেটিংস', 'manage_options', 'sb-settings', 'sb_page_settings');
+    add_menu_page('Blog Write .ai', 'Blog Write .ai', 'edit_posts', 'sb-dashboard', 'sb_page_dashboard', 'dashicons-welcome-write-blog', 26);
+    add_submenu_page('sb-dashboard', 'Dashboard', 'Dashboard', 'edit_posts', 'sb-dashboard', 'sb_page_dashboard');
+    add_submenu_page('sb-dashboard', 'New Post', 'New Post', 'edit_posts', 'sb-new', 'sb_page_new');
+    add_submenu_page('sb-dashboard', 'Rewrite Post', '🔁 Rewrite Post', 'edit_posts', 'sb-rewrite', 'sb_page_rewrite');
+    add_submenu_page('sb-dashboard', 'Social Media', '🌐 Social Media', 'manage_options', 'sb-social', 'sb_page_social');
+    add_submenu_page('sb-dashboard', 'Press', '📰 Press', 'edit_posts', 'sb-press', 'sb_page_press');
+    add_submenu_page('sb-dashboard', 'Block Library', '📚 Block Library', 'manage_options', 'sb-blocks', 'sb_page_blocks');
+    add_submenu_page('sb-dashboard', 'Mobile Models', '📱 Mobile Models', 'manage_options', 'sb-phones', 'sb_page_phones');
+    add_submenu_page('sb-dashboard', 'Memory', '🧠 Memory', 'edit_posts', 'sb-memory', 'sb_page_memory');
+    add_submenu_page('sb-dashboard', 'All Posts', 'All Posts', 'edit_posts', 'sb-posts', 'sb_page_posts');
+    add_submenu_page('sb-dashboard', 'Categories', 'Categories', 'manage_categories', 'sb-categories', 'sb_page_categories');
+    add_submenu_page('sb-dashboard', 'Settings', 'Settings', 'manage_options', 'sb-settings', 'sb_page_settings');
 }
 
 function sb_is_our_screen() {
@@ -78,6 +78,8 @@ function sb_admin_assets() {
         'gblocks' => sb_block_library(),
         'ratios'  => sb_ratio_options(),
         'memAuto' => (int) sb_memory_cfg()['auto'],
+        'hasSrc'  => sb_src_has(get_current_user_id()) ? 1 : 0,
+        'words'   => sb_words_all(),
         'postsUrl' => admin_url('admin.php?page=sb-posts'),
     ));
 }
@@ -159,6 +161,8 @@ function sb_handle_save_settings() {
         'cost_research' => max(0, (int) $in('cost_research', 50)),
         'site_urls'     => sanitize_textarea_field($in('site_urls')),
         'about'         => sanitize_textarea_field($in('about')),
+        'ai_lang'       => in_array($in('ai_lang'), array('bn', 'en', 'other'), true) ? $in('ai_lang') : 'bn',
+        'ai_lang_other' => sanitize_text_field($in('ai_lang_other')),
     );
     $mp = array();
     $post_mp = isset($_POST['mp']) && is_array($_POST['mp']) ? wp_unslash($_POST['mp']) : array(); // phpcs:ignore WordPress.Security.NonceVerification

@@ -54,7 +54,10 @@ $costs['research'] = max(0, (int) sb_get('cost_research'));
 
     <div class="sba-note">✏️ পোস্টের লেখা, ছবি, ক্যাটাগরি, তারিখ এডিট করতে <strong>কোনো ক্রেডিট লাগে না</strong>। ক্রেডিট কাটে শুধু AI বাটনে ক্লিক করলে।</div>
 
+    <?php $d['autosave'] = sb_autosave_get($post ? $post->ID : 0); ?>
     <script>window.SB_POST = <?php echo wp_json_encode($d); ?>;</script>
+    <div class="sba-topsave" id="topsave"><span id="autosave-note" class="sba-muted">Autosave is on</span> <button type="button" class="button button-primary" id="f-save-top">💾 Save</button></div>
+    <div class="notice notice-info inline" id="restore-box" hidden><p><span id="restore-text"></span> <button type="button" class="button" id="restore-yes">Restore it</button> <button type="button" class="button-link" id="restore-no">Ignore</button></p></div>
 
     <ol class="sba-steps" id="sb-steps">
         <li><button type="button" data-go="1"><span>১</span> মূল তথ্য</button></li>
@@ -233,7 +236,7 @@ $costs['research'] = max(0, (int) sb_get('cost_research'));
             <div class="sba-ai">
                 <div class="sba-ai-head"><h3>✍️ লেখার প্রম্পট <small>(আপনার নির্দেশ ও তথ্যই AI মানবে)</small></h3></div>
                 <p class="sba-muted">এখানে কী লিখতে হবে, কোন তথ্য থেকে লিখবে, সুর কেমন, কোন কোন অংশ থাকবে — সব বিস্তারিত লিখুন। নিচে ওয়েবসাইটের লিংক ও PDF/ছবি দিলে AI সেগুলো পড়ে তথ্য নেবে। আপনার দেওয়া তথ্যই সবার আগে; নিচের টিক দিলে AI ইন্টারনেটে সর্বশেষ খবরও যাচাই করবে, তবু বানিয়ে কিছু লিখবে না; কোনো তথ্য না থাকলে <code>[তথ্য দরকার: …]</code> লিখে রাখবে। শিরোনাম ও কীওয়ার্ডও (ধাপ ১-২) প্রম্পটের সাথে যাবে।</p>
-                <textarea id="f-custom" rows="10" style="width:100%" placeholder="যেমন: ভর্তি বিজ্ঞপ্তির আর্টিকেল লিখুন। ক্লাস ৬ষ্ঠ–৯ম। আবেদন ১–১৫ নভেম্বর। ফি … । সুর আনুষ্ঠানিক, অভিভাবকদের উদ্দেশে। শেষে যোগাযোগের নম্বর দিন। (PDF-এর কোন অংশ কীভাবে ব্যবহার হবে তাও লিখুন)"></textarea>
+                <div id="ansi-note" class="sba-muted" hidden>🔤 This text looks like old Bijoy (ANSI). AI will decode it to Unicode Bangla first.</div><textarea id="f-custom" rows="10" style="width:100%" placeholder="যেমন: ভর্তি বিজ্ঞপ্তির আর্টিকেল লিখুন। ক্লাস ৬ষ্ঠ–৯ম। আবেদন ১–১৫ নভেম্বর। ফি … । সুর আনুষ্ঠানিক, অভিভাবকদের উদ্দেশে। শেষে যোগাযোগের নম্বর দিন। (PDF-এর কোন অংশ কীভাবে ব্যবহার হবে তাও লিখুন)"></textarea>
                 <label style="display:block;margin-top:8px">🌐 তথ্যের ওয়েবসাইট লিংক <small>(প্রতি লাইনে একটি, সর্বোচ্চ ৪টি; সাইট নিজে পড়ে লেখাটুকু AI-কে দেওয়া হবে)</small>
                     <textarea id="f-curls" rows="3" style="width:100%" placeholder="https://…"></textarea></label>
                 <label style="display:block;margin-top:8px">📎 PDF / ছবি <small>(সর্বোচ্চ ৪টি ফাইল, প্রতিটি ১০ MB-এর মধ্যে; PDF, JPG, PNG, WEBP। স্ক্যান করা PDF বা ছবির লেখাও AI পড়ে)</small>
@@ -271,14 +274,16 @@ $costs['research'] = max(0, (int) sb_get('cost_research'));
             </div>
 
             <div class="sba-ai sba-chat" id="chat-box">
-                <div class="sba-ai-head"><h3>💬 AI সহকারী — চ্যাটে বলুন, কী বদলাতে হবে</h3>
-                    <button type="button" class="button" id="chat-undo" hidden>↩️ শেষ পরিবর্তন ফেরান</button></div>
-                <p class="sba-muted">প্রম্পট থেকে লেখা তৈরি হলে এখানে চ্যাটের মতো একটি একটি করে বলুন, যেমন: <em>"শিরোনাম আরও ছোট করো"</em>, <em>"তৃতীয় অনুচ্ছেদে ফি-এর কথা যোগ করো"</em>, <em>"FAQ-তে ভর্তির তারিখ নিয়ে একটি প্রশ্ন দাও"</em>, <em>"মেটা বর্ণনা ১৫০ অক্ষরের মধ্যে করো"</em>। AI শুধু ঠিক সেই অংশটুকু বদলাবে, বাকি সব যেমন আছে তেমন থাকবে। প্রতিটি সফল পরিবর্তনে <strong><?php echo esc_html(sb_bn_digits($costs['chat'])); ?> ক্রেডিট</strong> কাটবে; প্রশ্ন করলে বা কিছু না বদলালে কাটবে না।</p>
+                <div class="sba-ai-head"><h3>💬 Tell AI what to change</h3>
+                    <button type="button" class="button" id="chat-undo" hidden>↩ Undo last change</button></div>
+                <p class="sba-muted">One box for everything. Type like a chat, in Bangla or English: AI changes only that point and the rest stays exactly the same. Examples: <em>"make paragraph 3 shorter"</em>, <em>"add the fee after the first paragraph"</em>, <em>"add an FAQ about the exam date"</em>. Each change that is applied costs <strong><?php echo esc_html(sb_bn_digits($costs['chat'])); ?> credits</strong>; a question or no change is free. Your title is never changed.</p>
+                <label class="sba-inline-check" id="chat-src-wrap" hidden><input type="checkbox" id="chat-src" checked> Let AI look at the attached PDF / images again (reads the source pages)</label>
                 <div class="sba-chat-log" id="chat-log" aria-live="polite"></div>
                 <div class="sba-chat-in">
-                    <textarea id="chat-text" rows="2" placeholder="এখানে লিখুন কী বদলাতে চান… (পাঠাতে Ctrl+Enter)"></textarea>
-                    <button type="button" class="button button-primary" id="chat-send">পাঠান</button>
+                    <textarea id="chat-text" rows="3" placeholder="What do you want to change? (Ctrl+Enter to send)"></textarea>
+                    <button type="button" class="button button-primary" id="chat-send">Send <small>· <?php echo esc_html(sb_bn_digits($costs['chat'])); ?> credits</small></button>
                 </div>
+                <div class="sba-chat-rule" id="chat-rule" hidden><span id="chat-rule-text"></span> <button type="button" class="button" id="chat-rule-yes">Remember for all posts</button> <button type="button" class="button-link" id="chat-rule-no">No</button></div>
             </div>
 
             <details class="sba-oldedit"><summary>পুরোনো পদ্ধতি: ঘরে ঘরে নির্দেশ দিয়ে শুধু আর্টিকেল বদলানো</summary>
@@ -303,6 +308,7 @@ $costs['research'] = max(0, (int) sb_get('cost_research'));
             </fieldset>
             <p><button type="button" class="button button-primary button-hero" id="f-save">💾 সেভ করুন</button></p>
             <div id="save-result"></div>
+            <div class="sba-card" id="word-swaps" hidden></div>
         </section>
 
         <div class="sba-nav">

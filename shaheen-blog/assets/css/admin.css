@@ -105,3 +105,13 @@
 .sba-oldedit{margin:10px 0}
 .sba-oldedit>summary{cursor:pointer;color:#50575e;padding:6px 0}
 .sba-msg{text-align:left}
+
+.sba-topsave{position:sticky;top:32px;z-index:20;display:flex;gap:10px;align-items:center;justify-content:flex-end;background:#f0f0f1;padding:6px 10px;border-bottom:1px solid #dcdcde;margin:0 -10px 8px}
+.sba-how ol{margin:0;padding-left:20px;display:grid;gap:6px}
+.sba-chat-rule{margin-top:8px;padding:8px 10px;background:#f0f6fc;border-left:3px solid #2271b1}
+@media (min-width:1300px){
+  .sba-step[data-step="4"]:not([hidden]){display:grid;grid-template-columns:minmax(0,1fr) 420px;gap:16px;align-items:start}
+  .sba-step[data-step="4"] > *{grid-column:1}
+  .sba-step[data-step="4"] > .sba-chat{grid-column:2;grid-row:1 / span 40;position:sticky;top:80px;max-height:calc(100vh - 110px);overflow:auto;display:flex;flex-direction:column}
+  .sba-step[data-step="4"] .sba-chat .sba-chat-log{flex:1;max-height:none;min-height:160px}
+}

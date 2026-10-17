@@ -29,6 +29,15 @@ if (!SB_Lock::is_unlocked()) : ?>
 
         <div class="sba-card">
             <h2>🤖 AI (OpenAI)</h2>
+            <label>AI writing language
+                <select name="ai_lang" id="ai-lang">
+                    <option value="bn" <?php selected($s('ai_lang'), 'bn'); ?>>Bangla (default)</option>
+                    <option value="en" <?php selected($s('ai_lang'), 'en'); ?>>English</option>
+                    <option value="other" <?php selected($s('ai_lang'), 'other'); ?>>Other language…</option>
+                </select>
+                <input type="text" name="ai_lang_other" value="<?php echo esc_attr($s('ai_lang_other')); ?>" placeholder="Other language name, e.g. Arabic, Hindi" style="margin-top:6px">
+                <small>All articles, summaries, FAQ and chat answers are written in this language. Your typed instructions can be in any language.</small>
+            </label>
             <label>OpenAI API Key
                 <input type="password" name="api_key" value="" autocomplete="new-password" placeholder="<?php echo $has_key ? '••••••••••• (সংরক্ষিত আছে, বদলাতে নতুন কী লিখুন)' : 'sk-…'; ?>">
             </label>

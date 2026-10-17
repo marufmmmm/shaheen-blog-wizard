@@ -44,6 +44,106 @@ function sb_memory_clean($list) {
     return $out;
 }
 
+/* ---------- Word replacements: hard word -> simple word, remembered and enforced ---------- */
+function sb_words_all() {
+    $w = get_option('sb_words', array());
+    return is_array($w) ? $w : array();
+}
+
+function sb_words_clean($list) {
+    $out = array();
+    $seen = array();
+    foreach (array_slice(is_array($list) ? $list : array(), 0, 300) as $r) {
+        $from = isset($r['from']) ? trim(sanitize_text_field($r['from'])) : '';
+        $to = isset($r['to']) ? trim(sanitize_text_field($r['to'])) : '';
+        if (mb_strlen($from) < 2 || $to === '' || $from === $to || isset($seen[mb_strtolower($from)])) {
+            continue;
+        }
+        $seen[mb_strtolower($from)] = 1;
+        $out[] = array('from' => mb_substr($from, 0, 60), 'to' => mb_substr($to, 0, 60));
+    }
+    return $out;
+}
+
+/** Replaces the banned words in plain text; whole words only (a letter or mark before/after means a different word). */
+function sb_words_apply_text($s) {
+    foreach (sb_words_all() as $w) {
+        $to = $w['to'];
+        $s = preg_replace_callback('/(?<![\p{L}\p{M}\p{N}])' . preg_quote($w['from'], '/') . '(?![\p{L}\p{M}\p{N}])/u', function () use ($to) { return $to; }, $s);
+    }
+    return $s;
+}
+
+/** Same for HTML: only the text between tags, never tag attributes (links, images). */
+function sb_words_apply_html($h) {
+    if (!sb_words_all() || !is_string($h) || $h === '') {
+        return $h;
+    }
+    return preg_replace_callback('/>([^<]+)</u', function ($m) {
+        return '>' . sb_words_apply_text($m[1]) . '<';
+    }, $h);
+}
+
+function sb_words_apply_result($feature, $r) {
+    if (!sb_words_all() || !is_array($r)) {
+        return $r;
+    }
+    if (isset($r['text']) && is_string($r['text'])) {
+        $r['text'] = in_array($feature, array('subtitle', 'meta', 'summary'), true) ? sb_words_apply_text($r['text']) : sb_words_apply_html($r['text']);
+    }
+    foreach (array('meta', 'excerpt', 'summary', 'subtitle', 'headline') as $k) {
+        if (isset($r[$k]) && is_string($r[$k])) {
+            $r[$k] = sb_words_apply_text($r[$k]);
+        }
+    }
+    if (!empty($r['faq']) && is_array($r['faq'])) {
+        foreach ($r['faq'] as $i => $f) {
+            $r['faq'][$i] = array('q' => sb_words_apply_text($f['q']), 'a' => sb_words_apply_text($f['a']));
+        }
+    }
+    if (!empty($r['chat']) && is_array($r['chat'])) {
+        foreach ($r['chat']['changes'] as $k => $v) {
+            $r['chat']['changes'][$k] = $k === 'faq' ? array_map(function ($f) { return array('q' => sb_words_apply_text($f['q']), 'a' => sb_words_apply_text($f['a'])); }, $v) : sb_words_apply_text($v);
+        }
+        if (!empty($r['chat']['article'])) {
+            $r['chat']['article'] = sb_words_apply_html($r['chat']['article']);
+        }
+    }
+    return $r;
+}
+
+add_action('wp_ajax_sb_words_save', function () {
+    sb_ajax_guard('edit_posts');
+    $j = json_decode((string) sb_req('items', '[]'), true);
+    update_option('sb_words', sb_words_clean($j), false);
+    wp_send_json_success(array('items' => sb_words_all()));
+});
+
+add_action('wp_ajax_sb_words_add', function () {
+    sb_ajax_guard('edit_posts');
+    $j = json_decode((string) sb_req('items', '[]'), true);
+    $all = array_merge(sb_words_all(), is_array($j) ? $j : array());
+    // a newer pair for the same word wins
+    $map = array();
+    foreach ($all as $r) {
+        if (isset($r['from'])) {
+            $map[mb_strtolower($r['from'])] = $r;
+        }
+    }
+    update_option('sb_words', sb_words_clean(array_values($map)), false);
+    wp_send_json_success(array('items' => sb_words_all()));
+});
+
+add_action('wp_ajax_sb_mem_rule', function () {
+    sb_ajax_guard('edit_posts');
+    $t = sanitize_text_field(sb_req('text'));
+    if (mb_strlen($t) < 6) {
+        wp_send_json_error(array('message' => 'Rule is empty.'));
+    }
+    sb_memory_add('rule', $t, 'manual');
+    wp_send_json_success(array('ok' => 1));
+});
+
 /** Text block added to AI writing prompts. */
 function sb_memory_context() {
     $rules = array();
@@ -58,7 +158,8 @@ function sb_memory_context() {
             $rules[] = '• ' . $m['text'];
         }
     }
-    if (!$rules && !$facts) {
+    $words = sb_words_all();
+    if (!$rules && !$facts && !$words) {
         return '';
     }
     $o = "--- মালিকের মেমোরি (আগের লেখায় মালিক যা ঠিক করে দিয়েছেন; সবসময় মানবে) ---\n";
@@ -67,6 +168,13 @@ function sb_memory_context() {
     }
     if ($facts) {
         $o .= "সঠিক তথ্য (এগুলো নির্ভুল ধরবে; উৎসের সাথে না মিললে এই তথ্যই ঠিক):\n" . implode("\n", array_slice($facts, 0, 40)) . "\n";
+    }
+    if ($words) {
+        $pairs = array();
+        foreach (array_slice($words, 0, 60) as $w) {
+            $pairs[] = '• "' . $w['from'] . '" কখনো লিখবে না (এর যেকোনো রূপও নয়), তার বদলে "' . $w['to'] . '" লিখবে';
+        }
+        $o .= "মালিকের বাদ দেওয়া কঠিন শব্দ (কখনো ব্যবহার করবে না):\n" . implode("\n", $pairs) . "\n";
     }
     return $o;
 }

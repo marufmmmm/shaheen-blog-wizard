@@ -58,4 +58,28 @@
   $('#site-clear').onclick = function () {
     post('sb_site_clear').then(function () { location.reload(); });
   };
+
+  /* word replacements */
+  var words = (C.words || []).slice();
+  function wrender() {
+    var box = $('#words-list'); if (!box) { return; } box.innerHTML = '';
+    if (!words.length) { box.innerHTML = '<p class="sba-muted">No words yet. After you save a post and replace hard words, they are offered here.</p>'; }
+    words.forEach(function (w, i) {
+      var r = document.createElement('div'); r.style.cssText = 'display:flex;gap:8px;align-items:center;margin:6px 0;flex-wrap:wrap';
+      r.innerHTML = '<input type="text" class="w-from" maxlength="60" placeholder="Hard word" value="' + esc(w.from) + '"> → <input type="text" class="w-to" maxlength="60" placeholder="Use instead" value="' + esc(w.to) + '"><button type="button" class="button w-del">Delete</button>';
+      r.querySelector('.w-from').oninput = function () { w.from = this.value; };
+      r.querySelector('.w-to').oninput = function () { w.to = this.value; };
+      r.querySelector('.w-del').onclick = function () { words.splice(i, 1); wrender(); };
+      box.appendChild(r);
+    });
+  }
+  if ($('#words-list')) {
+    wrender();
+    $('#words-add').onclick = function () { words.unshift({ from: '', to: '' }); wrender(); };
+    $('#words-save').onclick = function () {
+      post('sb_words_save', { items: JSON.stringify(words) }).then(function (d) {
+        var m = $('#words-msg'); if (d.success) { words = d.data.items; wrender(); m.textContent = '✓ Saved'; m.style.color = '#0a7a3d'; } else { m.textContent = 'Could not save'; m.style.color = '#b32d2e'; }
+      });
+    };
+  }
 })();

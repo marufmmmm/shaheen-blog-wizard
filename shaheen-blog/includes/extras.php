@@ -17,6 +17,9 @@ function sb_clean_pos($pos, $n = 1) {
     if (preg_match('/^p:(\d{1,2})$/', $pos, $m)) {
         return 'p:' . max(1, (int) $m[1]);
     }
+    if (preg_match('/^slot:[a-z0-9]{4,12}$/', $pos)) {
+        return $pos;   // placed at an editor marker [sb_slot ID]
+    }
     return in_array($pos, array('top', 'middle', 'end'), true) ? $pos : 'end';
 }
 
@@ -259,6 +262,23 @@ function sb_extras_items($post_id) {
 
 /** Insert chunks into formatted HTML at top / after Nth paragraph / middle / end. */
 function sb_inject_at($html, array $items) {
+    // Placement markers: [sb_slot ID] on its own line in the editor. A button/PDF/embed set to that marker replaces it; unused markers vanish.
+    $rest = array();
+    foreach ($items as $it) {
+        if (strpos($it[0], 'slot:') === 0 && $it[1] !== '') {
+            $id = substr($it[0], 5);
+            $re = '#(?:<p[^>]*>\s*)?\[sb_slot ' . preg_quote($id, '#') . '\](?:\s*</p>)?#';
+            if (preg_match($re, $html)) {
+                $chunk = $it[1];
+                $html = preg_replace_callback($re, function () use ($chunk) { return $chunk; }, $html, 1);
+                continue;
+            }
+            $it[0] = 'end';
+        }
+        $rest[] = $it;
+    }
+    $items = $rest;
+    $html = preg_replace('#(?:<p[^>]*>\s*)?\[sb_slot [a-z0-9]+\](?:\s*</p>)?#', '', $html);
     if (!$items) {
         return $html;
     }

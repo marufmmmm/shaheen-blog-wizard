@@ -456,7 +456,7 @@
 
   /* per-post extras: references, download buttons, PDFs, embeds */
   var EX = P.extras || {};
-  var posHtml = '<select class="x-pos"><option value="end">লেখার শেষে</option><option value="top">লেখার একদম ওপরে</option><option value="p">N-তম অনুচ্ছেদের পর</option><option value="middle">লেখার মাঝখানে</option></select><input type="number" class="x-n" min="1" max="60" value="2" title="কত নম্বর অনুচ্ছেদের পর">';
+  var posHtml = '<select class="x-pos"><option value="end">লেখার শেষে</option><option value="top">লেখার একদম ওপরে</option><option value="p">N-তম অনুচ্ছেদের পর</option><option value="middle">লেখার মাঝখানে</option></select><input type="number" class="x-n" min="1" max="60" value="2" title="কত নম্বর অনুচ্ছেদের পর"><button type="button" class="button x-slot" title="Put a marker in the editor where the cursor is; the item will appear exactly there">📍 Place at editor cursor</button>';
   function exEditor(kind, data) {
     var list = $('#ex-' + kind), rows = [];
     function row(r) {
@@ -477,9 +477,19 @@
       if (q('.x-r')) { q('.x-r').value = r.r || ''; }
       q('.x-url').value = r.url || '';
       if (q('.x-pos')) {
+        var sm = /^slot:[a-z0-9]+$/.exec(r.pos || '');
+        if (sm) { var so = document.createElement('option'); so.value = r.pos; so.textContent = '📍 At the marker in the editor'; q('.x-pos').appendChild(so); }
         var m = /^p:(\d+)$/.exec(r.pos || ''); q('.x-pos').value = m ? 'p' : (r.pos || 'end'); q('.x-n').value = m ? m[1] : 2;
         var vis = function () { q('.x-n').style.display = q('.x-pos').value === 'p' ? '' : 'none'; };
         q('.x-pos').addEventListener('change', vis); vis();
+        q('.x-slot').addEventListener('click', function () {
+          var id = Math.random().toString(36).replace(/[^a-z0-9]/g, '').slice(0, 6), mk = '[sb_slot ' + id + ']';
+          var ed = window.tinymce && tinymce.get('sb_content');
+          if (ed && !ed.isHidden()) { ed.execCommand('mceInsertContent', false, '<p>' + mk + '</p>'); }
+          else { var t = $('#sb_content'); var at = t.selectionStart || t.value.length; t.value = t.value.slice(0, at) + '\n<p>' + mk + '</p>\n' + t.value.slice(at); }
+          var o = document.createElement('option'); o.value = 'slot:' + id; o.textContent = '📍 At the marker in the editor'; q('.x-pos').appendChild(o); q('.x-pos').value = 'slot:' + id; vis();
+          toast('Marker ' + mk + ' placed in the editor. Move it by dragging; this item appears exactly there.', 'ok');
+        });
       }
       if (q('.x-media')) {
         q('.x-media').addEventListener('click', function () {
@@ -559,9 +569,18 @@
   $('#f-meta').addEventListener('input', metaCount); metaCount();
 
   /* AI */
+  function looksAnsi(t) {
+    if (!t || /[\u0980-\u09FF]/.test(t)) { return false; }
+    return (t.match(/[†‡ˆ‰‹Œ‘’“”•–—˜™›œ¡¢£¤¥¦§¨©ª«¬®¯°±²³´µ¶·¸¹º»¼½¾¿]/g) || []).length >= 4;
+  }
+  (function () {
+    var f = $('#f-custom'); if (!f) { return; }
+    var chk = function () { var n = $('#ansi-note'); if (n) { n.hidden = !looksAnsi(f.value); } };
+    f.addEventListener('input', chk); chk();
+  })();
   function aiPayload(feature) {
     var extra = {};
-    if (feature === 'custom') { extra = { tier: val('#f-clen') || '1', model: val('#f-cmodel'), urls: val('#f-curls'), files: [].slice.call(($('#f-cfiles') || {}).files || []) }; }
+    if (feature === 'custom') { extra = { ansi: looksAnsi(val('#f-custom')) ? '1' : '0', tier: val('#f-clen') || '1', model: val('#f-cmodel'), urls: val('#f-curls'), files: [].slice.call(($('#f-cfiles') || {}).files || []) }; }
     var base = {
       feature: feature, post_id: postId, title: val('#f-title'), topic: val('#f-topic'), excerpt: val('#f-excerpt'),
       content: editorContent(), keywords: keywords(), length: val('#f-length'),
@@ -638,6 +657,7 @@
   function runCustom(btn) {
     return prepareCustomFiles(btn).then(function (pf) {
       var pl = aiPayload('custom'); pl.files = pf.files; pl.keep_pdf = pf.keep_pdf;
+      if (pf.files.length) { SB.hasSrc = 1; if (window.__sbSrcShow) { window.__sbSrcShow(); } }
       if (btn) { btn.textContent = '⏳ ফাইল পাঠানো হচ্ছে…'; }
       return post('sb_ai', pl);
     }).then(function (d) {
@@ -749,7 +769,6 @@
       if (f === 'custom') {
         if (r.meta && !val('#f-meta').trim()) { $('#f-meta').value = r.meta; metaCount(); }
         if (r.excerpt && !val('#f-excerpt').trim()) { $('#f-excerpt').value = r.excerpt; }
-        if (r.title && !val('#f-title').trim()) { $('#f-title').value = r.title; }
         if (r.subtitle && !val('#f-subtitle').trim()) { $('#f-subtitle').value = r.subtitle; }
         if (r.slug && !val('#f-slug').trim()) { $('#f-slug').value = r.slug; }
         if (r.summary && !val('#f-summary').trim()) { $('#f-summary').value = r.summary; $('#inc-summary').checked = true; }
@@ -787,13 +806,24 @@
   (function () {
     var log = $('#chat-log'), txt = $('#chat-text'), send = $('#chat-send'), undo = $('#chat-undo');
     if (!log) { return; }
-    var hist = [], snaps = [];
+    var hist = [], snaps = [], ruleBox = { t: '' };
+    function srcShow() { var w = $('#chat-src-wrap'); if (w) { w.hidden = !SB.hasSrc; } }
+    srcShow(); window.__sbSrcShow = srcShow;
+    $('#chat-rule-yes').addEventListener('click', function () {
+      post('sb_mem_rule', { text: ruleBox.t }).then(function () { toast('✓ Remembered for all future posts (see Memory).', 'ok'); }).catch(function (e) { toast(e.message, 'err'); });
+      $('#chat-rule').hidden = true;
+    });
+    $('#chat-rule-no').addEventListener('click', function () { $('#chat-rule').hidden = true; });
+    function flash() {
+      var ed = window.tinymce && tinymce.get('sb_content'); if (!ed || ed.isHidden()) { return; }
+      try { ed.getBody().style.transition = 'background .4s'; ed.getBody().style.background = '#fff8c5'; setTimeout(function () { ed.getBody().style.background = ''; }, 2500); } catch (e) {}
+    }
     function snap() {
-      return { title: val('#f-title'), subtitle: val('#f-subtitle'), meta: val('#f-meta'), excerpt: val('#f-excerpt'), summary: val('#f-summary'),
+      return { subtitle: val('#f-subtitle'), meta: val('#f-meta'), excerpt: val('#f-excerpt'), summary: val('#f-summary'),
         slug: val('#f-slug'), faq: faqData(), content: editorContent(), incS: $('#inc-summary').checked, incF: $('#inc-faq').checked };
     }
     function restore(o) {
-      $('#f-title').value = o.title; $('#f-subtitle').value = o.subtitle; $('#f-meta').value = o.meta; metaCount();
+      $('#f-subtitle').value = o.subtitle; $('#f-meta').value = o.meta; metaCount();
       $('#f-excerpt').value = o.excerpt; $('#f-summary').value = o.summary; $('#f-slug').value = o.slug;
       faqList.innerHTML = ''; o.faq.forEach(function (x) { addFaq(x.q, x.a); });
       $('#inc-summary').checked = o.incS; $('#inc-faq').checked = o.incF; setEditorContent(o.content);
@@ -803,16 +833,17 @@
       if (note) { var sm = document.createElement('small'); sm.textContent = note; d.appendChild(sm); }
       log.appendChild(d); log.scrollTop = log.scrollHeight; return d;
     }
-    var LBL = { title: 'শিরোনাম', subtitle: 'সাবটাইটেল', meta: 'মেটা বর্ণনা', excerpt: 'সংক্ষিপ্ত বিবরণ', summary: 'সামারি', slug: 'স্লাগ', faq: 'FAQ' };
+    var LBL = { subtitle: 'subtitle', meta: 'meta description', excerpt: 'excerpt', summary: 'summary', slug: 'slug', faq: 'FAQ' };
     function go() {
       var t = txt.value.trim();
       if (!t) { return; }
       var cost = SB.costs.chat;
-      if (SB.balance.remaining < cost) { toast('ক্রেডিট যথেষ্ট নয়। প্রয়োজন ' + fmt(cost) + ', আছে ' + fmt(SB.balance.remaining) + '।', 'err'); return; }
+      if (SB.balance.remaining < cost) { toast('Not enough credits. Need ' + fmt(cost) + ', have ' + fmt(SB.balance.remaining) + '.', 'err'); return; }
       add('me', t); txt.value = ''; send.disabled = true;
-      var wait = add('ai', '⏳ ভাবছি…'), before = snap();
+      var wait = add('ai', '⏳ Thinking…'), before = snap();
       post('sb_ai', { feature: 'chat', post_id: postId, instruction: t, content: before.content, keywords: keywords(),
-        state: JSON.stringify({ title: before.title, subtitle: before.subtitle, meta: before.meta, excerpt: before.excerpt, summary: before.summary, slug: before.slug, faq: before.faq }),
+        use_src: ($('#chat-src') && $('#chat-src').checked && SB.hasSrc) ? '1' : '0',
+        state: JSON.stringify({ subtitle: before.subtitle, meta: before.meta, excerpt: before.excerpt, summary: before.summary, slug: before.slug, faq: before.faq }),
         history: JSON.stringify(hist) }).then(function (d) {
         var c = d.result.chat, done = [];
         wait.remove();
@@ -827,15 +858,16 @@
             else { $('#f-' + k).value = v; }
             done.push(LBL[k]);
           });
-          if (c.article !== null) { setEditorContent(c.article); done.push('আর্টিকেল'); }
+          if (c.article !== null) { setEditorContent(c.article); done.push('article'); flash(); }
           undo.hidden = false;
           (window.__sbIns = window.__sbIns || []).push(t);
           if (c.article !== null) { aiDraft = aiDraft || before.content; }
         }
-        var note = c.applied ? '✓ বদলেছে: ' + done.join(', ') + ' — ' + fmt(d.cost) + ' ক্রেডিট কেটেছে' : 'কিছু বদলায়নি, ক্রেডিট কাটেনি';
-        if (c.failed && c.failed.length) { note += '\n⚠️ লেখায় এই অংশ হুবহু খুঁজে পায়নি, তাই বদলায়নি: "' + c.failed.join('", "') + '" — ওই অংশ কপি করে চ্যাটে দিন।'; }
-        if (c.missing && c.missing.length) { note += '\n⚠️ আপনার তথ্য দরকার: ' + c.missing.join(' '); }
-        add('ai', c.reply || (c.applied ? 'বদলে দিয়েছি।' : 'বুঝতে পারিনি, আবার লিখুন।'), note);
+        var note = c.applied ? '✓ Changed: ' + done.join(', ') + ' — ' + fmt(d.cost) + ' credits used' : 'Nothing changed · free';
+        if (c.failed && c.failed.length) { note += '\n⚠️ Could not find this exact text, so it was not changed: "' + c.failed.join('", "') + '" — paste that part in the chat.'; }
+        if (c.missing && c.missing.length) { note += '\n⚠️ Information needed from you: ' + c.missing.join(' '); }
+        add('ai', c.reply || (c.applied ? 'Done.' : 'I did not understand, please rephrase.'), note);
+        if (c.rule) { ruleBox.t = c.rule; $('#chat-rule-text').textContent = 'Remember for all future posts: "' + c.rule + '"'; $('#chat-rule').hidden = false; }
         hist.push({ role: 'ai', text: c.reply || '' });
       }).catch(function (e) { wait.remove(); add('ai err', e.message); })
         .then(function () { send.disabled = false; txt.focus(); });
@@ -845,7 +877,7 @@
     undo.addEventListener('click', function () {
       var o = snaps.pop(); if (!o) { return; }
       restore(o); if (!snaps.length) { undo.hidden = true; }
-      add('ai', '↩️ শেষ পরিবর্তন ফেরানো হয়েছে।');
+      add('ai', '↩ Last change undone.');
     });
   })();
 
@@ -946,10 +978,102 @@
       if (d.status === 'publish') { var a = document.createElement('a'); a.href = d.url; a.target = '_blank'; a.textContent = 'পোস্ট দেখুন ↗'; t.appendChild(a); }
       p.appendChild(t); box.appendChild(p);
       if (history.replaceState) history.replaceState(null, '', d.edit);
+      post('sb_autosave_clear', { post_id: postId }).catch(function () {});
+      lastAuto = JSON.stringify(autoSnapshot());
+      offerSwaps(editorContent());
       autoLearn(editorContent());
     }).catch(function (e) { say(msg, e.message, 'err'); })
       .then(function () { btn.disabled = false; });
   });
+
+
+  /* ---------- top save button, autosave (private draft copy) and restore ---------- */
+  $('#f-save-top').addEventListener('click', function () { $('#f-save').click(); });
+  var autoNote = $('#autosave-note'), lastAuto = '', autoBusy = false;
+  function autoSnapshot() {
+    return { title: val('#f-title'), slug: val('#f-slug'), excerpt: val('#f-excerpt'), subtitle: val('#f-subtitle'), meta: val('#f-meta'), summary: val('#f-summary'),
+      content: editorContent(), kw: val('#f-kw'), topic: val('#f-topic'), custom: val('#f-custom'), faq: faqData(), inc_summary: $('#inc-summary').checked, inc_faq: $('#inc-faq').checked,
+      extras: exGet() };
+  }
+  function autoRestore(d) {
+    ['title', 'slug', 'excerpt', 'subtitle', 'meta', 'summary', 'topic'].forEach(function (k) { if ($('#f-' + k)) { $('#f-' + k).value = d[k] || ''; } });
+    if ($('#f-kw')) { $('#f-kw').value = d.kw || ''; } if ($('#f-custom')) { $('#f-custom').value = d.custom || ''; }
+    setEditorContent(d.content || ''); metaCount();
+    faqList.innerHTML = ''; (d.faq || []).forEach(function (x) { addFaq(x.q, x.a); });
+    $('#inc-summary').checked = !!d.inc_summary; $('#inc-faq').checked = !!d.inc_faq;
+  }
+  function autoTick() {
+    if (autoBusy) { return; }
+    var snap = autoSnapshot(), j = JSON.stringify(snap);
+    if (j === lastAuto) { return; }
+    var plain = (snap.title + snap.content + snap.custom).trim();
+    if (!plain) { return; }
+    autoBusy = true;
+    post('sb_autosave', { post_id: postId, data: j }).then(function () {
+      lastAuto = j; var t = new Date(); autoNote.textContent = '● Auto-saved ' + t.getHours() + ':' + ('0' + t.getMinutes()).slice(-2) + ' (private draft copy, the live post is unchanged until you press Save)';
+    }).catch(function () {}).then(function () { autoBusy = false; });
+  }
+  setInterval(autoTick, 20000);
+  (function () {
+    var a = P.autosave, box = $('#restore-box'); if (!a || !a.data) { return; }
+    lastAuto = '';
+    var core = function (o) { return JSON.stringify([o.title, o.slug, o.excerpt, o.subtitle, o.meta, o.summary, o.content]); };
+    if (core(a.data) === core(autoSnapshot())) { return; }
+    var when = new Date(a.t * 1000);
+    $('#restore-text').textContent = 'An unsaved draft from ' + when.toLocaleString() + ' was found.';
+    box.hidden = false;
+    $('#restore-yes').addEventListener('click', function () { autoRestore(a.data); box.hidden = true; toast('Draft restored. Press Save to keep it.', 'ok'); });
+    $('#restore-no').addEventListener('click', function () { box.hidden = true; post('sb_autosave_clear', { post_id: postId }).catch(function () {}); });
+  })();
+
+  /* ---------- hard words the owner replaced: offer to remember them ---------- */
+  function toks(h) {
+    return h.replace(/<[^>]+>/g, ' ').replace(/&nbsp;/g, ' ').split(/\s+/).map(function (w) { return w.replace(/^[\s"'“”‘’()\[\]{}.,;:!?।–—-]+|[\s"'“”‘’()\[\]{}.,;:!?।–—-]+$/g, ''); }).filter(Boolean);
+  }
+  function lev(a, b) {
+    var m = a.length, n = b.length, d = [], i, j; if (!m) { return n; } if (!n) { return m; }
+    for (i = 0; i <= m; i++) { d[i] = [i]; } for (j = 1; j <= n; j++) { d[0][j] = j; }
+    for (i = 1; i <= m; i++) { for (j = 1; j <= n; j++) { d[i][j] = Math.min(d[i - 1][j] + 1, d[i][j - 1] + 1, d[i - 1][j - 1] + (a[i - 1] === b[j - 1] ? 0 : 1)); } }
+    return d[m][n];
+  }
+  function wordSwaps(draft, fin) {
+    var A = toks(draft), B = toks(fin), out = {};
+    if (!A.length || !B.length || A.length > 2500 || B.length > 2500) { return []; }
+    var n = A.length, m = B.length, L = [], i, j;
+    for (i = 0; i <= n; i++) { L[i] = new Uint16Array(m + 1); }
+    for (i = n - 1; i >= 0; i--) { for (j = m - 1; j >= 0; j--) { L[i][j] = A[i] === B[j] ? L[i + 1][j + 1] + 1 : Math.max(L[i + 1][j], L[i][j + 1]); } }
+    i = 0; j = 0; var da = [], db = [];
+    function flushH() {
+      if (da.length === 1 && db.length === 1 && da[0].length >= 2 && lev(da[0], db[0]) > 2 && !/\d/.test(da[0] + db[0])) { out[da[0]] = db[0]; }
+      da = []; db = [];
+    }
+    while (i < n || j < m) {
+      if (i < n && j < m && A[i] === B[j]) { flushH(); i++; j++; }
+      else if (j >= m || (i < n && L[i + 1][j] >= L[i][j + 1])) { da.push(A[i++]); }
+      else { db.push(B[j++]); }
+    }
+    flushH();
+    var have = (SB.words || []).map(function (w) { return w.from; });
+    return Object.keys(out).filter(function (k) { return have.indexOf(k) < 0; }).slice(0, 15).map(function (k) { return { from: k, to: out[k] }; });
+  }
+  var swapBase = '';   // the text AI last produced, to compare with what the owner finally saved
+  function offerSwaps(finalHtml) {
+    var box = $('#word-swaps'); if (!box || !aiDraft) { return; }
+    var list = wordSwaps(aiDraft, finalHtml);
+    if (!list.length) { box.hidden = true; return; }
+    box.innerHTML = '<h3>🔤 Words you replaced</h3><p class="sba-muted">Tick the ones AI should never use again. Spelling or fact fixes should stay unticked.</p>';
+    list.forEach(function (w, i) {
+      var l = document.createElement('label'); l.className = 'sba-inline-check'; l.style.display = 'block';
+      l.innerHTML = '<input type="checkbox" checked data-i="' + i + '"> <span></span>';
+      l.querySelector('span').textContent = ' ' + w.from + ' → ' + w.to; box.appendChild(l);
+    });
+    var b = document.createElement('button'); b.type = 'button'; b.className = 'button button-primary'; b.textContent = 'Remember ticked words';
+    b.addEventListener('click', function () {
+      var pick = [].filter.call(box.querySelectorAll('input[type=checkbox]'), function (c) { return c.checked; }).map(function (c) { return list[+c.dataset.i]; });
+      post('sb_words_add', { items: JSON.stringify(pick) }).then(function (d) { SB.words = d.items; box.hidden = true; toast('✓ ' + pick.length + ' word(s) remembered (see Memory → Word replacements).', 'ok'); }).catch(function (e) { toast(e.message, 'err'); });
+    });
+    box.appendChild(b); box.hidden = false;
+  }
 
   editBox('ed', editorContent, setEditorContent, function () { return { title: val('#f-title'), keywords: keywords() }; });
 

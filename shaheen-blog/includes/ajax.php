@@ -132,8 +132,12 @@ function sb_ajax_ai() {
         'post_id'  => (int) sb_req('post_id', 0),
         'tier'     => $tier,
         'model'    => $cmodel,
+        'ansi'     => sb_req('ansi') === '1',
     );
     if ($feature === 'chat') {
+        if (sb_req('use_src') === '1') {
+            $ctx['parts'] = sb_src_parts($uid);
+        }
         $ctx['state'] = sb_chat_state(sb_req('state'));
         $ctx['history'] = sb_chat_history(sb_req('history'));
     }
@@ -214,7 +218,6 @@ function sb_custom_result($r) {
             }
         }
         $r['facts'] = $facts;
-        $r['title'] = isset($j['title']) ? sanitize_text_field($j['title']) : '';
         $r['subtitle'] = isset($j['subtitle']) ? mb_substr(sanitize_text_field($j['subtitle']), 0, 200) : '';
         $r['summary'] = isset($j['summary']) ? sanitize_textarea_field($j['summary']) : '';
         $r['slug'] = isset($j['slug']) ? trim(preg_replace('/[^a-z0-9]+/', '-', strtolower((string) $j['slug'])), '-') : '';
@@ -240,6 +243,7 @@ function sb_ai_finish($uid, $feature, $ctx, $cost, $research, $result, &$notes) 
     if ($feature === 'custom') {
         $result = sb_custom_result($result);
     }
+    $result = sb_words_apply_result($feature, $result);
     if ($feature === 'chat') {
         $result = sb_chat_result($result, $ctx);
         if (empty($result['chat']['applied'])) {
@@ -364,6 +368,7 @@ add_action('wp_ajax_sb_job_run', function () {
             ? array('type' => 'file', 'file' => array('filename' => $f['name'], 'file_data' => $uri))
             : array('type' => 'image_url', 'image_url' => array('url' => $uri));
     }
+    sb_src_save($job['uid'], $job['files']);
     $notes = array_merge($notes, SB_Know::status(isset($ctx['keywords']) ? $ctx['keywords'] : array()));
     $ctx['bg'] = true;
     $r = SB_AI::generate('custom', $ctx);
@@ -812,17 +817,18 @@ function sb_chat_result($r, $ctx) {
     if (!is_array($j) && preg_match('/\{.*\}/us', $raw, $m)) {
         $j = json_decode($m[0], true);
     }
-    $out = array('reply' => '', 'changes' => array(), 'article' => null, 'applied' => 0, 'failed' => array(), 'missing' => array());
+    $out = array('reply' => '', 'rule' => '', 'changes' => array(), 'article' => null, 'applied' => 0, 'failed' => array(), 'missing' => array());
     if (!is_array($j)) {
         $out['reply'] = 'AI-এর উত্তর পড়া যায়নি, আবার লিখুন। (ক্রেডিট কাটা হয়নি)';
         $r['chat'] = $out;
         return $r;
     }
     $out['reply'] = isset($j['reply']) ? sanitize_textarea_field($j['reply']) : '';
+    $out['rule'] = isset($j['rule']) && is_string($j['rule']) ? mb_substr(sanitize_text_field($j['rule']), 0, 300) : '';
     $cur = isset($ctx['content']) ? (string) $ctx['content'] : '';
     $ch = isset($j['changes']) && is_array($j['changes']) ? $j['changes'] : array();
     $st = isset($ctx['state']) ? $ctx['state'] : array();
-    foreach (array('title', 'subtitle', 'meta', 'slug') as $k) {
+    foreach (array('subtitle', 'meta', 'slug') as $k) {
         if (isset($ch[$k]) && is_string($ch[$k])) {
             $v = sanitize_text_field($ch[$k]);
             if ($k === 'slug') {
@@ -863,6 +869,12 @@ function sb_chat_result($r, $ctx) {
         }
     }
     if ($new !== $cur) {
+        preg_match_all('/\[sb_slot [a-z0-9]+\]/', $cur, $sl);
+        foreach ($sl[0] as $mk) {
+            if (strpos($new, $mk) === false) {
+                $new .= "\n<p>" . $mk . '</p>';   // AI dropped a placement marker: keep it (at the end)
+            }
+        }
         $out['article'] = $new;
         preg_match_all('/\[তথ্য দরকার:[^\]]*\]/u', $new, $mm);
         $out['missing'] = array_values(array_unique($mm[0]));
@@ -873,4 +885,81 @@ function sb_chat_result($r, $ctx) {
     }
     $r['chat'] = $out;
     return $r;
+}
+
+
+/* ---------- Source pack: the PDF pages / images of the last prompt, so the chat can look at them again ---------- */
+function sb_src_dir($uid) {
+    return sb_job_dir() . '/src-' . (int) $uid;
+}
+
+function sb_src_has($uid) {
+    $d = sb_src_dir($uid);
+    return is_dir($d) && count(glob($d . '/*.{jpg,jpeg,png,webp,pdf}', GLOB_BRACE)) > 0;
+}
+
+function sb_src_save($uid, $files) {
+    $d = sb_src_dir($uid);
+    foreach (glob(dirname($d) . '/src-*') ?: array() as $old) {          // old packs (14 days) are removed
+        if (is_dir($old) && filemtime($old) < time() - 14 * DAY_IN_SECONDS) {
+            array_map('unlink', glob($old . '/*') ?: array());
+            @rmdir($old); // phpcs:ignore WordPress.WP.AlternativeFunctions
+        }
+    }
+    $keep = array();
+    foreach ($files as $f) {
+        if (!empty($f['path']) && file_exists($f['path'])) {
+            $keep[] = $f;
+        }
+    }
+    if (!$keep) {
+        return;
+    }
+    wp_mkdir_p($d);
+    array_map('unlink', glob($d . '/*') ?: array());
+    foreach (array_slice($keep, 0, 14) as $i => $f) {
+        @copy($f['path'], $d . '/' . sprintf('%02d', $i) . '.' . $f['ext']); // phpcs:ignore WordPress.WP.AlternativeFunctions
+    }
+    @touch($d); // phpcs:ignore WordPress.WP.AlternativeFunctions
+}
+
+function sb_src_parts($uid) {
+    $mime = array('pdf' => 'application/pdf', 'jpg' => 'image/jpeg', 'jpeg' => 'image/jpeg', 'png' => 'image/png', 'webp' => 'image/webp');
+    $parts = array();
+    $total = 0;
+    foreach (glob(sb_src_dir($uid) . '/*') ?: array() as $p) {
+        $ext = strtolower(pathinfo($p, PATHINFO_EXTENSION));
+        if (!isset($mime[$ext]) || count($parts) >= 10 || $total > 9 * 1024 * 1024) {
+            continue;
+        }
+        $total += filesize($p);
+        $uri = 'data:' . $mime[$ext] . ';base64,' . base64_encode((string) file_get_contents($p)); // phpcs:ignore WordPress.WP.AlternativeFunctions
+        $parts[] = $ext === 'pdf'
+            ? array('type' => 'file', 'file' => array('filename' => basename($p), 'file_data' => $uri))
+            : array('type' => 'image_url', 'image_url' => array('url' => $uri));
+    }
+    return $parts;
+}
+
+/* ---------- Autosave: a private draft copy, never the live post ---------- */
+add_action('wp_ajax_sb_autosave', function () {
+    sb_ajax_guard('edit_posts');
+    $pid = (int) sb_req('post_id', 0);
+    $data = (string) sb_req('data');
+    if (strlen($data) > 600000 || !is_array(json_decode($data, true))) {
+        wp_send_json_error(array('message' => 'autosave too large'));
+    }
+    update_user_meta(get_current_user_id(), 'sb_auto_' . $pid, array('t' => time(), 'data' => $data));
+    wp_send_json_success(array('t' => time()));
+});
+
+add_action('wp_ajax_sb_autosave_clear', function () {
+    sb_ajax_guard('edit_posts');
+    delete_user_meta(get_current_user_id(), 'sb_auto_' . (int) sb_req('post_id', 0));
+    wp_send_json_success(array('ok' => 1));
+});
+
+function sb_autosave_get($pid) {
+    $a = get_user_meta(get_current_user_id(), 'sb_auto_' . (int) $pid, true);
+    return (is_array($a) && !empty($a['data'])) ? array('t' => (int) $a['t'], 'data' => json_decode($a['data'], true)) : null;
 }
