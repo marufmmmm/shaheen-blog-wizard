@@ -198,7 +198,73 @@ function sb_md_to_html($t) {
 }
 
 /** Custom prompt-article: read the JSON the AI was asked for, clean the body, standardise placeholders. */
-function sb_custom_result($r) {
+/** True when a sentence of the article is the owner's own instruction/keyword list copied into the text. */
+function sb_is_echo($sent, $prompt_sents, $keywords) {
+    $sent = trim($sent);
+    if (mb_strlen($sent) < 12) {
+        return false;
+    }
+    if (preg_match('/নির্দেশ(না)?\s*অনুযায়ী|প্রম্পট|কীওয়ার্ড(গুলো|গুলি)?\s*(ব্যবহার|হিসেবে|হিসাবে)|শব্দসংখ্যা|শব্দের\s*(মধ্যে|সীমা|লক্ষ্য)|লিখে\s*দিন|লিখে\s*দিচ্ছি|আর্টিকেল(টি)?\s*(লেখা\s*হয়েছে|সাজানো\s*হয়েছে)|মেটা\s*(বর্ণনা|ডেসক্রিপশন)|URL\s*স্লাগ|\[?এই\s*লেখায়\s*আমরা/u', $sent)) {
+        return true;
+    }
+    $hit = 0;
+    foreach ($keywords as $k) {
+        if ($k !== '' && mb_stripos($sent, $k) !== false) {
+            $hit++;
+        }
+    }
+    if ($hit >= 3 && substr_count($sent, ',') + substr_count($sent, '،') >= 2 && mb_strlen($sent) < 220) {
+        return true;
+    }
+    foreach ($prompt_sents as $p) {
+        similar_text($sent, $p, $pct);
+        if ($pct >= 72) {
+            return true;
+        }
+    }
+    return false;
+}
+
+/** Removes sentences/list items that are copies of the owner's instructions or keyword lists. Returns [html, removed[]]. */
+function sb_strip_echo($html, $instruction, $keywords) {
+    $ps = array();
+    foreach (preg_split('/(?<=[।\.\?!])\s+|\R+/u', wp_strip_all_tags((string) $instruction)) as $p) {
+        $p = trim($p);
+        // only the owner's command-like sentences count (a plain fact copied from the prompt is fine)
+        if (mb_strlen($p) >= 20 && preg_match('/লিখ(ুন|বে|ে\s*দিন|ে\s*দিবে)|দিন|দেবে|দেবেন|থাকবে|বাদ|করুন|করবে|করবেন|সুর|কীওয়ার্ড|শব্দ/u', $p)) {
+            $ps[] = $p;
+        }
+    }
+    $removed = array();
+    $html = preg_replace_callback('#<(p|li)\b([^>]*)>(.*?)</\1>#us', function ($m) use ($ps, $keywords, &$removed) {
+        $inner = $m[3];
+        $plain = trim(wp_strip_all_tags($inner));
+        $sents = preg_split('/(?<=[।\.\?!])\s+/u', $plain);
+        $keep = array();
+        $drop = 0;
+        foreach ($sents as $sn) {
+            if (sb_is_echo($sn, $ps, $keywords)) {
+                $drop++;
+                $removed[] = mb_substr($sn, 0, 140);
+            } else {
+                $keep[] = $sn;
+            }
+        }
+        if (!$drop) {
+            return $m[0];
+        }
+        if (!$keep) {
+            return '';
+        }
+        if (strpos($inner, '<') === false) {
+            return '<' . $m[1] . $m[2] . '>' . implode(' ', $keep) . '</' . $m[1] . '>';
+        }
+        return $m[0];   // sentence has inner tags (links, bold): leave it, it is listed in the warning
+    }, (string) $html);
+    return array($html, array_values(array_unique($removed)));
+}
+
+function sb_custom_result($r, $ctx = array()) {
     $raw = trim((string) $r['text']);
     $j = json_decode(preg_replace('/^```[a-z]*\s*|\s*```$/i', '', $raw), true);
     if (!is_array($j) && preg_match('/\{.*\}/us', $raw, $m)) {
@@ -238,6 +304,9 @@ function sb_custom_result($r) {
     }
     $r['deferral'] = array_slice(array_values(array_unique($deferral)), 0, 8);
     $t = sb_md_to_html($r['text']);
+    $echo = sb_strip_echo($t, isset($ctx['instruction']) ? $ctx['instruction'] : '', isset($ctx['keywords']) && is_array($ctx['keywords']) ? $ctx['keywords'] : array());
+    $t = $echo[0];
+    $r['echoed'] = $echo[1];
     $t = preg_replace('/\[[^\]\[]*(এখানে যুক্ত করুন|এখানে যোগ করুন)[^\]\[]*\]/u', '[তথ্য দরকার: সরকারি/মূল তথ্য]', $t);
     $r['text'] = wp_kses_post($t);
     return $r;
@@ -247,7 +316,7 @@ function sb_custom_result($r) {
 function sb_ai_finish($uid, $feature, $ctx, $cost, $research, $result, &$notes) {
     $post_id = (int) $ctx['post_id'];
     if ($feature === 'custom') {
-        $result = sb_custom_result($result);
+        $result = sb_custom_result($result, $ctx);
     }
     $result = sb_words_apply_result($feature, $result);
     if ($feature === 'chat') {
@@ -872,6 +941,8 @@ function sb_chat_result($r, $ctx) {
         $cl = mb_strlen(wp_strip_all_tags($cand));
         $ol = mb_strlen(wp_strip_all_tags($cur));
         // a truncated or placeholder answer must never replace the owner's article
+        $cand = sb_strip_echo($cand, isset($ctx['instruction']) ? $ctx['instruction'] : '', isset($ctx['keywords']) && is_array($ctx['keywords']) ? $ctx['keywords'] : array())[0];
+        $cl = mb_strlen(wp_strip_all_tags($cand));
         if ($cl < 150 || ($ol > 600 && $cl < $ol * 0.4)) {
             $out['failed'][] = 'AI returned an incomplete article; the article was left unchanged';
         } else {

@@ -787,6 +787,12 @@
         mb.appendChild(ml); mb.hidden = false;
         toast('আর্টিকেলে ' + bn(r.missing.length) + 'টি জায়গায় আপনার তথ্য দরকার ([তথ্য দরকার: …] খুঁজুন)।', 'err');
       } else { mb.hidden = true; }
+      if (r.echoed && r.echoed.length) {
+        var eh = document.createElement('div'); eh.style.cssText = 'margin-top:8px;color:#8a4b00';
+        eh.innerHTML = '<strong>🧹 AI copied your own instructions/keyword list into the article. These ' + r.echoed.length + ' sentence(s) were removed automatically (check that the article still reads well):</strong>';
+        var el = document.createElement('ul'); r.echoed.forEach(function (x) { var li = document.createElement('li'); li.textContent = x; el.appendChild(li); });
+        eh.appendChild(el); mb.appendChild(eh); mb.hidden = false;
+      }
       if (r.deferral && r.deferral.length) {
         var dm = document.createElement('div'); dm.style.cssText = 'margin-top:8px;color:#b32d2e';
         dm.innerHTML = '<strong>🚫 AI এই বাক্যগুলোতে আসল তথ্য না লিখে "PDF/ওয়েবসাইটে দেখুন" বলে এড়িয়ে গেছে — এই জায়গাগুলো নিজে ঠিক করুন, অথবা নিচের "নির্দেশ দিন" ঘরে লিখে আবার করান:</strong>';
