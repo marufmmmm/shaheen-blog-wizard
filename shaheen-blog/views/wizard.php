@@ -20,6 +20,7 @@ $d = array(
     'subtitle'    => $post ? get_post_meta($pid, '_sb_subtitle', true) : '',
     'meta_desc'   => $post ? get_post_meta($pid, '_sb_meta_desc', true) : '',
     'summary'     => $post ? get_post_meta($pid, '_sb_summary', true) : '',
+    'summary_pos' => $post ? (get_post_meta($pid, '_sb_summary_pos', true) ?: 'top') : 'top',
     'author_name' => $post ? get_post_meta($pid, '_sb_author_name', true) : '',
     'keywords'    => $post ? (array) get_post_meta($pid, '_sb_keywords', true) : array(),
     'topic'       => $post ? get_post_meta($pid, '_sb_topic', true) : '',
@@ -246,7 +247,18 @@ $costs['research'] = max(0, (int) sb_get('cost_research'));
                 <div class="sba-ai-head"><h3>সামারি <small class="sba-muted">(মূল পোস্ট থেকে তৈরি হয়)</small></h3>
                     <button type="button" class="button" data-ai="summary">🤖 তৈরি করুন <em>(<?php echo esc_html(sb_bn_digits($costs['summary'])); ?>)</em></button></div>
                 <textarea id="f-summary" rows="4"><?php echo esc_textarea($d['summary']); ?></textarea>
-                <small class="sba-muted">আর্টিকেলের ওপরে "সংক্ষেপে" বক্সে দেখাবে। আর্টিকেল থেকে তৈরি হয়।</small>
+                <label style="display:block;margin-top:8px">📍 সামারি কোথায় দেখাবে
+                    <select id="f-summary_pos">
+                        <?php
+                        $sp_opts = array('top' => 'আর্টিকেলের একদম ওপরে (ডিফল্ট)');
+                        for ($i = 1; $i <= 10; $i++) { $sp_opts['p:' . $i] = sb_bn_digits($i) . 'ম অনুচ্ছেদের পর'; }
+                        $sp_opts['middle'] = 'লেখার মাঝখানে';
+                        $sp_opts['end'] = 'লেখার একদম শেষে (FAQ-এর আগে)';
+                        foreach ($sp_opts as $k => $lab) : ?>
+                            <option value="<?php echo esc_attr($k); ?>" <?php selected($d['summary_pos'], $k); ?>><?php echo esc_html($lab); ?></option>
+                        <?php endforeach; ?>
+                    </select></label>
+                <small class="sba-muted">"সংক্ষেপে" বক্সটি আপনার বাছা জায়গায় বসবে। আর্টিকেল থেকে তৈরি হয়।</small>
             </div>
 
             <div class="sba-ai">

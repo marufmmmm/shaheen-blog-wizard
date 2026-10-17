@@ -65,6 +65,16 @@ function sb_render_block($b) {
     return '<aside class="sb-ad">' . $label . $html . '</aside>';
 }
 
+/** Where the "সংক্ষেপে" box goes: top (default), p:N (after Nth paragraph), middle, end. */
+function sb_summary_pos($post_id) {
+    $p = (string) get_post_meta($post_id, '_sb_summary_pos', true);
+    return preg_match('/^(top|middle|end|p:\d{1,2})$/', $p) ? $p : 'top';
+}
+
+function sb_summary_html($sum) {
+    return '<div class="post-summary"><strong>সংক্ষেপে</strong>' . esc_html($sum) . '</div>';
+}
+
 /** Put link blocks, the social box and the post's extras (PDF, downloads, embeds) into formatted HTML. */
 function sb_inject_blocks($html, array $blocks, $post_id = 0) {
     $ex = $post_id ? sb_get_extras($post_id) : array('refs' => array(), 'social_pos' => '');
@@ -76,6 +86,12 @@ function sb_inject_blocks($html, array $blocks, $post_id = 0) {
     $sp = $ex['social_pos'] !== '' ? $ex['social_pos'] : (isset($map[$soc['pos']]) ? $map[$soc['pos']] : 'off');
     if ($sp !== 'off' && !($post_id && get_post_meta($post_id, '_sb_no_social', true))) {
         $items[] = array($sp, sb_social_html(isset($ex['social_ids']) ? $ex['social_ids'] : null));
+    }
+    if ($post_id && sb_summary_pos($post_id) !== 'top' && get_post_meta($post_id, '_sb_inc_summary', true) !== '0') {
+        $sm = (string) get_post_meta($post_id, '_sb_summary', true);
+        if ($sm !== '') {
+            $items[] = array(sb_summary_pos($post_id), sb_summary_html($sm));
+        }
     }
     foreach ($blocks as $b) {
         $items[] = array(isset($map[$b['pos']]) ? $map[$b['pos']] : 'middle', sb_render_block($b));

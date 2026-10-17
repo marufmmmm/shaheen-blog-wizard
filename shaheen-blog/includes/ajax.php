@@ -708,6 +708,8 @@ function sb_ajax_save_post() {
     update_post_meta($id, '_sb_subtitle', sanitize_text_field(sb_req('subtitle')));
     update_post_meta($id, '_sb_meta_desc', sanitize_textarea_field(sb_req('meta_desc')));
     update_post_meta($id, '_sb_summary', sanitize_textarea_field(sb_req('summary')));
+    $spos = (string) sb_req('summary_pos');
+    update_post_meta($id, '_sb_summary_pos', preg_match('/^(top|middle|end|p:([1-9]|[1-3][0-9]))$/', $spos) ? $spos : 'top');
     update_post_meta($id, '_sb_inc_summary', sb_req('inc_summary') === '1' ? '1' : '0');
     update_post_meta($id, '_sb_inc_faq', sb_req('inc_faq') === '1' ? '1' : '0');
     update_post_meta($id, '_sb_author_name', sanitize_text_field(sb_req('author_name')));

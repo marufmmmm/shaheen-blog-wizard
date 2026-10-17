@@ -256,8 +256,8 @@ function sb_single_content($content) {
                     <figure class="post-figure"><img src="<?php echo esc_url($img); ?>" alt="<?php echo esc_attr(get_the_title($id)); ?>"></figure>
                 <?php endif; ?>
                 <div class="post-inner">
-                    <?php if ($sum) : ?>
-                        <div class="post-summary"><strong>সংক্ষেপে</strong><?php echo esc_html($sum); ?></div>
+                    <?php if ($sum && sb_summary_pos($id) === 'top') : ?>
+                        <?php echo sb_summary_html($sum); // phpcs:ignore WordPress.Security.EscapeOutput ?>
                     <?php endif; ?>
 
                     <div class="post-body"><?php echo sb_inject_blocks(wpautop($post->post_content), sb_post_blocks($id), $id); // phpcs:ignore WordPress.Security.EscapeOutput ?></div>
