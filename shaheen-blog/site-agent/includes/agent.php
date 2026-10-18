@@ -86,7 +86,7 @@ function csa_tools_read() {
 
 /** Allowed in any state: low-risk, no page content changes. */
 function csa_tools_anytime() {
-	return array_merge( csa_am_tools(), csa_tools_anytime_base() );
+	return array_merge( csa_am_tools(), csa_si_tool(), csa_tools_anytime_base() );
 }
 
 function csa_tools_anytime_base() {
@@ -247,6 +247,8 @@ function csa_tool_label( $name, $in ) {
 		'read_html'                => csa_t( 'Read part of page' ) . $id,
 		'page_outline'             => csa_t( 'Mapped page structure' ) . $id,
 		'chat_note'                => csa_t( 'Noted in chat memory' ),
+		'search_site'              => '🔎 ' . csa_t( 'Searching the whole site' ) . ': ' . mb_substr( (string) ( $in['query'] ?? '' ), 0, 40 ),
+		'check_consistency'        => '🧮 ' . csa_t( 'Checking the site for contradictions' ),
 		'remember'                 => '🧠 ' . csa_t( 'Remembered' ) . ': ' . mb_substr( (string) ( $in['key'] ?? '' ), 0, 40 ),
 		'forget'                   => '🧠 ' . csa_t( 'Forgot' ) . ': ' . mb_substr( (string) ( $in['key'] ?? '' ), 0, 40 ),
 		'step_done'                => sprintf( csa_t( 'Step %d done' ), (int) ( $in['step'] ?? 0 ) ),
@@ -579,6 +581,10 @@ function csa_run_tool( $name, $in, &$ctx ) {
 		case 'remember':
 		case 'forget':
 			return csa_am_run_tool( $name, $in, $ctx );
+
+		case 'search_site':
+		case 'check_consistency':
+			return csa_si_run_tool( $name, $in );
 
 		case 'step_done':
 			$k = (int) ( $in['step'] ?? 0 ) - 1;
@@ -994,6 +1000,8 @@ function csa_display_items( $messages, $state ) {
 						$out[] = array( 'r' => 'sys', 't' => '✖ ' . csa_t( 'Plan cancelled' ) );
 					} elseif ( 0 === strpos( $b['text'], '[[CONTINUE]]' ) ) {
 						$out[] = array( 'r' => 'sys', 't' => '▶ ' . csa_t( 'Continued' ) );
+					} elseif ( 0 === strpos( $b['text'], '[[NEXT]]' ) ) {
+						continue; // Automatic hand-over to the next plan step: not shown.
 					} else {
 						$text .= ( $text ? "\n" : '' ) . $b['text'];
 					}
@@ -1414,7 +1422,23 @@ function csa_ajax_step() {
 		if ( 'max_tokens' === ( $data['stop_reason'] ?? '' ) ) {
 			$ctx['items'][] = array( 'r' => 'bot', 't' => csa_t( '(The reply was cut off. Ask me to continue in smaller steps.)' ) );
 		}
-		if ( 'approved' === $state ) {
+		$nudged = false;
+		if ( 'approved' === $state && csa_build_ticked( $messages ) && ! preg_match( '/[?？]\s*$/u', $said ) && csa_auto_next_count( $messages ) < 8 ) {
+			// The model stopped but approved steps are still open: hand it the next one (one job at a time) instead of ending early.
+			$todo = array();
+			foreach ( (array) $ctx['mem']['steps'] as $i => $st ) {
+				if ( 'todo' === $st['s'] ) {
+					$todo[ $i ] = $st;
+				}
+			}
+			if ( $todo ) {
+				$n = array_key_first( $todo );
+				csa_push_user( $messages, array( array( 'type' => 'text', 'text' => '[[NEXT]] Approved step ' . ( $n + 1 ) . ' is still open: ' . mb_substr( $todo[ $n ]['t'], 0, 200 ) . ' Do exactly this one step now, then tick it with step_done. Steps marked LATER stay untouched. If you cannot do it, say why in one sentence.' ) ) );
+				$nudged = true;
+				$done   = false;
+			}
+		}
+		if ( 'approved' === $state && ! $nudged ) {
 			$state = 'analyse'; // Build finished.
 			if ( ! csa_build_ticked( $messages ) ) {
 				// The model never ticked steps: assume the approved ones are done.
@@ -1452,7 +1476,47 @@ function csa_ajax_step() {
 		$ctx['items'][] = array( 'r' => 'alert', 't' => $a );
 	}
 	$used = csa_model( $data['_model'] ?? '' );
-	csa_step_release(); wp_send_json_success( array( 'chat_id' => $saved, 'title' => $title, 'done' => $done, 'items' => $ctx['items'], 'state' => $state, 'model' => $used ? $used['label'] : '', 'kind' => $ctx['mem']['kind'] ?? 'chat' ) );
+	csa_step_release(); wp_send_json_success( array( 'chat_id' => $saved, 'title' => $title, 'done' => $done, 'items' => $ctx['items'], 'state' => $state, 'model' => $used ? $used['label'] : '', 'kind' => $ctx['mem']['kind'] ?? 'chat', 'progress' => ( ! $done && 'approved' === $state ) ? csa_progress_text( $ctx['mem'] ) : '' ) );
+}
+
+/** How many automatic [[NEXT]] hand-overs happened since the person last wrote. */
+function csa_auto_next_count( $messages ) {
+	$n = 0;
+	for ( $i = count( $messages ) - 1; $i >= 0; $i-- ) {
+		if ( ! csa_is_human_turn( $messages[ $i ] ) ) {
+			continue;
+		}
+		$c    = $messages[ $i ]['content'];
+		$text = is_string( $c ) ? $c : implode( ' ', wp_list_pluck( array_filter( (array) $c, function ( $b ) { return 'text' === ( $b['type'] ?? '' ); } ), 'text' ) );
+		if ( 0 !== strpos( ltrim( $text ), '[[NEXT]]' ) ) {
+			break;
+		}
+		$n++;
+	}
+	return $n;
+}
+
+/** "Step 3 of 7: …" for the progress line while an approved plan is being built. */
+function csa_progress_text( $mem ) {
+	$steps = (array) ( $mem['steps'] ?? array() );
+	$total = 0;
+	$done  = 0;
+	$cur   = '';
+	foreach ( $steps as $st ) {
+		if ( 'later' === $st['s'] ) {
+			continue;
+		}
+		$total++;
+		if ( 'done' === $st['s'] ) {
+			$done++;
+		} elseif ( '' === $cur ) {
+			$cur = $st['t'];
+		}
+	}
+	if ( ! $total ) {
+		return '';
+	}
+	return sprintf( csa_t( 'Job step %1$d of %2$d' ), min( $total, $done + 1 ), $total ) . ( '' !== $cur ? ': ' . mb_substr( $cur, 0, 70 ) : '' );
 }
 
 /** Approve or cancel a pending plan. */

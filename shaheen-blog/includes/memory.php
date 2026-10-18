@@ -145,12 +145,15 @@ add_action('wp_ajax_sb_mem_rule', function () {
 });
 
 /** Text block added to AI writing prompts. */
-function sb_memory_context() {
+function sb_memory_context($skip_auto = false) {
     $rules = array();
     $facts = array();
     foreach (sb_memory_all() as $m) {
         if (empty($m['on'])) {
             continue;
+        }
+        if ($skip_auto && isset($m['src']) && $m['src'] === 'auto') {
+            continue; // the agent's own saved facts reach it through its auto memory
         }
         if ($m['type'] === 'fact') {
             $facts[] = '• ' . $m['text'];
@@ -159,7 +162,12 @@ function sb_memory_context() {
         }
     }
     $words = sb_words_all();
-    if (!$rules && !$facts && !$words) {
+    $agent_notes = '';
+    if (!$skip_auto && function_exists('csa_memory')) {
+        $cm = csa_memory();
+        $agent_notes = trim(mb_substr(trim((string) $cm['instructions']) . "\n" . trim((string) $cm['notes']), 0, 1500));
+    }
+    if (!$rules && !$facts && !$words && $agent_notes === '') {
         return '';
     }
     $o = "--- মালিকের মেমোরি (আগের লেখায় মালিক যা ঠিক করে দিয়েছেন; সবসময় মানবে) ---\n";
@@ -175,6 +183,9 @@ function sb_memory_context() {
             $pairs[] = '• "' . $w['from'] . '" কখনো লিখবে না (এর যেকোনো রূপও নয়), তার বদলে "' . $w['to'] . '" লিখবে';
         }
         $o .= "মালিকের বাদ দেওয়া কঠিন শব্দ (কখনো ব্যবহার করবে না):\n" . implode("\n", $pairs) . "\n";
+    }
+    if ($agent_notes !== '') {
+        $o .= "সাইটের সাধারণ নির্দেশনা ও নোট (Site Agent মেমোরি থেকে):\n" . $agent_notes . "\n";
     }
     return $o;
 }

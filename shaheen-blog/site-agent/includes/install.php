@@ -7,7 +7,7 @@ if ( ! defined( 'ABSPATH' ) ) {
 	exit;
 }
 
-const CSA_DB_VERSION = '8';
+const CSA_DB_VERSION = '9';
 
 function csa_table( $name ) {
 	global $wpdb;
@@ -95,6 +95,28 @@ function csa_install() {
 			$o['history_turns'] = 3;
 		}
 		update_option( CSA_OPT, $o );
+	}
+
+	// v2.33: "finish the whole job" defaults. Economy mode (short memory, 8-step pause, shortened tool results) made the
+	// agent stop after a few jobs and forget earlier work; quality mode is the new default, the limits stay as safety nets.
+	$o = get_option( CSA_OPT );
+	if ( is_array( $o ) && version_compare( (string) get_option( 'csa_db_version', '0' ), '9', '<' ) ) {
+		$o['economy']            = 0;
+		$o['max_steps']          = max( 25, (int) ( $o['max_steps'] ?? 0 ) );
+		$o['build_steps']        = max( 60, (int) ( $o['build_steps'] ?? 0 ) );
+		$o['history_turns']      = max( 6, (int) ( $o['history_turns'] ?? 0 ) );
+		$o['max_request_tokens'] = max( 60000, (int) ( $o['max_request_tokens'] ?? 0 ) );
+		update_option( CSA_OPT, $o );
+		// Site-wide facts the agent already learned now also show in Blog Write .ai > Memory.
+		$am = get_option( 'csa_auto_mem', array() );
+		if ( is_array( $am ) && ! empty( $am['site'] ) && function_exists( 'sb_memory_add' ) ) {
+			foreach ( $am['site'] as $k => $f ) {
+				if ( sb_memory_add( 'fact', mb_strtoupper( mb_substr( $k, 0, 1 ) ) . mb_substr( $k, 1 ) . ': ' . $f['v'], 'auto' ) ) {
+					$am['site'][ $k ]['m'] = 1;
+				}
+			}
+			update_option( 'csa_auto_mem', $am, false );
+		}
 	}
 
 	csa_private_dir();

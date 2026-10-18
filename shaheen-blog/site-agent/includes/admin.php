@@ -76,9 +76,9 @@ function csa_register_settings() {
 					'history_limit'    => max( 10, min( 1000, (int) ( $in['history_limit'] ?? 200 ) ) ),
 					'max_request_tokens' => max( 8000, min( 200000, (int) ( $in['max_request_tokens'] ?? 40000 ) ) ),
 					'economy'          => empty( $in['economy'] ) ? 0 : 1,
-					'max_steps'        => max( 2, min( 20, (int) ( $in['max_steps'] ?? 8 ) ) ),
-					'build_steps'      => max( 5, min( 80, (int) ( $in['build_steps'] ?? 30 ) ) ),
-					'history_turns'    => max( 1, min( 10, (int) ( $in['history_turns'] ?? 3 ) ) ),
+					'max_steps'        => max( 2, min( 60, (int) ( $in['max_steps'] ?? 25 ) ) ),
+					'build_steps'      => max( 5, min( 150, (int) ( $in['build_steps'] ?? 60 ) ) ),
+					'history_turns'    => max( 1, min( 20, (int) ( $in['history_turns'] ?? 6 ) ) ),
 					'font_head'        => array_key_exists( $in['font_head'] ?? '', csa_font_list() ) ? $in['font_head'] : '',
 					'font_body'        => array_key_exists( $in['font_body'] ?? '', csa_font_list() ) ? $in['font_body'] : '',
 					'font_force'       => empty( $in['font_force'] ) ? 0 : 1,
@@ -632,6 +632,7 @@ function csa_screen_seo() {
 			'content'   => csa_t( 'Content' ),
 			'schema'    => csa_t( 'Schema & Local' ),
 			'keywords'  => csa_t( 'Keywords' ),
+			'consistency' => csa_t( 'Data check' ),
 		),
 		$tab
 	);
@@ -981,6 +982,7 @@ function csa_screen_memory() {
 		<?php submit_button( csa_t( 'Save Site Memory' ) ); ?>
 	</form>
 	<?php
+	csa_si_card();
 	csa_am_card();
 	csa_footer();
 }
@@ -1156,12 +1158,12 @@ function csa_screen_settings() {
 
 		<div class="csa-card csa-eco">
 			<h2>🌱 <?php echo esc_html( csa_t( 'Economy mode' ) ); ?></h2>
-			<label class="csa-check"><input type="checkbox" name="<?php echo esc_attr( $n ); ?>[economy]" value="1" <?php checked( $o['economy'], 1 ); ?>> <strong><?php echo esc_html( csa_t( 'Keep AI costs as low as possible (recommended)' ) ); ?></strong></label>
+			<label class="csa-check"><input type="checkbox" name="<?php echo esc_attr( $n ); ?>[economy]" value="1" <?php checked( $o['economy'], 1 ); ?>> <strong><?php echo esc_html( csa_t( 'Economy mode: cheaper, but the agent may stop long jobs (leave OFF for the best quality)' ) ); ?></strong></label>
 			<p class="csa-muted"><?php echo esc_html( csa_t( 'When on: short replies, small page reads, compact page lists, smaller images, the agent sends only the latest part of each chat, and these limits apply:' ) ); ?></p>
 			<table class="form-table">
-				<tr><th><?php echo esc_html( csa_t( 'Steps before asking' ) ); ?></th><td><input type="number" min="2" max="20" name="<?php echo esc_attr( $n ); ?>[max_steps]" value="<?php echo esc_attr( $o['max_steps'] ); ?>" style="width:70px"> <span class="description"><?php echo esc_html( csa_t( 'While investigating (before a plan), the agent pauses after this many steps and waits for you to press Continue.' ) ); ?></span></td></tr>
-				<tr><th><?php echo esc_html( csa_t( 'Build safety limit' ) ); ?></th><td><input type="number" min="5" max="80" name="<?php echo esc_attr( $n ); ?>[build_steps]" value="<?php echo esc_attr( $o['build_steps'] ?? 30 ); ?>" style="width:70px"> <span class="description"><?php echo esc_html( csa_t( 'After you approve a plan the agent works through it without stopping. It only stops if a build takes more steps than this (a safety net against loops).' ) ); ?></span></td></tr>
-				<tr><th><?php echo esc_html( csa_t( 'Chat memory' ) ); ?></th><td><input type="number" min="1" max="10" name="<?php echo esc_attr( $n ); ?>[history_turns]" value="<?php echo esc_attr( $o['history_turns'] ); ?>" style="width:70px"> <span class="description"><?php echo esc_html( csa_t( 'latest messages from you that are sent with each request (older ones stay saved but are not re-sent).' ) ); ?> <strong><?php echo esc_html( csa_t( 'Recommended: 3. The chat memory file keeps the task, pages, plan and changes, so more is rarely needed.' ) ); ?></strong></span></td></tr>
+				<tr><th><?php echo esc_html( csa_t( 'Steps before asking' ) ); ?></th><td><input type="number" min="2" max="60" name="<?php echo esc_attr( $n ); ?>[max_steps]" value="<?php echo esc_attr( $o['max_steps'] ); ?>" style="width:70px"> <span class="description"><?php echo esc_html( csa_t( 'While investigating (before a plan), the agent pauses after this many steps and waits for you to press Continue.' ) ); ?></span></td></tr>
+				<tr><th><?php echo esc_html( csa_t( 'Build safety limit' ) ); ?></th><td><input type="number" min="5" max="150" name="<?php echo esc_attr( $n ); ?>[build_steps]" value="<?php echo esc_attr( $o['build_steps'] ?? 30 ); ?>" style="width:70px"> <span class="description"><?php echo esc_html( csa_t( 'After you approve a plan the agent works through it without stopping. It only stops if a build takes more steps than this (a safety net against loops).' ) ); ?></span></td></tr>
+				<tr><th><?php echo esc_html( csa_t( 'Chat memory' ) ); ?></th><td><input type="number" min="1" max="20" name="<?php echo esc_attr( $n ); ?>[history_turns]" value="<?php echo esc_attr( $o['history_turns'] ); ?>" style="width:70px"> <span class="description"><?php echo esc_html( csa_t( 'latest messages from you that are sent with each request (older ones stay saved but are not re-sent).' ) ); ?> <strong><?php echo esc_html( csa_t( 'Only used in Economy mode. With Economy mode OFF the whole chat is sent (shortened automatically if it gets too big).' ) ); ?></strong></span></td></tr>
 				<tr><th><?php echo esc_html( csa_t( 'Limit per chat' ) ); ?></th><td><input type="number" min="1" max="100" name="<?php echo esc_attr( $n ); ?>[chat_cap_pct]" value="<?php echo esc_attr( $o['chat_cap_pct'] ); ?>" style="width:70px"> <?php echo esc_html( csa_t( '% of the monthly budget' ) ); ?> <span class="description">(<?php echo esc_html( '$' . number_format_i18n( (float) $o['budget_usd'] * (int) $o['chat_cap_pct'] / 100, 2 ) ); ?>)</span></td></tr>
 				<tr><th><?php echo esc_html( csa_t( 'Limit per day' ) ); ?></th><td><input type="number" min="1" max="100" name="<?php echo esc_attr( $n ); ?>[day_cap_pct]" value="<?php echo esc_attr( $o['day_cap_pct'] ); ?>" style="width:70px"> <?php echo esc_html( csa_t( '% of the monthly budget' ) ); ?> <span class="description">(<?php echo esc_html( '$' . number_format_i18n( (float) $o['budget_usd'] * (int) $o['day_cap_pct'] / 100, 2 ) ); ?>)</span></td></tr>
 			</table>

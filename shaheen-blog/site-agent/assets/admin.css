@@ -278,3 +278,28 @@
 .csa-am-list li{margin:3px 0}
 .csa-am-del{color:#b32d2e;text-decoration:none;font-size:16px;line-height:1}
 .csa-am-page{margin:6px 0}
+
+/* v2.33: docked chat keeps a usable width; preview becomes a drawer over the chat; chat list is collapsible */
+.csa-dock{position:fixed}
+.csa-app-dock{position:relative}
+.csa-app-dock .csa-main{min-width:340px}
+.csa-app-dock .csa-preview{position:absolute;right:0;top:0;bottom:0;width:min(460px,100%);z-index:6;border-radius:0;border-width:0 0 0 1px;box-shadow:-8px 0 24px rgba(0,0,0,.18)}
+.csa-app-dock .csa-preview[hidden]{display:none}
+.csa-app-dock .csa-side{width:190px}
+.csa-app-dock.csa-side-off .csa-side{display:none}
+.csa-app-dock .csa-chips{display:flex;flex-wrap:wrap;gap:6px}
+.csa-app-dock .csa-chip{white-space:nowrap;border-radius:16px;padding:4px 12px}
+.csa-app-dock .csa-input-wrap textarea{min-height:64px}
+@media (max-width:1100px){.csa-app-dock .csa-side{display:none}}
+.csa-side-toggle{margin-right:6px}
+.csa-fact-table td,.csa-fact-table th{vertical-align:top}
+.csa-val-bad{color:#b32d2e;font-weight:600}
+.csa-val-ok{color:#1a7f37;font-weight:600}
+.csa-pages-list{margin:0;padding:0;list-style:none;display:flex;flex-wrap:wrap;gap:4px}
+.csa-pages-list li{background:#f0f0f1;border-radius:10px;padding:1px 8px;font-size:12px}
+.csa-scan-bar{height:8px;background:#e0e0e0;border-radius:4px;overflow:hidden;margin:8px 0}
+.csa-scan-bar i{display:block;height:100%;background:#2271b1;width:0;transition:width .3s}
+.csa-preview[hidden]{display:none!important}
+.csa-app-dock .csa-chat-head{flex-wrap:wrap;gap:6px}
+.csa-app-dock .csa-model-pick{max-width:150px}
+.csa-app-dock .csa-chat-tools{flex-wrap:wrap}

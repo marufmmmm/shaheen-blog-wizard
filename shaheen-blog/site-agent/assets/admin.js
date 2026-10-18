@@ -286,13 +286,24 @@
 
 		function newChat() { queue = []; chatId = 0; setUrl(); setHead(); welcome(); clearAttachments(); loadList(); setAuto(KIND[section] || ''); input.focus(); }
 
+		function sleep(ms) { return new Promise(function (r) { setTimeout(r, ms); }); }
+
 		async function run(message, images, rid, cont) {
 			setBusy(true);
-			var pending = message, imgs = images || [];
+			var pending = message, imgs = images || [], finished = false, prog = '';
 			if (pending || imgs.length) rid = rid || (Date.now().toString(36) + Math.random().toString(36).slice(2, 10));
-			for (var step = 1; step <= 40; step++) {
-				var wait = add({ r: 'wait', t: step === 1 ? T('Working…') : T('Working…') + ' (' + T('Step') + ' ' + step + ')' });
-				var res = await post('csa_step', { section: section, chat_id: chatId, message: pending || '', images: JSON.stringify(imgs), rid: pending || imgs.length ? rid : '', model: modelKey, cont: cont && step === 1 ? 1 : '' });
+			for (var step = 1; step <= 60; step++) {
+				var wait = add({ r: 'wait', t: (prog ? prog : T('Working…')) + (step > 1 ? ' (' + T('Step') + ' ' + step + ')' : '') });
+				var args = { section: section, chat_id: chatId, message: pending || '', images: JSON.stringify(imgs), rid: pending || imgs.length ? rid : '', model: modelKey, cont: cont && step === 1 ? 1 : '' };
+				var res = await post('csa_step', args), tries = 0;
+				// Timeouts, busy server and network blips are retried automatically (the server never repeats a finished step).
+				while (res.error && tries < 3 && /HTTP (500|502|503|504|524)|Network error|Still working/i.test(res.error)) {
+					tries++;
+					wait.remove();
+					wait = add({ r: 'wait', t: T('Server is slow, trying again…') + ' (' + tries + '/3)' });
+					await sleep(10000 * tries);
+					res = await post('csa_step', args);
+				}
 				wait.remove();
 				if (res.error) {
 					var box = add({ r: 'err', t: res.error });
@@ -301,6 +312,7 @@
 					b.type = 'button'; b.className = 'button'; b.textContent = T('Retry');
 					b.onclick = function () { if (busy) return; box.remove(); run(rm, ri, rr); };
 					box.appendChild(document.createElement('br')); box.appendChild(b);
+					finished = true;
 					break;
 				}
 				pending = ''; imgs = [];
@@ -309,7 +321,11 @@
 				if (isNew) { setHead(res.data.title, 0); loadList(); }
 				res.data.items.forEach(add);
 				if (res.data.kind) setAuto(res.data.kind, res.data.model);
-				if (res.data.done) break;
+				if (res.data.progress) prog = res.data.progress; else if (res.data.done) prog = '';
+				if (res.data.done) { finished = true; break; }
+			}
+			if (!finished) {
+				var more = add({ r: 'pause', t: T('This is a long job. Press Continue and I will carry on from where I stopped.') });
 			}
 			setBusy(false); input.focus(); loadList();
 			flushQueue();

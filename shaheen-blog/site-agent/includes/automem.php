@@ -94,6 +94,9 @@ function csa_am_set( $scope, $page_id, $heading, $key, $value, $chat_id = 0 ) {
 		'c' => (int) $chat_id,
 		'n' => (int) ( $list[ $key ]['n'] ?? 0 ) + ( null === $old ? 0 : 1 ),
 	);
+	if ( 'site' === $scope && csa_am_mirror_set( $key, $value ) ) {
+		$list[ $key ]['m'] = 1; // Also visible / editable in Blog Write .ai > Memory.
+	}
 	// Keep the store small: drop the least recently updated facts.
 	$max = 'page' === $scope ? CSA_AM_PAGE_MAX : CSA_AM_SITE_MAX;
 	if ( count( $list ) > $max ) {
@@ -119,8 +122,57 @@ function csa_am_forget( $scope, $page_id, $key ) {
 		}
 	} else {
 		unset( $m['site'][ $key ] );
+		csa_am_mirror_forget( $key );
 	}
 	csa_am_put( $m );
+}
+
+/* ---- One memory, two doors: site-wide facts the agent learns also live in Blog Write .ai > Memory ---- */
+
+function csa_am_label( $key ) {
+	return mb_strtoupper( mb_substr( $key, 0, 1 ) ) . mb_substr( $key, 1 );
+}
+
+function csa_am_mirror_set( $key, $value ) {
+	if ( ! function_exists( 'sb_memory_add' ) ) {
+		return false;
+	}
+	sb_memory_add( 'fact', csa_am_label( $key ) . ': ' . $value, 'auto' );
+	return true;
+}
+
+function csa_am_mirror_forget( $key ) {
+	if ( ! function_exists( 'sb_memory_all' ) ) {
+		return;
+	}
+	$label = mb_strtolower( csa_am_label( $key ) ) . ':';
+	$keep  = array();
+	foreach ( sb_memory_all() as $m ) {
+		if ( 'fact' === $m['type'] && 'auto' === ( $m['src'] ?? '' ) && 0 === mb_strpos( mb_strtolower( $m['text'] ), $label ) ) {
+			continue;
+		}
+		$keep[] = $m;
+	}
+	update_option( 'sb_memory', sb_memory_clean( $keep ), false );
+}
+
+/** Mirrored facts the owner switched off or deleted in Memory must not reach the agent any more. */
+function csa_am_site_visible( $list ) {
+	if ( ! function_exists( 'sb_memory_all' ) ) {
+		return $list;
+	}
+	$state = array();
+	foreach ( sb_memory_all() as $m ) {
+		if ( 'fact' === $m['type'] && false !== ( $p = mb_strpos( $m['text'], ':' ) ) ) {
+			$state[ mb_strtolower( mb_substr( $m['text'], 0, $p ) ) ] = ! empty( $m['on'] );
+		}
+	}
+	foreach ( $list as $k => $f ) {
+		if ( ! empty( $f['m'] ) && empty( $state[ mb_strtolower( $k ) ] ) ) {
+			unset( $list[ $k ] );
+		}
+	}
+	return $list;
 }
 
 /** Facts as text, grouped by heading. */
@@ -143,7 +195,7 @@ function csa_am_render( $list, $scope, $max_chars ) {
 
 /** Universal memory for prompts. */
 function csa_am_site_text() {
-	$t = csa_am_render( csa_am_get()['site'], 'site', CSA_AM_SITE_CHAR );
+	$t = csa_am_render( csa_am_site_visible( csa_am_get()['site'] ), 'site', CSA_AM_SITE_CHAR );
 	return '' === $t ? '' : "\n\n## Auto memory: site-wide facts (kept up to date automatically; newest value wins)\n" . $t;
 }
 

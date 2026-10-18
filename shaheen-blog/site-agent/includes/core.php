@@ -51,11 +51,11 @@ function csa_defaults() {
 		'bot_author'       => 1,
 		'psi_key'          => '',
 		'history_limit'    => 200,
-		'max_request_tokens' => 40000,
-		'economy'          => 1,
-		'max_steps'        => 8,
-		'build_steps'      => 30,
-		'history_turns'    => 3,
+		'max_request_tokens' => 60000,
+		'economy'          => 0,
+		'max_steps'        => 25,
+		'build_steps'      => 60,
+		'history_turns'    => 6,
 		'font_head'        => '',
 		'font_body'        => '',
 		'font_force'       => 1,
@@ -449,6 +449,15 @@ function csa_site_context( $auto = null ) {
 	}
 	if ( function_exists( 'csa_fonts_context' ) ) {
 		$s .= csa_fonts_context();
+	}
+	if ( function_exists( 'sb_memory_context' ) ) {
+		$sbm = sb_memory_context( true ); // Owner's own rules, verified facts and banned words from Blog Write .ai > Memory.
+		if ( '' !== $sbm ) {
+			$s .= "\n\n## Owner's memory (shared with the blog writer; always follow, these facts are correct)\n" . $sbm;
+		}
+	}
+	if ( function_exists( 'csa_si_map_text' ) ) {
+		$s .= csa_si_map_text();
 	}
 	if ( function_exists( 'csa_am_site_text' ) ) {
 		$s .= null === $auto ? csa_am_site_text() : $auto; // A chat passes its snapshot so the prompt cache stays valid.
