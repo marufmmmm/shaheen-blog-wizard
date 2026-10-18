@@ -1470,9 +1470,11 @@ function csa_ajax_step() {
 					// Same call already failed: don't run it again.
 					$out = array( 'error' => 'You already tried exactly this and it failed. Do not repeat it. Use a different approach (for CSS: empty old_text to append a <style> block), or stop and explain the problem to the user.' );
 				} elseif ( in_array( $b['name'], wp_list_pluck( csa_tools_read(), 'name' ), true ) && in_array( $sig, (array) ( $ctx['mem']['read_sigs'] ?? array() ), true ) ) {
+					$ctx['mem']['dup_run'] = (int) ( $ctx['mem']['dup_run'] ?? 0 ) + 1;
 					$out = array( 'note' => 'You already read exactly this in this task; the result is earlier in the conversation and in your chat notes. Do NOT read it again. Call propose_plan now (or read something different).' );
 				} else {
 					$out = csa_run_tool( $b['name'], $in, $ctx );
+					$ctx['mem']['dup_run'] = 0;
 					if ( in_array( $b['name'], wp_list_pluck( csa_tools_read(), 'name' ), true ) && ! isset( $out['error'] ) ) {
 						$ctx['mem']['read_sigs'][] = $sig;
 					}
@@ -1504,7 +1506,7 @@ function csa_ajax_step() {
 	}
 	// Loop guard: stop when edits keep failing or the agent repeats itself.
 	$said = trim( implode( ' ', wp_list_pluck( array_filter( $data['content'], function ( $b ) { return 'text' === $b['type']; } ), 'text' ) ) );
-	$loop = (int) ( $ctx['mem']['fail_run'] ?? 0 ) >= 3;
+	$loop = (int) ( $ctx['mem']['fail_run'] ?? 0 ) >= 3 || (int) ( $ctx['mem']['dup_run'] ?? 0 ) >= 3;
 	if ( ! $loop && mb_strlen( $said ) > 40 ) {
 		$key  = mb_substr( preg_replace( '/\s+/u', ' ', $said ), 0, 120 );
 		$seen = 0;
@@ -1523,7 +1525,8 @@ function csa_ajax_step() {
 	if ( $loop && $results ) {
 		$messages[]             = array( 'role' => 'user', 'content' => $results );
 		$ctx['mem']['fail_run'] = 0;
-		if ( 'approved' === $state ) {
+		$ctx['mem']['dup_run']  = 0;
+		if ( 'approved' === $state || 'planned' !== $state ) {
 			$state = 'analyse';
 		}
 		$ctx['items'][] = array( 'r' => 'alert', 't' => csa_t( 'The agent was stuck (the same edit kept failing or it repeated itself), so it was stopped to save money. Nothing more is charged. Tell it what to try differently, or start a new chat for this part.' ) );
