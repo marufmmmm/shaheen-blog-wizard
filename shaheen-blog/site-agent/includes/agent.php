@@ -896,6 +896,7 @@ function csa_agent_prompt( $state, $auto = null ) {
 	$s = 'You are ' . csa_brand() . ', the website design, content and SEO agent inside the WordPress admin. ' . csa_site_context( $auto )
 		. "\n\n## How you work"
 		. "\n- Reply in the language the user writes in (Bangla or English). Be clear and practical; no filler."
+		. "\n- IN THIS MODE YOU CAN ONLY READ. Editing tools appear after the user approves a plan, so never say you have no edit/schema tool and never tell the user to paste code themselves. Read each page ONCE (the result stays in your notes; do not re-read the same page or SEO data), use at most 3-4 reads, then call propose_plan with every change (text, SEO title/description, schema, alt text, CSS) as concrete steps."
 		. "\n- PLAN FIRST, ALWAYS: you never change anything until the user approves. For any request that would change the site: (1) investigate with the read tools and any attached images, (2) call propose_plan with a short summary and concrete numbered steps (which page, exactly what changes), then STOP. Do not write the final content inside the plan."
 		. "\n- Questions and analysis need no plan: just answer."
 		. "\n- After approval you get build tools. Follow the approved steps exactly and work through ALL of them without stopping to ask; tick each finished step with step_done (in the same turn as the tool that finishes it). Steps marked LATER in the plan checklist were left for later by the user: never do them now. If something unexpected needs a different approach, stop and explain instead of improvising."
@@ -1371,7 +1372,8 @@ function csa_ajax_step() {
 	$GLOBALS['csa_section']      = sanitize_key( $_POST['section'] ?? '' );
 	$mem = csa_mem_load( $chat_id );
 	if ( '' !== $text || empty( $mem['snap_set'] ) ) {
-		$mem['snap_set'] = 1;
+		$mem['snap_set']  = 1;
+		$mem['read_sigs'] = array();
 		// New message from the person: refresh the site-wide memory snapshot and look for page names.
 		$mem['site_snap'] = csa_am_site_text();
 		$mem['mention']   = csa_am_pages_in_text( $text );
@@ -1388,6 +1390,11 @@ function csa_ajax_step() {
 		? array_merge( csa_tools_read(), csa_tools_anytime(), csa_tools_write(), array( csa_tool_step_done() ) )
 		: array_merge( csa_tools_read(), csa_tools_anytime(), array( csa_tool_plan() ) );
 
+	if ( 'approved' !== $state && 'planned' !== $state && csa_steps_since_human( $messages ) >= 6 ) {
+		// Too much reading without a plan: only the plan tool is left, so it must propose now.
+		$tools = array( csa_tool_plan() );
+		csa_push_user( $messages, array( array( 'type' => 'text', 'text' => '[[NEXT]] You have read enough. Call propose_plan now with concrete steps for everything you found.' ) ) );
+	}
 	$prepared = csa_prepare( csa_eco() ? csa_window( $messages, max( 1, (int) csa_opt( 'history_turns' ) ) ) : $messages );
 	$system   = csa_agent_prompt( $state, (string) $mem['site_snap'] );
 	csa_mem_inject( $prepared, $mem );
@@ -1462,8 +1469,13 @@ function csa_ajax_step() {
 				if ( in_array( $sig, (array) ( $ctx['mem']['fail_sigs'] ?? array() ), true ) ) {
 					// Same call already failed: don't run it again.
 					$out = array( 'error' => 'You already tried exactly this and it failed. Do not repeat it. Use a different approach (for CSS: empty old_text to append a <style> block), or stop and explain the problem to the user.' );
+				} elseif ( in_array( $b['name'], wp_list_pluck( csa_tools_read(), 'name' ), true ) && in_array( $sig, (array) ( $ctx['mem']['read_sigs'] ?? array() ), true ) ) {
+					$out = array( 'note' => 'You already read exactly this in this task; the result is earlier in the conversation and in your chat notes. Do NOT read it again. Call propose_plan now (or read something different).' );
 				} else {
 					$out = csa_run_tool( $b['name'], $in, $ctx );
+					if ( in_array( $b['name'], wp_list_pluck( csa_tools_read(), 'name' ), true ) && ! isset( $out['error'] ) ) {
+						$ctx['mem']['read_sigs'][] = $sig;
+					}
 				}
 				if ( in_array( $b['name'], csa_write_tool_names(), true ) ) {
 					if ( isset( $out['error'] ) ) {
