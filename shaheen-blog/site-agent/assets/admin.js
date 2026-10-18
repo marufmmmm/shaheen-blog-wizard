@@ -224,6 +224,10 @@
 						+ '</ol><button type="button" class="button button-primary">▶ ' + esc(T('Do these now')) + '</button>';
 					d.querySelector('button').onclick = function () { decide('rest', d); };
 					break;
+				case 'slots':
+					d.className = 'csa-plan csa-slots';
+					renderSlots(d, item);
+					break;
 				case 'plan':
 					d.className = 'csa-plan' + (item.pending ? ' pending' : '');
 					var steps = (item.steps || []).map(function (s, i) {
@@ -299,6 +303,7 @@
 
 		async function run(message, images, rid, cont) {
 			setBusy(true);
+			if (message) disableOldPlans();
 			var pending = message, imgs = images || [], finished = false, prog = '';
 			if (pending || imgs.length) rid = rid || (Date.now().toString(36) + Math.random().toString(36).slice(2, 10));
 			for (var step = 1; step <= 60; step++) {
@@ -338,6 +343,57 @@
 			}
 			setBusy(false); input.focus(); loadList();
 			flushQueue();
+		}
+
+		function renderSlots(d, item) {
+			var st = { pending: T('Waiting for photo'), skipped: T('Skipped – image upload required'), uploaded: T('Uploaded'), inserted: T('Placed on page') };
+			var rows = (item.slots || []).map(function (s) {
+				var thumb = s.thumb ? '<img src="' + esc(s.thumb) + '" alt="" class="csa-cs-thumb">' : '<span class="csa-cs-thumb csa-cs-none">🖼</span>';
+				var btns = '';
+				if (s.status === 'pending' || s.status === 'skipped') {
+					btns = '<label class="button button-small button-primary">⬆ ' + esc(T('Upload')) + '<input type="file" accept="image/jpeg,image/png,image/webp" hidden data-slot="' + esc(s.slot) + '"></label> '
+						+ (s.status === 'pending' ? '<button type="button" class="button button-small" data-skip="' + esc(s.slot) + '">⏭ ' + esc(T('Skip')) + '</button>' : '<button type="button" class="button button-small" data-unskip="' + esc(s.slot) + '">↩ ' + esc(T('Undo skip')) + '</button>');
+				}
+				return '<li class="csa-cs csa-cs-' + esc(s.status) + '">' + thumb + '<div class="csa-cs-body"><strong>' + esc(s.description) + '</strong>'
+					+ '<div class="csa-muted">' + esc(s.position || '') + (s.size ? ' · ' + esc(s.size) : '') + '</div>'
+					+ '<div class="csa-muted">alt: ' + esc(s.alt) + ' · ' + esc(s.filename) + '</div>'
+					+ '<div class="csa-cs-st">' + esc(st[s.status] || s.status) + '</div>' + btns + '</div></li>';
+			}).join('');
+			var up = (item.slots || []).some(function (s) { return s.status === 'uploaded'; });
+			var pend = (item.slots || []).some(function (s) { return s.status === 'pending'; });
+			d.innerHTML = '<div class="csa-plan-h">🖼 ' + esc(T('Images for')) + ' “' + esc(item.title) + '”</div>'
+				+ '<p class="csa-muted">' + esc(T('Upload each photo. I will set the SEO file name, alt text and caption myself. You can skip any photo; it will be flagged “image upload required” on the SEO page.')) + '</p>'
+				+ '<ul class="csa-cs-list">' + rows + '</ul>'
+				+ '<div class="csa-plan-btns">' + (up ? '<button type="button" class="button button-primary" data-act="place">✨ ' + esc(T('Place images on page (best positions)')) + '</button> ' : '')
+				+ (pend ? '<button type="button" class="button" data-act="skipall">⏭ ' + esc(T('Skip all, upload later')) + '</button>' : '') + '</div>';
+			function refresh(it) { if (it) { d.innerHTML = ''; renderSlots(d, it); } }
+			$$('input[type=file]', d).forEach(function (inp) {
+				inp.onchange = async function () {
+					var f = inp.files[0]; if (!f) return;
+					var lab = inp.parentNode; lab.firstChild.textContent = '… ';
+					var fd = new FormData(); fd.append('do', 'upload'); fd.append('post_id', item.pid); fd.append('slot', inp.dataset.slot); fd.append('file', f);
+					var res = await post('csa_slots', null, fd);
+					if (res.error) { toast(res.error, 'err'); lab.firstChild.textContent = '⬆ '; return; }
+					refresh(res.data.item);
+				};
+			});
+			async function act(a, slot) {
+				var res = await post('csa_slots', { do: a, post_id: item.pid, slot: slot || '' });
+				if (res.error) { toast(res.error, 'err'); return; }
+				refresh(res.data.item);
+			}
+			$$('[data-skip]', d).forEach(function (b) { b.onclick = function () { act('skip', b.dataset.skip); }; });
+			$$('[data-unskip]', d).forEach(function (b) { b.onclick = function () { act('unskip', b.dataset.unskip); }; });
+			var sa = $('[data-act=skipall]', d); if (sa) sa.onclick = function () { act('skipall'); };
+			var pl = $('[data-act=place]', d);
+			if (pl) pl.onclick = async function () {
+				if (busy) return;
+				var res = await post('csa_plan', { chat_id: chatId, decision: 'images', post_id: item.pid });
+				if (res.error) { add({ r: 'err', t: res.error }); return; }
+				$$('button', d).forEach(function (x) { x.disabled = true; });
+				add({ r: 'sys', t: '✅ ' + T('Placing the images…') });
+				run('', []);
+			};
 		}
 
 		async function decide(d, card) {

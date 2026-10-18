@@ -303,3 +303,13 @@
 .csa-app-dock .csa-chat-head{flex-wrap:wrap;gap:6px}
 .csa-app-dock .csa-model-pick{max-width:150px}
 .csa-app-dock .csa-chat-tools{flex-wrap:wrap}
+
+.csa-cs-list{list-style:none;margin:8px 0;padding:0;display:grid;gap:8px}
+.csa-cs{display:flex;gap:10px;align-items:flex-start;padding:8px;border:1px solid #dcdcde;border-radius:6px;background:#fff}
+.csa-cs-thumb{width:56px;height:56px;object-fit:cover;border-radius:4px;flex:none;background:#f0f0f1;display:flex;align-items:center;justify-content:center;font-size:22px}
+.csa-cs-body{min-width:0;flex:1}
+.csa-cs-body .csa-muted{font-size:12px;overflow-wrap:anywhere}
+.csa-cs-st{font-size:12px;font-weight:600;margin:3px 0}
+.csa-cs-skipped .csa-cs-st{color:#b32d2e}
+.csa-cs-uploaded .csa-cs-st,.csa-cs-inserted .csa-cs-st{color:#007017}
+.csa-img-need{display:inline-block;margin-top:3px;padding:1px 8px;border-radius:10px;background:#fcf0f1;color:#b32d2e;font-size:12px;text-decoration:none}

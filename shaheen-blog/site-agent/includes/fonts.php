@@ -74,16 +74,59 @@ function csa_fonts_css() {
 	return $css;
 }
 
+/** Font size in px: empty (keep the theme) or 10–90. */
+function csa_fs_clean( $v ) {
+	$n = (int) $v;
+	return ( $n >= 10 && $n <= 90 ) ? $n : '';
+}
+
+function csa_lh_clean( $v ) {
+	$n = (float) str_replace( ',', '.', (string) $v );
+	return ( $n >= 1 && $n <= 2.6 ) ? round( $n, 2 ) : '';
+}
+
+/** Front-end CSS for the font sizes set in Settings (desktop, and phone under 768px). */
+function csa_sizes_css() {
+	$g   = function ( $k ) { return csa_opt( $k ); };
+	$rules = function ( $sfx ) use ( $g ) {
+		$c = '';
+		$b = $g( 'fs_body' . $sfx );
+		if ( '' !== $b && null !== $b ) {
+			$c .= 'body,body :is(p,li,td,th,dd,dt,label,blockquote,figcaption,.elementor-widget-text-editor,.elementor-widget-text-editor *){font-size:' . (int) $b . 'px!important}';
+		}
+		foreach ( array( 'h1', 'h2', 'h3' ) as $h ) {
+			$v = $g( 'fs_' . $h . $sfx );
+			if ( '' !== $v && null !== $v ) {
+				$c .= $h . ',' . $h . '.elementor-heading-title,.elementor-widget-heading ' . $h . '.elementor-heading-title,.entry-content ' . $h . '{font-size:' . (int) $v . 'px!important;line-height:1.25}';
+			}
+		}
+		return $c;
+	};
+	$css = $rules( '' );
+	$lh  = $g( 'lh_body' );
+	if ( '' !== $lh && null !== $lh ) {
+		$css .= 'body :is(p,li,td,th,.elementor-widget-text-editor){line-height:' . (float) $lh . '!important}';
+	}
+	$m = $rules( '_m' );
+	if ( '' !== $m ) {
+		$css .= '@media (max-width:767px){' . $m . '}';
+	}
+	return $css;
+}
+
 add_action( 'wp_enqueue_scripts', 'csa_fonts_enqueue', 99 );
 function csa_fonts_enqueue() {
-	$url = csa_fonts_url();
-	if ( '' === $url ) {
+	$url   = csa_fonts_url();
+	$sizes = csa_sizes_css();
+	if ( '' === $url && '' === $sizes ) {
 		return;
 	}
-	wp_enqueue_style( 'csa-site-fonts', $url, array(), null );
-	wp_register_style( 'csa-site-fonts-apply', false, array( 'csa-site-fonts' ), CSA_VER );
+	if ( '' !== $url ) {
+		wp_enqueue_style( 'csa-site-fonts', $url, array(), null );
+	}
+	wp_register_style( 'csa-site-fonts-apply', false, '' !== $url ? array( 'csa-site-fonts' ) : array(), CSA_VER );
 	wp_enqueue_style( 'csa-site-fonts-apply' );
-	wp_add_inline_style( 'csa-site-fonts-apply', csa_fonts_css() );
+	wp_add_inline_style( 'csa-site-fonts-apply', csa_fonts_css() . $sizes );
 }
 
 add_filter( 'wp_resource_hints', 'csa_fonts_hints', 10, 2 );
@@ -98,10 +141,11 @@ function csa_fonts_hints( $urls, $type ) {
 function csa_fonts_context() {
 	$b = csa_font( (string) csa_opt( 'font_body' ) );
 	$h = csa_font( (string) csa_opt( 'font_head' ) );
-	if ( ! $b && ! $h ) {
+	$sz = csa_sizes_css();
+	if ( ! $b && ! $h && '' === $sz ) {
 		return '';
 	}
-	return "\n\n## Site fonts (loaded site-wide by the plugin)\nHeadings: " . ( $h ? $h[0] : 'theme default' ) . '. Body text: ' . ( $b ? $b[0] : 'theme default' ) . ". Write all Bangla as Unicode. Don't add other font imports or font-family rules to pages; use font-family: inherit.";
+	return "\n\n## Site fonts (loaded site-wide by the plugin)\nHeadings: " . ( $h ? $h[0] : 'theme default' ) . '. Body text: ' . ( $b ? $b[0] : 'theme default' ) . ". Write all Bangla as Unicode. Don't add other font imports or font-family rules to pages; use font-family: inherit. Site-wide font sizes (body, H1-H3, desktop and phone) are set by the user in Settings > Site fonts; for ONE page use set_page_css.";
 }
 
 /** Settings card. */
@@ -123,6 +167,17 @@ function csa_fonts_card( $o, $n ) {
 			<tr><th><?php echo esc_html( csa_t( 'Body text' ) ); ?></th><td><?php $sel( 'font_body', $o['font_body'] ); ?></td></tr>
 			<tr><th><?php echo esc_html( csa_t( 'Custom pages too' ) ); ?></th><td><label class="csa-check"><input type="checkbox" name="<?php echo esc_attr( $n ); ?>[font_force]" value="1" <?php checked( $o['font_force'], 1 ); ?>> <?php echo esc_html( csa_t( 'Also use these fonts inside custom HTML / Elementor pages that set their own font (icons are not affected).' ) ); ?></label></td></tr>
 		</table>
+		<h3><?php echo esc_html( csa_t( 'Font sizes' ) ); ?></h3>
+		<p class="csa-muted"><?php echo esc_html( csa_t( 'Sizes in px for the whole site. Leave a box empty to keep the theme size. "Phone" applies on screens narrower than 768px.' ) ); ?></p>
+		<table class="widefat striped csa-fs-table" style="max-width:520px"><thead><tr><th></th><th><?php echo esc_html( csa_t( 'Computer' ) ); ?></th><th><?php echo esc_html( csa_t( 'Phone' ) ); ?></th></tr></thead><tbody>
+		<?php foreach ( array( 'body' => csa_t( 'Body text' ) . ' (16–18)', 'h1' => 'H1 ' . csa_t( 'main heading' ) . ' (32–44)', 'h2' => 'H2 (26–34)', 'h3' => 'H3 (20–26)' ) as $k => $lab ) : ?>
+			<tr><td><?php echo esc_html( $lab ); ?></td>
+			<td><input type="number" min="10" max="90" style="width:80px" name="<?php echo esc_attr( $n . '[fs_' . $k . ']' ); ?>" value="<?php echo esc_attr( $o[ 'fs_' . $k ] ?? '' ); ?>"> px</td>
+			<td><input type="number" min="10" max="90" style="width:80px" name="<?php echo esc_attr( $n . '[fs_' . $k . '_m]' ); ?>" value="<?php echo esc_attr( $o[ 'fs_' . $k . '_m' ] ?? '' ); ?>"> px</td></tr>
+		<?php endforeach; ?>
+			<tr><td><?php echo esc_html( csa_t( 'Line height (body)' ) ); ?> (1.5–1.8)</td><td colspan="2"><input type="number" step="0.05" min="1" max="2.6" style="width:80px" name="<?php echo esc_attr( $n . '[lh_body]' ); ?>" value="<?php echo esc_attr( $o['lh_body'] ?? '' ); ?>"></td></tr>
+		</tbody></table>
+		<p class="description"><?php echo esc_html( csa_t( 'A single page can still be changed by the agent (Design check). Page rules win over these site-wide sizes only if the agent adds them with !important.' ) ); ?></p>
 		<?php $prev = array_filter( array( csa_font( (string) $o['font_head'] ), csa_font( (string) $o['font_body'] ) ) ); ?>
 		<?php if ( $prev && csa_fonts_url() ) : ?>
 			<link rel="stylesheet" href="<?php echo esc_url( csa_fonts_url() ); ?>">

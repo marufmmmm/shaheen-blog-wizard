@@ -83,6 +83,15 @@ function csa_register_settings() {
 					'font_head'        => array_key_exists( $in['font_head'] ?? '', csa_font_list() ) ? $in['font_head'] : '',
 					'font_body'        => array_key_exists( $in['font_body'] ?? '', csa_font_list() ) ? $in['font_body'] : '',
 					'font_force'       => empty( $in['font_force'] ) ? 0 : 1,
+					'fs_body'          => csa_fs_clean( $in['fs_body'] ?? '' ),
+					'fs_body_m'        => csa_fs_clean( $in['fs_body_m'] ?? '' ),
+					'fs_h1'            => csa_fs_clean( $in['fs_h1'] ?? '' ),
+					'fs_h1_m'          => csa_fs_clean( $in['fs_h1_m'] ?? '' ),
+					'fs_h2'            => csa_fs_clean( $in['fs_h2'] ?? '' ),
+					'fs_h2_m'          => csa_fs_clean( $in['fs_h2_m'] ?? '' ),
+					'fs_h3'            => csa_fs_clean( $in['fs_h3'] ?? '' ),
+					'fs_h3_m'          => csa_fs_clean( $in['fs_h3_m'] ?? '' ),
+					'lh_body'          => csa_lh_clean( $in['lh_body'] ?? '' ),
 					'chat_cap_pct'     => max( 1, min( 100, (int) ( $in['chat_cap_pct'] ?? 10 ) ) ),
 					'day_cap_pct'      => max( 1, min( 100, (int) ( $in['day_cap_pct'] ?? 20 ) ) ),
 					'slot_day'         => in_array( $in['slot_day'] ?? '', array( 'daily', 'saturday', 'sunday', 'monday', 'tuesday', 'wednesday', 'thursday', 'friday' ), true ) ? $in['slot_day'] : 'sunday',
@@ -646,6 +655,30 @@ function csa_screen_seo() {
 	csa_footer();
 }
 
+function csa_seo_images_card() {
+	$rows = array();
+	foreach ( get_posts( array( 'post_type' => array( 'page', 'post' ), 'post_status' => array( 'publish', 'draft', 'private' ), 'numberposts' => 300, 'meta_key' => '_csa_image_slots', 'fields' => 'ids' ) ) as $id ) {
+		$m = csa_slots_missing( $id );
+		if ( $m['total'] ) {
+			$rows[] = array( 'id' => $id, 'm' => $m );
+		}
+	}
+	if ( ! $rows ) {
+		return;
+	}
+	?>
+	<div class="csa-card">
+		<h2>🖼 <?php echo esc_html( csa_t( 'Image upload required' ) ); ?></h2>
+		<p class="csa-muted"><?php echo esc_html( csa_t( 'These pages have photos that were suggested but not uploaded (or skipped). Pages without their photos rank and convert worse.' ) ); ?></p>
+		<table class="widefat striped"><tbody>
+		<?php foreach ( $rows as $r ) : ?>
+			<tr><td><?php echo esc_html( get_the_title( $r['id'] ) ); ?></td><td><?php echo esc_html( sprintf( csa_t( '%1$d waiting, %2$d skipped' ), $r['m']['pending'], $r['m']['skipped'] ) ); ?></td><td style="width:110px"><a class="button button-small" href="<?php echo esc_url( admin_url( 'admin.php?page=csa-images' ) ); ?>"><?php echo esc_html( csa_t( 'Upload' ) ); ?></a></td></tr>
+		<?php endforeach; ?>
+		</tbody></table>
+	</div>
+	<?php
+}
+
 function csa_seo_tab_dashboard() {
 	$o     = csa_seo_overview();
 	$trend = (array) get_option( 'csa_seo_trend', array() );
@@ -657,6 +690,7 @@ function csa_seo_tab_dashboard() {
 		<div class="csa-stat ok"><span><?php echo esc_html( csa_t( 'Needs work (50–79)' ) ); ?></span><strong><?php echo (int) $o['ok']; ?></strong></div>
 		<div class="csa-stat bad"><span><?php echo esc_html( csa_t( 'Poor (under 50)' ) ); ?></span><strong><?php echo (int) $o['bad']; ?></strong></div>
 	</div>
+	<?php csa_seo_images_card(); ?>
 	<?php if ( ! $o['audited'] ) : ?>
 		<div class="csa-card"><p><?php echo esc_html( csa_t( 'No pages audited yet.' ) ); ?> <a class="button button-primary" href="<?php echo esc_url( add_query_arg( 'tab', 'audit' ) ); ?>"><?php echo esc_html( csa_t( 'Start with Page Audit' ) ); ?></a></p></div>
 		<?php
@@ -733,7 +767,7 @@ function csa_seo_tab_audit() {
 			$psi = get_post_meta( $p->ID, '_csa_psi', true );
 			?>
 			<tr class="csa-seo-row" data-id="<?php echo (int) $p->ID; ?>" data-checked="<?php echo is_array( $s ) ? '1' : ''; ?>">
-				<td><strong><?php echo esc_html( $p->post_title ? $p->post_title : '(no title)' ); ?></strong><?php echo csa_is_elementor( $p->ID ) ? ' <span class="csa-tag">Elementor</span>' : ''; ?><br><a href="<?php echo esc_url( get_permalink( $p ) ); ?>" target="_blank" class="csa-muted"><?php echo esc_html( wp_make_link_relative( get_permalink( $p ) ) ); ?></a></td>
+				<td><strong><?php echo esc_html( $p->post_title ? $p->post_title : '(no title)' ); ?></strong><?php echo csa_is_elementor( $p->ID ) ? ' <span class="csa-tag">Elementor</span>' : ''; ?><br><a href="<?php echo esc_url( get_permalink( $p ) ); ?>" target="_blank" class="csa-muted"><?php echo esc_html( wp_make_link_relative( get_permalink( $p ) ) ); ?></a><?php $im = csa_slots_missing( $p->ID ); if ( $im['total'] ) : ?><br><a class="csa-img-need" href="<?php echo esc_url( admin_url( 'admin.php?page=csa-images' ) ); ?>">🖼 <?php echo esc_html( sprintf( csa_t( 'Image upload required (%d)' ), $im['total'] ) ); ?></a><?php endif; ?></td>
 				<td class="csa-score-cell"><?php echo csa_score_badge( is_array( $s ) ? $s['score'] : null ); ?></td>
 				<td class="csa-psi-cell"><?php echo is_array( $psi ) && isset( $psi['mobile'] ) ? '📱 ' . csa_score_badge( $psi['mobile']['score'] ) : ''; ?><?php echo is_array( $psi ) && isset( $psi['desktop'] ) ? ' 🖥 ' . csa_score_badge( $psi['desktop']['score'] ) : ''; ?></td>
 				<td class="csa-time-cell csa-muted"><?php echo is_array( $s ) ? esc_html( mysql2date( 'j M, H:i', $s['time'] ) ) : ''; ?></td>

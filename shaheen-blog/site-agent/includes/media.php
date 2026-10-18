@@ -41,6 +41,65 @@ function csa_slots_save( $id, $slots ) {
 	return $n;
 }
 
+/** Card data for the chat: slots of a page with their status. */
+function csa_slots_item( $pid ) {
+	$p = csa_valid_post( $pid );
+	if ( ! $p ) {
+		return null;
+	}
+	$out = array();
+	foreach ( csa_slots_get( $pid ) as $s ) {
+		$out[] = array(
+			'slot'        => $s['slot'],
+			'description' => $s['description'],
+			'position'    => $s['position'],
+			'size'        => $s['size'],
+			'alt'         => $s['alt'],
+			'filename'    => $s['filename'],
+			'status'      => $s['status'],
+			'thumb'       => $s['attachment'] ? wp_get_attachment_image_url( $s['attachment'], 'thumbnail' ) : '',
+		);
+	}
+	return array( 'r' => 'slots', 'pid' => (int) $pid, 'title' => $p->post_title, 'slots' => $out );
+}
+
+/** Slots that still need a photo (not uploaded yet, or skipped by the user). */
+function csa_slots_missing( $pid ) {
+	$n = array( 'pending' => 0, 'skipped' => 0 );
+	foreach ( csa_slots_get( $pid ) as $s ) {
+		if ( 'pending' === $s['status'] ) {
+			$n['pending']++;
+		} elseif ( 'skipped' === $s['status'] ) {
+			$n['skipped']++;
+		}
+	}
+	$n['total'] = $n['pending'] + $n['skipped'];
+	return $n;
+}
+
+/** After the agent edited a page: mark uploaded slots whose image now appears in the new content. */
+function csa_slots_detect( $pid, $text ) {
+	if ( ! $pid || '' === $text ) {
+		return;
+	}
+	$slots = csa_slots_get( $pid );
+	$ch    = false;
+	foreach ( $slots as $k => $s ) {
+		if ( 'uploaded' !== $s['status'] || ! $s['attachment'] ) {
+			continue;
+		}
+		$file = wp_get_attachment_url( $s['attachment'] );
+		$base = $file ? pathinfo( $file, PATHINFO_FILENAME ) : '';
+		if ( false !== strpos( $text, 'wp-image-' . $s['attachment'] ) || ( $base && false !== strpos( $text, $base ) ) ) {
+			$slots[ $k ]['status'] = 'inserted';
+			$ch                    = true;
+		}
+	}
+	if ( $ch ) {
+		update_post_meta( $pid, '_csa_image_slots', wp_slash( $slots ) );
+	}
+}
+
 function csa_slots_for_agent( $id ) {
 	$p = csa_valid_post( $id );
 	if ( ! $p ) {
@@ -119,7 +178,21 @@ function csa_ajax_slots() {
 		}
 		update_post_meta( $pid, '_csa_image_slots', wp_slash( $slots ) );
 		csa_log( csa_t( 'Image uploaded for' ) . ' "' . $p->post_title . '" (' . $slot . ')' );
-		wp_send_json_success( array( 'slot' => $slots[ $i ], 'thumb' => wp_get_attachment_image_url( $att, 'thumbnail' ) ) );
+		wp_send_json_success( array( 'slot' => $slots[ $i ], 'thumb' => wp_get_attachment_image_url( $att, 'thumbnail' ), 'item' => csa_slots_item( $pid ) ) );
+	}
+
+	if ( 'skip' === $do || 'unskip' === $do || 'skipall' === $do ) {
+		foreach ( $slots as $k => $s ) {
+			if ( 'skipall' === $do && 'pending' === $s['status'] ) {
+				$slots[ $k ]['status'] = 'skipped';
+			} elseif ( $s['slot'] === $slot && 'skip' === $do && 'pending' === $s['status'] ) {
+				$slots[ $k ]['status'] = 'skipped';
+			} elseif ( $s['slot'] === $slot && 'unskip' === $do && 'skipped' === $s['status'] ) {
+				$slots[ $k ]['status'] = 'pending';
+			}
+		}
+		update_post_meta( $pid, '_csa_image_slots', wp_slash( $slots ) );
+		wp_send_json_success( array( 'item' => csa_slots_item( $pid ), 'missing' => csa_slots_missing( $pid ) ) );
 	}
 
 	if ( 'remove' === $do ) {

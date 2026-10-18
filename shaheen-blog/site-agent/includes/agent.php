@@ -649,6 +649,7 @@ function csa_run_tool( $name, $in, &$ctx ) {
 				'facts'      => csa_seo_collect( $p->ID ),
 				'pagespeed'  => get_post_meta( $p->ID, '_csa_psi', true ),
 				'last_audit' => is_array( $saved ) ? array( 'time' => $saved['time'], 'score' => $saved['score'], 'report' => $saved['report'] ) : null,
+				'images_needed' => csa_slots_missing( $p->ID ),
 			);
 
 		case 'get_image_slots':
@@ -692,8 +693,8 @@ function csa_run_tool( $name, $in, &$ctx ) {
 				return array( 'error' => 'Page not found.' );
 			}
 			$n = csa_slots_save( $p->ID, (array) ( $in['slots'] ?? array() ) );
-			$ctx['items'][] = array( 'r' => 'act', 't' => sprintf( csa_t( '%1$d image slot(s) saved for "%2$s". Upload photos in the Images section.' ), $n, $p->post_title ), 'l' => admin_url( 'admin.php?page=csa-images' ) );
-			return array( 'ok' => true, 'slots' => $n, 'note' => 'Tell the user to upload the photos in the Images section, then ask you to insert them.' );
+			$ctx['items'][] = csa_slots_item( $p->ID );
+			return array( 'ok' => true, 'slots' => $n, 'note' => 'An upload card is now shown in the chat: the user can upload each photo (the plugin sets alt text and the SEO file name) or skip it. Skipped photos are flagged "image upload required" on the SEO page. Tell the user in one sentence to use the card, then stop. When they press "Place images on page" you will get a task to put the uploaded images into the best spots.' );
 
 		case 'create_page':
 			$id = wp_insert_post(
@@ -1229,6 +1230,38 @@ function csa_step_release() {
 	$GLOBALS['csa_step_lock'] = array();
 }
 
+/** Short typed answer that means "yes, go ahead". */
+function csa_is_approval_text( $t ) {
+	$t = trim( $t );
+	if ( mb_strlen( $t ) > 40 ) {
+		return false;
+	}
+	return (bool) preg_match( '/^(approve|approved|ok|okay|yes|y|yep|do it|go|go ahead|proceed|start|confirm|continue|haa|ha|hya|hyan|ji|thik ache|thik|korun|koro|kor|হ্যাঁ|হ্যা|হা|ঠিক আছে|করো|করুন|কর|ওকে|ঠিক)[\s.!।]*$/iu', $t );
+}
+
+/** Find a numbered plan written as plain text ("1. … 2. … Approve?"). */
+function csa_text_plan( $text ) {
+	if ( mb_strlen( $text ) < 40 ) {
+		return null;
+	}
+	$steps = array();
+	$intro = array();
+	$seen  = false;
+	foreach ( preg_split( '/\R/u', $text ) as $ln ) {
+		if ( preg_match( '/^\s*(?:#+\s*)?(?:\*\*)?(?:step\s*)?(\d{1,2})\s*[.):\-]\s*(?:\*\*)?\s*(.+)$/iu', $ln, $m ) ) {
+			$steps[] = trim( preg_replace( '/\*\*/', '', $m[2] ) );
+			$seen    = true;
+		} elseif ( ! $seen && '' !== trim( $ln ) ) {
+			$intro[] = trim( $ln );
+		}
+	}
+	if ( count( $steps ) < 2 || ! preg_match( '/approve|confirm|proceed|shall i|should i|ok\?|go ahead|অনুমোদন|করব|করবো|korbo|korbe|\?/iu', $text ) ) {
+		return null;
+	}
+	$summary = $intro ? mb_substr( preg_replace( '/[*#]+/', '', $intro[0] ), 0, 200 ) : csa_t( 'Plan' );
+	return array( 'summary' => $summary, 'steps' => array_map( 'csa_clean_step', array_slice( $steps, 0, 20 ) ), 'intro' => '' );
+}
+
 add_action( 'wp_ajax_csa_step', 'csa_ajax_step' );
 function csa_ajax_step() {
 	csa_guard( 'chat' );
@@ -1291,8 +1324,15 @@ function csa_ajax_step() {
 	if ( $skip ) {
 		$blocks = array();
 	}
+	$typed_ok = false;
+	if ( 'planned' === $state && $blocks && ! $skip && '' !== $text && count( $blocks ) === 1 && csa_is_approval_text( $text ) && $chat_id && csa_mem_load( $chat_id )['steps'] ) {
+		// Typed "approve" / "ok" / "yes" = the Approve button.
+		$typed_ok = true;
+		$state    = 'approved';
+		$blocks   = array( array( 'type' => 'text', 'text' => CSA_APPROVED ) );
+	}
 	if ( $blocks ) {
-		if ( 'planned' === $state || 'approved' === $state ) {
+		if ( ! $typed_ok && ( 'planned' === $state || 'approved' === $state ) ) {
 			$state = 'analyse'; // New message while a plan waits = the user wants changes.
 		}
 		csa_push_user( $messages, $blocks );
@@ -1390,7 +1430,7 @@ function csa_ajax_step() {
 		$system,
 		array(
 			'tools'          => $tools,
-			'max_tokens'     => csa_eco_val( 4000, 8000 ),
+			'max_tokens'     => csa_eco_val( 6000, 8000 ),
 			'cache_messages' => true,
 			'feature'        => 'Chat',
 			'task'           => $mem['kind'],
@@ -1431,6 +1471,9 @@ function csa_ajax_step() {
 						$ctx['mem']['fail_sigs'] = array_slice( array_merge( (array) ( $ctx['mem']['fail_sigs'] ?? array() ), array( $sig ) ), -10 );
 					} else {
 						$ctx['mem']['fail_run'] = 0;
+						if ( ! empty( $in['id'] ) ) {
+							csa_slots_detect( (int) $in['id'], (string) ( $in['new_text'] ?? $in['html'] ?? $in['content'] ?? '' ) );
+						}
 					}
 				}
 			}
@@ -1501,10 +1544,28 @@ function csa_ajax_step() {
 			}
 		}
 	} else {
-		if ( 'max_tokens' === ( $data['stop_reason'] ?? '' ) ) {
-			$ctx['items'][] = array( 'r' => 'bot', 't' => csa_t( '(The reply was cut off. Ask me to continue in smaller steps.)' ) );
-		}
+		$cut    = 'max_tokens' === ( $data['stop_reason'] ?? '' );
 		$nudged = false;
+		$tp     = ( 'analyse' === $state && ! $cut ) ? csa_text_plan( $said ) : null;
+		if ( $tp ) {
+			// The model wrote its plan as plain text: show the real plan card with Approve / Skip buttons.
+			$ctx['items'] = array_values( array_filter( $ctx['items'], function ( $it ) { return 'bot' !== $it['r']; } ) );
+			if ( '' !== $tp['intro'] ) {
+				$ctx['items'][] = array( 'r' => 'bot', 't' => $tp['intro'] );
+			}
+			$ctx['items'][] = array( 'r' => 'plan', 's' => $tp['summary'], 'steps' => $tp['steps'], 'pending' => true );
+			csa_mem_track( $ctx['mem'], 'propose_plan', array( 'summary' => $tp['summary'], 'steps' => $tp['steps'] ), array() );
+			$state = 'planned';
+		} elseif ( $cut ) {
+			if ( 'approved' === $state && csa_auto_next_count( $messages ) < 3 ) {
+				$ctx['items'][] = array( 'r' => 'sys', 't' => csa_t( 'The reply was cut off; continuing in a shorter way…' ) );
+				csa_push_user( $messages, array( array( 'type' => 'text', 'text' => '[[NEXT]] Your last reply was cut off. Continue the current approved step with shorter output: use tools directly, do not write long text.' ) ) );
+				$nudged = true;
+				$done   = false;
+			} else {
+				$ctx['items'][] = array( 'r' => 'bot', 't' => csa_t( '(The reply was cut off. Type "continue" and I will go on in smaller pieces.)' ) );
+			}
+		}
 		if ( 'all' === csa_opt( 'job_mode' ) && 'approved' === $state && csa_build_ticked( $messages ) && ! preg_match( '/[?？]\s*$/u', $said ) && csa_auto_next_count( $messages ) < 8 ) {
 			// The model stopped but approved steps are still open: hand it the next one (one job at a time) instead of ending early.
 			$todo = array();
@@ -1635,7 +1696,28 @@ function csa_ajax_plan() {
 		wp_send_json_success( array( 'state' => 'analyse', 'run' => false, 'items' => $items ) );
 	}
 
-	if ( 'rest' === $d || 'next' === $d ) {
+	if ( 'images' === $d ) {
+		// Place the uploaded photos in the best spots of the page (one synthetic approved step).
+		$pid = (int) ( $_POST['post_id'] ?? 0 );
+		$p   = csa_valid_post( $pid );
+		if ( ! $p || 'planned' === $row['state'] ) {
+			wp_send_json_error( csa_t( 'Page not found.' ) );
+		}
+		$lines = array();
+		foreach ( csa_slots_get( $pid ) as $s ) {
+			if ( 'uploaded' === $s['status'] && $s['attachment'] ) {
+				$lines[] = '- slot "' . $s['slot'] . '" (wanted position: ' . $s['position'] . '; ' . $s['description'] . '), image ID ' . $s['attachment'] . ', alt "' . $s['alt'] . '", caption "' . $s['caption'] . '". Ready HTML: ' . ( 'featured' === $s['slot'] ? '(featured image is already set)' : str_replace( "\n", ' ', csa_image_html( $s['attachment'], $s['caption'] ) ) );
+			}
+		}
+		if ( ! $lines ) {
+			wp_send_json_error( csa_t( 'Upload at least one photo first.' ) );
+		}
+		$mem['steps'] = array( array( 't' => sprintf( 'Place the uploaded images on page #%d in the best positions', $pid ), 's' => 'todo' ) );
+		$mem['plan']  = 'Place uploaded images';
+		$text  = CSA_APPROVED . "\nTask: place these uploaded images on page ID " . $pid . ' ("' . $p->post_title . '") in the best possible positions (next to the text they illustrate; hero near the top; never between a heading and its first paragraph). Read the page first (get_elementor_html / read_html / page_outline). Use the ready HTML exactly (keep alt text and class). For an Elementor page put the image into a suitable widget or text-editor/HTML widget with edit_elementor_html; for a normal page use edit_content. Do not change any other text. Then call step_done and tell the user in 1-2 sentences where each image went.' . "\n" . implode( "\n", $lines );
+		$state = 'approved';
+		$log   = csa_t( 'Image placement approved in chat:' );
+	} elseif ( 'rest' === $d || 'next' === $d ) {
 		// Do the steps that were left for later (or not finished) now: all of them, or only the next one.
 		$rest = csa_mem_remaining( $mem );
 		if ( 'analyse' !== $row['state'] || ! $rest ) {
@@ -1748,6 +1830,12 @@ function csa_ajax_chat_load() {
 
 function csa_load_items( $row ) {
 	$items = csa_display_items( $row['messages'], $row['state'] );
+	if ( 'planned' === $row['state'] && ! in_array( 'plan', wp_list_pluck( $items, 'r' ), true ) ) {
+		$m = csa_mem_load( (int) $row['id'] );
+		if ( ! empty( $m['steps'] ) ) {
+			$items[] = array( 'r' => 'plan', 's' => $m['plan'], 'steps' => wp_list_pluck( $m['steps'], 't' ), 'pending' => true );
+		}
+	}
 	if ( 'analyse' === $row['state'] ) {
 		$rest = csa_rest_item( csa_mem_load( (int) $row['id'] ) );
 		if ( $rest ) {
