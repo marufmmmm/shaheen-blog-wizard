@@ -148,6 +148,7 @@ function sb_shortcode($atts) {
     if (is_wp_error($terms)) {
         $terms = array();
     }
+    $q->posts = sb_mix_by_category($q->posts);
     $classes = 'shb shb-blog' . (sb_get('full_width') ? '' : ' shb--boxed');
 
     ob_start();
@@ -203,6 +204,34 @@ function sb_shortcode($atts) {
     <?php
     wp_reset_postdata();
     return ob_get_clean();
+}
+
+/**
+ * "All" view: one post from every category first, then the next round, and so on (newest first inside a category).
+ * Categories lead in the order of their newest post, so a fresh category comes first. Filtering one category keeps its own date order.
+ */
+function sb_mix_by_category($posts) {
+    $groups = array();
+    foreach ($posts as $p) {
+        $c = sb_post_category($p->ID);
+        $groups[$c['slug']][] = $p;
+    }
+    if (count($groups) < 2) {
+        return $posts;
+    }
+    $out = array();
+    $round = 0;
+    do {
+        $took = false;
+        foreach ($groups as $list) {
+            if (isset($list[$round])) {
+                $out[] = $list[$round];
+                $took = true;
+            }
+        }
+        $round++;
+    } while ($took);
+    return $out;
 }
 
 /* ------------------------------------------------------------ single post */
