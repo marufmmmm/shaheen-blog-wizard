@@ -1390,7 +1390,7 @@ function csa_ajax_step() {
 		? array_merge( csa_tools_read(), csa_tools_anytime(), csa_tools_write(), array( csa_tool_step_done() ) )
 		: array_merge( csa_tools_read(), csa_tools_anytime(), array( csa_tool_plan() ) );
 
-	if ( 'approved' !== $state && 'planned' !== $state && csa_steps_since_human( $messages ) >= 6 ) {
+	if ( 'approved' !== $state && 'planned' !== $state && ( csa_steps_since_human( $messages ) >= 4 || (int) ( $mem['dup_run'] ?? 0 ) >= 1 ) ) {
 		// Too much reading without a plan: only the plan tool is left, so it must propose now.
 		$tools = array( csa_tool_plan() );
 		csa_push_user( $messages, array( array( 'type' => 'text', 'text' => '[[NEXT]] You have read enough. Call propose_plan now with concrete steps for everything you found.' ) ) );
