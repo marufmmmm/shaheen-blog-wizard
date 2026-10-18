@@ -75,6 +75,7 @@ function csa_register_settings() {
 					'psi_key'          => sanitize_text_field( $in['psi_key'] ?? '' ),
 					'history_limit'    => max( 10, min( 1000, (int) ( $in['history_limit'] ?? 200 ) ) ),
 					'max_request_tokens' => max( 8000, min( 200000, (int) ( $in['max_request_tokens'] ?? 40000 ) ) ),
+					'job_mode'         => ( ( $in['job_mode'] ?? 'one' ) === 'all' ) ? 'all' : 'one',
 					'economy'          => empty( $in['economy'] ) ? 0 : 1,
 					'max_steps'        => max( 2, min( 60, (int) ( $in['max_steps'] ?? 25 ) ) ),
 					'build_steps'      => max( 5, min( 150, (int) ( $in['build_steps'] ?? 60 ) ) ),
@@ -209,6 +210,7 @@ function csa_assets( $hook ) {
 			'imagesUrl' => admin_url( 'admin.php?page=csa-images' ),
 			'seoPlugin' => csa_seo_plugin(),
 			'brand'     => csa_brand(),
+			'jobMode'   => 'all' === csa_opt( 'job_mode' ) ? 'all' : 'one',
 			'uiLang'    => csa_opt( 'ui_lang' ),
 			'prompts'   => csa_prompts(),
 			'imgMax'    => csa_eco_val( 1024, 1568 ),
@@ -1155,6 +1157,14 @@ function csa_screen_settings() {
 		<?php settings_fields( 'csa_group' ); ?>
 		<?php csa_models_settings_html( $o, $n ); ?>
 		<?php csa_fonts_card( $o, $n ); ?>
+
+		<div class="csa-card">
+			<h2>🎯 <?php echo esc_html( csa_t( 'How the agent works through a plan' ) ); ?></h2>
+			<label class="csa-check"><input type="radio" name="<?php echo esc_attr( $n ); ?>[job_mode]" value="one" <?php checked( $o['job_mode'] ?? 'one', 'one' ); ?>> <strong><?php echo esc_html( csa_t( 'One job at a time (recommended)' ) ); ?></strong></label>
+			<p class="csa-muted"><?php echo esc_html( csa_t( 'The agent finishes ONE step completely, reports it, and then asks you whether to do the next step.' ) ); ?></p>
+			<label class="csa-check"><input type="radio" name="<?php echo esc_attr( $n ); ?>[job_mode]" value="all" <?php checked( $o['job_mode'] ?? 'one', 'all' ); ?>> <strong><?php echo esc_html( csa_t( 'All approved steps in one go' ) ); ?></strong></label>
+			<p class="csa-muted"><?php echo esc_html( csa_t( 'The agent works through every ticked step without stopping.' ) ); ?></p>
+		</div>
 
 		<div class="csa-card csa-eco">
 			<h2>🌱 <?php echo esc_html( csa_t( 'Economy mode' ) ); ?></h2>

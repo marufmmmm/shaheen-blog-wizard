@@ -210,6 +210,14 @@
 					break;
 				case 'rest':
 					d.className = 'csa-rest';
+					if (item.next) {
+						d.innerHTML = '<div class="csa-plan-h">⏭ ' + esc(T('Next job')) + '</div><p><strong>' + esc(T('Step')) + ' ' + item.next + ':</strong> ' + md(item.next_t || '') + '</p>'
+							+ ((item.steps || []).length > 1 ? '<p class="csa-muted">' + esc(T('Still open after that')) + ': ' + (item.steps || []).filter(function (s) { return s.n !== item.next; }).map(function (s) { return s.n; }).join(', ') + '</p>' : '')
+							+ '<div class="csa-plan-btns"><button type="button" class="button button-primary" data-d="next">▶ ' + esc(T('Do this step now')) + '</button>'
+							+ ((item.steps || []).length > 1 ? ' <button type="button" class="button" data-d="rest">' + esc(T('Do all remaining')) + '</button>' : '') + '</div>';
+						$$('.csa-plan-btns button', d).forEach(function (b) { b.onclick = function () { decide(b.dataset.d, d); }; });
+						break;
+					}
 					d.innerHTML = '<div class="csa-plan-h">⏳ ' + esc(T('Left for later')) + '</div><ol>'
 						+ (item.steps || []).map(function (s) { return '<li value="' + s.n + '">' + md(s.t) + (s.later ? '' : ' <span class="csa-muted">(' + esc(T('not finished')) + ')</span>') + '</li>'; }).join('')
 						+ '</ol><button type="button" class="button button-primary">▶ ' + esc(T('Do these now')) + '</button>';
@@ -224,7 +232,7 @@
 					}).join('');
 					d.innerHTML = '<div class="csa-plan-h">📋 ' + esc(T('Plan')) + (item.pending ? ' <span class="csa-muted">· ' + esc(T('Waiting for your approval')) + '</span>' : '') + '</div>'
 						+ '<p>' + md(item.s || '') + '</p><ol>' + steps + '</ol>'
-						+ (item.pending && (item.steps || []).length > 1 ? '<p class="csa-muted csa-pick-hint">' + esc(T('Untick steps you want to leave for later. The agent will do the ticked steps one after another without stopping.')) + '</p>' : '')
+						+ (item.pending && (item.steps || []).length > 1 ? '<p class="csa-muted csa-pick-hint">' + esc(CSA.jobMode === 'all' ? T('Untick steps you want to leave for later. The agent will do the ticked steps one after another without stopping.') : T('Untick steps you want to leave for later. The agent does ONE step, reports it, then asks before the next.')) + '</p>' : '')
 						+ (item.pending ? '<div class="csa-plan-btns"><button type="button" class="button button-primary" data-d="approve">✅ ' + esc(T('Approve & build')) + '</button> <button type="button" class="button" data-d="change">✏️ ' + esc(T('Change plan')) + '</button> <button type="button" class="button" data-d="cancel">✖ ' + esc(T('Cancel')) + '</button></div>' : '');
 					$$('.csa-plan-btns button', d).forEach(function (b) { b.onclick = function () { decide(b.dataset.d, d); }; });
 					break;
@@ -349,10 +357,11 @@
 				}
 			}
 			if (d === 'rest') label = T('Remaining steps approved');
+			if (d === 'next') label = T('Next step approved');
 			var res = await post('csa_plan', args);
 			if (res.error) { add({ r: 'err', t: res.error }); return; }
 			disableOldPlans();
-			if (d === 'rest' && card) { card.querySelector('button').disabled = true; card.classList.add('used'); }
+			if ((d === 'rest' || d === 'next') && card) { $$('button', card).forEach(function (x) { x.disabled = true; }); card.classList.add('used'); }
 			add({ r: 'sys', t: d === 'cancel' ? '✖ ' + T('Plan cancelled') : '✅ ' + label });
 			if (res.data.run) run('', []); else flushQueue();
 		}

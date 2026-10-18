@@ -863,6 +863,9 @@ function csa_agent_prompt( $state, $auto = null ) {
 	}
 	if ( 'approved' === $state ) {
 		$s .= "\n\nCURRENT STATE: the user has APPROVED your latest plan. Build it now.";
+		if ( 'all' !== csa_opt( 'job_mode' ) ) {
+			$s .= "\nONE JOB AT A TIME (overrides 'work through ALL of them'): do only the first open step of the checklist, finish it completely, and tick it with step_done in the same turn as its last tool call. Then stop. Never start the next step yourself: the system reports the finished step and asks the user whether to continue.";
+		}
 	}
 	return $s;
 }
@@ -1417,13 +1420,29 @@ function csa_ajax_step() {
 			$state = 'planned';
 		} else {
 			$done = false;
+			if ( 'all' !== csa_opt( 'job_mode' ) && 'approved' === $state && ! empty( $ctx['stepped'] ) && csa_mem_remaining( $ctx['mem'] ) ) {
+				// One job at a time: this step is finished. Report it and ask before the next one.
+				$state = 'analyse';
+				$done  = true;
+				$last  = '';
+				foreach ( (array) $ctx['mem']['steps'] as $i => $st ) {
+					if ( 'done' === $st['s'] ) {
+						$last = ( $i + 1 ) . '. ' . $st['t'];
+					}
+				}
+				$ctx['items'][] = array( 'r' => 'sys', 't' => '✅ ' . csa_t( 'Done' ) . ': ' . mb_substr( $last, 0, 160 ) );
+				$rest           = csa_rest_item( $ctx['mem'] );
+				if ( $rest ) {
+					$ctx['items'][] = $rest;
+				}
+			}
 		}
 	} else {
 		if ( 'max_tokens' === ( $data['stop_reason'] ?? '' ) ) {
 			$ctx['items'][] = array( 'r' => 'bot', 't' => csa_t( '(The reply was cut off. Ask me to continue in smaller steps.)' ) );
 		}
 		$nudged = false;
-		if ( 'approved' === $state && csa_build_ticked( $messages ) && ! preg_match( '/[?？]\s*$/u', $said ) && csa_auto_next_count( $messages ) < 8 ) {
+		if ( 'all' === csa_opt( 'job_mode' ) && 'approved' === $state && csa_build_ticked( $messages ) && ! preg_match( '/[?？]\s*$/u', $said ) && csa_auto_next_count( $messages ) < 8 ) {
 			// The model stopped but approved steps are still open: hand it the next one (one job at a time) instead of ending early.
 			$todo = array();
 			foreach ( (array) $ctx['mem']['steps'] as $i => $st ) {
@@ -1531,18 +1550,28 @@ function csa_ajax_plan() {
 	$id  = (int) $row['id'];
 	$mem = csa_mem_load( $id );
 
-	if ( 'rest' === $d ) {
-		// Do the steps that were left for later (or not finished) now.
+	if ( 'rest' === $d || 'next' === $d ) {
+		// Do the steps that were left for later (or not finished) now: all of them, or only the next one.
 		$rest = csa_mem_remaining( $mem );
 		if ( 'analyse' !== $row['state'] || ! $rest ) {
 			wp_send_json_error( csa_t( 'Nothing is left to do from the last plan.' ) );
 		}
 		$lines = array();
+		$later = array();
+		$first = array_key_first( $rest );
 		foreach ( $rest as $i => $st ) {
+			if ( 'next' === $d && $i !== $first ) {
+				$mem['steps'][ $i ]['s'] = 'later';
+				$later[]                 = ( $i + 1 ) . '. ' . $st['t'];
+				continue;
+			}
 			$mem['steps'][ $i ]['s'] = 'todo';
 			$lines[]                 = ( $i + 1 ) . '. ' . $st['t'];
 		}
 		$text  = CSA_APPROVED . "\nThe user now wants the remaining steps done:\n" . implode( "\n", $lines );
+		if ( $later ) {
+			$text = CSA_APPROVED . "\nThe user now wants ONLY this next step done:\n" . implode( "\n", $lines ) . "\nLeft for LATER (do not do them now):\n" . implode( "\n", $later );
+		}
 		$state = 'approved';
 		$log   = csa_t( 'Remaining steps approved in chat:' );
 	} else {

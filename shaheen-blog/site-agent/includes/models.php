@@ -29,6 +29,8 @@ function csa_providers() {
 function csa_builtin_models() {
 	return array(
 		// Anthropic (Claude)
+		'haiku55'        => array( 'provider' => 'anthropic', 'id' => 'claude-haiku-5-5', 'label' => 'Claude Haiku 5.5', 'in' => 0.1, 'out' => 0.5, 'cache' => 0.01, 'vision' => true, 'code' => 4, 'bn' => 4, 'tier' => 'save', 'best' => 'New (Oct 2026), very cheap Claude: SEO audits, titles and descriptions, bulk work. Prices rise to $0.50/$2.50 only when one request is over 100,000 tokens.' ),
+		'sonnet55'       => array( 'provider' => 'anthropic', 'id' => 'claude-sonnet-5-5', 'label' => 'Claude Sonnet 5.5', 'in' => 2, 'out' => 10, 'cache' => 0.2, 'vision' => true, 'code' => 5, 'bn' => 5, 'tier' => 'good', 'best' => 'Newest Sonnet: hard page design, Elementor fixes and your best Bangla writing.' ),
 		'haiku'          => array( 'provider' => 'anthropic', 'id' => 'claude-haiku-4-5-20251001', 'label' => 'Claude Haiku 4.5', 'in' => 1, 'out' => 5, 'cache' => 0.1, 'vision' => true, 'code' => 4, 'bn' => 4, 'tier' => 'good', 'best' => 'Default for everything: good page edits, SEO audits, alt text and Bangla blogs at a low price' ),
 		'sonnet'         => array( 'provider' => 'anthropic', 'id' => 'claude-sonnet-5', 'label' => 'Claude Sonnet 5', 'in' => 2, 'out' => 10, 'cache' => 0.2, 'vision' => true, 'code' => 5, 'bn' => 5, 'tier' => 'good', 'best' => 'Complex page design, Elementor fixes, important pages, best Bangla writing' ),
 		'opus'           => array( 'provider' => 'anthropic', 'id' => 'claude-opus-5-5', 'label' => 'Claude Opus 5.5', 'in' => 4, 'out' => 20, 'cache' => 0.2, 'vision' => true, 'code' => 5, 'bn' => 5, 'tier' => 'premium', 'best' => 'Very hard redesigns only; twice the Sonnet price, rarely needed here' ),
@@ -58,8 +60,8 @@ function csa_task_priority() {
 	return array(
 		'chat'   => array( 'haiku', 'kimi', 'deepseek-pro', 'kimi-code', 'gemini-flash', 'sonnet', 'gemini-lite35' ),
 		'blog'   => array( 'haiku', 'gpt-sol', 'gemini-lite35', 'gemini-lite', 'gemini-flash', 'kimi', 'deepseek-flash', 'sonnet' ),
-		'seo'    => array( 'haiku', 'gemini-lite', 'deepseek-flash', 'kimi', 'gemini-flash', 'sonnet' ),
-		'bulk'   => array( 'deepseek-flash', 'gpt-luna', 'gemini-lite', 'gemini-lite25', 'haiku', 'kimi' ),
+		'seo'    => array( 'haiku55', 'haiku', 'gemini-lite', 'deepseek-flash', 'kimi', 'gemini-flash', 'sonnet' ),
+		'bulk'   => array( 'haiku55', 'deepseek-flash', 'gpt-luna', 'gemini-lite', 'gemini-lite25', 'haiku', 'kimi' ),
 		'vision' => array( 'gemini-lite', 'haiku', 'kimi', 'gemini-flash', 'sonnet' ),
 	);
 }

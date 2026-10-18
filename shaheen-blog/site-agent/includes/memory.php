@@ -234,7 +234,8 @@ function csa_rest_item( $mem ) {
 	foreach ( $rest as $i => $st ) {
 		$steps[] = array( 'n' => $i + 1, 't' => $st['t'], 'later' => 'later' === $st['s'] );
 	}
-	return array( 'r' => 'rest', 'steps' => $steps );
+	$first = array_key_first( $rest );
+	return array( 'r' => 'rest', 'steps' => $steps, 'next' => $first + 1, 'next_t' => $rest[ $first ]['t'] );
 }
 
 /** First thing the user typed in this chat (skips [[system]] turns). */

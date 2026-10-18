@@ -52,6 +52,7 @@ function csa_defaults() {
 		'psi_key'          => '',
 		'history_limit'    => 200,
 		'max_request_tokens' => 60000,
+		'job_mode'         => 'one',
 		'economy'          => 0,
 		'max_steps'        => 25,
 		'build_steps'      => 60,
