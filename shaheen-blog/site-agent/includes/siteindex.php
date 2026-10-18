@@ -285,7 +285,7 @@ function csa_si_tool() {
 	return array(
 		array(
 			'name'         => 'search_site',
-			'description'  => 'Search the text of ALL pages and posts (from the whole-site index, free and fast). Use it to find where a phone number, fee, name, date or phrase appears, before reading any page. Returns page ids, titles and short snippets.',
+			'description'  => 'Search the text of ALL pages and posts (whole-site index, free and fast) for where a phone number, fee, name, date or phrase appears. Query = words as they really appear on the site, in Bangla or English (never Urdu/Hindi). Returns page ids, titles and snippets.',
 			'input_schema' => csa_schema( array( 'query' => array( 'type' => 'string' ) ), array( 'query' ) ),
 		),
 		array(
@@ -325,7 +325,7 @@ function csa_si_run_tool( $name, $in ) {
 			break;
 		}
 	}
-	return array( 'matches' => $out, 'count' => count( $out ) );
+	return array( 'matches' => $out, 'count' => count( $out ), 'hint' => $out ? '' : 'No match. Try different Bangla or English words, a phone-number fragment, or read the page itself.' );
 }
 
 /* ------------------------------------------------------------------ */

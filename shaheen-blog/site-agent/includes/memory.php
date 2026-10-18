@@ -100,7 +100,7 @@ function csa_mem_track( &$mem, $name, $in, $out ) {
 			$mem['plan']  = mb_substr( (string) ( $in['summary'] ?? '' ), 0, 300 );
 			$mem['steps'] = array();
 			foreach ( array_slice( (array) ( $in['steps'] ?? array() ), 0, 20 ) as $st ) {
-				$mem['steps'][] = array( 't' => mb_substr( wp_strip_all_tags( (string) $st ), 0, 300 ), 's' => 'todo' );
+				$mem['steps'][] = array( 't' => mb_substr( csa_clean_step( wp_strip_all_tags( (string) $st ) ), 0, 300 ), 's' => 'todo' );
 			}
 			break;
 		case 'create_page':

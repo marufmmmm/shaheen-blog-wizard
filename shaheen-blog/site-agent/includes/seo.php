@@ -622,6 +622,14 @@ add_action(
 			echo "\n<script type=\"application/ld+json\">" . wp_json_encode( csa_schema_json(), CSA_JSON ) . "</script>\n";
 		}
 		if ( is_singular() ) {
+			$jl = get_post_meta( get_the_ID(), '_csa_jsonld', true );
+			if ( is_array( $jl ) ) {
+				foreach ( $jl as $json ) {
+					if ( is_string( $json ) && null !== json_decode( $json ) ) {
+						echo "\n<script type=\"application/ld+json\">" . str_replace( '</', '<\\/', $json ) . "</script>\n";
+					}
+				}
+			}
 			$faq = get_post_meta( get_the_ID(), '_csa_faq', true );
 			if ( is_array( $faq ) && $faq ) {
 				$q = array();

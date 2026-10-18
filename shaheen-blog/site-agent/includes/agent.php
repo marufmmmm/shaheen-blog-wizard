@@ -204,6 +204,17 @@ function csa_tools_write() {
 				array( 'id', 'widget_id', 'new_text' )
 			),
 		),
+		array(
+			'name'         => 'set_page_schema',
+			'description'  => 'Attach schema.org JSON-LD (LocalBusiness, EducationalOrganization, FAQPage, Course, BreadcrumbList …) to ONE page. It is printed in the <head> of that page, so the page HTML / Elementor widgets are NOT touched: this is the ONLY correct way to add structured data. Never paste <script type="application/ld+json"> into page content. One block per @type: sending the same @type again replaces it. Undo is available in Activity.',
+			'input_schema' => csa_schema(
+				array(
+					'id'     => array( 'type' => 'integer' ),
+					'jsonld' => array( 'type' => 'string', 'description' => 'One valid JSON object as text, with @context and @type. Use only facts you read on the site or the user told you (real phone numbers, addresses, page URLs).' ),
+				),
+				array( 'id', 'jsonld' )
+			),
+		),
 		array( 'name' => 'restore_elementor_backup', 'description' => 'Undo the latest Elementor HTML edit on a page.', 'input_schema' => csa_schema( array( 'id' => array( 'type' => 'integer' ) ), array( 'id' ) ) ),
 		array(
 			'name'         => 'update_seo_meta',
@@ -248,6 +259,7 @@ function csa_tool_label( $name, $in ) {
 		'page_outline'             => csa_t( 'Mapped page structure' ) . $id,
 		'chat_note'                => csa_t( 'Noted in chat memory' ),
 		'search_site'              => '🔎 ' . csa_t( 'Searching the whole site' ) . ': ' . mb_substr( (string) ( $in['query'] ?? '' ), 0, 40 ),
+		'set_page_schema'          => '🧩 ' . csa_t( 'Adding schema' ) . $id,
 		'check_consistency'        => '🧮 ' . csa_t( 'Checking the site for contradictions' ),
 		'remember'                 => '🧠 ' . csa_t( 'Remembered' ) . ': ' . mb_substr( (string) ( $in['key'] ?? '' ), 0, 40 ),
 		'forget'                   => '🧠 ' . csa_t( 'Forgot' ) . ': ' . mb_substr( (string) ( $in['key'] ?? '' ), 0, 40 ),
@@ -329,7 +341,18 @@ function csa_replace_once( $haystack, $old, $new ) {
 			return new WP_Error( 'match', 'old_text was found ' . count( $m[0] ) . ' times (ignoring spaces/line breaks); include more surrounding text.' );
 		}
 	}
-	return new WP_Error( 'match', 'old_text was not found. Do not retry the same old_text. Get the exact current text with find_in_html first. To add CSS (e.g. mobile @media rules), send an EMPTY old_text: new_text is then appended at the end of the widget as a new <style> block, no matching needed.' );
+	$hint = '';
+	$lines = array_filter( array_map( 'trim', preg_split( '/\r?\n/', (string) $old ) ), function ( $l ) { return strlen( $l ) >= 12; } );
+	usort( $lines, function ( $a, $b ) { return strlen( $b ) <=> strlen( $a ); } );
+	foreach ( array_slice( $lines, 0, 4 ) as $l ) {
+		$probe = substr( $l, 0, 22 );
+		$pos   = strpos( $haystack, $probe );
+		if ( false !== $pos ) {
+			$hint = ' The start of one of your lines DOES exist, here is the real text around it: «' . substr( $haystack, max( 0, $pos - 60 ), 360 ) . '». Copy old_text exactly from this, or append with an EMPTY old_text.';
+			break;
+		}
+	}
+	return new WP_Error( 'match', 'old_text was not found.' . $hint . ' Do not retry the same old_text. Get the exact current text with find_in_html first. To add CSS (e.g. mobile @media rules), send an EMPTY old_text: new_text is then appended at the end of the widget as a new <style> block, no matching needed.' );
 }
 
 /* ================================================================== */
@@ -786,6 +809,27 @@ function csa_run_tool( $name, $in, &$ctx ) {
 			$act( csa_t( 'Restored backup of' ) . ' #' . $p->ID . ' (' . $last['t'] . ')', null, get_permalink( $p->ID ) );
 			return array( 'ok' => true, 'restored_from' => $last['t'] );
 
+		case 'set_page_schema':
+			$p = csa_valid_post( $in['id'] ?? 0 );
+			if ( ! $p ) {
+				return array( 'error' => 'Page not found.' );
+			}
+			$j = json_decode( (string) ( $in['jsonld'] ?? '' ), true );
+			if ( ! is_array( $j ) || empty( $j['@type'] ) || empty( $j['@context'] ) ) {
+				return array( 'error' => 'jsonld must be ONE valid JSON object (as text) containing @context and @type. Fix the JSON and send it again.' );
+			}
+			$json = wp_json_encode( $j, CSA_JSON );
+			if ( strlen( $json ) > 20000 ) {
+				return array( 'error' => 'This JSON-LD is too large (over 20 KB). Send a shorter one.' );
+			}
+			$old_all = get_post_meta( $p->ID, '_csa_jsonld', true );
+			$all     = is_array( $old_all ) ? $old_all : array();
+			$all[ is_array( $j['@type'] ) ? implode( '+', $j['@type'] ) : (string) $j['@type'] ] = $json;
+			update_post_meta( $p->ID, '_csa_jsonld', wp_slash( $all ) );
+			csa_clear_cache( $p->ID );
+			$act( csa_t( 'Added schema' ) . ' ' . ( is_array( $j['@type'] ) ? implode( '+', $j['@type'] ) : $j['@type'] ) . ' → #' . $p->ID . ' ' . $p->post_title, array( 'type' => 'seo', 'post' => (int) $p->ID, 'old' => array( '_csa_jsonld' => $old_all ) ), get_permalink( $p ) );
+			return array( 'ok' => true, 'note' => 'Printed in the page <head>. Check with the Rich Results Test if the user wants.' );
+
 		case 'update_seo_meta':
 			$p = csa_valid_post( $in['id'] ?? 0 );
 			if ( ! $p ) {
@@ -853,6 +897,8 @@ function csa_agent_prompt( $state, $auto = null ) {
 		. "\n- Auto memory (you keep it; the admin types nothing): whenever you learn a lasting fact — from the user or from a page — call remember in the same turn as your other tools. Site-wide facts (phone, address, brand colours, fonts, audience, programmes, admission dates, rules the user states) → scope site. Facts about one page (purpose, main sections, classes, known issues) → scope page with page_id. When a fact changes, save it again with the SAME key so the old value is replaced; use forget for facts that are no longer true. Use auto memory and PAGE MEMORY instead of re-reading pages. Never store passwords, keys or temporary task details."
 		. "\n- Never repeat or summarize the CHAT MEMORY back to the user, and don't start replies with thanks. Say only what is new."
 		. "\n- If an edit fails, don't retry the same old_text. For CSS changes append a new <style> block (empty old_text). If it fails twice, stop and explain."
+		. "\n- Structured data (JSON-LD): NEVER paste <script type=\"application/ld+json\"> into page HTML or an Elementor widget. Use set_page_schema (printed in the <head>, page untouched). Use real facts only: search_site / the site map for phone numbers, addresses and the URLs of branch (campus) pages; reference each branch page by its URL."
+		. "\n- search_site: search with words that really appear on the site, in Bangla or English (the site's own language). Never use Urdu, Hindi or Arabic script. No match? Try another Bangla or English word, or read the page."
 		. "\n- Big pages: page_outline first (cheap, cached), then find_in_html or read_html with an offset for only the part you need."
 		. "\n- After changes: give the page link and suggest checking it with the Preview button (phone view) and purging cache if a cache plugin is used.";
 	if ( csa_eco() ) {
@@ -1350,7 +1396,7 @@ function csa_ajax_step() {
 			$in = is_array( $b['input'] ) ? $b['input'] : array();
 			if ( 'propose_plan' === $b['name'] ) {
 				$planned        = true;
-				$ctx['items'][] = array( 'r' => 'plan', 's' => $in['summary'] ?? '', 'steps' => (array) ( $in['steps'] ?? array() ), 'pending' => true );
+				$ctx['items'][] = array( 'r' => 'plan', 's' => $in['summary'] ?? '', 'steps' => array_map( 'csa_clean_step', (array) ( $in['steps'] ?? array() ) ), 'pending' => true );
 				$out            = array( 'ok' => true, 'note' => 'The plan is shown to the user with Approve / Change / Cancel buttons. Stop now and wait.' );
 			} else {
 				$ctx['items'][] = array( 'r' => 'tool', 't' => csa_tool_label( $b['name'], $in ) );
@@ -1496,6 +1542,11 @@ function csa_ajax_step() {
 	}
 	$used = csa_model( $data['_model'] ?? '' );
 	csa_step_release(); wp_send_json_success( array( 'chat_id' => $saved, 'title' => $title, 'done' => $done, 'items' => $ctx['items'], 'state' => $state, 'model' => $used ? $used['label'] : '', 'kind' => $ctx['mem']['kind'] ?? 'chat', 'progress' => ( ! $done && 'approved' === $state ) ? csa_progress_text( $ctx['mem'] ) : '' ) );
+}
+
+/** "Step 2: Do X" / "2. Do X" → "Do X" (the cards add their own numbers). */
+function csa_clean_step( $t ) {
+	return trim( preg_replace( '/^\s*(?:(?:step|ধাপ)\s*\d+|\d+)\s*[:.\-–)]\s*/iu', '', (string) $t ) );
 }
 
 /** How many automatic [[NEXT]] hand-overs happened since the person last wrote. */
