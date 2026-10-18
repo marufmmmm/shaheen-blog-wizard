@@ -999,3 +999,11 @@ body.single-sb_post.shb-hide-title main .wp-block-separator { display: none; }
 .shb-single .post-body th, .shb-single .post-body td { border: 1px solid #d9e2dc; padding: 8px 12px; text-align: left; vertical-align: top; }
 .shb-single .post-body th { background: var(--primary, #0f5132); color: #fff; font-weight: 600; }
 .shb-single .post-body tbody tr:nth-child(even) td { background: #f5f8f6; }
+
+/* ---- spacing + colour continuity (v2.29) ---- */
+.shb-single .post-inner { padding-top: 26px; }
+.shb-single .post-body > :first-child,
+.shb-single .post-inner > :first-child { margin-top: 0; }
+.shb-single .post-body > :last-child { margin-bottom: 0; }
+.shb-single .post-layout { padding-bottom: 28px; }
+body.shb-page { background-color: #f5f9f2; }

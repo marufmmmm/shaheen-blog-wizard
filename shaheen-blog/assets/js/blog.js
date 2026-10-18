@@ -342,3 +342,72 @@
     document.addEventListener('DOMContentLoaded', run);
     var t; window.addEventListener('resize', function () { clearTimeout(t); t = setTimeout(run, 200); });
 })();
+
+/* Page fit: the theme's own wrappers must not leave a white band between the blog design and the footer. */
+(function () {
+    'use strict';
+    var GAP = 24;           // the gap we want between the end of the design and the next block (px)
+    var busy = false;
+
+    function lum(c) {
+        var m = /rgba?\((\d+),\s*(\d+),\s*(\d+)(?:,\s*([\d.]+))?/.exec(c || '');
+        if (!m) { return -1; }
+        if (m[4] !== undefined && parseFloat(m[4]) < 0.05) { return -1; }
+        return (0.2126 * m[1] + 0.7152 * m[2] + 0.0722 * m[3]) / 255;
+    }
+    function force(el, prop, val) { el.style.setProperty(prop, val, 'important'); }
+    function isSpacer(s) {
+        if (/^(SCRIPT|STYLE|LINK|NOSCRIPT|TEMPLATE)$/.test(s.tagName)) { return true; }
+        if ((s.textContent || '').replace(/\s+/g, '') !== '') { return false; }
+        if (s.querySelector('img,svg,iframe,video,canvas,picture,input,button,a')) { return false; }
+        return s.offsetHeight <= 300;
+    }
+    function findAfter(root) {
+        var n = root;
+        while (n && n !== document.body && n.parentElement) {
+            var s = n.nextElementSibling;
+            while (s) {
+                if (isSpacer(s)) { if (!/^(SCRIPT|STYLE|LINK|NOSCRIPT|TEMPLATE)$/.test(s.tagName)) { force(s, 'display', 'none'); } s = s.nextElementSibling; continue; }
+                if (s.offsetHeight > 0) { return { el: s, branch: n }; }
+                s = s.nextElementSibling;
+            }
+            n = n.parentElement;
+        }
+        return null;
+    }
+    function fit() {
+        if (busy) { return; }
+        var root = document.querySelector('.shb');
+        if (!root || !document.body.classList.contains('shb-page')) { return; }
+        busy = true;
+        try {
+            // 1) light theme wrappers around the design must not paint a white block of their own
+            for (var a = root.parentElement; a && a !== document.documentElement; a = a.parentElement) {
+                if (a === document.body) { break; }
+                if (lum(getComputedStyle(a).backgroundColor) > 0.93 && !a.querySelector('footer, [role=contentinfo]')) { force(a, 'background-color', 'transparent'); }
+            }
+            // 2) find what comes after the design and remove the theme's empty space in between
+            var f = findAfter(root);
+            if (!f) { return; }
+            force(root, 'margin-bottom', '0');
+            for (var p = root.parentElement, b = root; b && b !== f.branch.parentElement; b = p, p = b ? b.parentElement : null) {
+                if (b !== root) { force(b, 'padding-bottom', '0'); force(b, 'margin-bottom', '0'); }
+                if (b === f.branch) { break; }
+            }
+            force(f.el, 'margin-top', '0');
+            // 3) what is left: bring the next block up to GAP px
+            var gap = f.el.getBoundingClientRect().top - root.getBoundingClientRect().bottom;
+            if (gap > GAP + 4) {
+                var cur = parseFloat(getComputedStyle(f.branch).marginBottom) || 0;
+                force(f.branch, 'margin-bottom', (cur - (gap - GAP)) + 'px');
+            }
+        } catch (e) { /* design must never break because of this */ } finally { busy = false; }
+    }
+    var t;
+    function later() { clearTimeout(t); t = setTimeout(fit, 120); }
+    document.addEventListener('DOMContentLoaded', function () { fit(); setTimeout(fit, 600); });
+    window.addEventListener('load', function () { fit(); setTimeout(fit, 800); });
+    window.addEventListener('resize', later);
+    if (window.ResizeObserver) { new ResizeObserver(later).observe(document.body); }
+    window.SBFIT = { fit: fit };
+})();
