@@ -483,10 +483,21 @@
       addCategory($('#nc-bn'), $('#nc-en'), msg, function (d) {
         var o = document.createElement('option'); o.value = d.id; o.textContent = d.name + (d.name_en ? ' (' + d.name_en + ')' : '');
         $('#f-category').appendChild(o); $('#f-category').value = d.id;
+        var xb = $('#f-cat-extra');
+        if (xb) { var lb = document.createElement('label'); lb.className = 'sba-check'; var cb = document.createElement('input'); cb.type = 'checkbox'; cb.value = d.id; lb.appendChild(cb); lb.appendChild(document.createTextNode(' ' + d.name)); xb.appendChild(lb); syncExtra(); }
       });
     });
   }
 
+  /* extra categories: the main one is chosen above, so its box is greyed out and not sent twice */
+  function extraCats() { return [].filter.call(document.querySelectorAll('#f-cat-extra input:checked'), function (c) { return c.value !== $('#f-category').value; }).map(function (c) { return c.value; }); }
+  function syncExtra() {
+    [].forEach.call(document.querySelectorAll('#f-cat-extra input'), function (c) {
+      var same = c.value === $('#f-category').value; c.disabled = same; if (same) { c.checked = false; }
+      c.parentNode.style.opacity = same ? '.45' : '';
+    });
+  }
+  $('#f-category').addEventListener('change', syncExtra); syncExtra();
   var pEd = blockEditor($('#blk-list'), P.blocks || []);
   var pickBox = $('#blk-pick'), picked = (P.block_ids || []).slice();
   if (!SB.gblocks.length) { pickBox.textContent = 'লাইব্রেরিতে এখনো কোনো ব্লক নেই।'; }
@@ -1340,7 +1351,7 @@
     post('sb_save_post', {
       id: postId, title: val('#f-title'), slug: val('#f-slug'), excerpt: val('#f-excerpt'), content: editorContent(),
       subtitle: val('#f-subtitle'), meta_desc: val('#f-meta'), summary: val('#f-summary'), summary_pos: val('#f-summary_pos') || 'top', author_name: val('#f-author'),
-      date: val('#f-date'), topic: val('#f-topic'), keywords: keywords(), category: val('#f-category'),
+      date: val('#f-date'), topic: val('#f-topic'), keywords: keywords(), category: val('#f-category'), category_extra: extraCats(),
       image_id: imgId, faq: faqData(), inc_summary: $('#inc-summary').checked ? '1' : '0', inc_faq: $('#inc-faq').checked ? '1' : '0', related: rel.map(function (r) { return r.id; }), related_why: JSON.stringify(rel.reduce(function (o, r) { if (r.why) { o[r.id] = r.why; } return o; }, {})), blocks: pEd.get(), extras: JSON.stringify(exGet()), block_ids: picked, no_global: $('#no-global').checked ? '1' : '0', no_social: $('#no-social').checked ? '1' : '0', status: st ? st.value : 'draft'
     }).then(function (d) {
       postId = d.id;

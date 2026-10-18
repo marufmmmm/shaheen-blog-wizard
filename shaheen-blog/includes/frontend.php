@@ -106,7 +106,7 @@ function sb_card_html($post_id, $hidden = false) {
     $paper = $press ? get_post_meta($post_id, '_sb_press_paper', true) : '';
     ob_start();
     ?>
-    <a class="blog-card<?php echo $press ? ' is-press' : ''; ?>" href="<?php echo esc_url($href); ?>"<?php echo $press ? ' target="_blank" rel="noopener nofollow"' : ''; ?> data-cat="<?php echo esc_attr($cat['slug']); ?>"<?php echo $hidden ? ' hidden' : ''; ?>>
+    <a class="blog-card<?php echo $press ? ' is-press' : ''; ?>" href="<?php echo esc_url($href); ?>"<?php echo $press ? ' target="_blank" rel="noopener nofollow"' : ''; ?> data-cat="<?php echo esc_attr(implode(' ', wp_list_pluck(sb_post_categories($post_id), 'slug'))); ?>"<?php echo $hidden ? ' hidden' : ''; ?>>
         <div class="blog-image-container">
             <?php if ($img) : ?>
                 <img class="blog-image" src="<?php echo esc_url($img); ?>" alt="<?php echo esc_attr($title); ?>" loading="lazy">
@@ -213,23 +213,27 @@ function sb_shortcode($atts) {
 function sb_mix_by_category($posts) {
     $groups = array();
     foreach ($posts as $p) {
-        $c = sb_post_category($p->ID);
-        $groups[$c['slug']][] = $p;
+        foreach (sb_post_categories($p->ID) as $c) {
+            $groups[$c['slug']][] = $p;
+        }
     }
     if (count($groups) < 2) {
         return $posts;
     }
     $out = array();
-    $round = 0;
+    $used = array();
     do {
         $took = false;
         foreach ($groups as $list) {
-            if (isset($list[$round])) {
-                $out[] = $list[$round];
-                $took = true;
+            foreach ($list as $p) {
+                if (!isset($used[$p->ID])) {      // the newest post of this category not shown yet (a post in two categories counts once)
+                    $used[$p->ID] = true;
+                    $out[] = $p;
+                    $took = true;
+                    break;
+                }
             }
         }
-        $round++;
     } while ($took);
     return $out;
 }
@@ -267,7 +271,7 @@ function sb_single_content($content) {
         <header class="blog-header post-hero">
             <div class="header-content">
                 <a class="post-back" href="<?php echo esc_url($blog); ?>">← ব্লগে ফিরুন</a><br>
-                <span class="blog-category post-cat"><?php echo esc_html($cat['bn']); ?></span>
+                <span class="blog-category post-cat"><?php echo esc_html(implode(' · ', wp_list_pluck(sb_post_categories($id), 'bn'))); ?></span>
                 <h1><?php echo esc_html(get_the_title($id)); ?></h1>
                 <?php if ($sub) : ?><h2 class="blog-subtitle"><?php echo esc_html($sub); ?></h2><?php endif; ?>
                 <div class="post-meta">

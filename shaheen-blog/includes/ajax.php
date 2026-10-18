@@ -777,12 +777,7 @@ function sb_ajax_save_post() {
     update_post_meta($id, '_sb_no_global', sb_req('no_global') === '1' ? 1 : 0);
     sb_init_views($id);
 
-    $term = (int) sb_req('category', 0);
-    if ($term && term_exists($term, 'sb_category')) {
-        wp_set_object_terms($id, array($term), 'sb_category');
-    } else {
-        wp_set_object_terms($id, array(), 'sb_category');
-    }
+    sb_set_post_categories($id, (int) sb_req('category', 0), sb_req_list('category_extra', 20));
 
     $img = (int) sb_req('image_id', 0);
     if ($img && get_post_type($img) === 'attachment' && current_user_can('edit_post', $img)) {
@@ -966,8 +961,7 @@ function sb_ajax_save_press() {
     }
     update_post_meta($id, '_sb_press_url', $url);
     update_post_meta($id, '_sb_press_paper', $paper);
-    $term = (int) sb_req('category', 0);
-    wp_set_object_terms($id, ($term && term_exists($term, 'sb_category')) ? array($term) : array(), 'sb_category');
+    sb_set_post_categories($id, (int) sb_req('category', 0), array());
     $img = (int) sb_req('image_id', 0);
     if ($img && get_post_type($img) === 'attachment' && current_user_can('edit_post', $img)) {
         set_post_thumbnail($id, $img);

@@ -400,13 +400,40 @@ function sb_create_blog_page() {
 
 /** Category data for a post: array(slug, bn, en) */
 function sb_post_category($post_id) {
+    $all = sb_post_categories($post_id);
+    return $all[0];
+}
+
+/** All categories of a post, the main one first: list of array(id, slug, bn, en). A post without a category counts as "Others". */
+function sb_post_categories($post_id) {
     $terms = get_the_terms($post_id, 'sb_category');
     if (empty($terms) || is_wp_error($terms)) {
-        return array('slug' => 'others', 'bn' => 'অন্যান্য', 'en' => 'Others');
+        return array(array('id' => 0, 'slug' => 'others', 'bn' => 'অন্যান্য', 'en' => 'Others'));
     }
-    $t = $terms[0];
-    $en = get_term_meta($t->term_id, 'sb_name_en', true);
-    return array('slug' => $t->slug, 'bn' => $t->name, 'en' => $en ? $en : '');
+    $main = (int) get_post_meta($post_id, '_sb_cat_primary', true);
+    $out = array();
+    foreach ($terms as $t) {
+        $en = get_term_meta($t->term_id, 'sb_name_en', true);
+        $row = array('id' => (int) $t->term_id, 'slug' => $t->slug, 'bn' => $t->name, 'en' => $en ? $en : '');
+        if ((int) $t->term_id === $main) {
+            array_unshift($out, $row);
+        } else {
+            $out[] = $row;
+        }
+    }
+    return $out;
+}
+
+/** Saves the main category plus any extra ones for a post. */
+function sb_set_post_categories($post_id, $main, $extra) {
+    $ids = array();
+    foreach (array_merge(array((int) $main), array_map('intval', (array) $extra)) as $t) {
+        if ($t && term_exists($t, 'sb_category') && !in_array($t, $ids, true)) {
+            $ids[] = $t;
+        }
+    }
+    wp_set_object_terms($post_id, $ids, 'sb_category');
+    update_post_meta($post_id, '_sb_cat_primary', $ids ? $ids[0] : 0);
 }
 
 function sb_author_name($post_id) {

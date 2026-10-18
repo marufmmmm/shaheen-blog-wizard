@@ -33,7 +33,8 @@ $d = array(
     'inc_faq'     => $post ? ((($v = get_post_meta($pid, '_sb_inc_faq', true)) === '1') || ($v === '' && !empty(get_post_meta($pid, '_sb_faq', true)))) : false,
     'extras'      => $post ? sb_get_extras($pid) : sb_clean_extras(array()),
     'faq'         => $post ? (array) get_post_meta($pid, '_sb_faq', true) : array(),
-    'category'    => (!empty($cat_terms) && !is_wp_error($cat_terms)) ? (int) $cat_terms[0]->term_id : 0,
+    'category'    => $post ? (int) sb_post_categories($pid)[0]['id'] : 0,
+    'category_extra' => $post ? array_values(array_slice(wp_list_pluck(sb_post_categories($pid), 'id'), 1)) : array(),
     'image_id'    => $post ? (int) get_post_thumbnail_id($pid) : 0,
     'image_url'   => $post ? (string) get_the_post_thumbnail_url($pid, 'medium') : '',
     'date'        => $post ? get_the_date('Y-m-d', $pid) : wp_date('Y-m-d'),
@@ -326,6 +327,14 @@ $costs['research'] = max(0, (int) sb_get('cost_research'));
                     <?php endforeach; ?>
                 </select>
             </label>
+            <div class="sba-field">
+                <span class="sba-label">অতিরিক্ত ক্যাটাগরি <small>(ঐচ্ছিক — পোস্টটি এই বিভাগগুলোতেও দেখাবে)</small></span>
+                <div id="f-cat-extra" class="sba-checks">
+                    <?php foreach ($cats as $t) : ?>
+                        <label class="sba-check"><input type="checkbox" value="<?php echo (int) $t->term_id; ?>" <?php checked(in_array((int) $t->term_id, array_map('intval', $d['category_extra']), true)); ?>> <?php echo esc_html($t->name); ?></label>
+                    <?php endforeach; ?>
+                </div>
+            </div>
             <?php if (current_user_can('manage_categories')) : ?>
             <details class="sba-inline">
                 <summary>+ নতুন ক্যাটাগরি যোগ করুন</summary>

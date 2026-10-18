@@ -24,7 +24,7 @@
 
         function render() {
             var matched = cards.filter(function (c) {
-                return filter === 'all' || c.getAttribute('data-cat') === filter;
+                return filter === 'all' || (' ' + c.getAttribute('data-cat') + ' ').indexOf(' ' + filter + ' ') > -1;
             });
             cards.forEach(function (c) { c.hidden = true; });
             matched.slice(0, shown).forEach(function (c) { c.hidden = false; });

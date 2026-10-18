@@ -139,3 +139,8 @@
 .sba-coverpanel{border-color:#cfe3d4;border-left-color:#2e7d32;background:#f6fbf7}
 .sba-cover-bar{height:8px;border-radius:4px;background:#e3e6ea;overflow:hidden;margin-top:6px}.sba-cover-bar span{display:block;height:100%;background:#2e7d32}
 .sba-write .sba-more summary{cursor:pointer;font-weight:600}
+
+/* extra categories (v2.30) */
+.sba-checks { display: flex; flex-wrap: wrap; gap: 8px 14px; margin-top: 6px; }
+.sba-check { display: inline-flex; align-items: center; gap: 4px; padding: 4px 10px; border: 1px solid #dcdcde; border-radius: 999px; background: #fff; cursor: pointer; }
+.sba-check input { margin: 0 4px 0 0; }
