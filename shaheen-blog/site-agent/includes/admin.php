@@ -434,6 +434,7 @@ function csa_screen_chat() {
 function csa_section_chips( $section ) {
 	$all = array(
 		'mobile' => array( '📱 ' . csa_t( 'Fix mobile view' ), csa_t( 'Fix the mobile view of this page: ' ) ),
+		'human'  => array( '✍️ ' . csa_t( 'Humanise text' ), csa_t( 'Read the actual text of this page and make it natural, warm and pleasant to read (শ্রুতিমধুর, human, not robotic). Keep every fact, number and phone exactly as it is. List each sentence you would change as old → new: ' ) ),
 		'design' => array( '🎨 ' . csa_t( 'Design check' ), csa_t( 'Run a design check of this page (mobile view, fonts, padding, spacing) and list your suggestions by priority: ' ) ),
 		'seo'    => array( '🔎 ' . csa_t( 'SEO fix' ), csa_t( 'Check the SEO of this page and fix the important issues: ' ) ),
 		'images' => array( '🖼 ' . csa_t( 'Suggest images' ), csa_t( 'Which images should this page have? Suggest image slots for: ' ) ),
@@ -448,7 +449,7 @@ function csa_section_chips( $section ) {
 		'alt'    => array( '🏷 ' . csa_t( 'Alt text' ), csa_t( 'Write SEO alt text for the images on: ' ) ),
 	);
 	$sets = array(
-		''       => array( 'design', 'mobile', 'seo', 'images', 'page', 'mem' ),
+		''       => array( 'human', 'design', 'mobile', 'seo', 'images', 'page', 'mem' ),
 		'seo'    => array( 'seo', 'meta', 'links', 'schema' ),
 		'blog'   => array( 'blog', 'ideas', 'improve' ),
 		'images' => array( 'images', 'alt' ),
