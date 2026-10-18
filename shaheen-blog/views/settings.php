@@ -19,6 +19,7 @@ if (!SB_Lock::is_unlocked()) : ?>
 <?php return; endif; ?>
 <div class="wrap sba">
     <h1>সেটিংস <button type="button" class="button" id="pin-lock" style="margin-left:10px">🔒 লক করুন</button></h1>
+    <nav class="nav-tab-wrapper"><a class="nav-tab nav-tab-active" href="<?php echo esc_url(admin_url('admin.php?page=sb-settings')); ?>">Blog Write .ai</a><?php if (function_exists('csa_install')) : ?><a class="nav-tab" href="<?php echo esc_url(admin_url('admin.php?page=csa-settings')); ?>">Site Agent &amp; SEO</a><?php endif; ?></nav>
     <?php if (!empty($_GET['saved'])) : // phpcs:ignore WordPress.Security.NonceVerification ?>
         <div class="notice notice-success is-dismissible"><p>সেটিংস সেভ হয়েছে।</p></div>
     <?php endif; ?>

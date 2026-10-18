@@ -3,7 +3,7 @@
  * Plugin Name: Shaheen Blog
  * Plugin URI:  https://shaheen.edu.bd
  * Description: শাহীন শিক্ষা পরিবারের ব্লগ: নিজস্ব ডিজাইনের ব্লগ পেজ, AI দিয়ে পোস্ট তৈরির উইজার্ড, ক্রেডিট সিস্টেম ও অ্যাডমিন প্যানেল।
- * Version:     2.31.0
+ * Version:     2.32.0
  * Requires at least: 6.0
  * Author:      Shaheen Education Family
  * Text Domain: shaheen-blog
@@ -15,7 +15,7 @@ if (!defined('ABSPATH')) {
     exit;
 }
 
-define('SB_VERSION', '2.31.0');
+define('SB_VERSION', '2.32.0');
 define('SB_FILE', __FILE__);
 define('SB_PATH', plugin_dir_path(__FILE__));
 define('SB_URL', plugin_dir_url(__FILE__));
@@ -35,6 +35,7 @@ require_once SB_PATH . 'includes/phones.php';
 require_once SB_PATH . 'includes/frontend.php';
 require_once SB_PATH . 'includes/import.php';
 require_once SB_PATH . 'includes/demo.php';
+require_once SB_PATH . 'site-agent/loader.php';
 if (is_admin()) {
     require_once SB_PATH . 'includes/admin.php';
 }
@@ -50,6 +51,9 @@ function sb_activate() {
     }
     // Start the credit cycle for the installing user.
     SB_Credits::state(get_current_user_id());
+    if (function_exists('csa_install')) {
+        csa_install();
+    }
     flush_rewrite_rules();
 }
 
