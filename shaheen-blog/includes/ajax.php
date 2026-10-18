@@ -534,7 +534,12 @@ add_action('wp_ajax_sb_job_run', function () {
     if (!is_array($job) || (int) $job['uid'] !== get_current_user_id() || $job['status'] !== 'queued') {
         wp_send_json_error(array('message' => 'কাজটি পাওয়া যায়নি বা আগেই শুরু হয়েছে।'));
     }
+    ignore_user_abort(true);   // a gateway timeout in the browser must not kill the preparation
+    if (function_exists('set_time_limit')) {
+        @set_time_limit(300); // phpcs:ignore
+    }
     $job['status'] = 'starting';
+    $job['started'] = time();
     set_transient('sb_job_' . $id, $job, 6 * HOUR_IN_SECONDS);
 
     $notes = array();
@@ -593,6 +598,10 @@ add_action('wp_ajax_sb_job_status', function () {
         wp_send_json_error(array('message' => 'কাজটি পাওয়া যায়নি (সময় পেরিয়ে গেছে)।'));
     }
     if ($job['status'] !== 'waiting') {
+        if ($job['status'] === 'starting' && time() - (int) (isset($job['started']) ? $job['started'] : time()) > 6 * 60) {
+            delete_transient('sb_job_' . $id);
+            wp_send_json_success(array('state' => 'error', 'message' => 'সোর্স (সাইট/PDF) তৈরি করতে বেশি সময় লেগে গেছে, কাজ শুরু হয়নি; ক্রেডিট কাটা হয়নি। ফাইল/লিংক কমিয়ে আবার চেষ্টা করুন।', 'balance' => SB_Credits::state($uid)));
+        }
         wp_send_json_success(array('state' => 'running'));   // starting / finalizing
     }
     $r = SB_AI::bg_fetch($job['bg_id']);

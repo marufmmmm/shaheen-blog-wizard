@@ -49,10 +49,12 @@
   }
 
   /* Long AI job: start it, kick the worker, poll until done (the server may answer 504 while the job keeps running) */
+  /* the preparation request can end in a gateway timeout (HTTP 5xx) while the server still carries on: keep polling instead of failing */
+  function gatewayOk(e) { if (e && /HTTP 5\d\d|সার্ভার থেকে সঠিক/.test(e.message || '')) { return; } throw e; }
   function runJob(pl, btn) {
     return post('sb_ai', pl).then(function (d) {
       var id = d.job, t0 = Date.now(), fails = 0;
-      return post('sb_job_run', { job: id }).then(function () { return new Promise(function (resolve, reject) {
+      return post('sb_job_run', { job: id }).catch(gatewayOk).then(function () { return new Promise(function (resolve, reject) {
         (function poll() {
           setTimeout(function () {
             if (btn) { btn.textContent = '⏳ AI কাজ করছে… ' + bn(Math.floor((Date.now() - t0) / 1000)) + ' সেকেন্ড (পেজ খোলা রাখুন)'; }
@@ -747,7 +749,7 @@
     }).then(function (d) {
       if (d.pdfs && d.pdfs.length) { addPdfRows(d.pdfs); toast('✓ PDF মিডিয়ায় রাখা হয়েছে; পেজ ৩-এর ডাউনলোড বাটন ও পড়ার ঘরে যোগ হয়েছে।', 'ok'); }
       var id = d.job, t0 = Date.now(), fails = 0;
-      return post('sb_job_run', { job: id }).then(function () { return new Promise(function (resolve, reject) {
+      return post('sb_job_run', { job: id }).catch(gatewayOk).then(function () { return new Promise(function (resolve, reject) {
         (function poll() {
           setTimeout(function () {
             if (btn) { btn.textContent = '⏳ AI লিখছে… ' + bn(Math.floor((Date.now() - t0) / 1000)) + ' সেকেন্ড (বড় লেখায় ২-৮ মিনিট লাগে, পেজ খোলা রাখুন)'; }
