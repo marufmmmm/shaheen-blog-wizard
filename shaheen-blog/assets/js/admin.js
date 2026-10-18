@@ -190,6 +190,37 @@
       }).catch(function (e) { say($('#cr-msg'), e.message, 'err'); }).then(function () { crGo.disabled = false; });
     });
   }
+  /* import existing posts */
+  var imRun = $('#im-run');
+  if (imRun) {
+    var imAll = $('#im-all');
+    if (imAll) { imAll.addEventListener('change', function () { $$('.im-cb').forEach(function (c) { c.checked = imAll.checked; }); }); }
+    imRun.addEventListener('click', function () {
+      var ids = $$('.im-cb:checked').map(function (c) { return c.value; });
+      if (!ids.length) { say($('#im-msg'), 'আগে কমপক্ষে একটি পোস্টে টিক দিন।', 'err'); return; }
+      imRun.disabled = true; say($('#im-msg'), 'ইম্পোর্ট হচ্ছে…', '');
+      var out = $('#im-out'); out.innerHTML = '';
+      var done = 0, chunks = [];
+      for (var i = 0; i < ids.length; i += 10) { chunks.push(ids.slice(i, i + 10)); }
+      (function next() {
+        var c = chunks.shift();
+        if (!c) { imRun.disabled = false; say($('#im-msg'), '✓ শেষ। ' + bn(done) + 'টি ইম্পোর্ট হয়েছে।', 'ok'); return; }
+        post('sb_import_run', { ids: c, status: $('#im-status').value, hide: $('#im-hide').checked ? '1' : '0' }).then(function (d) {
+          d.results.forEach(function (r) {
+            var li = document.createElement('li');
+            li.appendChild(document.createTextNode((r.ok ? '✅ ' : '⚠️ ') + r.title + ' — ' + r.message + ' '));
+            if (r.ok && r.edit) {
+              if (!r.already) { done++; }
+              var a = document.createElement('a'); a.href = r.edit; a.textContent = 'এডিট করুন'; li.appendChild(a);
+              var row = $('tr[data-id="' + r.orig + '"]'); if (row) { var cb = row.querySelector('.im-cb'); if (cb) { cb.remove(); } var st = row.querySelector('.im-state'); if (st) { st.textContent = '✅ ইম্পোর্ট হয়েছে'; } }
+            }
+            out.appendChild(li);
+          });
+          next();
+        }).catch(function (e) { imRun.disabled = false; say($('#im-msg'), e.message, 'err'); });
+      })();
+    });
+  }
   var demoDel = $('#demo-del');
   if (demoDel) {
     demoDel.addEventListener('click', function () {

@@ -15,6 +15,7 @@ function sb_admin_menu() {
     add_submenu_page('sb-dashboard', 'Mobile Models', '📱 Mobile Models', 'manage_options', 'sb-phones', 'sb_page_phones');
     add_submenu_page('sb-dashboard', 'Memory', '🧠 Memory', 'edit_posts', 'sb-memory', 'sb_page_memory');
     add_submenu_page('sb-dashboard', 'All Posts', 'All Posts', 'edit_posts', 'sb-posts', 'sb_page_posts');
+    add_submenu_page('sb-dashboard', 'Import', '📥 Import', 'edit_posts', 'sb-import', 'sb_page_import');
     add_submenu_page('sb-dashboard', 'Categories', 'Categories', 'manage_categories', 'sb-categories', 'sb_page_categories');
     add_submenu_page('sb-dashboard', 'Settings', 'Settings', 'manage_options', 'sb-settings', 'sb_page_settings');
 }

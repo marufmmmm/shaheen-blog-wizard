@@ -21,7 +21,7 @@ $cats = get_terms(array('taxonomy' => 'sb_category', 'hide_empty' => false));
 $base = admin_url('admin.php?page=sb-posts');
 ?>
 <div class="wrap sba">
-    <h1>সব পোস্ট <a class="page-title-action" href="<?php echo esc_url(admin_url('admin.php?page=sb-new')); ?>">নতুন পোস্ট</a></h1>
+    <h1>সব পোস্ট <a class="page-title-action" href="<?php echo esc_url(admin_url('admin.php?page=sb-new')); ?>">নতুন পোস্ট</a> <a class="page-title-action" href="<?php echo esc_url(admin_url('admin.php?page=sb-import')); ?>">📥 পুরনো পোস্ট ইম্পোর্ট</a></h1>
 
     <form method="get" class="sba-filter">
         <input type="hidden" name="page" value="sb-posts">
