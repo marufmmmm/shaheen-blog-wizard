@@ -152,7 +152,7 @@ function csa_mem_text( $mem ) {
 		$l[] = 'Latest plan: ' . $mem['plan'];
 	}
 	if ( $mem['steps'] ) {
-		$names = array( 'todo' => 'to do', 'done' => 'DONE', 'later' => 'LATER - not now' );
+		$names = array( 'todo' => 'to do', 'done' => 'DONE', 'later' => 'LATER - not now', 'skipped' => 'SKIPPED by the user - never do it' );
 		$sl    = array();
 		foreach ( $mem['steps'] as $i => $st ) {
 			$sl[] = ( $i + 1 ) . '. [' . ( $names[ $st['s'] ] ?? $st['s'] ) . '] ' . mb_substr( $st['t'], 0, 160 );
@@ -217,7 +217,7 @@ function csa_chat_kind( $section, $text ) {
 function csa_mem_remaining( $mem ) {
 	$r = array();
 	foreach ( (array) $mem['steps'] as $i => $st ) {
-		if ( 'done' !== $st['s'] ) {
+		if ( 'done' !== $st['s'] && 'skipped' !== $st['s'] ) {
 			$r[ $i ] = $st;
 		}
 	}

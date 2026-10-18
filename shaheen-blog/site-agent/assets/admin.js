@@ -214,6 +214,7 @@
 						d.innerHTML = '<div class="csa-plan-h">⏭ ' + esc(T('Next job')) + '</div><p><strong>' + esc(T('Step')) + ' ' + item.next + ':</strong> ' + md(item.next_t || '') + '</p>'
 							+ ((item.steps || []).length > 1 ? '<p class="csa-muted">' + esc(T('Still open after that')) + ': ' + (item.steps || []).filter(function (s) { return s.n !== item.next; }).map(function (s) { return s.n; }).join(', ') + '</p>' : '')
 							+ '<div class="csa-plan-btns"><button type="button" class="button button-primary" data-d="next">▶ ' + esc(T('Do this step now')) + '</button>'
+							+ ' <button type="button" class="button" data-d="skip">⏭ ' + esc(T('Skip this step')) + '</button>'
 							+ ((item.steps || []).length > 1 ? ' <button type="button" class="button" data-d="rest">' + esc(T('Do all remaining')) + '</button>' : '') + '</div>';
 						$$('.csa-plan-btns button', d).forEach(function (b) { b.onclick = function () { decide(b.dataset.d, d); }; });
 						break;
@@ -361,7 +362,8 @@
 			var res = await post('csa_plan', args);
 			if (res.error) { add({ r: 'err', t: res.error }); return; }
 			disableOldPlans();
-			if ((d === 'rest' || d === 'next') && card) { $$('button', card).forEach(function (x) { x.disabled = true; }); card.classList.add('used'); }
+			if ((d === 'rest' || d === 'next' || d === 'skip') && card) { $$('button', card).forEach(function (x) { x.disabled = true; }); card.classList.add('used'); }
+			if (d === 'skip') { (res.data.items || []).forEach(add); flushQueue(); return; }
 			add({ r: 'sys', t: d === 'cancel' ? '✖ ' + T('Plan cancelled') : '✅ ' + label });
 			if (res.data.run) run('', []); else flushQueue();
 		}

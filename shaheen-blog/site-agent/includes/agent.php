@@ -86,7 +86,7 @@ function csa_tools_read() {
 
 /** Allowed in any state: low-risk, no page content changes. */
 function csa_tools_anytime() {
-	return array_merge( csa_am_tools(), csa_si_tool(), csa_tools_anytime_base() );
+	return array_merge( csa_am_tools(), csa_si_tool(), csa_dsg_read_tool(), csa_tools_anytime_base() );
 }
 
 function csa_tools_anytime_base() {
@@ -215,6 +215,7 @@ function csa_tools_write() {
 				array( 'id', 'jsonld' )
 			),
 		),
+		csa_dsg_write_tool(),
 		array( 'name' => 'restore_elementor_backup', 'description' => 'Undo the latest Elementor HTML edit on a page.', 'input_schema' => csa_schema( array( 'id' => array( 'type' => 'integer' ) ), array( 'id' ) ) ),
 		array(
 			'name'         => 'update_seo_meta',
@@ -259,6 +260,8 @@ function csa_tool_label( $name, $in ) {
 		'page_outline'             => csa_t( 'Mapped page structure' ) . $id,
 		'chat_note'                => csa_t( 'Noted in chat memory' ),
 		'search_site'              => '🔎 ' . csa_t( 'Searching the whole site' ) . ': ' . mb_substr( (string) ( $in['query'] ?? '' ), 0, 40 ),
+		'design_audit'             => '🎨 ' . csa_t( 'Design check' ) . $id,
+		'set_page_css'             => '🎨 ' . csa_t( 'Adding CSS' ) . $id,
 		'set_page_schema'          => '🧩 ' . csa_t( 'Adding schema' ) . $id,
 		'check_consistency'        => '🧮 ' . csa_t( 'Checking the site for contradictions' ),
 		'remember'                 => '🧠 ' . csa_t( 'Remembered' ) . ': ' . mb_substr( (string) ( $in['key'] ?? '' ), 0, 40 ),
@@ -614,6 +617,9 @@ function csa_run_tool( $name, $in, &$ctx ) {
 			if ( ! isset( $ctx['mem']['steps'][ $k ] ) ) {
 				return array( 'error' => 'No such step in the plan checklist.' );
 			}
+			if ( 'skipped' === $ctx['mem']['steps'][ $k ]['s'] ) {
+				return array( 'error' => 'The user skipped this step. Do not do it.' );
+			}
 			if ( 'later' === $ctx['mem']['steps'][ $k ]['s'] ) {
 				return array( 'error' => 'The user left this step for later. Do not do it now.' );
 			}
@@ -809,6 +815,16 @@ function csa_run_tool( $name, $in, &$ctx ) {
 			$act( csa_t( 'Restored backup of' ) . ' #' . $p->ID . ' (' . $last['t'] . ')', null, get_permalink( $p->ID ) );
 			return array( 'ok' => true, 'restored_from' => $last['t'] );
 
+		case 'design_audit':
+			$p = csa_valid_post( $in['id'] ?? 0 );
+			if ( ! $p ) {
+				return array( 'error' => 'Page not found.' );
+			}
+			return array( 'page' => $p->post_title, 'findings' => csa_dsg_audit( $p->ID ), 'note' => 'Show the user the findings by priority, then propose a plan with one fix per step (set_page_css for padding/font/mobile). Elementor element ids in "element" give the CSS selector .elementor-element-<id>.' );
+
+		case 'set_page_css':
+			return csa_dsg_set_css( $in, $act );
+
 		case 'set_page_schema':
 			$p = csa_valid_post( $in['id'] ?? 0 );
 			if ( ! $p ) {
@@ -898,6 +914,7 @@ function csa_agent_prompt( $state, $auto = null ) {
 		. "\n- Never repeat or summarize the CHAT MEMORY back to the user, and don't start replies with thanks. Say only what is new."
 		. "\n- If an edit fails, don't retry the same old_text. For CSS changes append a new <style> block (empty old_text). If it fails twice, stop and explain."
 		. "\n- Structured data (JSON-LD): NEVER paste <script type=\"application/ld+json\"> into page HTML or an Elementor widget. Use set_page_schema (printed in the <head>, page untouched). Use real facts only: search_site / the site map for phone numbers, addresses and the URLs of branch (campus) pages; reference each branch page by its URL."
+		. "\n- Design, mobile, fonts, padding, spacing: when asked for suggestions or fixes, run design_audit on the page first (free), tell the user the findings by priority in plain words, then plan ONE fix per step. Apply fixes with set_page_css (works on normal Elementor widgets too; use the .elementor-element-<id> selectors from the audit; phone = max-width:767px, tablet = 1024px). Use edit_elementor_html only for the markup inside HTML widgets. Keep every rule scoped to the page; site-wide CSS only if the user asked for a site-wide change. After a fix suggest the Preview button (phone). You can do all of this: say so instead of refusing."
 		. "\n- search_site: search with words that really appear on the site, in Bangla or English (the site's own language). Never use Urdu, Hindi or Arabic script. No match? Try another Bangla or English word, or read the page."
 		. "\n- Big pages: page_outline first (cheap, cached), then find_in_html or read_html with an offset for only the part you need."
 		. "\n- After changes: give the page link and suggest checking it with the Preview button (phone view) and purging cache if a cache plugin is used.";
@@ -1573,7 +1590,7 @@ function csa_progress_text( $mem ) {
 	$done  = 0;
 	$cur   = '';
 	foreach ( $steps as $st ) {
-		if ( 'later' === $st['s'] ) {
+		if ( 'later' === $st['s'] || 'skipped' === $st['s'] ) {
 			continue;
 		}
 		$total++;
@@ -1600,6 +1617,23 @@ function csa_ajax_plan() {
 	}
 	$id  = (int) $row['id'];
 	$mem = csa_mem_load( $id );
+
+	if ( 'skip' === $d ) {
+		// Skip the next open step: it will not be done and is not asked about again.
+		$rest = csa_mem_remaining( $mem );
+		if ( 'analyse' !== $row['state'] || ! $rest ) {
+			wp_send_json_error( csa_t( 'Nothing is left to do from the last plan.' ) );
+		}
+		$first                    = array_key_first( $rest );
+		$mem['steps'][ $first ]['s'] = 'skipped';
+		csa_mem_save( $id, $mem );
+		csa_log( csa_t( 'Step skipped in chat:' ) . ' ' . $mem['steps'][ $first ]['t'] );
+		$items   = array();
+		$items[] = array( 'r' => 'sys', 't' => '⏭ ' . csa_t( 'Skipped' ) . ': ' . mb_substr( $mem['steps'][ $first ]['t'], 0, 120 ) );
+		$more    = csa_rest_item( $mem );
+		$items[] = $more ? $more : array( 'r' => 'sys', 't' => '✔ ' . csa_t( 'No steps left in this plan.' ) );
+		wp_send_json_success( array( 'state' => 'analyse', 'run' => false, 'items' => $items ) );
+	}
 
 	if ( 'rest' === $d || 'next' === $d ) {
 		// Do the steps that were left for later (or not finished) now: all of them, or only the next one.

@@ -552,6 +552,11 @@ function csa_undo( $log_id ) {
 			case 'memory':
 				update_option( CSA_MEM, $u['old'], false );
 				break;
+			case 'option':
+				if ( 0 === strpos( (string) $u['option'], 'csa_' ) ) {
+					update_option( $u['option'], $u['old'], false );
+				}
+				break;
 			default:
 				return new WP_Error( 'undo', 'Unknown undo type.' );
 		}
