@@ -351,6 +351,7 @@ class SB_AI {
                         . "- ভাষা প্রচলিত সহজ বাংলা।\n"
                         . "আউটপুট: সংশোধিত পুরো লেখা শুধু HTML হিসেবে, কোনো ব্যাখ্যা বা কোড-ব্লক ছাড়া।\n\n"
                         . "--- নির্দেশ ---\n{$ins}\n\n--- বর্তমান লেখা ---\n{$cur}";
+                    $max = min(16000, max(3800, (int) ceil(mb_strlen($cur) * 1.3) + 1200));   // the whole text is returned, so the limit must fit it (Bengali uses many tokens)
                 } else {
                     $user = "পোস্ট মালিকের নির্দেশ অনুযায়ী পোস্টটি নতুন করে লেখো।\n--- নির্দেশ ---\n{$ins}\n"
                         . ($title ? "শিরোনাম: {$title}\n" : '') . ($kw ? "কীওয়ার্ড (স্বাভাবিকভাবে ব্যবহার করবে): {$kw}\n" : '')
@@ -362,7 +363,9 @@ class SB_AI {
                         $user .= "\n\n--- আমাদের তথ্য ---\n" . $know;
                     }
                 }
-                $max = 3800;
+                if (empty($max)) {
+                    $max = 3800;
+                }
                 break;
 
             case 'rewrite_post':
@@ -463,6 +466,19 @@ class SB_AI {
             return new WP_Error('sb_empty', 'AI কোনো লেখা দেয়নি। আবার চেষ্টা করুন।');
         }
 
+        if ($feature === 'edit' || $feature === 'edit_new') {
+            $fin = isset($data['choices'][0]['finish_reason']) ? (string) $data['choices'][0]['finish_reason'] : '';
+            if ($fin === 'length') {
+                return new WP_Error('sb_cut', 'লেখা বড় হওয়ায় AI মাঝপথে থেমে গেছে, তাই আপনার লেখা বদলানো হয়নি এবং ক্রেডিট কাটা হয়নি। কম পরিবর্তন লিখুন, বা লেখাটি দুই ভাগে ভাগ করে করুন।');
+            }
+            if ($feature === 'edit') {
+                $in_len  = mb_strlen(wp_strip_all_tags($cur));
+                $out_len = mb_strlen(wp_strip_all_tags($text));
+                if ($in_len > 400 && $out_len < $in_len * 0.6 && !preg_match('/ছোট|সংক্ষিপ্ত|কমিয়ে|মুছ|বাদ|বাদ দিন|সরান|short|remove|delete|trim/iu', isset($c['instruction']) ? $c['instruction'] : '')) {
+                    return new WP_Error('sb_shrunk', 'AI লেখার অনেকটা অংশ বাদ দিয়ে ফেলেছিল, তাই বদলানো হয়নি এবং ক্রেডিট কাটা হয়নি। নির্দেশ আরও নির্দিষ্ট করে (কোন অনুচ্ছেদ/বাক্য) আবার চেষ্টা করুন।');
+                }
+            }
+        }
         if ($feature === 'headlines') {
             return self::parse_headlines($text, $keywords);
         }
