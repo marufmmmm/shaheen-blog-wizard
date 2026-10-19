@@ -1087,6 +1087,22 @@ function sb_chat_history($json) {
 }
 
 /** Reads the chat JSON, applies find/replace edits to the article on the server, reports what really changed. */
+/** Find $find inside $html ignoring whitespace differences, tags between the words and &nbsp;. Returns [byte offset, byte length] or null (also when it is ambiguous). */
+function sb_find_loose($html, $find) {
+    $plain = trim(preg_replace('/\s+/u', ' ', html_entity_decode(wp_strip_all_tags($find), ENT_QUOTES, 'UTF-8')));
+    $plain = str_replace("\xC2\xA0", ' ', $plain);
+    if (mb_strlen($plain) < 12) {
+        return null;
+    }
+    $words = preg_split('/\s+/u', $plain, -1, PREG_SPLIT_NO_EMPTY);
+    $gap = '(?:\s|&nbsp;|&#160;|<[^>]*>)*';
+    $re = '/' . implode($gap, array_map(function ($w) { return preg_quote($w, '/'); }, $words)) . '/u';
+    if (preg_match_all($re, $html, $mm, PREG_OFFSET_CAPTURE) !== 1) {
+        return null;
+    }
+    return array($mm[0][0][1], strlen($mm[0][0][0]));
+}
+
 function sb_chat_result($r, $ctx) {
     $raw = trim((string) $r['text']);
     $j = json_decode(preg_replace('/^```[a-z]*\s*|\s*```$/i', '', $raw), true);
@@ -1189,11 +1205,20 @@ function sb_chat_result($r, $ctx) {
             $f = isset($e['find']) && is_string($e['find']) ? $e['find'] : '';
             $rep = isset($e['replace']) && is_string($e['replace']) ? wp_kses_post($e['replace']) : '';
             $pos = $f !== '' ? strpos($new, $f) : false;
+            $len = strlen($f);
+            if ($pos === false && $f !== '') {
+                // The AI rarely copies HTML byte for byte (spaces, line breaks, &nbsp;, tags): match the visible text instead.
+                $m = sb_find_loose($new, $f);
+                if ($m) {
+                    $pos = $m[0];
+                    $len = $m[1];
+                }
+            }
             if ($pos === false) {
                 $out['failed'][] = mb_substr(wp_strip_all_tags($f), 0, 80);
                 continue;
             }
-            $new = substr_replace($new, $rep, $pos, strlen($f));
+            $new = substr_replace($new, $rep, $pos, $len);
         }
     }
     if ($new !== $cur) {
