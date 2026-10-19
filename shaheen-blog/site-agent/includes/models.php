@@ -240,7 +240,7 @@ function csa_claude( $messages, $system, $args = array() ) {
 	}
 
 	csa_keepalive_start();
-	$resp = csa_http( 'POST', $prov['url'], array( 'timeout' => 240, 'headers' => $headers, 'body' => wp_json_encode( $body, CSA_JSON ) ) );
+	$resp = csa_http( 'POST', $prov['url'], array( 'timeout' => 110, 'headers' => $headers, 'body' => wp_json_encode( $body, CSA_JSON ) ) );
 	if ( is_wp_error( $resp ) ) {
 		return new WP_Error( 'net', csa_t( 'Could not reach the AI service:' ) . ' ' . $resp->get_error_message() );
 	}

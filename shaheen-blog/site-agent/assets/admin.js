@@ -46,7 +46,7 @@
 		return T('Server returned') + ' HTTP ' + status + '. ' + hint + (snippet ? '\n\n' + snippet : '');
 	}
 
-	async function post(action, data, form) {
+	async function post(action, data, form, ctl) {
 		var body;
 		if (form) {
 			body = form;
@@ -56,8 +56,8 @@
 			body = new URLSearchParams(Object.assign({ action: action, nonce: CSA.nonce }, data || {}));
 		}
 		var r;
-		try { r = await fetch(CSA.ajax, { method: 'POST', body: body, credentials: 'same-origin' }); }
-		catch (e) { return { error: T('Network error:') + ' ' + e.message }; }
+		try { r = await fetch(CSA.ajax, { method: 'POST', body: body, credentials: 'same-origin', signal: ctl ? ctl.signal : undefined }); }
+		catch (e) { return { error: T('Network error:') + ' ' + (ctl && ctl.stopped ? 'stopped' : (ctl && ctl.timedOut ? 'no answer for 3 minutes' : e.message)) }; }
 		var raw = await r.text(), j;
 		try { j = JSON.parse(raw); } catch (e) { return { error: explain(r.status, raw) }; }
 		if (!j.success) return { error: String(j.data || 'Error') };
@@ -301,6 +301,28 @@
 
 		function sleep(ms) { return new Promise(function (r) { setTimeout(r, ms); }); }
 
+		/** One agent step with a clock, a Stop button after 45 s and a 3-minute cut-off, so the chat can never wait for hours. */
+		async function timedStep(args, wait) {
+			var ctl = new AbortController(), t0 = Date.now(), base = wait.textContent, stopBtn = null;
+			ctl.stopped = false; ctl.timedOut = false;
+			var tm = setTimeout(function () { ctl.timedOut = true; ctl.abort(); }, 180000);
+			var tick = setInterval(function () {
+				if (!wait.isConnected) return;
+				var sec = Math.round((Date.now() - t0) / 1000);
+				wait.textContent = base.replace(/ · \d+s$/, '') + ' · ' + sec + 's';
+				if (sec >= 45 && !stopBtn) {
+					stopBtn = document.createElement('button'); stopBtn.type = 'button'; stopBtn.className = 'button button-small'; stopBtn.textContent = '⏹ ' + T('Stop');
+					stopBtn.style.marginLeft = '10px';
+					stopBtn.onclick = function () { ctl.stopped = true; ctl.abort(); };
+					wait.appendChild(stopBtn);
+				}
+			}, 1000);
+			var res = await post('csa_step', args, null, ctl);
+			clearTimeout(tm); clearInterval(tick);
+			if (ctl.stopped) res.stopped = true;
+			return res;
+		}
+
 		async function run(message, images, rid, cont) {
 			setBusy(true);
 			if (message) disableOldPlans();
@@ -309,14 +331,14 @@
 			for (var step = 1; step <= 60; step++) {
 				var wait = add({ r: 'wait', t: (prog ? prog : T('Working…')) + (step > 1 ? ' (' + T('Step') + ' ' + step + ')' : '') });
 				var args = { section: section, chat_id: chatId, message: pending || '', images: JSON.stringify(imgs), rid: pending || imgs.length ? rid : '', model: modelKey, cont: cont && step === 1 ? 1 : '' };
-				var res = await post('csa_step', args), tries = 0;
+				var res = await timedStep(args, wait), tries = 0;
 				// Timeouts, busy server and network blips are retried automatically (the server never repeats a finished step).
-				while (res.error && tries < 3 && /HTTP (500|502|503|504|524)|Network error|Still working/i.test(res.error)) {
+				while (res.error && !res.stopped && tries < 3 && /HTTP (500|502|503|504|524)|Network error|Still working/i.test(res.error)) {
 					tries++;
 					wait.remove();
 					wait = add({ r: 'wait', t: T('Server is slow, trying again…') + ' (' + tries + '/3)' });
 					await sleep(10000 * tries);
-					res = await post('csa_step', args);
+					res = await timedStep(args, wait);
 				}
 				wait.remove();
 				if (res.error) {
