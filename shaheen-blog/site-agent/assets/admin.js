@@ -1350,6 +1350,13 @@
 				k = jobs.findIndex(function (j) { return String(j.n) === d.man; }); jobs[k] = r.data.job; draw(); overview();
 			}
 		});
+		$('#csa-jb-html').onclick = async function () {
+			if (!pid || !window.confirm(T('Convert this page to clean HTML? All text, headings, lists, images and links stay. The Elementor layout and styling are removed (the theme styles the page). You can undo it in Activity.'))) return;
+			var r = await post('csa_jobs_tohtml', { id: pid });
+			if (r.error) { toast(r.error, 'err'); return; }
+			toast(T('Converted to clean HTML.') + (r.data.not_carried_over && r.data.not_carried_over.length ? ' ' + T('Not carried over') + ': ' + r.data.not_carried_over.join(', ') : ''), 'ok');
+			$('#csa-jb-scan').click();
+		};
 		$('#csa-jb-chat').onclick = function () {
 			var txt = $('#csa-jb-ask').value.trim(); if (!txt) return;
 			var pg = parseInt(sel.value, 10);

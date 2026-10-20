@@ -712,6 +712,7 @@ function csa_screen_jobs() {
 			<button type="button" class="button button-primary" id="csa-jb-go">▶ <?php echo esc_html( csa_t( 'Run' ) ); ?></button>
 			<button type="button" class="button" id="csa-jb-next">⏭ <?php echo esc_html( csa_t( 'Next job' ) ); ?></button>
 			<button type="button" class="button" id="csa-jb-order">⏩ <?php echo esc_html( csa_t( 'Run all in order' ) ); ?></button>
+			<button type="button" class="button" id="csa-jb-html" title="<?php echo esc_attr( csa_t( 'Keeps all text, headings, lists, images and links. Removes the Elementor layout. Can be undone in Activity.' ) ); ?>">🧱 <?php echo esc_html( csa_t( 'Convert this page to clean HTML' ) ); ?></button>
 			<span id="csa-jb-prog" class="csa-muted"></span></p>
 		</div>
 	</div>

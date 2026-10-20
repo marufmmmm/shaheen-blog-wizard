@@ -581,6 +581,12 @@ function csa_undo( $log_id ) {
 				update_post_meta( $id, '_elementor_data', wp_slash( $backups[ $found ]['d'] ) );
 				update_post_meta( $id, '_csa_backups', wp_slash( array_slice( $backups, 0, $found ) ) );
 				break;
+			case 'unel':
+				$r = csa_th_undo( $id, $u['key'] );
+				if ( is_wp_error( $r ) ) {
+					return $r;
+				}
+				break;
 			case 'seo':
 				foreach ( (array) $u['old'] as $meta => $v ) {
 					update_post_meta( $id, $meta, $v );
