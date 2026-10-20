@@ -162,7 +162,7 @@ function csa_mem_text( $mem ) {
 		$l[] = 'Pages: ' . implode( '; ', $pp );
 	}
 	if ( $mem['plan'] ) {
-		$l[] = 'Latest plan: ' . $mem['plan'];
+		$l[] = 'Earlier plan (record only, not a request): ' . $mem['plan'];
 	}
 	if ( $mem['steps'] ) {
 		$names = array( 'todo' => 'to do', 'done' => 'DONE', 'later' => 'LATER - not now', 'skipped' => 'SKIPPED by the user - never do it' );
@@ -170,7 +170,7 @@ function csa_mem_text( $mem ) {
 		foreach ( $mem['steps'] as $i => $st ) {
 			$sl[] = ( $i + 1 ) . '. [' . ( $names[ $st['s'] ] ?? $st['s'] ) . '] ' . mb_substr( $st['t'], 0, 160 );
 		}
-		$l[] = "Plan checklist:\n" . implode( "\n", $sl );
+		$l[] = "Plan checklist (background record only; do NOT continue it unless the latest message asks):\n" . implode( "\n", $sl );
 	}
 	foreach ( $mem['found'] as $f ) {
 		$l[] = 'Found "' . $f['query'] . '" in #' . $f['page'] . ( $f['widget'] ? ' widget ' . $f['widget'] : '' ) . ' at ' . $f['at'] . ': ' . $f['snippet'];
