@@ -224,6 +224,14 @@
 						+ '</ol><button type="button" class="button button-primary">▶ ' + esc(T('Do these now')) + '</button>';
 					d.querySelector('button').onclick = function () { decide('rest', d); };
 					break;
+				case 'ask':
+					d.className = 'csa-plan csa-ask' + (item.pending ? ' pending' : '');
+					renderAsk(d, item);
+					break;
+				case 'jobform':
+					d.className = 'csa-plan csa-jobform';
+					renderJobForm(d);
+					break;
 				case 'slots':
 					d.className = 'csa-plan csa-slots';
 					renderSlots(d, item);
@@ -323,7 +331,7 @@
 			return res;
 		}
 
-		async function run(message, images, rid, cont) {
+		async function run(message, images, rid, cont, extra) {
 			setBusy(true);
 			if (message) disableOldPlans();
 			var pending = message, imgs = images || [], finished = false, prog = '';
@@ -331,6 +339,7 @@
 			for (var step = 1; step <= 60; step++) {
 				var wait = add({ r: 'wait', t: (prog ? prog : T('Working…')) + (step > 1 ? ' (' + T('Step') + ' ' + step + ')' : '') });
 				var args = { section: section, chat_id: chatId, message: pending || '', images: JSON.stringify(imgs), rid: pending || imgs.length ? rid : '', model: modelKey, cont: cont && step === 1 ? 1 : '' };
+				if (extra && step === 1) Object.assign(args, extra);
 				var res = await timedStep(args, wait), tries = 0;
 				// Timeouts, busy server and network blips are retried automatically (the server never repeats a finished step).
 				while (res.error && !res.stopped && tries < 3 && /HTTP (500|502|503|504|524)|Network error|Still working|did not answer in time/i.test(res.error)) {
@@ -354,7 +363,7 @@
 				pending = ''; imgs = [];
 				var isNew = !chatId;
 				chatId = res.data.chat_id; setUrl();
-				if (isNew) { setHead(res.data.title, 0); loadList(); }
+				if (isNew || res.data.handoff) { setHead(res.data.title, 0); loadList(); }
 				res.data.items.forEach(add);
 				if (res.data.kind) setAuto(res.data.kind, res.data.model);
 				if (res.data.progress) prog = res.data.progress; else if (res.data.done) prog = '';
@@ -366,6 +375,104 @@
 			setBusy(false); input.focus(); loadList();
 			flushQueue();
 		}
+
+		/* ---- Guided page job: pick a page, answer the agent's questions ---- */
+		function sendFromCard(text, shown) {
+			if (busy) return;
+			var imgs = attachments.map(function (a) { return a.file; });
+			add({ r: 'user', t: shown, imgs: attachments.map(function (a) { return a.url; }) });
+			clearAttachments();
+			return imgs;
+		}
+
+		function renderAsk(d, item) {
+			var qs = item.questions || [];
+			var live = !!item.pending;
+			var h = '<div class="csa-plan-h">❓ ' + esc(T('A few questions before I plan')) + '</div>'
+				+ (item.intro ? '<p class="csa-muted">' + esc(item.intro) + '</p>' : '');
+			qs.forEach(function (q, i) {
+				h += '<div class="csa-q" data-i="' + i + '"><div><strong>' + (i + 1) + '. ' + esc(q.q) + '</strong></div>';
+				(q.options || []).forEach(function (o) {
+					h += '<label class="csa-opt"><input type="' + (q.multi ? 'checkbox' : 'radio') + '" name="csa-q' + i + '" value="' + esc(o) + '"' + (live ? '' : ' disabled') + '> ' + esc(o) + '</label>';
+				});
+				h += '<input type="text" class="widefat csa-q-text" placeholder="' + esc(T('Or write your own answer')) + '"' + (live ? '' : ' disabled') + '></div>';
+			});
+			if (live) {
+				h += '<p class="csa-muted">📎 ' + esc(T('Have photos for this page? Attach them with the paperclip below, then press Send answers. Tell me where each one should go (for example: after the principal’s message), or leave it to me.')) + '</p>'
+					+ '<div class="csa-plan-btns"><button type="button" class="button button-primary" data-a="send">▶ ' + esc(T('Send answers')) + '</button> <button type="button" class="button" data-a="skip">⏭ ' + esc(T('Skip questions, just plan')) + '</button></div>';
+			}
+			d.innerHTML = h;
+			if (!live) return;
+			function go(skip) {
+				if (busy) return;
+				var lines = [];
+				if (!skip) {
+					$$('.csa-q', d).forEach(function (box, i) {
+						var picked = $$('input[type=radio]:checked, input[type=checkbox]:checked', box).map(function (x) { return x.value; });
+						var t = $('.csa-q-text', box).value.trim();
+						if (t) picked.push(t);
+						if (picked.length) lines.push((i + 1) + '. ' + qs[i].q + ' → ' + picked.join('; '));
+					});
+				}
+				var text = CSA_ANS + '\n' + (lines.length ? lines.join('\n') : '(skipped)');
+				$$('button, input', d).forEach(function (x) { x.disabled = true; });
+				d.classList.remove('pending');
+				var imgs = sendFromCard(text, '✍️ ' + (lines.length ? lines.join('\n') : T('Skipped the questions')));
+				run(text, imgs);
+			}
+			$('[data-a=send]', d).onclick = function () { go(false); };
+			$('[data-a=skip]', d).onclick = function () { go(true); };
+		}
+
+		var CSA_ANS = '[[ANSWERS]]';
+
+		function renderJobForm(d) {
+			var G = [['all', T('Everything that would improve this page')], ['design', T('Page design and layout')], ['mobile', T('Mobile view')], ['fonts', T('Fonts, sizes and padding')],
+				['humanise', T('Make the text natural and pleasant (humanise)')], ['seo', T('SEO: title, description, headings, alt text, schema')], ['images', T('Photos: what is needed, alt text, placing them')], ['links', T('Internal links')]];
+			d.innerHTML = '<div class="csa-plan-h">🎯 ' + esc(T('Page job')) + '</div>'
+				+ '<p class="csa-muted">' + esc(T('Choose the page or post. I will study it for free, ask you a few questions, make one plan, and then do all the work.')) + '</p>'
+				+ '<input type="search" class="widefat csa-jf-q" placeholder="' + esc(T('Search pages and posts…')) + '">'
+				+ '<select size="6" class="widefat csa-jf-list"></select>'
+				+ '<div class="csa-jf-goals">' + G.map(function (g) { return '<label class="csa-opt"><input type="checkbox" value="' + g[0] + '"' + (g[0] === 'all' ? ' checked' : '') + '> ' + esc(g[1]) + '</label>'; }).join('') + '</div>'
+				+ '<textarea class="widefat csa-jf-note" rows="2" placeholder="' + esc(T('Anything I must know? (optional)')) + '"></textarea>'
+				+ '<div class="csa-plan-btns"><button type="button" class="button button-primary" data-a="go" disabled>🚀 ' + esc(T('Start job')) + '</button> <button type="button" class="button" data-a="x">' + esc(T('Cancel')) + '</button></div>';
+			var q = $('.csa-jf-q', d), list = $('.csa-jf-list', d), go = $('[data-a=go]', d), t;
+			async function load() {
+				var r = await post('csa_job_pages', { q: q.value.trim() });
+				if (r.error) { list.innerHTML = '<option disabled>' + esc(r.error) + '</option>'; return; }
+				list.innerHTML = r.data.map(function (p) { return '<option value="' + p.id + '">' + esc(p.title) + ' — ' + esc(p.type) + (p.status !== 'publish' ? ' (' + esc(p.status) + ')' : '') + ' #' + p.id + '</option>'; }).join('');
+			}
+			q.oninput = function () { clearTimeout(t); t = setTimeout(load, 300); };
+			list.onchange = function () { go.disabled = !list.value; };
+			$$('.csa-jf-goals input', d).forEach(function (c) {
+				c.onchange = function () {
+					if (c.value === 'all' && c.checked) { $$('.csa-jf-goals input', d).forEach(function (o) { if (o !== c) o.checked = false; }); }
+					else if (c.checked) { $('.csa-jf-goals input[value=all]', d).checked = false; }
+				};
+			});
+			$('[data-a=x]', d).onclick = function () { d.remove(); };
+			go.onclick = function () {
+				if (busy || !list.value) return;
+				var goals = $$('.csa-jf-goals input:checked', d).map(function (c) { return c.value; });
+				if (!goals.length) goals = ['all'];
+				var title = list.options[list.selectedIndex].text.replace(/ #\d+$/, '');
+				var msg = '🎯 ' + title + ' (#' + list.value + ')';
+				var job = { id: parseInt(list.value, 10), goals: goals, note: $('.csa-jf-note', d).value.trim() };
+				d.remove();
+				var imgs = sendFromCard(msg, msg);
+				run(msg, imgs, null, false, { job: JSON.stringify(job) });
+			};
+			load();
+		}
+
+		function showJobForm() {
+			if (busy) return;
+			if ($('.csa-empty', log)) log.innerHTML = '';
+			if ($('.csa-jobform', log)) return;
+			add({ r: 'jobform' });
+		}
+		var jobChip = $('#csa-job-chip');
+		if (jobChip) jobChip.onclick = showJobForm;
 
 		function renderSlots(d, item) {
 			var st = { pending: T('Waiting for photo'), skipped: T('Skipped – image upload required'), uploaded: T('Uploaded'), inserted: T('Placed on page') };
@@ -617,7 +724,7 @@
 
 		search.addEventListener('input', function () { clearTimeout(searchTimer); searchTimer = setTimeout(loadList, 300); });
 		$$('.csa-new').forEach(function (b) { b.onclick = function () { if (!busy) newChat(); }; });
-		$$('#csa-chips > .csa-chip').forEach(function (c) {
+		$$('#csa-chips > .csa-chip:not(#csa-job-chip)').forEach(function (c) {
 			c.onclick = function () { input.value = c.getAttribute('data-p'); input.focus(); input.setSelectionRange(input.value.length, input.value.length); };
 		});
 		input.addEventListener('keydown', function (e) { if (e.key === 'Enter' && (e.ctrlKey || e.metaKey)) form.requestSubmit(); });

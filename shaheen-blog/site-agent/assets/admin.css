@@ -313,3 +313,9 @@
 .csa-cs-skipped .csa-cs-st{color:#b32d2e}
 .csa-cs-uploaded .csa-cs-st,.csa-cs-inserted .csa-cs-st{color:#007017}
 .csa-img-need{display:inline-block;margin-top:3px;padding:1px 8px;border-radius:10px;background:#fcf0f1;color:#b32d2e;font-size:12px;text-decoration:none}
+
+.csa-chip-job{background:#2271b1!important;color:#fff!important;border-color:#2271b1!important;font-weight:600}
+.csa-ask .csa-q,.csa-jobform .csa-jf-goals{display:grid;gap:4px;margin:10px 0}
+.csa-opt{display:block;padding:3px 0}
+.csa-jobform .csa-jf-list{margin:8px 0}
+.csa-jobform .csa-jf-note{margin:8px 0}

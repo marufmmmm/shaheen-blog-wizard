@@ -130,6 +130,19 @@ function csa_mem_track( &$mem, $name, $in, $out ) {
 /** Compact summary added to each request. */
 function csa_mem_text( $mem ) {
 	$l = array();
+	if ( ! empty( $mem['brief'] ) ) {
+		$l[] = $mem['brief'];
+		if ( '' !== trim( (string) ( $mem['answers'] ?? '' ) ) ) {
+			$l[] = "Owner's answers to your questions:\n" . mb_substr( $mem['answers'], 0, 1800 );
+		}
+	}
+	if ( ! empty( $mem['attach'] ) ) {
+		$pl = array();
+		foreach ( $mem['attach'] as $n => $f ) {
+			$pl[] = $n;
+		}
+		$l[] = 'PHOTOS ATTACHED by the owner in this chat (save each with save_chat_image using its number n): ' . implode( ', ', $pl );
+	}
 	if ( $mem['task'] ) {
 		$l[] = 'Task: ' . $mem['task'];
 	}
@@ -179,7 +192,7 @@ function csa_mem_text( $mem ) {
 		return '';
 	}
 	$t = "[CHAT MEMORY — from this chat's cache file. Older messages may be left out to save cost; rely on this and extract exact parts with page_outline / find_in_html / read_html instead of re-reading whole pages.]\n" . implode( "\n", $l );
-	return mb_substr( $t, 0, 7000 );
+	return mb_substr( $t, 0, ! empty( $mem['brief'] ) ? 11000 : 7000 );
 }
 
 /**

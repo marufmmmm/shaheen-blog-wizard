@@ -497,6 +497,7 @@ function csa_chat_app_html( $section ) {
 			<div id="csa-log" class="csa-log"></div>
 			<div id="csa-attach" class="csa-attach"></div>
 			<div class="csa-chips" id="csa-chips">
+				<button type="button" class="csa-chip csa-chip-job" id="csa-job-chip">🎯 <?php echo esc_html( csa_t( 'Page job' ) ); ?></button>
 				<?php foreach ( csa_section_chips( $section ) as $c ) : ?>
 					<button type="button" class="csa-chip" data-p="<?php echo esc_attr( $c[1] ); ?>"><?php echo esc_html( $c[0] ); ?></button>
 				<?php endforeach; ?>
@@ -1120,6 +1121,16 @@ function csa_models_settings_html( $o, $n ) {
 			<?php echo esc_html( csa_t( 'page work with Kimi K2.6, Bangla blogs with ChatGPT (GPT-6 Sol), SEO audits and alt text with Claude Haiku, bulk work with GPT-6 Luna. Only 3 keys. About $7–8 a month for 30 page jobs, 20 blog posts, 40 SEO audits and 100 alt texts.' ) ); ?>
 			<br><?php echo esc_html( csa_t( 'Keys needed: Anthropic (Claude), Moonshot (Kimi), OpenAI (ChatGPT). Leave the other key boxes empty.' ) ); ?>
 			<br>💡 <?php echo esc_html( csa_t( 'For a hard page, pick Claude Sonnet in the model box at the top of that chat. Set it back to Auto afterwards.' ) ); ?>
+		</div>
+		<?php $rec = csa_gd_recommended(); $recmap = array( 'label' => csa_t( 'Recommended' ) ); ?>
+		<div class="csa-smart-note">
+			<strong>🎯 <?php echo esc_html( csa_t( 'Recommended for the keys you have' ) ); ?>:</strong>
+			<ul>
+			<?php foreach ( csa_tasks() as $tk => $t ) : if ( empty( $rec[ $tk ]['key'] ) ) { continue; } $recmap[ $tk ] = $rec[ $tk ]['key']; ?>
+				<li><strong><?php echo esc_html( $t['label'] ); ?>:</strong> <?php echo esc_html( csa_model( $rec[ $tk ]['key'] )['label'] ); ?> — <?php echo esc_html( $rec[ $tk ]['why'] ); ?></li>
+			<?php endforeach; ?>
+			</ul>
+			<button type="button" class="button csa-preset" data-preset="<?php echo esc_attr( wp_json_encode( $recmap ) ); ?>">✔ <?php echo esc_html( csa_t( 'Use these recommended models' ) ); ?></button> <span class="description"><?php echo esc_html( csa_t( 'Then press Save.' ) ); ?></span>
 		</div>
 		<table class="form-table">
 		<?php foreach ( csa_tasks() as $tk => $t ) : $cur = csa_task_model_key( $tk ); ?>

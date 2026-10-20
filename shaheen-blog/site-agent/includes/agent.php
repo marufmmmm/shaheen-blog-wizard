@@ -86,7 +86,7 @@ function csa_tools_read() {
 
 /** Allowed in any state: low-risk, no page content changes. */
 function csa_tools_anytime() {
-	return array_merge( csa_am_tools(), csa_si_tool(), csa_dsg_read_tool(), csa_tools_anytime_base() );
+	return array_merge( csa_am_tools(), csa_si_tool(), csa_dsg_read_tool(), csa_gd_ask_tool(), csa_tools_anytime_base() );
 }
 
 function csa_tools_anytime_base() {
@@ -216,6 +216,7 @@ function csa_tools_write() {
 			),
 		),
 		csa_dsg_write_tool(),
+		csa_gd_write_tool(),
 		array( 'name' => 'restore_elementor_backup', 'description' => 'Undo the latest Elementor HTML edit on a page.', 'input_schema' => csa_schema( array( 'id' => array( 'type' => 'integer' ) ), array( 'id' ) ) ),
 		array(
 			'name'         => 'update_seo_meta',
@@ -271,6 +272,8 @@ function csa_tool_label( $name, $in ) {
 		'list_media'               => csa_t( 'Searched Media Library' ),
 		'save_note'                => csa_t( 'Saved a note to Site Memory' ),
 		'suggest_image_slots'      => csa_t( 'Suggested images for page' ) . $id,
+		'save_chat_image'          => '🖼 ' . csa_t( 'Saving your photo to the Media Library' ),
+		'ask_questions'            => '❓ ' . csa_t( 'Preparing questions for you' ),
 		'propose_plan'             => csa_t( 'Prepared a plan' ),
 		'create_page'              => csa_t( 'Creating draft' ),
 		'update_page'              => csa_t( 'Updating page' ) . $id,
@@ -875,6 +878,9 @@ function csa_run_tool( $name, $in, &$ctx ) {
 			$act( csa_t( 'Set featured image of' ) . ' #' . $p->ID );
 			return array( 'ok' => true );
 
+		case 'save_chat_image':
+			return csa_gd_save_chat_image( $in, $ctx, $act );
+
 		case 'update_image_alt':
 			$a = (int) ( $in['attachment_id'] ?? 0 );
 			if ( ! wp_attachment_is_image( $a ) ) {
@@ -892,7 +898,7 @@ function csa_run_tool( $name, $in, &$ctx ) {
 /* System prompt                                                       */
 /* ================================================================== */
 
-function csa_agent_prompt( $state, $auto = null ) {
+function csa_agent_prompt( $state, $auto = null, $mem = array() ) {
 	$s = 'You are ' . csa_brand() . ', the website design, content and SEO agent inside the WordPress admin. ' . csa_site_context( $auto )
 		. "\n\n## How you work"
 		. "\n- Reply in the language the user writes in (Bangla or English). Be clear and practical; no filler."
@@ -929,11 +935,11 @@ function csa_agent_prompt( $state, $auto = null ) {
 	}
 	if ( 'approved' === $state ) {
 		$s .= "\n\nCURRENT STATE: the user has APPROVED your latest plan. Build it now.";
-		if ( 'all' !== csa_opt( 'job_mode' ) ) {
+		if ( 'all' !== csa_job_mode( $mem ) ) {
 			$s .= "\nONE JOB AT A TIME (overrides 'work through ALL of them'): do only the first open step of the checklist, finish it completely, and tick it with step_done in the same turn as its last tool call. Then stop. Never start the next step yourself: the system reports the finished step and asks the user whether to continue.";
 		}
 	}
-	return $s;
+	return $s . csa_gd_prompt( $state, $mem );
 }
 
 /* ================================================================== */
@@ -1062,11 +1068,15 @@ function csa_display_items( $messages, $state ) {
 				if ( 'image' === $type && 'csa' === ( $b['source']['type'] ?? '' ) ) {
 					$imgs[] = csa_img_url( $b['source']['file'] );
 				} elseif ( 'text' === $type ) {
-					if ( 0 === strpos( $b['text'], '[[PLAN APPROVED]]' ) ) {
+					if ( false !== strpos( $b['text'], '[[HANDOFF]]' ) ) {
+						$out[] = array( 'r' => 'sys', 't' => '↪ ' . csa_t( 'Continued from the previous chat' ) );
+					} elseif ( 0 === strpos( $b['text'], '[[PLAN APPROVED]]' ) ) {
 						$lbl   = false !== strpos( $b['text'], 'remaining steps done' ) ? csa_t( 'Remaining steps approved' ) : ( false !== strpos( $b['text'], 'Left for LATER' ) ? csa_t( 'Plan approved (some steps left for later)' ) : csa_t( 'Plan approved' ) );
 						$out[] = array( 'r' => 'sys', 't' => '✅ ' . $lbl );
 					} elseif ( 0 === strpos( $b['text'], '[[PLAN CANCELLED]]' ) ) {
 						$out[] = array( 'r' => 'sys', 't' => '✖ ' . csa_t( 'Plan cancelled' ) );
+					} elseif ( 0 === strpos( $b['text'], '[[ANSWERS]]' ) ) {
+						$text .= ( $text ? "\n" : '' ) . '✍️ ' . trim( substr( $b['text'], 11 ) );
 					} elseif ( 0 === strpos( $b['text'], '[[CONTINUE]]' ) ) {
 						$out[] = array( 'r' => 'sys', 't' => '▶ ' . csa_t( 'Continued' ) );
 					} elseif ( 0 === strpos( $b['text'], '[[NEXT]]' ) ) {
@@ -1086,7 +1096,9 @@ function csa_display_items( $messages, $state ) {
 			if ( 'text' === $type && '' !== trim( $b['text'] ) ) {
 				$out[] = array( 'r' => 'bot', 't' => $b['text'] );
 			} elseif ( 'tool_use' === $type ) {
-				if ( 'propose_plan' === $b['name'] ) {
+				if ( 'ask_questions' === $b['name'] ) {
+					$out[] = array( 'r' => 'ask', 'intro' => (string) ( $b['input']['intro'] ?? '' ), 'questions' => csa_gd_clean_questions( (array) $b['input'] ), 'pending' => ( 'asking' === $state && $i >= $last - 1 ) );
+				} elseif ( 'propose_plan' === $b['name'] ) {
 					$pending = ( 'planned' === $state && $i >= $last - 1 );
 					$out[]   = array( 'r' => 'plan', 's' => $b['input']['summary'] ?? '', 'steps' => (array) ( $b['input']['steps'] ?? array() ), 'pending' => $pending );
 				} else {
@@ -1326,7 +1338,8 @@ function csa_ajax_step() {
 	if ( $skip ) {
 		$blocks = array();
 	}
-	$typed_ok = false;
+	$typed_ok   = false;
+	$was_asking = false;
 	if ( 'planned' === $state && $blocks && ! $skip && '' !== $text && count( $blocks ) === 1 && csa_is_approval_text( $text ) && $chat_id && csa_mem_load( $chat_id )['steps'] ) {
 		// Typed "approve" / "ok" / "yes" = the Approve button.
 		$typed_ok = true;
@@ -1334,7 +1347,8 @@ function csa_ajax_step() {
 		$blocks   = array( array( 'type' => 'text', 'text' => CSA_APPROVED ) );
 	}
 	if ( $blocks ) {
-		if ( ! $typed_ok && ( 'planned' === $state || 'approved' === $state ) ) {
+		$was_asking = ( 'asking' === $state );
+		if ( ! $typed_ok && ( 'planned' === $state || 'approved' === $state || 'asking' === $state ) ) {
 			$state = 'analyse'; // New message while a plan waits = the user wants changes.
 		}
 		csa_push_user( $messages, $blocks );
@@ -1354,6 +1368,7 @@ function csa_ajax_step() {
 		// Per-chat spending cap.
 		$cap = (float) csa_opt( 'budget_usd' ) * (int) csa_opt( 'chat_cap_pct' ) / 100;
 		if ( $chat_id && $cap > 0 && csa_chat_cost( $chat_id ) >= $cap ) {
+			csa_gd_handoff_reply( $chat_id, $title, $state, csa_t( 'chat cost limit' ) );
 			csa_step_release(); wp_send_json_error( sprintf( csa_t( 'This chat has used its limit (%d%% of the monthly budget). Start a new chat to continue; a fresh chat is cheaper because it does not carry the old conversation.' ), (int) csa_opt( 'chat_cap_pct' ) ) );
 		}
 		// Step cap: pause and ask before the agent keeps going.
@@ -1364,6 +1379,9 @@ function csa_ajax_step() {
 			$cap      = $building ? max( 5, (int) csa_opt( 'build_steps' ) ) : max( 2, (int) csa_opt( 'max_steps' ) );
 			if ( csa_steps_since_human( $messages ) >= $cap ) {
 				csa_chat_save( $chat_id, $messages, $title, $state, array() );
+				if ( $building ) {
+					csa_gd_handoff_reply( $chat_id, $title, $state, sprintf( csa_t( '%d steps in one chat' ), csa_steps_since_human( $messages ) ) );
+				}
 				$msg = $building ? sprintf( csa_t( 'Safety stop: the build has taken %d steps. Continue?' ), csa_steps_since_human( $messages ) ) : sprintf( csa_t( 'Paused after %d steps to save cost. Continue?' ), csa_steps_since_human( $messages ) );
 				csa_step_release(); wp_send_json_success( array( 'chat_id' => $chat_id, 'title' => $title, 'done' => true, 'paused' => true, 'state' => $state, 'items' => array( array( 'r' => 'pause', 't' => $msg ) ) ) );
 			}
@@ -1372,6 +1390,26 @@ function csa_ajax_step() {
 	$GLOBALS['csa_current_chat'] = $chat_id;
 	$GLOBALS['csa_section']      = sanitize_key( $_POST['section'] ?? '' );
 	$mem = csa_mem_load( $chat_id );
+	$job = json_decode( wp_unslash( $_POST['job'] ?? '' ), true );
+	if ( is_array( $job ) && ! $chat_id && ! $skip ) {
+		csa_gd_start( $mem, $job );   // Guided page job: brief is prepared here, without the AI.
+	}
+	if ( '' !== $text && 0 === strpos( $text, CSA_ANSWERS ) ) {
+		$a = trim( substr( $text, strlen( CSA_ANSWERS ) ) );
+		$mem['answers'] = '' !== $a ? $a : 'skipped';
+	} elseif ( $was_asking && '' !== $text ) {
+		$mem['answers'] = $text;   // The owner wrote a reply instead of using the form.
+	}
+	foreach ( $blocks as $b ) {
+		if ( 'image' === ( $b['type'] ?? '' ) && ! empty( $b['source']['file'] ) ) {
+			$an                   = (int) ( $mem['attach_n'] ?? 0 ) + 1;
+			$mem['attach_n']      = $an;
+			$mem['attach'][ $an ] = $b['source']['file'];
+		}
+	}
+	if ( ! empty( $mem['attach'] ) && count( $mem['attach'] ) > 12 ) {
+		$mem['attach'] = array_slice( $mem['attach'], -12, null, true );
+	}
 	if ( '' !== $text || empty( $mem['snap_set'] ) ) {
 		$mem['snap_set']  = 1;
 		$mem['read_sigs'] = array();
@@ -1391,13 +1429,15 @@ function csa_ajax_step() {
 		? array_merge( csa_tools_read(), csa_tools_anytime(), csa_tools_write(), array( csa_tool_step_done() ) )
 		: array_merge( csa_tools_read(), csa_tools_anytime(), array( csa_tool_plan() ) );
 
-	if ( 'approved' !== $state && 'planned' !== $state && ( csa_steps_since_human( $messages ) >= 4 || (int) ( $mem['dup_run'] ?? 0 ) >= 1 ) ) {
+	if ( ! empty( $mem['guided'] ) && 'analyse' === $state && '' === trim( (string) $mem['answers'] ) ) {
+		$tools = csa_gd_ask_tool();   // Guided job: the first thing the agent may do is ask its questions.
+	} elseif ( 'approved' !== $state && 'planned' !== $state && ( csa_steps_since_human( $messages ) >= 4 || (int) ( $mem['dup_run'] ?? 0 ) >= 1 ) ) {
 		// Too much reading without a plan: only the plan tool is left, so it must propose now.
 		$tools = array( csa_tool_plan() );
 		csa_push_user( $messages, array( array( 'type' => 'text', 'text' => '[[NEXT]] You have read enough. Call propose_plan now with concrete steps for everything you found.' ) ) );
 	}
 	$prepared = csa_prepare( csa_eco() ? csa_window( $messages, max( 1, (int) csa_opt( 'history_turns' ) ) ) : $messages );
-	$system   = csa_agent_prompt( $state, (string) $mem['site_snap'] );
+	$system   = csa_agent_prompt( $state, (string) $mem['site_snap'], $mem );
 	csa_mem_inject( $prepared, $mem );
 	$limit    = max( 8000, (int) csa_opt( 'max_request_tokens' ) );
 	if ( csa_eco() ) {
@@ -1430,6 +1470,9 @@ function csa_ajax_step() {
 		$shrink( $prepared, 2500, true );
 	}
 	if ( csa_estimate_tokens( $prepared, $system, $tools ) > $limit * 2 ) {
+		csa_chat_save( $chat_id, $messages, $title, $state, array() );
+		csa_mem_save( $chat_id, $mem );
+		csa_gd_handoff_reply( $chat_id, $title, $state, csa_t( 'request too large' ) );
 		csa_step_release(); wp_send_json_error( sprintf( csa_t( 'This request is too large (about %1$s tokens; your limit is %2$s). Start a new chat, or ask about one section of the page at a time.' ), number_format_i18n( csa_estimate_tokens( $prepared, $system, $tools ) ), number_format_i18n( $limit ) ) );
 	}
 
@@ -1454,12 +1497,18 @@ function csa_ajax_step() {
 	$ctx        = array( 'state' => $state, 'items' => array(), 'pages' => array(), 'mem' => $mem );
 	$results    = array();
 	$planned    = false;
+	$asked      = false;
 	foreach ( $data['content'] as $b ) {
 		if ( 'text' === $b['type'] && '' !== trim( $b['text'] ) ) {
 			$ctx['items'][] = array( 'r' => 'bot', 't' => $b['text'] );
 		} elseif ( 'tool_use' === $b['type'] ) {
 			$in = is_array( $b['input'] ) ? $b['input'] : array();
-			if ( 'propose_plan' === $b['name'] ) {
+			if ( 'ask_questions' === $b['name'] ) {
+				$asked          = true;
+				$qs             = csa_gd_clean_questions( $in );
+				$ctx['items'][] = array( 'r' => 'ask', 'intro' => sanitize_text_field( $in['intro'] ?? '' ), 'questions' => $qs, 'pending' => true );
+				$out            = array( 'ok' => true, 'note' => 'The questions are shown to the owner as a form. Stop now and wait for the answers.' );
+			} elseif ( 'propose_plan' === $b['name'] ) {
 				$planned        = true;
 				$ctx['items'][] = array( 'r' => 'plan', 's' => $in['summary'] ?? '', 'steps' => array_map( 'csa_clean_step', (array) ( $in['steps'] ?? array() ) ), 'pending' => true );
 				$out            = array( 'ok' => true, 'note' => 'The plan is shown to the user with Approve / Change / Cancel buttons. Stop now and wait.' );
@@ -1540,9 +1589,11 @@ function csa_ajax_step() {
 		$messages[] = array( 'role' => 'user', 'content' => $results );
 		if ( $planned ) {
 			$state = 'planned';
+		} elseif ( $asked ) {
+			$state = 'asking';
 		} else {
 			$done = false;
-			if ( 'all' !== csa_opt( 'job_mode' ) && 'approved' === $state && ! empty( $ctx['stepped'] ) && csa_mem_remaining( $ctx['mem'] ) ) {
+			if ( 'all' !== csa_job_mode( $ctx['mem'] ) && 'approved' === $state && ! empty( $ctx['stepped'] ) && csa_mem_remaining( $ctx['mem'] ) ) {
 				// One job at a time: this step is finished. Report it and ask before the next one.
 				$state = 'analyse';
 				$done  = true;
@@ -1582,7 +1633,7 @@ function csa_ajax_step() {
 				$ctx['items'][] = array( 'r' => 'bot', 't' => csa_t( '(The reply was cut off. Type "continue" and I will go on in smaller pieces.)' ) );
 			}
 		}
-		if ( 'all' === csa_opt( 'job_mode' ) && 'approved' === $state && csa_build_ticked( $messages ) && ! preg_match( '/[?？]\s*$/u', $said ) && csa_auto_next_count( $messages ) < 8 ) {
+		if ( 'all' === csa_job_mode( $ctx['mem'] ) && 'approved' === $state && csa_build_ticked( $messages ) && ! preg_match( '/[?？]\s*$/u', $said ) && csa_auto_next_count( $messages ) < ( ! empty( $ctx['mem']['guided'] ) ? 40 : 8 ) ) {
 			// The model stopped but approved steps are still open: hand it the next one (one job at a time) instead of ending early.
 			$todo = array();
 			foreach ( (array) $ctx['mem']['steps'] as $i => $st ) {
