@@ -1210,6 +1210,24 @@ function csa_is_human_turn( $m ) {
 }
 
 /** Agent steps taken since the person last spoke (or approved / pressed Continue). */
+/** Number of tool calls the agent made since the last human message (parallel calls count one each). */
+function csa_calls_since_human( $messages ) {
+	$n = 0;
+	for ( $i = count( $messages ) - 1; $i >= 0; $i-- ) {
+		if ( csa_is_human_turn( $messages[ $i ] ) ) {
+			break;
+		}
+		if ( 'assistant' === $messages[ $i ]['role'] ) {
+			foreach ( (array) $messages[ $i ]['content'] as $b ) {
+				if ( 'tool_use' === ( $b['type'] ?? '' ) ) {
+					$n++;
+				}
+			}
+		}
+	}
+	return $n;
+}
+
 function csa_steps_since_human( $messages ) {
 	$n = 0;
 	for ( $i = count( $messages ) - 1; $i >= 0; $i-- ) {
@@ -1499,7 +1517,7 @@ function csa_ajax_step() {
 
 	if ( ! empty( $mem['guided'] ) && 'analyse' === $state && '' === trim( (string) $mem['answers'] ) ) {
 		$tools = csa_gd_ask_tool();   // Guided job: the first thing the agent may do is ask its questions.
-	} elseif ( 'approved' !== $state && 'planned' !== $state && ( csa_steps_since_human( $messages ) >= 4 || (int) ( $mem['dup_run'] ?? 0 ) >= 1 ) ) {
+	} elseif ( 'approved' !== $state && 'planned' !== $state && ( csa_steps_since_human( $messages ) >= 4 || csa_calls_since_human( $messages ) >= ( ! empty( $mem['guided'] ) ? 5 : 10 ) || (int) ( $mem['dup_run'] ?? 0 ) >= 1 ) ) {
 		// Too much reading without a plan: only the plan tool is left, so it must propose now.
 		$tools = array( csa_tool_plan() );
 		csa_push_user( $messages, array( array( 'type' => 'text', 'text' => '[[NEXT]] You have read enough. Call propose_plan now with concrete steps for everything you found.' ) ) );
