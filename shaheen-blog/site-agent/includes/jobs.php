@@ -83,9 +83,11 @@ function csa_jobs_build( $id ) {
 		if ( preg_match( '/^(Title 30|Meta description 1|Keyword in title|Keyword in meta)/', $c ) ) {
 			$meta += $gap;
 			$why[] = $c;
-		} elseif ( preg_match( '/^(At least 300|At least 2 H2|At least 3 internal)/', $c ) ) {
+		} elseif ( preg_match( '/^(At least 300|At least 3 internal)/', $c ) ) {
 			$cont += $gap;
 			$cwhy[] = $c;
+		} elseif ( 0 === strpos( $c, 'At least 2 H2' ) ) {
+			$add( 'h2', 'text', 'Turn existing section labels into H2 headings', 'No AI: the heading widgets that are H3-H6 (never the H1) become H2, so the page has at least 2 sub-headings. Only the heading level changes, not the look or the text.', $gap );
 		} elseif ( 0 === strpos( $c, 'Schema' ) ) {
 			$add( 'schema', 'seo', 'Add schema (JSON-LD)', 'The AI writes it from the page text and the site memory.', $gap );
 		} elseif ( 0 === strpos( $c, 'Every image has alt' ) ) {
@@ -140,7 +142,7 @@ function csa_jobs_build( $id ) {
 			$jobs[] = $o;
 		}
 	}
-	$rank = array( 'keyword' => 1, 'seo_meta' => 2, 'h1_kw' => 3, 'intro_kw' => 4, 'content' => 5, 'alt' => 6, 'schema' => 7, 'owner' => 8, 'design' => 9 );
+	$rank = array( 'keyword' => 1, 'seo_meta' => 2, 'h1_kw' => 3, 'intro_kw' => 4, 'h2' => 5, 'content' => 6, 'alt' => 7, 'schema' => 8, 'owner' => 9, 'design' => 10 );
 	foreach ( $jobs as $i => &$j0 ) {
 		$j0['_o'] = $i;
 	}
@@ -410,6 +412,55 @@ function csa_jobs_do( $id, $j ) {
 			}
 			csa_log( csa_t( 'Added text to' ) . ' #' . $id . ': ' . $ttl, $u );
 			return array( 'done', 'Added about ' . $wc . ' words in ' . count( (array) $r['sections'] ) . ' section(s) and ' . count( $ln ) . ' internal link(s) at the end of the page text.', 'Added ~' . $wc . ' words, ' . count( $ln ) . ' internal links', array() );
+
+		case 'h2':
+			$f    = csa_seo_collect( $id );
+			$need = max( 1, 2 - count( (array) ( $f['h2'] ?? array() ) ) );
+			if ( ! csa_is_elementor( $id ) ) {
+				$p   = get_post( $id );
+				$cnt = 0;
+				$new = preg_replace_callback( '#<h([3-6])(\b[^>]*)>(.*?)</h\1>#is', function ( $m ) use ( &$cnt, $need ) {
+					if ( $cnt >= $need ) {
+						return $m[0];
+					}
+					$cnt++;
+					return '<h2' . $m[2] . '>' . $m[3] . '</h2>';
+				}, $p->post_content );
+				if ( ! $cnt ) {
+					return array( 'fail', 'No H3-H6 heading found to promote. Use the Add useful text job instead.', '', array() );
+				}
+				$u = csa_snapshot_post( $id );
+				wp_update_post( array( 'ID' => $id, 'post_content' => $new ) );
+				csa_clear_cache( $id );
+				csa_log( csa_t( 'Heading level changed to H2 on' ) . ' #' . $id . ': ' . $ttl, $u );
+				return array( 'done', $cnt . ' heading(s) changed to H2.', $cnt . ' heading(s) now H2', array() );
+			}
+			list( $raw, $data ) = csa_el_load( $id );
+			$done = array();
+			$walk = function ( array &$els ) use ( &$walk, &$done, $need ) {
+				foreach ( $els as &$el ) {
+					if ( count( $done ) < $need && 'widget' === ( $el['elType'] ?? '' ) && 'heading' === ( $el['widgetType'] ?? '' ) ) {
+						$sz = strtolower( (string) ( $el['settings']['header_size'] ?? 'h2' ) );
+						$tx = trim( wp_strip_all_tags( (string) ( $el['settings']['title'] ?? '' ) ) );
+						if ( in_array( $sz, array( 'h3', 'h4', 'h5', 'h6' ), true ) && '' !== $tx ) {
+							$el['settings']['header_size'] = 'h2';
+							$done[] = $tx;
+						}
+					}
+					if ( ! empty( $el['elements'] ) && is_array( $el['elements'] ) ) {
+						$walk( $el['elements'] );
+					}
+				}
+				unset( $el );
+			};
+			$walk( $data );
+			if ( ! $done ) {
+				return array( 'fail', 'No heading widget of level H3-H6 found. Add a heading widget in Elementor or use the Add useful text job.', '', array() );
+			}
+			$bid = csa_el_save( $id, $raw, $data );
+			csa_clear_cache( $id );
+			csa_log( csa_t( 'Heading level changed to H2 on' ) . ' #' . $id . ': ' . $ttl, array( 'type' => 'elementor', 'post' => (int) $id, 'backup' => $bid ) );
+			return array( 'done', 'Now H2: ' . implode( ' | ', array_map( function ( $t ) { return mb_substr( $t, 0, 40 ); }, $done ) ), count( $done ) . ' heading(s) now H2: ' . mb_substr( $done[0], 0, 30 ), array() );
 
 		case 'schema':
 			$sys = 'You write schema.org JSON-LD for a school website. ' . csa_site_context() . "\n\nReturn ONLY one valid JSON object with @context and @type (EducationalOrganization, Course or FAQPage, whichever fits this page; FAQPage only if the page text really has questions and answers). Use only facts from the page text and site memory; leave out anything unknown.";

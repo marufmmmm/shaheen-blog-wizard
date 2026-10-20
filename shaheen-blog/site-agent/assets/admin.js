@@ -1245,9 +1245,9 @@
 	if (jbApp) (function () {
 		var qIn = $('#csa-jb-q'), sel = $('#csa-jb-page'), head = $('#csa-jb-head'), listEl = $('#csa-jb-list'), runBox = $('#csa-jb-run'), prog = $('#csa-jb-prog');
 		var jobs = [], pid = 0, running = false;
-		var ICON = { keyword: '🔑', seo_meta: '🔎', h1_kw: '✏️', intro_kw: '✏️', content: '📝', schema: '🧩', alt: '🖼', owner: '👤', design: '🎨' };
-		var HOW = { keyword: T('1 small AI call, then you approve'), seo_meta: T('1 small AI call'), h1_kw: T('1 small AI call'), intro_kw: T('1 small AI call'), content: T('1 AI call'), schema: T('1 small AI call'), alt: T('1 AI call per image'), owner: T('You do this'), design: T('For the design agent') };
-		var runnable = function (j) { return ['keyword', 'seo_meta', 'h1_kw', 'intro_kw', 'content', 'schema', 'alt'].indexOf(j.kind) >= 0 && j.status !== 'done' && j.status !== 'skip'; };
+		var ICON = { keyword: '🔑', seo_meta: '🔎', h1_kw: '✏️', intro_kw: '✏️', h2: '🔠', content: '📝', schema: '🧩', alt: '🖼', owner: '👤', design: '🎨' };
+		var HOW = { keyword: T('1 small AI call, then you approve'), seo_meta: T('1 small AI call'), h1_kw: T('1 small AI call'), intro_kw: T('1 small AI call'), h2: T('Free, no AI'), content: T('1 AI call'), schema: T('1 small AI call'), alt: T('1 AI call per image'), owner: T('You do this'), design: T('For the design agent') };
+		var runnable = function (j) { return ['keyword', 'seo_meta', 'h1_kw', 'intro_kw', 'h2', 'content', 'schema', 'alt'].indexOf(j.kind) >= 0 && j.status !== 'done' && j.status !== 'skip'; };
 
 		async function loadPages() {
 			var r = await post('csa_job_pages', { q: qIn.value.trim(), pid: params.get('page_id') || '' });
