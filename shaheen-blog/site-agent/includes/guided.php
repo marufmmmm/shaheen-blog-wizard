@@ -173,6 +173,13 @@ function csa_ajax_job_pages() {
 			'order'          => 'DESC',
 		)
 	);
+	$pre = (int) ( $_POST['pid'] ?? 0 );
+	if ( $pre ) {
+		$one = csa_valid_post( $pre );
+		if ( $one ) {
+			$ids = array_merge( array( $one ), array_filter( $ids, function ( $x ) use ( $pre ) { return $x->ID !== $pre; } ) );
+		}
+	}
 	$out = array();
 	foreach ( $ids as $p ) {
 		$out[] = array( 'id' => $p->ID, 'title' => $p->post_title ? $p->post_title : '(no title)', 'type' => $p->post_type, 'status' => $p->post_status );

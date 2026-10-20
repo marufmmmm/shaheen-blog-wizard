@@ -438,9 +438,11 @@
 				+ '<div class="csa-plan-btns"><button type="button" class="button button-primary" data-a="go" disabled>🚀 ' + esc(T('Start job')) + '</button> <button type="button" class="button" data-a="x">' + esc(T('Cancel')) + '</button></div>';
 			var q = $('.csa-jf-q', d), list = $('.csa-jf-list', d), go = $('[data-a=go]', d), t;
 			async function load() {
-				var r = await post('csa_job_pages', { q: q.value.trim() });
+				var r = await post('csa_job_pages', { q: q.value.trim(), pid: window.csaPreJob || '' });
 				if (r.error) { list.innerHTML = '<option disabled>' + esc(r.error) + '</option>'; return; }
+				var pre = window.csaPreJob; window.csaPreJob = 0;
 				list.innerHTML = r.data.map(function (p) { return '<option value="' + p.id + '">' + esc(p.title) + ' — ' + esc(p.type) + (p.status !== 'publish' ? ' (' + esc(p.status) + ')' : '') + ' #' + p.id + '</option>'; }).join('');
+				if (pre && list.options.length) { list.selectedIndex = 0; go.disabled = false; }
 			}
 			q.oninput = function () { clearTimeout(t); t = setTimeout(load, 300); };
 			list.onchange = function () { go.disabled = !list.value; };
@@ -473,6 +475,7 @@
 		}
 		var jobChip = $('#csa-job-chip');
 		if (jobChip) jobChip.onclick = showJobForm;
+		if (params.get('job')) { window.csaPreJob = parseInt(params.get('job'), 10) || 0; setTimeout(showJobForm, 300); }
 
 		function renderSlots(d, item) {
 			var st = { pending: T('Waiting for photo'), skipped: T('Skipped – image upload required'), uploaded: T('Uploaded'), inserted: T('Placed on page') };

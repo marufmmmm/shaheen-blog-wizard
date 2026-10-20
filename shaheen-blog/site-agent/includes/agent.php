@@ -866,7 +866,20 @@ function csa_run_tool( $name, $in, &$ctx ) {
 				return array( 'error' => $r->get_error_message() );
 			}
 			$ctx['items'][] = array( 'r' => 'act', 't' => csa_t( 'Updated SEO fields of' ) . ' #' . $p->ID, 'l' => '' );
-			return array( 'ok' => true );
+			$now  = csa_si_seo( $p->ID );   // read back what is really saved
+			$warn = array();
+			if ( isset( $f['title'] ) && mb_strlen( $now['st'] ) > 60 ) {
+				$warn[] = 'title is ' . mb_strlen( $now['st'] ) . ' chars (aim for 60 or less)';
+			}
+			if ( isset( $f['description'] ) && ( mb_strlen( $now['sd'] ) > 160 || mb_strlen( $now['sd'] ) < 70 ) ) {
+				$warn[] = 'description is ' . mb_strlen( $now['sd'] ) . ' chars (aim for 120-155)';
+			}
+			foreach ( array( 'title' => 'st', 'description' => 'sd', 'keyword' => 'sk' ) as $fk => $nk ) {
+				if ( isset( $f[ $fk ] ) && '' !== trim( (string) $f[ $fk ] ) && '' === $now[ $nk ] ) {
+					$warn[] = $fk . ' was NOT saved (no SEO plugin field to write to)';
+				}
+			}
+			return array( 'ok' => true, 'saved' => $now, 'warnings' => $warn );
 
 		case 'set_featured_image':
 			$p = csa_valid_post( $in['id'] ?? 0 );
@@ -1391,6 +1404,21 @@ function csa_ajax_step() {
 	$GLOBALS['csa_current_chat'] = $chat_id;
 	$GLOBALS['csa_section']      = sanitize_key( $_POST['section'] ?? '' );
 	$mem = csa_mem_load( $chat_id );
+	if ( '' !== $text && ! $typed_ok && ! $was_asking && 0 !== strpos( $text, '[[' ) && empty( $mem['guided'] ) && ! empty( $mem['steps'] ) && mb_strlen( $text ) > 12
+		&& ! preg_match( '/\b(continue|next|step|resume|proceed|go on|baki|porer|agey|abar)\b|পরের|চালিয়ে|বাকি/iu', $text ) ) {
+		// A fresh request: keep the old plan as a one-line record, so it cannot steer this request.
+		$open = 0;
+		foreach ( $mem['steps'] as $st ) {
+			if ( 'todo' === ( $st['s'] ?? '' ) ) {
+				$open++;
+			}
+		}
+		if ( $open ) {
+			$mem['old_open'] = $open . ' step(s) of an earlier plan "' . mb_substr( (string) $mem['plan'], 0, 80 ) . '" were left unfinished';
+		}
+		$mem['steps'] = array();
+		$mem['plan']  = '';
+	}
 	$job = json_decode( wp_unslash( $_POST['job'] ?? '' ), true );
 	if ( is_array( $job ) && ! $chat_id && ! $skip ) {
 		csa_gd_start( $mem, $job );   // Guided page job: brief is prepared here, without the AI.

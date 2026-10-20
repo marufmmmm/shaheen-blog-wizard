@@ -420,6 +420,11 @@ function csa_agent_link( $prompt, $label = null, $cls = 'button button-small' ) 
 	return '<a class="' . esc_attr( $cls ) . '" href="' . esc_url( add_query_arg( 'prompt', rawurlencode( $prompt ), admin_url( 'admin.php?page=csa-chat' ) ) ) . '">' . esc_html( $label ? $label : csa_t( 'Fix with agent' ) ) . '</a>';
 }
 
+/** Opens the chat with the Page job form for one page already chosen. */
+function csa_job_link( $id, $label = null ) {
+	return '<a class="button button-small button-primary" href="' . esc_url( add_query_arg( 'job', (int) $id, admin_url( 'admin.php?page=csa-chat' ) ) ) . '">🎯 ' . esc_html( $label ? $label : csa_t( 'Page job' ) ) . '</a>';
+}
+
 /* ================================================================== */
 /* Chat                                                                */
 /* ================================================================== */
@@ -715,7 +720,7 @@ function csa_seo_tab_dashboard() {
 			<h2><?php echo esc_html( csa_t( 'Pages that need attention' ) ); ?></h2>
 			<table class="widefat striped"><tbody>
 			<?php foreach ( $o['worst'] as $w ) : ?>
-				<tr><td><?php echo esc_html( $w['title'] ); ?></td><td style="width:60px"><?php echo csa_score_badge( $w['score'] ); ?></td><td style="width:110px"><?php echo csa_agent_link( sprintf( csa_t( 'Check the SEO of page ID %1$d (%2$s) and fix the high-priority issues.' ), $w['id'], $w['title'] ) ); ?></td></tr>
+				<tr><td><?php echo esc_html( $w['title'] ); ?></td><td style="width:60px"><?php echo csa_score_badge( $w['score'] ); ?></td><td style="width:200px"><?php echo csa_job_link( $w['id'] ) . ' ' . csa_agent_link( sprintf( csa_t( 'Check the SEO of page ID %1$d (%2$s) and fix the high-priority issues.' ), $w['id'], $w['title'] ) ); ?></td></tr>
 			<?php endforeach; ?>
 			</tbody></table>
 		</div>

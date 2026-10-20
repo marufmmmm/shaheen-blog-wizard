@@ -161,6 +161,9 @@ function csa_mem_text( $mem ) {
 		}
 		$l[] = 'Pages: ' . implode( '; ', $pp );
 	}
+	if ( ! empty( $mem['old_open'] ) ) {
+		$l[] = 'Note (not a request): ' . $mem['old_open'] . '. Mention it in one short line at the very end only.';
+	}
 	if ( $mem['plan'] ) {
 		$l[] = 'Earlier plan (record only, not a request): ' . $mem['plan'];
 	}
