@@ -86,7 +86,7 @@ function csa_tools_read() {
 
 /** Allowed in any state: low-risk, no page content changes. */
 function csa_tools_anytime() {
-	return array_merge( csa_am_tools(), csa_si_tool(), csa_score_tool(), csa_jobs_tool(), csa_dsg_read_tool(), csa_gd_ask_tool(), csa_tools_anytime_base() );
+	return array_merge( csa_am_tools(), csa_si_tool(), csa_score_tool(), csa_jobs_tool(), csa_dsg_read_tool(), csa_gd_ask_tool(), array( csa_gd_write_tool() ), csa_tools_anytime_base() );
 }
 
 function csa_tools_anytime_base() {
@@ -220,7 +220,6 @@ function csa_tools_write_base() {
 			),
 		),
 		csa_dsg_write_tool(),
-		csa_gd_write_tool(),
 		array( 'name' => 'restore_elementor_backup', 'description' => 'Undo the latest Elementor HTML edit on a page.', 'input_schema' => csa_schema( array( 'id' => array( 'type' => 'integer' ) ), array( 'id' ) ) ),
 		array(
 			'name'         => 'update_seo_meta',
@@ -694,7 +693,13 @@ function csa_run_tool( $name, $in, &$ctx ) {
 			if ( '' === $note ) {
 				return array( 'error' => 'Empty note.' );
 			}
+			if ( ! empty( $ctx['mem']['guided'] ) ) {
+				return array( 'error' => 'Do not use save_note in a page job: it writes to the site-wide memory for ever. Use chat_note for facts of this job. Continue with the job (save_chat_image for photos, then propose_plan).' );
+			}
 			$m     = csa_memory();
+			if ( false !== mb_strpos( (string) $m['notes'], $note ) ) {
+				return array( 'ok' => true, 'note' => 'Already in Site Memory.' );
+			}
 			$old   = $m;
 			$m['notes'] = trim( $m['notes'] . "\n- " . $note );
 			if ( mb_strlen( $m['notes'] ) > 8000 ) {
