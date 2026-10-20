@@ -333,7 +333,7 @@
 				var args = { section: section, chat_id: chatId, message: pending || '', images: JSON.stringify(imgs), rid: pending || imgs.length ? rid : '', model: modelKey, cont: cont && step === 1 ? 1 : '' };
 				var res = await timedStep(args, wait), tries = 0;
 				// Timeouts, busy server and network blips are retried automatically (the server never repeats a finished step).
-				while (res.error && !res.stopped && tries < 3 && /HTTP (500|502|503|504|524)|Network error|Still working/i.test(res.error)) {
+				while (res.error && !res.stopped && tries < 3 && /HTTP (500|502|503|504|524)|Network error|Still working|did not answer in time/i.test(res.error)) {
 					tries++;
 					wait.remove();
 					wait = add({ r: 'wait', t: T('Server is slow, trying again…') + ' (' + tries + '/3)' });

@@ -172,6 +172,14 @@ function csa_model_ratio( $m ) {
 function csa_claude( $messages, $system, $args = array() ) {
 	$task = $args['task'] ?? 'chat';
 	$key  = ! empty( $args['model_key'] ) && csa_model( $args['model_key'] ) ? $args['model_key'] : csa_task_model_key( $task );
+	// A model that just timed out is skipped for a while: use a faster one that has a key.
+	if ( get_transient( 'csa_slow_' . $key ) ) {
+		$fb = csa_fallback_key( $key );
+		if ( $fb ) {
+			$key                     = $fb;
+			$GLOBALS['csa_alerts'][] = sprintf( csa_t( 'The chosen model was too slow, so %s is used for now.' ), csa_model( $fb )['label'] );
+		}
+	}
 	$m    = csa_model( $key );
 	if ( ! empty( $args['needs_vision'] ) && ! $m['vision'] ) {
 		$m = csa_model( csa_task_model_key( 'vision' ) ); // Images need a model that can see them.
@@ -242,7 +250,17 @@ function csa_claude( $messages, $system, $args = array() ) {
 	csa_keepalive_start();
 	$resp = csa_http( 'POST', $prov['url'], array( 'timeout' => 110, 'headers' => $headers, 'body' => wp_json_encode( $body, CSA_JSON ) ) );
 	if ( is_wp_error( $resp ) ) {
-		return new WP_Error( 'net', csa_t( 'Could not reach the AI service:' ) . ' ' . $resp->get_error_message() );
+		$why = $resp->get_error_message();
+		if ( preg_match( '/timed out|timeout|cURL error 28/i', $why ) ) {
+			$fb = csa_fallback_key( $m['key'] );
+			if ( $fb ) {
+				set_transient( 'csa_slow_' . $m['key'], 1, 30 * MINUTE_IN_SECONDS );
+				$why .= ' — ' . sprintf( csa_t( '%1$s did not answer in time. The next try uses %2$s.' ), $m['label'], csa_model( $fb )['label'] );
+			} else {
+				$why .= ' — ' . sprintf( csa_t( '%s did not answer in time. Try again, or choose a faster model in the chat model list.' ), $m['label'] );
+			}
+		}
+		return new WP_Error( 'net', csa_t( 'Could not reach the AI service:' ) . ' ' . $why );
 	}
 	$code = (int) $resp['code'];
 	$raw  = json_decode( $resp['body'], true );
@@ -262,6 +280,18 @@ function csa_claude( $messages, $system, $args = array() ) {
 	csa_record_usage( $m, (array) ( $data['usage'] ?? array() ), $args['feature'] ?? '' );
 	$data['_model'] = $m['key'];
 	return $data;
+}
+
+/** A faster model from another provider (or a cheaper Claude) that has an API key; '' if none. */
+function csa_fallback_key( $not ) {
+	$cur = csa_model( $not );
+	foreach ( array( 'haiku55', 'haiku', 'sonnet55', 'sonnet' ) as $k ) {
+		$m = csa_model( $k );
+		if ( $m && $k !== $not && '' !== csa_provider_key( $m['provider'] ) && ( ! $cur || $m['provider'] !== $cur['provider'] || $m['tier'] === 'save' ) ) {
+			return $k;
+		}
+	}
+	return '';
 }
 
 /** Adapt stored history to the chosen model: images, thinking blocks, tool ids. */
