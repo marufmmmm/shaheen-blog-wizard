@@ -85,6 +85,11 @@ function csa_tools_read() {
 }
 
 /** Allowed in any state: low-risk, no page content changes. */
+/** Tools whose repeated identical call is blocked (the result is already in the conversation). */
+function csa_is_dedupe_tool( $name ) {
+	return 'seo_score' === $name || 'design_audit' === $name || 'check_consistency' === $name || in_array( $name, wp_list_pluck( csa_tools_read(), 'name' ), true );
+}
+
 function csa_tools_anytime() {
 	return array_merge( csa_am_tools(), csa_si_tool(), csa_score_tool(), csa_jobs_tool(), csa_th_tool(), csa_dsg_read_tool(), csa_gd_ask_tool(), array( csa_gd_write_tool() ), csa_tools_anytime_base() );
 }
@@ -158,6 +163,11 @@ function csa_tools_write() {
 
 function csa_tools_write_base() {
 	return array(
+		array(
+			'name'         => 'set_page_title',
+			'description'  => 'Change the TITLE of a page or post (post_title). Most themes show the post title as the visible H1 at the top of the page, so use this to change that heading (replace_text cannot, because the title is not in the page content). The URL (slug) is NOT changed. Undoable.',
+			'input_schema' => csa_schema( array( 'id' => array( 'type' => 'integer' ), 'title' => array( 'type' => 'string' ) ), array( 'id', 'title' ) ),
+		),
 		array(
 			'name'         => 'create_page',
 			'description'  => 'Create a new draft page or post.',
@@ -259,6 +269,7 @@ function csa_tool_label( $name, $in ) {
 		'get_page'                 => csa_t( 'Read page' ) . $id,
 		'get_elementor_html'       => csa_t( 'Read page design' ) . $id,
 		'get_seo_data'             => csa_t( 'Checked SEO of page' ) . $id,
+		'set_page_title'           => '🏷 ' . csa_t( 'Changing page title' ) . ' #' . $id,
 		'add_related_links'        => '🔗 ' . csa_t( 'Adding related links' ) . ' #' . $id,
 		'convert_to_html'          => '🧱 ' . csa_t( 'Converting to clean HTML' ) . ' #' . $id,
 		'replace_text'             => '✏️ ' . csa_t( 'Changed text of page' ) . $id,
@@ -784,6 +795,28 @@ function csa_run_tool( $name, $in, &$ctx ) {
 			$act( csa_t( 'Updated' ) . ' #' . $p->ID . ': ' . get_the_title( $p->ID ), $undo, get_permalink( $p->ID ) );
 			return array( 'ok' => true, 'link' => get_permalink( $p->ID ), 'preview' => get_preview_post_link( $p->ID ) );
 
+		case 'set_page_title':
+			$p = csa_valid_post( $in['id'] ?? 0 );
+			if ( ! $p ) {
+				return array( 'error' => 'Page not found.' );
+			}
+			$g = csa_live_guard( $p );
+			if ( $g ) {
+				return $g;
+			}
+			$t = trim( sanitize_text_field( $in['title'] ?? '' ) );
+			if ( '' === $t || mb_strlen( $t ) > 120 ) {
+				return array( 'error' => 'Give a title of 1-120 characters.' );
+			}
+			$undo = csa_snapshot_post( $p->ID );
+			$r    = wp_update_post( array( 'ID' => $p->ID, 'post_title' => $t, 'post_name' => $p->post_name ), true );
+			if ( is_wp_error( $r ) ) {
+				return array( 'error' => $r->get_error_message() );
+			}
+			csa_clear_cache( $p->ID );
+			$act( csa_t( 'Changed title of' ) . ' #' . $p->ID . ': ' . $p->post_title . ' → ' . $t, $undo, get_permalink( $p ) );
+			return array( 'ok' => true, 'title' => $t, 'note' => 'Slug unchanged. The theme shows this as the H1.' );
+
 		case 'add_related_links':
 			$r = csa_th_links( $in );
 			if ( ! empty( $r['ok'] ) ) {
@@ -986,7 +1019,7 @@ function csa_agent_prompt( $state, $auto = null, $mem = array() ) {
 		. "\n- If an edit fails, don't retry the same old_text. For CSS changes append a new <style> block (empty old_text). If it fails twice, stop and explain."
 		. "\n- Structured data (JSON-LD): NEVER paste <script type=\"application/ld+json\"> into page HTML or an Elementor widget. Use set_page_schema (printed in the <head>, page untouched). Use real facts only: search_site / the site map for phone numbers, addresses and the URLs of branch (campus) pages; reference each branch page by its URL."
 		. "\n- If [CHAT MEMORY] contains a saved job checklist for a page, it is the owner's master plan: remember it, work through the OPEN jobs strictly in the listed order (earlier jobs prepare later ones), say which job number you are on, tick it with mark_job when done, and when the owner asks for several jobs do them all in one run."
-		. "\n- To change wording use replace_text with the VISIBLE sentence (no HTML): it works in every widget type. edit_elementor_html only handles HTML widgets; use it for markup and CSS, never for plain sentences. If a text edit on an Elementor page fails ONCE (Widget not found / no match), do not search or retry: call convert_to_html for that page (the owner pre-approved this for text, SEO and keyword jobs; it keeps all content, removes the Elementor layout and is undoable), then do the edit with replace_text on the plain HTML. Never convert for design or layout jobs. For internal links call add_related_links (real clickable links, no HTML needed); replace_text cannot make links. When the owner asks to make a page HTML or to remove the Elementor blocks, include convert_to_html in the plan as the first step."
+		. "\n- To change wording use replace_text with the VISIBLE sentence (no HTML): it works in every widget type. edit_elementor_html only handles HTML widgets; use it for markup and CSS, never for plain sentences. If a text edit on an Elementor page fails ONCE (Widget not found / no match), do not search or retry: call convert_to_html for that page (the owner pre-approved this for text, SEO and keyword jobs; it keeps all content, removes the Elementor layout and is undoable), then do the edit with replace_text on the plain HTML. Never convert for design or layout jobs. The visible H1 of most pages is the page TITLE: change it with set_page_title, not replace_text. For too much empty space at the sides of a plain-HTML page, do not run design_audit again and again (it checks Elementor settings): propose a plan with ONE set_page_css block scoped to the page, for example `.page-id-ID .entry-content, .page-id-ID .site-main, .page-id-ID article {max-width:100%; padding-left:16px; padding-right:16px}` and on desktop `@media(min-width:1025px){ ... max-width:1100px; margin-inline:auto }`, then ask the owner to check the page. For internal links call add_related_links (real clickable links, no HTML needed); replace_text cannot make links. When the owner asks to make a page HTML or to remove the Elementor blocks, include convert_to_html in the plan as the first step."
 		. "\n- After the owner approved a plan, never ask 'shall I do it?' or 'do you want me to continue?': just do the steps. Ask only when a fact is truly missing (one short question). Do not call the same read tool (seo_score, get_seo_data, get_page) twice without a change in between."
 		. "\n- ALWAYS do what the user's LATEST message asks, and nothing else first. The plan checklist, earlier plans and [CHAT MEMORY] are only a record: never resume or re-offer an older plan (for example an SEO step) when the latest message is about something else. If the latest message is a design check, your very next call is design_audit, not SEO tools. Ask about old unfinished steps only in one short line at the very end."
 		. "\n- Design, mobile, fonts, padding, spacing: when asked for suggestions or fixes, run design_audit on the page first (free), tell the user the findings by priority in plain words, then plan ONE fix per step. Apply fixes with set_page_css (works on normal Elementor widgets too; use the .elementor-element-<id> selectors from the audit; phone = max-width:767px, tablet = 1024px). Use edit_elementor_html only for the markup inside HTML widgets. Keep every rule scoped to the page; site-wide CSS only if the user asked for a site-wide change. After a fix suggest the Preview button (phone). You can do all of this: say so instead of refusing."
@@ -1646,13 +1679,13 @@ function csa_ajax_step() {
 				if ( in_array( $sig, (array) ( $ctx['mem']['fail_sigs'] ?? array() ), true ) ) {
 					// Same call already failed: don't run it again.
 					$out = array( 'error' => 'You already tried exactly this and it failed. Do not repeat it. Use a different approach (for CSS: empty old_text to append a <style> block), or stop and explain the problem to the user.' );
-				} elseif ( ( 'seo_score' === $b['name'] || in_array( $b['name'], wp_list_pluck( csa_tools_read(), 'name' ), true ) ) && in_array( $sig, (array) ( $ctx['mem']['read_sigs'] ?? array() ), true ) ) {
+				} elseif ( csa_is_dedupe_tool( $b['name'] ) && in_array( $sig, (array) ( $ctx['mem']['read_sigs'] ?? array() ), true ) ) {
 					$ctx['mem']['dup_run'] = (int) ( $ctx['mem']['dup_run'] ?? 0 ) + 1;
 					$out = array( 'note' => 'You already read exactly this in this task; the result is earlier in the conversation and in your chat notes. Do NOT read it again. Call propose_plan now (or read something different).' );
 				} else {
 					$out = csa_run_tool( $b['name'], $in, $ctx );
 					$ctx['mem']['dup_run'] = 0;
-					if ( ( 'seo_score' === $b['name'] || in_array( $b['name'], wp_list_pluck( csa_tools_read(), 'name' ), true ) ) && ! isset( $out['error'] ) ) {
+					if ( csa_is_dedupe_tool( $b['name'] ) && ! isset( $out['error'] ) ) {
 						$ctx['mem']['read_sigs'][] = $sig;
 					}
 				}

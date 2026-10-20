@@ -345,7 +345,11 @@ function csa_jobs_do( $id, $j ) {
 			if ( '' === $new || false === mb_stripos( $new, $kw ) ) {
 				return array( 'fail', is_wp_error( $r ) ? $r->get_error_message() : 'The AI heading did not contain the keyword. Press Run again.', '', array() );
 			}
-			$res = csa_run_tool( 'replace_text', array( 'id' => $id, 'old_text' => $h1, 'new_text' => $new ), $ctx );
+			if ( mb_strtolower( trim( wp_strip_all_tags( $h1 ) ) ) === mb_strtolower( trim( wp_strip_all_tags( get_the_title( $id ) ) ) ) ) {
+				$res = csa_run_tool( 'set_page_title', array( 'id' => $id, 'title' => $new ), $ctx ); // The H1 is the page title: it is not in the page content.
+			} else {
+				$res = csa_run_tool( 'replace_text', array( 'id' => $id, 'old_text' => $h1, 'new_text' => $new ), $ctx );
+			}
 			if ( isset( $res['error'] ) ) {
 				return array( 'fail', $res['error'], '', array() );
 			}
