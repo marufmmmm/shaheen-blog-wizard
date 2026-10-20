@@ -20,6 +20,34 @@ const CSA_THRESHOLDS = array( 15, 40, 70, 90 ); // Only 4 reminders a month; at 
 /* Settings                                                            */
 /* ------------------------------------------------------------------ */
 
+/** Built-in design standard that the AI follows for layout, gap, font and mobile work. Editable in Settings. */
+function csa_design_std_default() {
+	return <<<'STD'
+DESIGN STANDARD (applies to every page; follow it whenever you design, fix or review layout, gaps, fonts or mobile view)
+
+Spacing scale: use only 8, 16, 24, 32, 40, 48, 64, 80 px. Never odd values like 53px.
+
+MOBILE (max-width: 767px)
+- Side padding of every section and container: 16px (max 20px).
+- Section top/bottom padding: 32-40px. Hero: 40-48px. Small strips: 24-32px.
+- Gap between two sections comes ONLY from section padding, no extra margins. The visible space between the content of two neighbouring sections is at most 72px (for example 36 + 36). With different background colours 40 + 40 is allowed.
+- Heading to paragraph 12px. Paragraph to paragraph 12-16px. Paragraph to button 20-24px.
+- Cards/boxes: 16px gap, one per row (small icon cards may be two per row).
+- Body text 16px (never below 15px), line-height 1.7 for Bangla and 1.6 for English.
+- H1 28-32px (never above 34px). H2 22-26px. H3 18-20px.
+- Buttons: font 16px, height 44-48px, full width. Every tap target at least 44px.
+- Images: width 100%, height auto, hero image at most 280px high. No fixed width above 400px. No horizontal scrolling.
+
+TABLET (max-width: 1024px): side padding 24px, section padding 48-56px, cards two per row, H1 36px.
+
+DESKTOP: content width max 1140-1200px centred. Section padding 64-80px (hero 80-100px). Column gap 24-32px. H1 40-48px, H2 30-36px, body 16-18px.
+
+CONSISTENCY: one font family per page (Bangla: Hind Siliguri or Noto Sans Bengali). Same button style in every section. One job per section: a heading, one short text, then one action (button or image).
+
+HOW TO WORK: for any layout, gap, font or mobile request first run design_audit, compare the page with this standard and list the problems by priority with the exact px values you will use. Fix with set_page_css scoped to the page: @media (max-width:767px) for phone, @media (max-width:1024px) for tablet. Do not change the desktop look unless asked. After a fix tell the owner which section ids and which px values changed. Never invent contact numbers, fees or dates.
+STD;
+}
+
 function csa_defaults() {
 	return array(
 		'api_key'          => '',
@@ -45,6 +73,7 @@ function csa_defaults() {
 		'roles_blog'       => array( 'administrator', 'editor' ),
 		'roles_images'     => array( 'administrator', 'editor' ),
 		'weekly_email'     => 1,
+		'design_std'       => '',
 		'email_to'         => get_option( 'admin_email' ),
 		'weekly_audit'     => 0,
 		'weekly_pages'     => 10,
@@ -802,4 +831,11 @@ function csa_image_block( $path ) {
 		return null;
 	}
 	return array( 'type' => 'image', 'source' => array( 'type' => 'base64', 'media_type' => $mime, 'data' => base64_encode( $data ) ) );
+}
+
+
+/** The standard the AI uses: the admin's own text, or the built-in default. */
+function csa_design_std() {
+	$t = trim( (string) csa_opt( 'design_std' ) );
+	return '' !== $t ? $t : csa_design_std_default();
 }

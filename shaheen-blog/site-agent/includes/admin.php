@@ -68,6 +68,7 @@ function csa_register_settings() {
 					'roles_blog'       => $roles( $in['roles_blog'] ?? array() ),
 					'roles_images'     => $roles( $in['roles_images'] ?? array() ),
 					'weekly_email'     => empty( $in['weekly_email'] ) ? 0 : 1,
+					'design_std'       => trim( (string) ( $in['design_std'] ?? '' ) ) === trim( csa_design_std_default() ) ? '' : sanitize_textarea_field( $in['design_std'] ?? '' ),
 					'email_to'         => sanitize_email( $in['email_to'] ?? '' ),
 					'weekly_audit'     => empty( $in['weekly_audit'] ) ? 0 : 1,
 					'weekly_pages'     => max( 1, min( 50, (int) ( $in['weekly_pages'] ?? 10 ) ) ),
@@ -1147,6 +1148,10 @@ function csa_models_settings_html( $o, $n ) {
 			</select></td></tr>
 		<?php endforeach; ?>
 		</table>
+
+		<h3><?php echo esc_html( csa_t( 'Design standard for the AI (admin instruction)' ) ); ?></h3>
+		<p class="description"><?php echo esc_html( csa_t( 'The agent follows this for every page design, gap, font and mobile-view job. Change the numbers to your own standard. Clear the box and save to go back to the built-in standard.' ) ); ?></p>
+		<textarea name="<?php echo esc_attr( $n . '[design_std]' ); ?>" rows="18" class="large-text code"><?php echo esc_textarea( csa_design_std() ); ?></textarea>
 
 		<h3><?php echo esc_html( csa_t( '3. Guide: why choose which model' ) ); ?></h3>
 		<div class="csa-table-wrap"><table class="widefat striped csa-guide">

@@ -192,6 +192,9 @@ function csa_gd_start( &$mem, $job ) {
 	$pid   = (int) ( $job['id'] ?? 0 );
 	$goals = array_map( 'sanitize_key', (array) ( $job['goals'] ?? array() ) );
 	$note  = sanitize_textarea_field( $job['note'] ?? '' );
+	if ( array_intersect( $goals, array( 'all', 'design', 'mobile', 'fonts' ) ) ) {
+		$mem['design_std'] = 1;
+	}
 	$brief = csa_gd_brief( $pid, $goals, $note );
 	if ( '' === $brief ) {
 		return false;

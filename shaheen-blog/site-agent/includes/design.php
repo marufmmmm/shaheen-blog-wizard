@@ -55,8 +55,8 @@ function csa_dsg_audit( $id ) {
 						if ( $h >= 40 ) {
 							$add( 'high', $eid, $what, 'Side padding ' . (int) $h . 'px on every screen: on a phone this squeezes the content.', $mq . '{' . $sel . '{padding-left:16px!important;padding-right:16px!important}}' );
 						}
-						if ( $v >= 80 ) {
-							$add( 'med', $eid, $what, 'Top/bottom padding ' . (int) $v . 'px with no mobile value: too much empty space on a phone.', $mq . '{' . $sel . '{padding-top:36px!important;padding-bottom:36px!important}}' );
+						if ( $v >= 56 ) {
+							$add( 'med', $eid, $what, 'Top/bottom padding ' . (int) $v . 'px with no mobile value: more than the 32-40px standard for a phone.', $mq . '{' . $sel . '{padding-top:36px!important;padding-bottom:36px!important}}' );
 						}
 					}
 				}
@@ -66,8 +66,8 @@ function csa_dsg_audit( $id ) {
 					if ( $size >= 34 && empty( $s['typography_font_size_mobile'] ) ) {
 						$add( 'high', $eid, $what, 'Font size ' . (int) $size . 'px is not reduced on mobile: long headings wrap badly or overflow.', $mq . '{' . $sel . ' .elementor-heading-title,' . $sel . '{font-size:' . max( 22, (int) round( $size * 0.62 ) ) . 'px!important;line-height:1.25!important}}' );
 					}
-					if ( $size <= 12 ) {
-						$add( 'med', $eid, $what, 'Font size ' . (int) $size . 'px is too small to read comfortably.', $sel . '{font-size:14px!important}' );
+					if ( $size <= 13 ) {
+						$add( 'med', $eid, $what, 'Font size ' . (int) $size . 'px is below the 15px minimum.', $sel . '{font-size:16px!important}' );
 					}
 				}
 				if ( ! empty( $s['typography_font_family'] ) && is_string( $s['typography_font_family'] ) ) {

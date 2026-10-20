@@ -940,6 +940,7 @@ function csa_run_tool( $name, $in, &$ctx ) {
 
 function csa_agent_prompt( $state, $auto = null, $mem = array() ) {
 	$s = 'You are ' . csa_brand() . ', the website design, content and SEO agent inside the WordPress admin. ' . csa_site_context( $auto )
+		. ( ! empty( $mem['design_std'] ) ? "\n\n## ADMIN INSTRUCTION: " . csa_design_std() : '' )
 		. "\n\n## How you work"
 		. "\n- Reply in the language the user writes in (Bangla or English). Be clear and practical; no filler."
 		. "\n- IN THIS MODE YOU CAN ONLY READ. Editing tools appear after the user approves a plan, so never say you have no edit/schema tool and never tell the user to paste code themselves. Read each page ONCE (the result stays in your notes; do not re-read the same page or SEO data), use at most 3-4 reads, then call propose_plan with every change (text, SEO title/description, schema, alt text, CSS) as concrete steps."
@@ -1499,6 +1500,9 @@ function csa_ajax_step() {
 	}
 	if ( ! empty( $mem['attach'] ) && count( $mem['attach'] ) > 12 ) {
 		$mem['attach'] = array_slice( $mem['attach'], -12, null, true );
+	}
+	if ( '' !== $text && preg_match( '/design|mobile|phone|padding|margin|gap|spacing|space|font|layout|section|responsive|ডিজাইন|মোবাইল|ফোন ভিউ|ফাঁক|ফন্ট|প্যাডিং|সেকশন|লেআউট|জায়গা/iu', $text ) ) {
+		$mem['design_std'] = 1;   // from now on this chat gets the admin design standard
 	}
 	if ( '' !== $text || empty( $mem['snap_set'] ) ) {
 		$mem['snap_set']  = 1;
