@@ -212,8 +212,57 @@ function csa_th_undo( $id, $key ) {
 	return true;
 }
 
+/** Append a short line of real links ("Learn more: A · B · C") to the end of the page text. Works on Elementor and normal pages. */
+function csa_th_links( $in ) {
+	$p = csa_valid_post( $in['id'] ?? 0 );
+	if ( ! $p ) {
+		return array( 'error' => 'Page not found.' );
+	}
+	$g = csa_live_guard( $p );
+	if ( $g ) {
+		return $g;
+	}
+	$parts = array();
+	foreach ( array_slice( (array) ( $in['links'] ?? array() ), 0, 6 ) as $l ) {
+		$u = trim( (string) ( $l['url'] ?? '' ) );
+		$a = trim( sanitize_text_field( $l['anchor'] ?? '' ) );
+		if ( '' === $u || '' === $a ) {
+			continue;
+		}
+		$u = 0 === strpos( $u, '/' ) ? home_url( $u ) : $u;
+		if ( ! wp_http_validate_url( $u ) ) {
+			continue;
+		}
+		$parts[] = '<a href="' . esc_url( $u ) . '">' . esc_html( $a ) . '</a>';
+	}
+	if ( ! $parts ) {
+		return array( 'error' => 'No valid link given. Each link needs a url (starting with / or https://) and an anchor text.' );
+	}
+	$label = trim( sanitize_text_field( $in['label'] ?? '' ) );
+	$label = '' !== $label ? $label : csa_t( 'Learn more' );
+	$html  = '<p>' . esc_html( $label ) . ': ' . implode( ' · ', $parts ) . "</p>\n";
+	$u     = csa_jobs_append( $p->ID, $html );
+	if ( is_wp_error( $u ) ) {
+		return array( 'error' => $u->get_error_message() );
+	}
+	csa_log( csa_t( 'Added related links to' ) . ' #' . $p->ID . ': ' . $p->post_title, $u );
+	return array( 'ok' => true, 'added' => count( $parts ), 'note' => 'A line with real clickable links was added at the end of the page text.' );
+}
+
 function csa_th_tool() {
 	return array(
+		array(
+			'name'         => 'add_related_links',
+			'description'  => 'Add a line of REAL clickable internal links (for example "আরও জানুন: Branch · Management · Academic") at the end of the page text. Use this for internal linking instead of replace_text (which cannot make links). Works on Elementor and normal pages, needs no HTML, undoable.',
+			'input_schema' => csa_schema(
+				array(
+					'id'    => array( 'type' => 'integer' ),
+					'label' => array( 'type' => 'string', 'description' => 'Short lead-in word(s), for example আরও জানুন.' ),
+					'links' => array( 'type' => 'array', 'items' => array( 'type' => 'object', 'properties' => array( 'url' => array( 'type' => 'string' ), 'anchor' => array( 'type' => 'string' ) ), 'required' => array( 'url', 'anchor' ) ) ),
+				),
+				array( 'id', 'links' )
+			),
+		),
 		array(
 			'name'         => 'convert_to_html',
 			'description'  => 'Convert ONE Elementor page into clean plain HTML (all headings, text, lists, images, links and buttons are kept in order; Elementor layout and styling are dropped, the theme styles it). Use it when a text/SEO/keyword edit on an Elementor page fails even once (Widget not found, no match): the owner has pre-approved this for text jobs. NEVER use it for design or layout jobs. After it, edit with replace_text / edit_content. Undoable.',

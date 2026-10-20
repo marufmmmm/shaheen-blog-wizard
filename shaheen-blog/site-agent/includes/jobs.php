@@ -243,29 +243,38 @@ function csa_jobs_append( $id, $html ) {
 	$p = get_post( $id );
 	if ( csa_is_elementor( $id ) ) {
 		list( $raw, $data ) = csa_el_load( $id );
-		$target = null;
-		$tkey   = '';
-		$walk   = function ( array &$els ) use ( &$walk, &$target, &$tkey ) {
-			foreach ( $els as &$el ) {
+		$tid  = '';
+		$tkey = '';
+		$find = function ( array $els ) use ( &$find, &$tid, &$tkey ) {
+			foreach ( $els as $el ) {
 				if ( 'widget' === ( $el['elType'] ?? '' ) && 'text-editor' === ( $el['widgetType'] ?? '' ) && isset( $el['settings']['editor'] ) ) {
-					$target = &$el;
-					$tkey   = 'editor';
+					$tid  = (string) $el['id'];
+					$tkey = 'editor';
 				} elseif ( 'widget' === ( $el['elType'] ?? '' ) && 'html' === ( $el['widgetType'] ?? '' ) && isset( $el['settings']['html'] ) && 'editor' !== $tkey ) {
-					$target = &$el;
-					$tkey   = 'html';
+					$tid  = (string) $el['id'];
+					$tkey = 'html';
 				}
 				if ( ! empty( $el['elements'] ) && is_array( $el['elements'] ) ) {
-					$walk( $el['elements'] );
+					$find( $el['elements'] );
+				}
+			}
+		};
+		$find( (array) $data );
+		if ( '' === $tid ) {
+			return new WP_Error( 'append', 'This page has no text-editor or HTML widget to add text to. Convert the page to clean HTML first, or add a text widget at the end of the page.' );
+		}
+		$put = function ( array &$els ) use ( &$put, $tid, $tkey, $html ) {
+			foreach ( $els as &$el ) {
+				if ( (string) ( $el['id'] ?? '' ) === $tid ) {
+					$el['settings'][ $tkey ] .= "\n" . $html;
+				}
+				if ( ! empty( $el['elements'] ) && is_array( $el['elements'] ) ) {
+					$put( $el['elements'] );
 				}
 			}
 			unset( $el );
 		};
-		$walk( $data );
-		if ( ! $target ) {
-			return new WP_Error( 'append', 'This page has no text-editor widget to add text to. Add a text widget at the end of the page, then run this job again.' );
-		}
-		$target['settings'][ $tkey ] .= "\n" . $html;
-		unset( $target );
+		$put( $data );
 		$bid = csa_el_save( $id, $raw, $data );
 		return array( 'type' => 'elementor', 'post' => (int) $id, 'backup' => $bid );
 	}
