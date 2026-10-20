@@ -1141,7 +1141,7 @@
 			if (r.error) { altList.innerHTML = '<p class="csa-err">' + esc(r.error) + '</p>'; return; }
 			if (!r.data.items.length) { altList.innerHTML = '<p>✅ ' + esc(T('No images without alt text.')) + '</p>'; $('#csa-alt-pager').innerHTML = ''; return; }
 			altList.innerHTML = r.data.items.map(function (i) {
-				return '<div class="csa-media" data-id="' + i.id + '"><img src="' + esc(i.thumb) + '" alt=""><div class="csa-media-body"><div class="csa-muted">' + esc(i.title) + (i.parent ? ' · ' + esc(i.parent) : '') + '</div><input type="text" class="csa-alt-in" placeholder="alt…"><div><button type="button" class="button button-small csa-alt-gen">✨ ' + esc(T('Generate alt')) + '</button> <button type="button" class="button button-small csa-alt-save">' + esc(T('Save')) + '</button></div></div></div>';
+				return '<div class="csa-media" data-id="' + i.id + '"><input type="checkbox" class="csa-pick"><img src="' + esc(i.thumb) + '" alt=""><div class="csa-media-body"><div class="csa-muted">' + esc(i.title) + (i.parent ? ' · 📄 ' + esc(i.parent) : ' · ' + esc(T('not used on any page'))) + '</div><input type="text" class="csa-alt-in" placeholder="alt…"><div><button type="button" class="button button-small csa-alt-gen">✨ ' + esc(T('Generate alt')) + '</button> <button type="button" class="button button-small csa-alt-save">' + esc(T('Save')) + '</button></div></div></div>';
 			}).join('');
 			var pg = '';
 			for (var p = 1; p <= Math.min(r.data.pages, 20); p++) pg += '<button type="button" class="button button-small' + (p === paged ? ' button-primary' : '') + '" data-p="' + p + '">' + p + '</button> ';
@@ -1168,13 +1168,25 @@
 			}
 		});
 		$('#csa-alt-pager').addEventListener('click', function (e) { if (e.target.dataset.p) { paged = parseInt(e.target.dataset.p, 10); load(); } });
+		$('#csa-alt-sel').onchange = function () { var on = this.checked; $$('.csa-pick', altList).forEach(function (c) { c.checked = on; }); };
 		$('#csa-alt-all').onclick = async function () {
-			var items = $$('.csa-media:not(.done)', altList), prog = $('#csa-alt-progress');
+			var picked = $$('.csa-media', altList).filter(function (m) { return $('.csa-pick', m).checked; });
+			var items = (picked.length ? picked : $$('.csa-media', altList)).filter(function (m) { return !m.classList.contains('done'); }), prog = $('#csa-alt-progress');
 			for (var i = 0; i < items.length; i++) {
 				prog.textContent = (i + 1) + ' / ' + items.length;
 				if (!(await gen(items[i]))) break;
 			}
 			prog.textContent = T('Done.');
+		};
+		$('#csa-alt-saveall').onclick = async function () {
+			var prog = $('#csa-alt-progress'), n = 0;
+			for (const m of $$('.csa-media', altList)) {
+				var v = $('.csa-alt-in', m).value.trim();
+				if (!v || m.dataset.saved === v) continue;
+				var r = await post('csa_media', { do: 'save_alt', id: m.dataset.id, alt: v });
+				if (!r.error) { m.dataset.saved = v; m.classList.add('done'); n++; prog.textContent = n; }
+			}
+			prog.textContent = T('Done.') + ' ' + n;
 		};
 		load();
 	})();
@@ -1186,16 +1198,30 @@
 		if (r.error) { bigList.innerHTML = '<p class="csa-err">' + esc(r.error) + '</p>'; return; }
 		if (!r.data.length) { bigList.innerHTML = '<p>✅ ' + esc(T('No large images found.')) + '</p>'; return; }
 		bigList.innerHTML = '<table class="widefat striped"><tbody>' + r.data.map(function (i) {
-			return '<tr data-id="' + i.id + '"><td style="width:70px"><img src="' + esc(i.thumb) + '" alt="" width="60"></td><td>' + esc(i.title) + '<br><span class="csa-muted">' + i.w + '×' + i.h + '</span></td><td class="csa-kb" style="width:90px">' + i.kb + ' KB</td><td style="width:120px"><button type="button" class="button button-small csa-compress">' + esc(T('Compress')) + '</button></td></tr>';
+			return '<tr data-id="' + i.id + '"><td style="width:30px"><input type="checkbox" class="csa-pick"></td><td style="width:70px"><img src="' + esc(i.thumb) + '" alt="" width="60"></td><td>' + esc(i.title) + '<br><span class="csa-muted">' + i.w + '×' + i.h + '</span></td><td class="csa-kb" style="width:90px">' + i.kb + ' KB</td><td style="width:120px"><button type="button" class="button button-small csa-compress">' + esc(T('Compress')) + '</button></td></tr>';
 		}).join('') + '</tbody></table>';
-		bigList.addEventListener('click', async function (e) {
-			if (!e.target.classList.contains('csa-compress')) return;
-			var tr = e.target.closest('tr'), b = e.target;
+		async function squeeze(tr) {
+			var b = $('.csa-compress', tr);
+			if (b.textContent === '✓') return true;
 			b.disabled = true; b.textContent = '…';
 			var res = await post('csa_media', { do: 'compress', id: tr.dataset.id });
-			if (res.error) { toast(res.error, 'err'); b.disabled = false; b.textContent = T('Compress'); return; }
+			if (res.error) { toast(res.error, 'err'); b.disabled = false; b.textContent = T('Compress'); return false; }
 			$('.csa-kb', tr).textContent = res.data.kb + ' KB'; b.textContent = '✓';
+			return true;
+		}
+		bigList.addEventListener('click', function (e) {
+			if (e.target.classList.contains('csa-compress')) squeeze(e.target.closest('tr'));
 		});
+		$('#csa-big-sel').onchange = function () { var on = this.checked; $$('.csa-pick', bigList).forEach(function (c) { c.checked = on; }); };
+		$('#csa-big-all').onclick = async function () {
+			var rows = $$('tr', bigList).filter(function (t) { return $('.csa-pick', t).checked; }), prog = $('#csa-big-progress');
+			if (!rows.length) { toast(T('Select images first.'), 'err'); return; }
+			for (var i = 0; i < rows.length; i++) {
+				prog.textContent = (i + 1) + ' / ' + rows.length;
+				if (!(await squeeze(rows[i]))) break;
+			}
+			prog.textContent = T('Done.');
+		};
 	})();
 
 	/* ================================================================

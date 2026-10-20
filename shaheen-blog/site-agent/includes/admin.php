@@ -999,9 +999,9 @@ function csa_screen_images() {
 			echo '<div class="csa-card"><p>' . esc_html( csa_t( 'No suggested images yet. Ask in chat: "Which images should page X have?" or create a post in Blog Studio.' ) ) . '</p></div>';
 		}
 	} elseif ( 'alt' === $tab ) {
-		echo '<div class="csa-card"><p class="csa-muted">' . esc_html( csa_t( 'Images without alt text hurt SEO and accessibility. The AI looks at each image and writes alt text; you can edit it.' ) ) . '</p><p><button type="button" class="button button-primary" id="csa-alt-all">' . esc_html( csa_t( 'Generate all on this page' ) ) . '</button> <span id="csa-alt-progress" class="csa-muted"></span></p><div id="csa-alt-list" class="csa-media-grid"></div><div id="csa-alt-pager" class="csa-row"></div></div>';
+		echo '<div class="csa-card"><p class="csa-muted">' . esc_html( csa_t( 'Images without alt text hurt SEO and accessibility. The AI looks at each image and writes alt text; you can edit it.' ) ) . '</p><p><label><input type="checkbox" id="csa-alt-sel"> ' . esc_html( csa_t( 'Select all' ) ) . '</label> <button type="button" class="button button-primary" id="csa-alt-all">' . esc_html( csa_t( 'Generate for selected (or all on this page)' ) ) . '</button> <button type="button" class="button" id="csa-alt-saveall">' . esc_html( csa_t( 'Save all edited' ) ) . '</button> <span id="csa-alt-progress" class="csa-muted"></span></p><div id="csa-alt-list" class="csa-media-grid"></div><div id="csa-alt-pager" class="csa-row"></div></div>';
 	} else {
-		echo '<div class="csa-card"><p class="csa-muted">' . esc_html( csa_t( 'Images over 300 KB slow pages down. Compress resizes to max 1920px wide and re-saves at good quality.' ) ) . '</p><div id="csa-big-list"></div></div>';
+		echo '<div class="csa-card"><p class="csa-muted">' . esc_html( csa_t( 'Images over 300 KB slow pages down. Compress resizes to max 1920px wide and re-saves at good quality.' ) ) . '</p><p><label><input type="checkbox" id="csa-big-sel"> ' . esc_html( csa_t( 'Select all' ) ) . '</label> <button type="button" class="button button-primary" id="csa-big-all">' . esc_html( csa_t( 'Compress selected' ) ) . '</button> <span id="csa-big-progress" class="csa-muted"></span></p><div id="csa-big-list"></div></div>';
 	}
 	csa_footer();
 }

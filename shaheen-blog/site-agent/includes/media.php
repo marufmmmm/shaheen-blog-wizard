@@ -234,6 +234,61 @@ function csa_ajax_slots() {
 /* Media Library: missing alt text, AI alt, oversized images          */
 /* ================================================================== */
 
+
+/** Posts/pages that use an image (parent, featured image, or the file shown in content / Elementor data). */
+function csa_media_usage( $id, $max = 3 ) {
+	global $wpdb;
+	$ids = array();
+	$a   = get_post( $id );
+	if ( $a && $a->post_parent ) {
+		$ids[] = (int) $a->post_parent;
+	}
+	foreach ( (array) $wpdb->get_col( $wpdb->prepare( "SELECT post_id FROM {$wpdb->postmeta} WHERE meta_key='_thumbnail_id' AND meta_value=%d LIMIT 3", $id ) ) as $x ) {
+		$ids[] = (int) $x;
+	}
+	$f = get_attached_file( $id );
+	if ( $f && count( array_unique( $ids ) ) < $max ) {
+		$base = preg_replace( '/\.[a-z0-9]+$/i', '', basename( $f ) );
+		if ( strlen( $base ) >= 4 ) {
+			$like = '%' . $wpdb->esc_like( $base ) . '%';
+			$q    = $wpdb->get_col( $wpdb->prepare( "SELECT ID FROM {$wpdb->posts} WHERE post_type IN ('page','post','sb_post') AND post_status IN ('publish','draft','future','pending','private') AND post_content LIKE %s LIMIT 3", $like ) );
+			$m    = $wpdb->get_col( $wpdb->prepare( "SELECT post_id FROM {$wpdb->postmeta} WHERE meta_key='_elementor_data' AND meta_value LIKE %s LIMIT 3", $like ) );
+			foreach ( array_merge( (array) $q, (array) $m ) as $x ) {
+				$ids[] = (int) $x;
+			}
+		}
+	}
+	$out = array();
+	foreach ( array_slice( array_values( array_unique( array_filter( $ids ) ) ), 0, $max ) as $pid ) {
+		$p = get_post( $pid );
+		if ( $p && 'attachment' !== $p->post_type ) {
+			$out[] = $p;
+		}
+	}
+	return $out;
+}
+
+/** Plain-text context for an image's alt text: where it is used, topic, keyword, nearby text. */
+function csa_media_context( $id ) {
+	$parts = array();
+	$f     = get_attached_file( $id );
+	$base  = $f ? preg_replace( '/\.[a-z0-9]+$/i', '', basename( $f ) ) : '';
+	foreach ( csa_media_usage( $id ) as $p ) {
+		$kw = function_exists( 'csa_si_seo' ) ? csa_si_seo( $p->ID )['sk'] : '';
+		if ( '' === $kw ) {
+			$kw = (string) get_post_meta( $p->ID, '_sb_keyword', true );
+		}
+		$line = 'Used on the ' . $p->post_type . ' "' . get_the_title( $p ) . '"' . ( '' !== $kw ? ' (focus keyword: ' . $kw . ')' : '' ) . '.';
+		$txt  = wp_strip_all_tags( preg_replace( '#<(script|style)[^>]*>.*?</\1>#is', ' ', $p->post_content ) );
+		$txt  = trim( preg_replace( '/\s+/u', ' ', $txt ) );
+		if ( '' !== $txt ) {
+			$line .= ' Page text starts: ' . mb_substr( $txt, 0, 300 ) . '.';
+		}
+		$parts[] = $line;
+	}
+	return implode( ' ', $parts );
+}
+
 add_action( 'wp_ajax_csa_media', 'csa_ajax_media' );
 function csa_ajax_media() {
 	csa_guard( 'images' );
@@ -256,8 +311,8 @@ function csa_ajax_media() {
 		);
 		$out = array();
 		foreach ( $q->posts as $a ) {
-			$parent = $a->post_parent ? get_the_title( $a->post_parent ) : '';
-			$out[]  = array( 'id' => $a->ID, 'thumb' => wp_get_attachment_image_url( $a->ID, 'thumbnail' ), 'title' => $a->post_title, 'parent' => $parent );
+			$used   = array_map( function ( $p ) { return get_the_title( $p ); }, csa_media_usage( $a->ID ) );
+			$out[]  = array( 'id' => $a->ID, 'thumb' => wp_get_attachment_image_url( $a->ID, 'thumbnail' ), 'title' => $a->post_title, 'parent' => implode( ' · ', $used ) );
 		}
 		wp_send_json_success( array( 'items' => $out, 'total' => (int) $q->found_posts, 'pages' => (int) $q->max_num_pages ) );
 	}
@@ -277,9 +332,9 @@ function csa_ajax_media() {
 			wp_send_json_error( csa_t( 'Could not read this image.' ) );
 		}
 		$a      = get_post( $id );
-		$ctx    = $a->post_parent ? 'It is used on the page "' . get_the_title( $a->post_parent ) . '".' : '';
+		$ctx    = csa_media_context( $id );
 		$system = 'You write image alt text for SEO and accessibility. ' . csa_site_context()
-			. "\n\nDescribe what the image shows in one concise sentence (max 120 characters), naturally including a relevant keyword for this website when it fits. Language: " . csa_opt( 'seo_lang' ) . '. Return ONLY the alt text, no quotes.';
+			. "\n\nDescribe what the image shows in one concise sentence (max 120 characters). Make it fit the page topic given in the context: use the page's focus keyword or topic naturally only when the image really relates to it (never stuff keywords, never describe things not visible). If no context is given, use a relevant keyword for this website when it fits. Language: " . csa_opt( 'seo_lang' ) . '. Return ONLY the alt text, no quotes.';
 		$data   = csa_claude( array( array( 'role' => 'user', 'content' => array( $blk, array( 'type' => 'text', 'text' => 'File: ' . $a->post_title . '. ' . $ctx ) ) ) ), $system, array( 'max_tokens' => 200, 'task' => 'vision', 'needs_vision' => true, 'feature' => 'Alt text' ) );
 		if ( is_wp_error( $data ) ) {
 			wp_send_json_error( $data->get_error_message() );
