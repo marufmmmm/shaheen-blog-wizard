@@ -190,6 +190,15 @@ function csa_mem_text( $mem ) {
 	if ( ! empty( $mem['learned'] ) ) {
 		$l[] = 'Auto memory saved/updated in this chat (newest wins): ' . implode( ' | ', $mem['learned'] );
 	}
+	if ( function_exists( 'csa_jobs_text' ) ) {
+		$seen = 0;
+		foreach ( array_unique( array_merge( (array) ( $mem['mention'] ?? array() ), array_keys( (array) $mem['pages'] ) ) ) as $pj ) {
+			$jt = csa_jobs_text( (int) $pj );
+			if ( '' !== $jt && $seen++ < 2 ) {
+				$l[] = $jt;
+			}
+		}
+	}
 	$pm = function_exists( 'csa_am_pages_text' ) ? csa_am_pages_text( array_merge( (array) $mem['mention'], array_keys( (array) $mem['pages'] ) ) ) : '';
 	if ( '' !== $pm ) {
 		$l[] = $pm;

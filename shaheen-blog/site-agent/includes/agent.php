@@ -86,7 +86,7 @@ function csa_tools_read() {
 
 /** Allowed in any state: low-risk, no page content changes. */
 function csa_tools_anytime() {
-	return array_merge( csa_am_tools(), csa_si_tool(), csa_score_tool(), csa_dsg_read_tool(), csa_gd_ask_tool(), csa_tools_anytime_base() );
+	return array_merge( csa_am_tools(), csa_si_tool(), csa_score_tool(), csa_jobs_tool(), csa_dsg_read_tool(), csa_gd_ask_tool(), csa_tools_anytime_base() );
 }
 
 function csa_tools_anytime_base() {
@@ -261,6 +261,7 @@ function csa_tool_label( $name, $in ) {
 		'get_elementor_html'       => csa_t( 'Read page design' ) . $id,
 		'get_seo_data'             => csa_t( 'Checked SEO of page' ) . $id,
 		'replace_text'             => '✏️ ' . csa_t( 'Changed text of page' ) . $id,
+		'mark_job'                 => '☑ ' . csa_t( 'Job checklist updated' ),
 		'seo_score'                => '📊 ' . csa_t( 'SEO score of page' ) . $id,
 		'find_in_html'             => csa_t( 'Searched page' ) . $id,
 		'read_html'                => csa_t( 'Read part of page' ) . $id,
@@ -648,6 +649,9 @@ function csa_run_tool( $name, $in, &$ctx ) {
 			$ctx['mem']['notes'] = mb_substr( $n, -2000 );
 			return array( 'ok' => true );
 
+		case 'mark_job':
+			return csa_jobs_mark( $in );
+
 		case 'seo_score':
 			$r = csa_seo_score( $in['id'] ?? 0 );
 			return is_wp_error( $r ) ? array( 'error' => $r->get_error_message() ) : $r;
@@ -956,6 +960,7 @@ function csa_agent_prompt( $state, $auto = null, $mem = array() ) {
 		. "\n- Never repeat or summarize the CHAT MEMORY back to the user, and don't start replies with thanks. Say only what is new."
 		. "\n- If an edit fails, don't retry the same old_text. For CSS changes append a new <style> block (empty old_text). If it fails twice, stop and explain."
 		. "\n- Structured data (JSON-LD): NEVER paste <script type=\"application/ld+json\"> into page HTML or an Elementor widget. Use set_page_schema (printed in the <head>, page untouched). Use real facts only: search_site / the site map for phone numbers, addresses and the URLs of branch (campus) pages; reference each branch page by its URL."
+		. "\n- If [CHAT MEMORY] contains a saved job checklist for a page, it is the owner's master plan: remember it, work through the OPEN jobs strictly in the listed order (earlier jobs prepare later ones), say which job number you are on, tick it with mark_job when done, and when the owner asks for several jobs do them all in one run."
 		. "\n- To change wording use replace_text with the VISIBLE sentence (no HTML): it works in every widget type. edit_elementor_html only handles HTML widgets; use it for markup and CSS, never for plain sentences. If a text edit fails twice, stop re-reading the page: use find_in_html with 2-3 words, then retry once, then tell the owner."
 		. "\n- After the owner approved a plan, never ask 'shall I do it?' or 'do you want me to continue?': just do the steps. Ask only when a fact is truly missing (one short question). Do not call the same read tool (seo_score, get_seo_data, get_page) twice without a change in between."
 		. "\n- ALWAYS do what the user's LATEST message asks, and nothing else first. The plan checklist, earlier plans and [CHAT MEMORY] are only a record: never resume or re-offer an older plan (for example an SEO step) when the latest message is about something else. If the latest message is a design check, your very next call is design_audit, not SEO tools. Ask about old unfinished steps only in one short line at the very end."

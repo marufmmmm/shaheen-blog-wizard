@@ -83,7 +83,6 @@ function csa_jobs_build( $id ) {
 	if ( $meta_pts ) {
 		array_unshift( $jobs, array( 'key' => substr( md5( 'seo_meta' ), 0, 10 ), 'kind' => 'seo_meta', 'area' => 'seo', 'title' => 'Write SEO title, meta description and focus keyword', 'detail' => implode( '; ', $meta_why ), 'pts' => $meta_pts, 'status' => 'todo', 'result' => '' ) );
 	}
-	usort( $jobs, function ( $a, $b ) { return $b['pts'] <=> $a['pts']; } );
 	foreach ( csa_dsg_audit( $id ) as $f ) {
 		$fix = (string) $f['fix'];
 		$css = ( false !== strpos( $fix, '{' ) && 0 !== strpos( $fix, 'Append' ) && 0 !== strpos( $fix, 'Use ' ) ) ? $fix : '';
@@ -92,17 +91,29 @@ function csa_jobs_build( $id ) {
 	if ( function_exists( 'csa_slots_missing' ) && csa_slots_missing( $id ) ) {
 		$add( 'owner', 'image', 'Upload the photos this page needs', 'Open Site Agent > Images and upload them (they are renamed, compressed and given alt text automatically).', 0 );
 	}
+	// Order: content first (the later steps depend on it), then SEO text, images, schema, design, owner tasks.
+	$rank = array( 'agent' => 1, 'seo_meta' => 2, 'alt' => 3, 'schema' => 4, 'css' => 5, 'owner' => 6 );
+	foreach ( $jobs as $i => &$j0 ) {
+		$j0['_o'] = $i;
+	}
+	unset( $j0 );
+	usort( $jobs, function ( $a, $b ) use ( $rank ) {
+		$ra = $rank[ $a['kind'] ] + ( 'design' === $a['area'] && 'agent' === $a['kind'] ? 3 : 0 );
+		$rb = $rank[ $b['kind'] ] + ( 'design' === $b['area'] && 'agent' === $b['kind'] ? 3 : 0 );
+		return array( $ra, $b['pts'], $a['_o'] ) <=> array( $rb, $a['pts'], $b['_o'] );
+	} );
 	// Keep the status of jobs that are already known.
 	$old = array();
 	foreach ( csa_jobs_get( $id ) as $o ) {
 		$old[ $o['key'] ] = $o;
 	}
 	foreach ( $jobs as $i => &$j ) {
-		if ( isset( $old[ $j['key'] ] ) && in_array( $old[ $j['key'] ]['status'], array( 'done', 'skip' ), true ) && 'css' === $j['kind'] ) {
+		if ( isset( $old[ $j['key'] ] ) && in_array( $old[ $j['key'] ]['status'], array( 'done', 'skip' ), true ) && in_array( $j['kind'], array( 'css', 'schema' ), true ) ) {
 			$j['status'] = $old[ $j['key'] ]['status'];
 			$j['result'] = $old[ $j['key'] ]['result'];
 		}
 		$j['n'] = $i + 1;
+		unset( $j['_o'] );
 	}
 	unset( $j );
 	update_post_meta( $id, '_csa_jobs', wp_slash( $jobs ) );
@@ -317,6 +328,8 @@ function csa_screen_jobs() {
 			<p><label><input type="checkbox" id="csa-jb-all"> <?php echo esc_html( csa_t( 'Select all that I can run' ) ); ?></label>
 			<input type="text" id="csa-jb-nums" placeholder="<?php echo esc_attr( csa_t( 'or type numbers: 1,2,5 or 1-4' ) ); ?>" style="width:220px">
 			<button type="button" class="button button-primary" id="csa-jb-go">▶ <?php echo esc_html( csa_t( 'Run' ) ); ?></button>
+			<button type="button" class="button" id="csa-jb-next">⏭ <?php echo esc_html( csa_t( 'Next job' ) ); ?></button>
+			<button type="button" class="button" id="csa-jb-order">⏩ <?php echo esc_html( csa_t( 'Run all in order' ) ); ?></button>
 			<span id="csa-jb-prog" class="csa-muted"></span></p>
 		</div>
 	</div>
@@ -334,4 +347,51 @@ function csa_screen_jobs() {
 	</div>
 	<?php
 	csa_footer();
+}
+
+
+/* ------------------------------------------------------------------ */
+/* The saved checklist is the agent's master plan                       */
+/* ------------------------------------------------------------------ */
+
+/** Compact checklist text for the chat agent's memory. */
+function csa_jobs_text( $id ) {
+	$jobs = csa_jobs_get( $id );
+	if ( ! $jobs ) {
+		return '';
+	}
+	$l = array();
+	foreach ( array_slice( $jobs, 0, 14 ) as $j ) {
+		$st  = 'done' === $j['status'] ? 'DONE' : ( 'skip' === $j['status'] ? 'SKIPPED' : 'OPEN' );
+		$l[] = $j['n'] . '. [' . $st . '] ' . $j['title'] . ( 'OPEN' === $st && ! empty( $j['detail'] ) ? ' — ' . mb_substr( $j['detail'], 0, 120 ) : '' );
+	}
+	return 'Saved job checklist for #' . $id . ' "' . get_the_title( $id ) . '" (the owner\'s master plan, in the right order; do OPEN jobs in this order, never reorder, say which job number you are doing, call mark_job when one is finished):' . "\n" . implode( "\n", $l );
+}
+
+function csa_jobs_tool() {
+	return array(
+		array(
+			'name'         => 'mark_job',
+			'description'  => 'Mark a job of the saved checklist of a page as done or skipped after you finished it (use the job number n from the checklist). Does not change the page.',
+			'input_schema' => csa_schema( array( 'id' => array( 'type' => 'integer' ), 'n' => array( 'type' => 'integer' ), 'status' => array( 'type' => 'string', 'enum' => array( 'done', 'skip', 'todo' ) ), 'note' => array( 'type' => 'string' ) ), array( 'id', 'n', 'status' ) ),
+		),
+	);
+}
+
+function csa_jobs_mark( $in ) {
+	$id   = (int) ( $in['id'] ?? 0 );
+	$n    = (int) ( $in['n'] ?? 0 );
+	$st   = in_array( $in['status'] ?? '', array( 'done', 'skip', 'todo' ), true ) ? $in['status'] : 'done';
+	$jobs = csa_jobs_get( $id );
+	foreach ( $jobs as $i => $j ) {
+		if ( (int) $j['n'] === $n ) {
+			$jobs[ $i ]['status'] = $st;
+			if ( ! empty( $in['note'] ) ) {
+				$jobs[ $i ]['result'] = sanitize_text_field( $in['note'] );
+			}
+			update_post_meta( $id, '_csa_jobs', wp_slash( $jobs ) );
+			return array( 'ok' => true );
+		}
+	}
+	return array( 'error' => 'No such job on this page.' );
 }

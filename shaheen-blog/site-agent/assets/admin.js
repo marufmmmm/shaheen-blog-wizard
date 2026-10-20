@@ -1268,7 +1268,7 @@
 					var st = j.status === 'done' ? '✅ ' + esc(T('done')) : (j.status === 'fail' ? '❌ ' + esc(T('failed')) : (j.status === 'agent' ? '💬 ' + esc(T('chat agent')) : esc(T('to do'))));
 					return '<tr data-n="' + j.n + '" class="csa-jb-' + j.status + '"><td>' + (runnable(j) ? '<input type="checkbox" class="csa-jb-pick" value="' + j.n + '">' : '') + '</td><td><strong>' + j.n + '</strong></td>'
 						+ '<td>' + (ICON[j.kind] || '') + ' <strong>' + esc(j.title) + '</strong>' + (j.pts ? ' <span class="csa-muted">+' + j.pts + ' ' + esc(T('points')) + '</span>' : '') + '<br><span class="csa-muted">' + esc(j.detail || '') + '</span>'
-						+ (j.result ? '<br><span class="csa-jb-res">' + esc(j.result) + '</span>' : '') + '</td><td>' + esc(HOW[j.kind] || '') + '</td><td>' + st + '</td></tr>';
+						+ (j.result ? '<br><span class="csa-jb-res">' + esc(j.result) + '</span>' : '') + '</td><td>' + esc(HOW[j.kind] || '') + (j.kind === 'agent' && j.status !== 'done' ? '<br><button type="button" class="button button-small" data-agent="' + j.n + '">💬 ' + esc(T('Do with agent')) + '</button>' : '') + '</td><td>' + st + '</td></tr>';
 				}).join('') + '</tbody></table>';
 		}
 
@@ -1289,10 +1289,8 @@
 			});
 			return out;
 		}
-		$('#csa-jb-go').onclick = async function () {
+		async function runNums(nums) {
 			if (running) return;
-			var nums = parseNums($('#csa-jb-nums').value);
-			if (!nums.length) nums = $$('.csa-jb-pick:checked', listEl).map(function (c) { return +c.value; });
 			nums = nums.filter(function (n) { return jobs.some(function (j) { return j.n === n; }); });
 			if (!nums.length) { toast(T('Tick jobs or type their numbers first.'), 'err'); return; }
 			running = true;
@@ -1303,13 +1301,27 @@
 				var k = jobs.findIndex(function (j) { return j.n === nums[i]; });
 				jobs[k] = r.data.job; if (r.data.own !== null) { var o = $('#csa-jb-own'); if (o) o.innerHTML = csaScore(r.data.own); }
 				showAlerts(r.data.alerts); draw();
+				if (r.data.job.status === 'fail') { toast(T('Stopped: this job failed.'), 'err'); break; }
 			}
-			prog.textContent = T('Done.'); running = false; if (typeof overview === 'function') overview();
+			prog.textContent = T('Done.'); running = false; overview();
+		}
+		var nextOpen = function () { return jobs.filter(runnable).map(function (j) { return j.n; }); };
+		$('#csa-jb-go').onclick = function () {
+			var nums = parseNums($('#csa-jb-nums').value);
+			if (!nums.length) nums = $$('.csa-jb-pick:checked', listEl).map(function (c) { return +c.value; });
+			runNums(nums);
 		};
+		$('#csa-jb-next').onclick = function () { runNums(nextOpen().slice(0, 1)); };
+		$('#csa-jb-order').onclick = function () { runNums(nextOpen()); };
+		listEl.addEventListener('click', function (e) {
+			var n = e.target.dataset && e.target.dataset.agent; if (!n) return;
+			var j = jobs.find(function (x) { return String(x.n) === n; });
+			location.href = jbApp.dataset.chat + '&prompt=' + encodeURIComponent('Page #' + pid + ' (' + $('h2', head).textContent + '): do job ' + n + ' of its saved checklist: ' + j.title + '. ' + (j.detail || ''));
+		});
 		$('#csa-jb-chat').onclick = function () {
 			var txt = $('#csa-jb-ask').value.trim(); if (!txt) return;
 			var pg = parseInt(sel.value, 10);
-			location.href = jbApp.dataset.chat + '&prompt=' + encodeURIComponent((pg ? 'Page ID ' + pg + ' (' + sel.options[sel.selectedIndex].text.replace(/ #\d+$/, '') + '): ' : '') + txt);
+			location.href = jbApp.dataset.chat + '&prompt=' + encodeURIComponent((pg ? 'Page #' + pg + ' (' + sel.options[sel.selectedIndex].text.replace(/ #\d+$/, '') + '): ' : '') + txt);
 		};
 		$('#csa-jb-site').onclick = async function () {
 			var box = $('#csa-jb-sitelist'); box.innerHTML = '<p class="csa-muted">' + esc(T('Checking…')) + '</p>';
