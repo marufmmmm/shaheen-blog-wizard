@@ -198,9 +198,13 @@ function csa_jobs_page_brief( $id ) {
 		. "\nCurrent SEO title: " . $cur['st'] . "\nCurrent meta description: " . $cur['sd'] . "\nFocus keyword: " . $cur['sk'] . "\nText start: " . mb_substr( (string) ( $f['text_sample'] ?? '' ), 0, 900 );
 }
 
-const CSA_JOBS_RULES = ' Write in the same language as the page text. Use ONLY facts that appear in the page text or in the site memory: never invent fees, dates, numbers, names or promises. Use the focus keyword naturally (never stuffed, never repeated in one sentence). Warm, clear, correct wording for parents.';
+const CSA_JOBS_RULES = ' Write in the same language as the page text. Use ONLY facts that appear in the page text or in the site memory: never invent fees, dates, numbers, names or promises. Use the focus keyword naturally (never stuffed, never twice in one sentence). WRITING STYLE (humanise): write like a warm, experienced school staff member talking to a parent: short plain sentences, concrete details, active voice, varied sentence length. Never use AI-sounding filler such as "in today\'s fast-paced world", "unlock", "delve", "tapestry", "realm", "embark on a journey", "game-changer", "cutting-edge", "holistic", "seamless", "it is important to note", "in conclusion", "look no further". No hype, no stacked adjectives, no empty praise, no repeated sentence openings, no lists of three buzzwords. COHERENCE: every sentence must belong to THIS page\'s topic and match the tone, tense, names and facts already on the page; never add a side topic, never contradict the page, never repeat what the page already says. If you have nothing true and useful to add, write less.';
 
 /** Visible text of the first real paragraph of the page. */
+function csa_jobs_filler( $text ) {
+	return (bool) preg_match( '/fast-paced|unlock|delve|tapestry|\brealm\b|embark|game-changer|cutting-edge|holistic|seamless|important to note|in conclusion|look no further|state-of-the-art/i', $text );
+}
+
 function csa_jobs_first_para( $id ) {
 	$strings = array();
 	if ( csa_is_elementor( $id ) ) {
@@ -344,7 +348,7 @@ function csa_jobs_do( $id, $j ) {
 			$sys = 'You improve one opening paragraph for SEO. ' . csa_site_context() . "\n\nKeep every fact, number and name exactly as in the old paragraph, and keep about the same length (at most 20% longer). Include the focus keyword once, naturally, near the start. Plain text only, no HTML. Return ONLY JSON: {\"paragraph\":\"...\"}." . CSA_JOBS_RULES;
 			$r   = csa_jobs_ai_json( $sys, "Focus keyword: {$kw}\nOld paragraph: {$para}", 'SEO agent: intro', 700 );
 			$new = is_wp_error( $r ) ? '' : trim( (string) ( $r['paragraph'] ?? '' ) );
-			if ( '' === $new || false === mb_stripos( $new, $kw ) || mb_strlen( $new ) > mb_strlen( $para ) * 1.4 ) {
+			if ( '' === $new || false === mb_stripos( $new, $kw ) || mb_strlen( $new ) > mb_strlen( $para ) * 1.4 || csa_jobs_filler( $new ) ) {
 				return array( 'fail', is_wp_error( $r ) ? $r->get_error_message() : 'The AI paragraph was not usable (keyword missing or too long). Press Run again.', '', array() );
 			}
 			$res = csa_run_tool( 'replace_text', array( 'id' => $id, 'old_text' => $para, 'new_text' => $new ), $ctx );
@@ -369,6 +373,9 @@ function csa_jobs_do( $id, $j ) {
 			$r   = csa_jobs_ai_json( $sys, "Focus keyword: {$kw}\nPage words now: {$words}\n" . csa_jobs_page_brief( $id ) . "\n\nRelated page candidates (id: title):\n" . $list, 'SEO agent: content', 1800 );
 			if ( is_wp_error( $r ) || empty( $r['sections'] ) ) {
 				return array( 'fail', is_wp_error( $r ) ? $r->get_error_message() : 'No text returned. Press Run again.', '', array() );
+			}
+			if ( csa_jobs_filler( wp_json_encode( $r['sections'], JSON_UNESCAPED_UNICODE ) ) ) {
+				return array( 'fail', 'The AI text sounded generic (stock phrases). Nothing was changed. Press Run again.', '', array() );
 			}
 			$html = '';
 			$wc   = 0;
