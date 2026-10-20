@@ -728,7 +728,7 @@
 		search.addEventListener('input', function () { clearTimeout(searchTimer); searchTimer = setTimeout(loadList, 300); });
 		$$('.csa-new').forEach(function (b) { b.onclick = function () { if (!busy) newChat(); }; });
 		$$('#csa-chips > .csa-chip:not(#csa-job-chip)').forEach(function (c) {
-			c.onclick = function () { input.value = c.getAttribute('data-p'); input.focus(); input.setSelectionRange(input.value.length, input.value.length); };
+			c.onclick = function () { if (c.dataset.href) { location.href = c.dataset.href; return; } input.value = c.getAttribute('data-p'); input.focus(); input.setSelectionRange(input.value.length, input.value.length); };
 		});
 		input.addEventListener('keydown', function (e) { if (e.key === 'Enter' && (e.ctrlKey || e.metaKey)) form.requestSubmit(); });
 		form.onsubmit = function (e) {

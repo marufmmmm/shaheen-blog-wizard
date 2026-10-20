@@ -461,7 +461,11 @@ function csa_section_chips( $section ) {
 		'blog'   => array( 'blog', 'ideas', 'improve' ),
 		'images' => array( 'images', 'alt' ),
 	);
-	return array_map( function ( $k ) use ( $all ) { return $all[ $k ]; }, $sets[ $section ] ?? $sets[''] );
+	$out = array();
+	foreach ( $sets[ $section ] ?? $sets[''] as $k ) {
+		$out[ $k ] = $all[ $k ];
+	}
+	return $out;
 }
 
 /** The chat app: full page (section '') or the docked chat inside SEO / Blog / Images. */
@@ -505,8 +509,9 @@ function csa_chat_app_html( $section ) {
 			<div id="csa-attach" class="csa-attach"></div>
 			<div class="csa-chips" id="csa-chips">
 				<button type="button" class="csa-chip csa-chip-job" id="csa-job-chip">🎯 <?php echo esc_html( csa_t( 'Page job' ) ); ?></button>
-				<?php foreach ( csa_section_chips( $section ) as $c ) : ?>
-					<button type="button" class="csa-chip" data-p="<?php echo esc_attr( $c[1] ); ?>"><?php echo esc_html( $c[0] ); ?></button>
+				<?php foreach ( csa_section_chips( $section ) as $k => $c ) : ?>
+					<?php $to_agent = in_array( $k, array( 'seo', 'meta', 'schema' ), true ); ?>
+					<button type="button" class="csa-chip" data-p="<?php echo esc_attr( $c[1] ); ?>"<?php echo $to_agent ? ' data-href="' . esc_url( admin_url( 'admin.php?page=csa-jobs' ) ) . '" title="' . esc_attr( csa_t( 'Opens the SEO Agent' ) ) . '"' : ''; ?>><?php echo esc_html( $c[0] ); ?></button>
 				<?php endforeach; ?>
 				<span id="csa-saved-chips"></span>
 			</div>
