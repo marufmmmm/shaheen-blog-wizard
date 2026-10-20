@@ -245,6 +245,10 @@ function csa_claude( $messages, $system, $args = array() ) {
 			unset( $mb );
 		}
 		$headers = array( 'x-api-key' => $api, 'Authorization' => 'Bearer ' . $api, 'anthropic-version' => '2023-06-01', 'content-type' => 'application/json' );
+		if ( 'moonshot' === $m['provider'] && ! get_transient( 'csa_kimi_nothink_bad' ) ) {
+			// Kimi "thinking" can take minutes before the first byte; page edits and SEO do not need it.
+			$body['thinking'] = array( 'type' => 'disabled' );
+		}
 	}
 
 	csa_keepalive_start();
@@ -264,6 +268,17 @@ function csa_claude( $messages, $system, $args = array() ) {
 	}
 	$code = (int) $resp['code'];
 	$raw  = json_decode( $resp['body'], true );
+	if ( 400 === $code && isset( $body['thinking'] ) && 'moonshot' === $m['provider'] && false !== stripos( (string) $resp['body'], 'thinking' ) ) {
+		// This Kimi model does not accept the switch: remember that and ask again without it.
+		set_transient( 'csa_kimi_nothink_bad', 1, DAY_IN_SECONDS );
+		unset( $body['thinking'] );
+		$resp = csa_http( 'POST', $prov['url'], array( 'timeout' => 110, 'headers' => $headers, 'body' => wp_json_encode( $body, CSA_JSON ) ) );
+		if ( is_wp_error( $resp ) ) {
+			return new WP_Error( 'net', csa_t( 'Could not reach the AI service:' ) . ' ' . $resp->get_error_message() );
+		}
+		$code = (int) $resp['code'];
+		$raw  = json_decode( $resp['body'], true );
+	}
 	if ( 200 !== $code || ! is_array( $raw ) || ! empty( $raw['error'] ) ) {
 		$msg = is_array( $raw['error'] ?? null ) ? ( $raw['error']['message'] ?? wp_json_encode( $raw['error'] ) ) : ( $raw['error'] ?? ( 'HTTP ' . $code ) );
 		if ( in_array( $code, array( 429, 503, 529 ), true ) ) {
