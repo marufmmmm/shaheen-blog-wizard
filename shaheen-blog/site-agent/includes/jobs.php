@@ -47,70 +47,118 @@ function csa_jobs_get( $id ) {
 	return is_array( $j ) ? $j : array();
 }
 
+function csa_jobs_kw( $id ) {
+	return trim( (string) csa_si_seo( $id )['sk'] );
+}
+
 function csa_jobs_build( $id ) {
-	$sc   = csa_seo_score( $id );
+	$sc = csa_seo_score( $id );
 	if ( is_wp_error( $sc ) ) {
 		return $sc;
 	}
+	$kw   = csa_jobs_kw( $id );
 	$jobs = array();
 	$add  = function ( $kind, $area, $title, $detail, $pts, $extra = array() ) use ( &$jobs ) {
-		$jobs[] = array_merge( array( 'key' => substr( md5( $kind . $title ), 0, 10 ), 'kind' => $kind, 'area' => $area, 'title' => $title, 'detail' => $detail, 'pts' => $pts, 'status' => 'todo', 'result' => '' ), $extra );
+		foreach ( $jobs as &$e ) {
+			if ( $e['kind'] === $kind && $e['title'] === $title ) {
+				$e['pts'] += $pts;
+				return;
+			}
+		}
+		unset( $e );
+		$jobs[] = array_merge( array( 'key' => substr( md5( $kind . $title ), 0, 10 ), 'kind' => $kind, 'area' => $area, 'title' => $title, 'detail' => $detail, 'pts' => $pts, 'status' => 'todo', 'result' => '', 'done_title' => '', 'undo' => array() ), $extra );
 	};
-	$meta_pts = 0;
-	$meta_why = array();
+	$meta = 0;
+	$cont = 0;
+	$why  = array();
+	$cwhy = array();
+	$f0   = array();
 	foreach ( $sc['items'] as $i ) {
 		if ( $i['ok'] ) {
 			continue;
 		}
 		$gap = $i['max'] - $i['points'];
 		$c   = $i['check'];
-		if ( preg_match( '/^(Title 30|Focus keyword|Keyword in title|Meta description|Keyword in meta)/', $c ) ) {
-			$meta_pts += $gap;
-			$meta_why[] = $c;
+		$f0[ $c ] = $gap;
+		if ( preg_match( '/^(Title 30|Meta description 1|Keyword in title|Keyword in meta)/', $c ) ) {
+			$meta += $gap;
+			$why[] = $c;
+		} elseif ( preg_match( '/^(At least 300|At least 2 H2|At least 3 internal)/', $c ) ) {
+			$cont += $gap;
+			$cwhy[] = $c;
 		} elseif ( 0 === strpos( $c, 'Schema' ) ) {
-			$add( 'schema', 'seo', 'Add schema (JSON-LD)', $i['fix'], $gap );
+			$add( 'schema', 'seo', 'Add schema (JSON-LD)', 'The AI writes it from the page text and the site memory.', $gap );
 		} elseif ( 0 === strpos( $c, 'Every image has alt' ) ) {
-			if ( 0 === (int) ( $sc['facts']['images_missing_alt'] ?? 0 ) ) {
+			if ( (int) ( $sc['facts']['images_missing_alt'] ?? 0 ) > 0 ) {
+				$add( 'alt', 'image', 'Write alt text for ' . (int) $sc['facts']['images_missing_alt'] . ' image(s) without it', 'Uses the focus keyword only where the image really fits.', $gap );
+			}
+		} elseif ( 0 === strpos( $c, 'Exactly one H1' ) ) {
+			$add( 'owner', 'text', 'YOU: make the page have exactly one H1', 'In Elementor: select the main heading, set its HTML tag to H1, and set all other headings to H2 or H3. (' . $i['fix'] . ')', $gap );
+		} elseif ( 0 === strpos( $c, 'Keyword in H1' ) && '' !== $kw ) {
+			$add( 'h1_kw', 'text', 'Put the keyword "' . $kw . '" into the main heading (H1)', 'The AI rewrites the H1 with the same meaning.', $gap );
+		} elseif ( 0 === strpos( $c, 'Keyword in the first part' ) && '' !== $kw ) {
+			$add( 'intro_kw', 'text', 'Put the keyword "' . $kw . '" into the opening paragraph', 'The AI rewrites the first paragraph with the same facts.', $gap );
+		} elseif ( 0 === strpos( $c, 'At least one image' ) || 0 === strpos( $c, 'Social image' ) ) {
+			$add( 'owner', 'image', 'YOU: add a photo and set it as the featured image', 'Upload the photo in Site Agent > Images (it is renamed, compressed and given alt text). Then set it as the featured image. This also fixes the social (og:image) image.', $gap );
+		} elseif ( preg_match( '/^(Language|Canonical|Viewport)/', $c ) ) {
+			if ( 'publish' !== get_post_status( $id ) ) {
 				continue;
 			}
-			$add( 'alt', 'image', 'Write alt text for images that have none', $i['fix'], $gap );
-		} elseif ( preg_match( '/^(Language|Canonical|Viewport)/', $c ) ) {
-			$add( 'owner', 'seo', $c . ' is missing', $i['fix'], $gap );
-		} else {
-			$add( 'agent', 'text', $c . ' — fix needed', $i['fix'], $gap );
+			$add( 'owner', 'seo', 'YOU: ' . $c . ' is missing', $i['fix'], $gap );
+		} elseif ( 0 === strpos( $c, 'At least 1 external' ) ) {
+			$add( 'owner', 'text', 'YOU (optional): add one link to an official or outside source', 'For example the education board or an official notice. Only if you have one.', $gap );
 		}
 	}
-	if ( $meta_pts ) {
-		array_unshift( $jobs, array( 'key' => substr( md5( 'seo_meta' ), 0, 10 ), 'kind' => 'seo_meta', 'area' => 'seo', 'title' => 'Write SEO title, meta description and focus keyword', 'detail' => implode( '; ', $meta_why ), 'pts' => $meta_pts, 'status' => 'todo', 'result' => '' ) );
+	if ( '' === $kw ) {
+		$add( 'keyword', 'seo', 'Choose the focus keyword', 'The AI suggests 3 keywords for this page; you choose one. The text jobs wait for it.', 6 );
 	}
-	foreach ( csa_dsg_audit( $id ) as $f ) {
-		$fix = (string) $f['fix'];
-		$css = ( false !== strpos( $fix, '{' ) && 0 !== strpos( $fix, 'Append' ) && 0 !== strpos( $fix, 'Use ' ) ) ? $fix : '';
-		$add( $css ? 'css' : 'agent', 'design', ucfirst( $f['severity'] ) . ': ' . $f['what'], $f['issue'], 0, $css ? array( 'css' => $css ) : array( 'hint' => $fix ) );
+	if ( $meta || '' === $kw ) {
+		$add( 'seo_meta', 'seo', 'Write the SEO title and meta description', $why ? implode( '; ', $why ) : 'Title and description with the focus keyword.', $meta, array( 'needs_kw' => 1 ) );
+	}
+	if ( $cont ) {
+		$add( 'content', 'text', 'Add useful text with the keyword and internal links', implode( '; ', $cwhy ) . '. The AI adds about 2 short sections (from facts on the site only) and a "Related" line with links.', $cont, array( 'needs_kw' => 1 ) );
+	}
+	// Design findings are only listed: the design agent will take them later.
+	$dz = csa_dsg_audit( $id );
+	if ( $dz ) {
+		$lines = array();
+		foreach ( array_slice( $dz, 0, 6 ) as $d ) {
+			$lines[] = ucfirst( $d['severity'] ) . ' — ' . $d['what'] . ': ' . $d['issue'];
+		}
+		$add( 'design', 'design', 'DESIGN: ' . count( $dz ) . ' layout finding(s), left for the design agent', implode( ' | ', $lines ), 0 );
 	}
 	if ( function_exists( 'csa_slots_missing' ) && csa_slots_missing( $id ) ) {
-		$add( 'owner', 'image', 'Upload the photos this page needs', 'Open Site Agent > Images and upload them (they are renamed, compressed and given alt text automatically).', 0 );
+		$add( 'owner', 'image', 'YOU: upload the photos this page needs', 'Open Site Agent > Images and upload them. They are renamed, compressed and given alt text automatically.', 0 );
 	}
-	// Order: content first (the later steps depend on it), then SEO text, images, schema, design, owner tasks.
-	$rank = array( 'agent' => 1, 'seo_meta' => 2, 'alt' => 3, 'schema' => 4, 'css' => 5, 'owner' => 6 );
+	// Keep finished jobs: they are the history ("what was changed").
+	$have = array();
+	foreach ( $jobs as $j ) {
+		$have[ $j['key'] ] = true;
+	}
+	foreach ( csa_jobs_get( $id ) as $o ) {
+		if ( 'done' === $o['status'] && empty( $have[ $o['key'] ] ) && 'design' !== $o['kind'] ) {
+			$jobs[] = $o;
+		}
+	}
+	$rank = array( 'keyword' => 1, 'seo_meta' => 2, 'h1_kw' => 3, 'intro_kw' => 4, 'content' => 5, 'alt' => 6, 'schema' => 7, 'owner' => 8, 'design' => 9 );
 	foreach ( $jobs as $i => &$j0 ) {
 		$j0['_o'] = $i;
 	}
 	unset( $j0 );
 	usort( $jobs, function ( $a, $b ) use ( $rank ) {
-		$ra = $rank[ $a['kind'] ] + ( 'design' === $a['area'] && 'agent' === $a['kind'] ? 3 : 0 );
-		$rb = $rank[ $b['kind'] ] + ( 'design' === $b['area'] && 'agent' === $b['kind'] ? 3 : 0 );
-		return array( $ra, $b['pts'], $a['_o'] ) <=> array( $rb, $a['pts'], $b['_o'] );
+		return array( $rank[ $a['kind'] ], $a['_o'] ) <=> array( $rank[ $b['kind'] ], $b['_o'] );
 	} );
-	// Keep the status of jobs that are already known.
 	$old = array();
 	foreach ( csa_jobs_get( $id ) as $o ) {
 		$old[ $o['key'] ] = $o;
 	}
 	foreach ( $jobs as $i => &$j ) {
-		if ( isset( $old[ $j['key'] ] ) && in_array( $old[ $j['key'] ]['status'], array( 'done', 'skip' ), true ) && in_array( $j['kind'], array( 'css', 'schema' ), true ) ) {
-			$j['status'] = $old[ $j['key'] ]['status'];
-			$j['result'] = $old[ $j['key'] ]['result'];
+		$o = $old[ $j['key'] ] ?? null;
+		if ( $o && 'skip' === $o['status'] ) {
+			$j['status'] = 'skip';
+		}
+		if ( $o && 'done' === $o['status'] && 'owner' === $j['kind'] ) {
+			$j = $o;
 		}
 		$j['n'] = $i + 1;
 		unset( $j['_o'] );
@@ -118,15 +166,18 @@ function csa_jobs_build( $id ) {
 	unset( $j );
 	update_post_meta( $id, '_csa_jobs', wp_slash( $jobs ) );
 	update_post_meta( $id, '_csa_jobs_time', time() );
-	return array( 'jobs' => $jobs, 'score' => $sc );
+	if ( '' === (string) get_post_meta( $id, '_csa_score_first', true ) ) {
+		update_post_meta( $id, '_csa_score_first', $sc['score'] );
+	}
+	return array( 'jobs' => $jobs, 'score' => $sc, 'first' => (int) get_post_meta( $id, '_csa_score_first', true ) );
 }
 
 /* ------------------------------------------------------------------ */
 /* One small AI call that returns JSON                                  */
 /* ------------------------------------------------------------------ */
 
-function csa_jobs_ai_json( $system, $user, $feature ) {
-	$data = csa_claude( array( array( 'role' => 'user', 'content' => $user ) ), $system, array( 'max_tokens' => 900, 'task' => 'seo', 'feature' => $feature ) );
+function csa_jobs_ai_json( $system, $user, $feature, $max = 900 ) {
+	$data = csa_claude( array( array( 'role' => 'user', 'content' => $user ) ), $system, array( 'max_tokens' => $max, 'task' => 'seo', 'feature' => $feature ) );
 	if ( is_wp_error( $data ) ) {
 		return $data;
 	}
@@ -144,51 +195,223 @@ function csa_jobs_page_brief( $id ) {
 	$f   = csa_seo_collect( $id );
 	$cur = csa_si_seo( $id );
 	return "Page: \"" . $f['page_title'] . "\" (" . $f['url'] . ")\nH1: " . implode( ' | ', (array) ( $f['h1'] ?? array() ) ) . "\nH2: " . implode( ' | ', array_slice( (array) ( $f['h2'] ?? array() ), 0, 8 ) )
-		. "\nCurrent SEO title: " . $cur['st'] . "\nCurrent meta description: " . $cur['sd'] . "\nCurrent focus keyword: " . $cur['sk'] . "\nText start: " . mb_substr( (string) ( $f['text_sample'] ?? '' ), 0, 900 );
+		. "\nCurrent SEO title: " . $cur['st'] . "\nCurrent meta description: " . $cur['sd'] . "\nFocus keyword: " . $cur['sk'] . "\nText start: " . mb_substr( (string) ( $f['text_sample'] ?? '' ), 0, 900 );
+}
+
+const CSA_JOBS_RULES = ' Write in the same language as the page text. Use ONLY facts that appear in the page text or in the site memory: never invent fees, dates, numbers, names or promises. Use the focus keyword naturally (never stuffed, never repeated in one sentence). Warm, clear, correct wording for parents.';
+
+/** Visible text of the first real paragraph of the page. */
+function csa_jobs_first_para( $id ) {
+	$strings = array();
+	if ( csa_is_elementor( $id ) ) {
+		list( , $data ) = csa_el_load( $id );
+		$walk = function ( $els ) use ( &$walk, &$strings ) {
+			foreach ( (array) $els as $el ) {
+				if ( 'widget' === ( $el['elType'] ?? '' ) && in_array( $el['widgetType'] ?? '', array( 'text-editor', 'html' ), true ) ) {
+					$strings[] = (string) ( $el['settings']['editor'] ?? $el['settings']['html'] ?? '' );
+				}
+				if ( ! empty( $el['elements'] ) ) {
+					$walk( $el['elements'] );
+				}
+			}
+		};
+		$walk( $data );
+	} else {
+		$strings[] = (string) get_post_field( 'post_content', $id );
+	}
+	foreach ( $strings as $h ) {
+		if ( preg_match_all( '#<p[^>]*>(.*?)</p>#is', $h, $m ) ) {
+			foreach ( $m[1] as $inner ) {
+				$t = trim( preg_replace( '/\s+/u', ' ', html_entity_decode( wp_strip_all_tags( $inner ), ENT_QUOTES, 'UTF-8' ) ) );
+				if ( mb_strlen( $t ) >= 40 ) {
+					return $t;
+				}
+			}
+		}
+	}
+	return '';
+}
+
+/** Append HTML to the end of the page text. Returns array( ok, undo descriptor ) or WP_Error. */
+function csa_jobs_append( $id, $html ) {
+	$p = get_post( $id );
+	if ( csa_is_elementor( $id ) ) {
+		list( $raw, $data ) = csa_el_load( $id );
+		$target = null;
+		$tkey   = '';
+		$walk   = function ( array &$els ) use ( &$walk, &$target, &$tkey ) {
+			foreach ( $els as &$el ) {
+				if ( 'widget' === ( $el['elType'] ?? '' ) && 'text-editor' === ( $el['widgetType'] ?? '' ) && isset( $el['settings']['editor'] ) ) {
+					$target = &$el;
+					$tkey   = 'editor';
+				} elseif ( 'widget' === ( $el['elType'] ?? '' ) && 'html' === ( $el['widgetType'] ?? '' ) && isset( $el['settings']['html'] ) && 'editor' !== $tkey ) {
+					$target = &$el;
+					$tkey   = 'html';
+				}
+				if ( ! empty( $el['elements'] ) && is_array( $el['elements'] ) ) {
+					$walk( $el['elements'] );
+				}
+			}
+			unset( $el );
+		};
+		$walk( $data );
+		if ( ! $target ) {
+			return new WP_Error( 'append', 'This page has no text-editor widget to add text to. Add a text widget at the end of the page, then run this job again.' );
+		}
+		$target['settings'][ $tkey ] .= "\n" . $html;
+		unset( $target );
+		$bid = csa_el_save( $id, $raw, $data );
+		return array( 'type' => 'elementor', 'post' => (int) $id, 'backup' => $bid );
+	}
+	$undo = csa_snapshot_post( $id );
+	$r    = wp_update_post( array( 'ID' => $id, 'post_content' => $p->post_content . "\n" . $html ), true );
+	if ( is_wp_error( $r ) ) {
+		return $r;
+	}
+	csa_clear_cache( $id );
+	return $undo;
 }
 
 /* ------------------------------------------------------------------ */
 /* Run one job                                                          */
 /* ------------------------------------------------------------------ */
 
+/** @return array( status, message, done_title, extra ) */
 function csa_jobs_do( $id, $j ) {
 	$ctx = array( 'state' => 'approved', 'items' => array(), 'pages' => array(), 'mem' => csa_mem_default() );
+	$kw  = csa_jobs_kw( $id );
+	if ( ! empty( $j['needs_kw'] ) && '' === $kw ) {
+		return array( 'fail', 'Choose the focus keyword first (the first job).', '', array() );
+	}
+	$ttl = get_the_title( $id );
 	switch ( $j['kind'] ) {
-		case 'css':
-			$r = csa_run_tool( 'set_page_css', array( 'id' => $id, 'name' => 'job' . $j['key'], 'css' => $j['css'], 'scope' => 'page' ), $ctx );
-			return isset( $r['error'] ) ? array( 'fail', $r['error'] ) : array( 'done', 'CSS added for this page (undo in Activity).' );
+		case 'keyword':
+			$sys = 'You are an SEO strategist for a school website in Bangladesh. ' . csa_site_context() . "\n\nSuggest exactly 3 focus keywords for ONE page: what parents really type into Google for this page's topic, 1-4 words, in the language people would search (Bangla or English). Return ONLY JSON: {\"options\":[{\"keyword\":\"...\",\"why\":\"one short reason\"},{...},{...}]}";
+			$r   = csa_jobs_ai_json( $sys, csa_jobs_page_brief( $id ), 'SEO agent: keywords' );
+			if ( is_wp_error( $r ) || empty( $r['options'] ) ) {
+				return array( 'fail', is_wp_error( $r ) ? $r->get_error_message() : 'No keywords returned.', '', array() );
+			}
+			$opts = array();
+			foreach ( array_slice( (array) $r['options'], 0, 3 ) as $o ) {
+				$opts[] = array( 'keyword' => sanitize_text_field( $o['keyword'] ?? '' ), 'why' => sanitize_text_field( $o['why'] ?? '' ) );
+			}
+			return array( 'choose', 'Choose one keyword below (or type your own).', '', array( 'options' => $opts ) );
 
 		case 'seo_meta':
-			$lang = csa_opt( 'seo_lang' );
-			$sys  = 'You are an SEO writer. ' . csa_site_context() . "\n\nWrite for ONE page. Return ONLY JSON: {\"title\":\"<=60 characters, focus keyword near the start\",\"description\":\"125-155 characters, includes the keyword, ends with a reason to click\",\"focus_keyword\":\"1-3 words people really search\"}. Language: " . $lang . '. Use only facts that appear in the page text; never invent fees, dates or numbers.';
-			$r    = csa_jobs_ai_json( $sys, csa_jobs_page_brief( $id ), 'Jobs: SEO text' );
+			$sys = 'You are an SEO writer. ' . csa_site_context() . "\n\nReturn ONLY JSON: {\"title\":\"<=60 characters, the focus keyword near the start\",\"description\":\"125-155 characters, includes the keyword, ends with a reason to click\"}." . CSA_JOBS_RULES;
+			$r   = csa_jobs_ai_json( $sys, csa_jobs_page_brief( $id ), 'SEO agent: title and meta' );
 			if ( is_wp_error( $r ) ) {
-				return array( 'fail', $r->get_error_message() );
+				return array( 'fail', $r->get_error_message(), '', array() );
 			}
-			$t = trim( (string) ( $r['title'] ?? '' ) );
-			$d = trim( (string) ( $r['description'] ?? '' ) );
-			$k = trim( (string) ( $r['focus_keyword'] ?? '' ) );
+			$old = csa_si_seo( $id );
+			$t   = trim( (string) ( $r['title'] ?? '' ) );
+			$d   = trim( (string) ( $r['description'] ?? '' ) );
 			if ( mb_strlen( $t ) > 60 ) {
 				$t = trim( mb_substr( $t, 0, 59 ) );
 			}
 			if ( mb_strlen( $d ) > 158 ) {
 				$d = trim( mb_substr( $d, 0, 155 ) ) . '…';
 			}
-			$o = csa_run_tool( 'update_seo_meta', array( 'id' => $id, 'title' => $t, 'description' => $d, 'focus_keyword' => $k ), $ctx );
+			$o = csa_run_tool( 'update_seo_meta', array( 'id' => $id, 'title' => $t, 'description' => $d ), $ctx );
 			if ( isset( $o['error'] ) ) {
-				return array( 'fail', $o['error'] );
+				return array( 'fail', $o['error'], '', array() );
 			}
-			$w = (array) ( $o['warnings'] ?? array() );
-			return array( $w ? 'done' : 'done', 'Title: ' . $t . ' | Description: ' . $d . ' | Keyword: ' . $k . ( $w ? ' | Check: ' . implode( '; ', $w ) : '' ) );
+			return array( 'done', 'Title: ' . $t . ' | Description: ' . $d . ( ! empty( $o['warnings'] ) ? ' | Check: ' . implode( '; ', $o['warnings'] ) : '' ), 'SEO title ' . mb_strlen( $old['st'] ) . '→' . mb_strlen( $t ) . ' characters, meta description ' . mb_strlen( $old['sd'] ) . '→' . mb_strlen( $d ), array() );
+
+		case 'h1_kw':
+			$f  = csa_seo_collect( $id );
+			$h1 = trim( (string) ( ( (array) ( $f['h1'] ?? array() ) )[0] ?? '' ) );
+			if ( '' === $h1 ) {
+				return array( 'fail', 'No H1 found to rewrite.', '', array() );
+			}
+			$sys = 'You rewrite one page heading (H1) for SEO. ' . csa_site_context() . "\n\nKeep the meaning and keep it short (max 70 characters). Include the focus keyword naturally. Return ONLY JSON: {\"h1\":\"...\"}." . CSA_JOBS_RULES;
+			$r   = csa_jobs_ai_json( $sys, "Focus keyword: {$kw}\nCurrent H1: {$h1}\n" . csa_jobs_page_brief( $id ), 'SEO agent: H1' );
+			$new = is_wp_error( $r ) ? '' : trim( (string) ( $r['h1'] ?? '' ) );
+			if ( '' === $new || false === mb_stripos( $new, $kw ) ) {
+				return array( 'fail', is_wp_error( $r ) ? $r->get_error_message() : 'The AI heading did not contain the keyword. Press Run again.', '', array() );
+			}
+			$res = csa_run_tool( 'replace_text', array( 'id' => $id, 'old_text' => $h1, 'new_text' => $new ), $ctx );
+			if ( isset( $res['error'] ) ) {
+				return array( 'fail', $res['error'], '', array() );
+			}
+			return array( 'done', 'H1: "' . $h1 . '" → "' . $new . '"', 'H1 now: ' . $new, array() );
+
+		case 'intro_kw':
+			$para = csa_jobs_first_para( $id );
+			if ( '' === $para ) {
+				return array( 'fail', 'No opening paragraph (a normal text paragraph of 40+ characters) was found. Use the chat agent or edit it yourself.', '', array() );
+			}
+			$sys = 'You improve one opening paragraph for SEO. ' . csa_site_context() . "\n\nKeep every fact, number and name exactly as in the old paragraph, and keep about the same length (at most 20% longer). Include the focus keyword once, naturally, near the start. Plain text only, no HTML. Return ONLY JSON: {\"paragraph\":\"...\"}." . CSA_JOBS_RULES;
+			$r   = csa_jobs_ai_json( $sys, "Focus keyword: {$kw}\nOld paragraph: {$para}", 'SEO agent: intro', 700 );
+			$new = is_wp_error( $r ) ? '' : trim( (string) ( $r['paragraph'] ?? '' ) );
+			if ( '' === $new || false === mb_stripos( $new, $kw ) || mb_strlen( $new ) > mb_strlen( $para ) * 1.4 ) {
+				return array( 'fail', is_wp_error( $r ) ? $r->get_error_message() : 'The AI paragraph was not usable (keyword missing or too long). Press Run again.', '', array() );
+			}
+			$res = csa_run_tool( 'replace_text', array( 'id' => $id, 'old_text' => $para, 'new_text' => $new ), $ctx );
+			if ( isset( $res['error'] ) ) {
+				return array( 'fail', $res['error'], '', array() );
+			}
+			return array( 'done', 'Old: ' . mb_substr( $para, 0, 120 ) . '… | New: ' . mb_substr( $new, 0, 120 ) . '…', 'Opening paragraph now has the keyword', array() );
+
+		case 'content':
+			$f     = csa_seo_collect( $id );
+			$words = (int) ( $f['word_count'] ?? 0 );
+			$need  = max( 120, 320 - $words );
+			$cand  = array();
+			foreach ( get_posts( array( 'post_type' => csa_seo_types(), 'post_status' => 'publish', 'numberposts' => 40, 'post__not_in' => array( $id ), 'orderby' => 'modified' ) ) as $c ) {
+				$cand[ $c->ID ] = get_the_title( $c );
+			}
+			$list = '';
+			foreach ( $cand as $cid => $ct ) {
+				$list .= $cid . ': ' . $ct . "\n";
+			}
+			$sys = 'You add useful text to a school web page. ' . csa_site_context() . "\n\nWrite about {$need} words as 2 short sections for parents. Each section has an h2 heading (use the focus keyword in one heading) and 1-2 short paragraphs. Also choose 3 related pages from the list for a 'Related' line. Return ONLY JSON: {\"sections\":[{\"h2\":\"...\",\"paragraphs\":[\"...\",\"...\"]}],\"links\":[{\"id\":123,\"anchor\":\"2-4 words\"}]}. Plain text in the values, no HTML." . CSA_JOBS_RULES;
+			$r   = csa_jobs_ai_json( $sys, "Focus keyword: {$kw}\nPage words now: {$words}\n" . csa_jobs_page_brief( $id ) . "\n\nRelated page candidates (id: title):\n" . $list, 'SEO agent: content', 1800 );
+			if ( is_wp_error( $r ) || empty( $r['sections'] ) ) {
+				return array( 'fail', is_wp_error( $r ) ? $r->get_error_message() : 'No text returned. Press Run again.', '', array() );
+			}
+			$html = '';
+			$wc   = 0;
+			foreach ( array_slice( (array) $r['sections'], 0, 3 ) as $sec ) {
+				$h2 = sanitize_text_field( $sec['h2'] ?? '' );
+				if ( '' === $h2 ) {
+					continue;
+				}
+				$html .= '<h2>' . esc_html( $h2 ) . "</h2>\n";
+				foreach ( array_slice( (array) ( $sec['paragraphs'] ?? array() ), 0, 3 ) as $pp ) {
+					$pp    = sanitize_text_field( $pp );
+					$html .= '<p>' . esc_html( $pp ) . "</p>\n";
+					$wc   += count( preg_split( '/\s+/u', $pp, -1, PREG_SPLIT_NO_EMPTY ) );
+				}
+			}
+			$ln = array();
+			foreach ( array_slice( (array) ( $r['links'] ?? array() ), 0, 3 ) as $l ) {
+				$lid = (int) ( $l['id'] ?? 0 );
+				if ( isset( $cand[ $lid ] ) && trim( (string) ( $l['anchor'] ?? '' ) ) !== '' ) {
+					$ln[] = '<a href="' . esc_url( get_permalink( $lid ) ) . '">' . esc_html( sanitize_text_field( $l['anchor'] ) ) . '</a>';
+				}
+			}
+			if ( $ln ) {
+				$html .= '<p>' . esc_html( csa_t( 'Related' ) ) . ': ' . implode( ' · ', $ln ) . "</p>\n";
+			}
+			if ( '' === $html ) {
+				return array( 'fail', 'The AI returned nothing usable. Press Run again.', '', array() );
+			}
+			$u = csa_jobs_append( $id, $html );
+			if ( is_wp_error( $u ) ) {
+				return array( 'fail', $u->get_error_message(), '', array() );
+			}
+			csa_log( csa_t( 'Added text to' ) . ' #' . $id . ': ' . $ttl, $u );
+			return array( 'done', 'Added about ' . $wc . ' words in ' . count( (array) $r['sections'] ) . ' section(s) and ' . count( $ln ) . ' internal link(s) at the end of the page text.', 'Added ~' . $wc . ' words, ' . count( $ln ) . ' internal links', array() );
 
 		case 'schema':
 			$sys = 'You write schema.org JSON-LD for a school website. ' . csa_site_context() . "\n\nReturn ONLY one valid JSON object with @context and @type (EducationalOrganization, Course or FAQPage, whichever fits this page; FAQPage only if the page text really has questions and answers). Use only facts from the page text and site memory; leave out anything unknown.";
-			$r   = csa_jobs_ai_json( $sys, csa_jobs_page_brief( $id ), 'Jobs: schema' );
+			$r   = csa_jobs_ai_json( $sys, csa_jobs_page_brief( $id ), 'SEO agent: schema' );
 			if ( is_wp_error( $r ) ) {
-				return array( 'fail', $r->get_error_message() );
+				return array( 'fail', $r->get_error_message(), '', array() );
 			}
 			$o = csa_run_tool( 'set_page_schema', array( 'id' => $id, 'jsonld' => wp_json_encode( $r, CSA_JSON ) ), $ctx );
-			return isset( $o['error'] ) ? array( 'fail', $o['error'] ) : array( 'done', 'Schema type ' . ( $r['@type'] ?? '' ) . ' added.' );
+			return isset( $o['error'] ) ? array( 'fail', $o['error'], '', array() ) : array( 'done', 'Schema type ' . ( $r['@type'] ?? '' ) . ' added.', 'Schema added: ' . ( $r['@type'] ?? '' ), array() );
 
 		case 'alt':
 			global $wpdb;
@@ -204,9 +427,9 @@ function csa_jobs_do( $id, $j ) {
 					$made[] = $file . ': ' . $a;
 				}
 			}
-			return $made ? array( 'done', implode( ' | ', $made ) . ' (alt is stored on the image; if a widget has its own empty alt, use the chat agent)' ) : array( 'fail', 'No image from the media library could be matched. Use the chat agent for this job.' );
+			return $made ? array( 'done', implode( ' | ', $made ), 'Alt text written for ' . count( $made ) . ' image(s)', array() ) : array( 'fail', 'No image from the media library could be matched. Add alt text in the Images screen, or use the chat agent.', '', array() );
 	}
-	return array( 'agent', '' );
+	return array( 'owner', '', '', array() );
 }
 
 /* ------------------------------------------------------------------ */
@@ -224,7 +447,27 @@ function csa_ajax_jobs_scan() {
 	if ( is_wp_error( $r ) ) {
 		wp_send_json_error( $r->get_error_message() );
 	}
-	wp_send_json_success( array( 'title' => get_the_title( $id ), 'jobs' => $r['jobs'], 'own' => $r['score']['score'], 'source' => $r['score']['source'], 'plugin' => csa_plugin_score( $id ), 'chat' => add_query_arg( array( 'page' => 'csa-chat', 'job' => $id ), admin_url( 'admin.php' ) ) ) );
+	wp_send_json_success( array( 'title' => get_the_title( $id ), 'jobs' => $r['jobs'], 'own' => $r['score']['score'], 'first' => $r['first'], 'source' => $r['score']['source'], 'plugin' => csa_plugin_score( $id ), 'chat' => add_query_arg( array( 'page' => 'csa-chat', 'job' => $id ), admin_url( 'admin.php' ) ) ) );
+}
+
+function csa_jobs_log_ids() {
+	$ids = array();
+	foreach ( (array) get_option( CSA_LOG, array() ) as $e ) {
+		$ids[] = $e['id'] ?? '';
+	}
+	return $ids;
+}
+
+function csa_jobs_save_one( $id, $n, $fn ) {
+	$jobs = csa_jobs_get( $id );
+	foreach ( $jobs as $i => $j ) {
+		if ( (int) $j['n'] === $n ) {
+			$jobs[ $i ] = $fn( $j );
+			update_post_meta( $id, '_csa_jobs', wp_slash( $jobs ) );
+			return $jobs[ $i ];
+		}
+	}
+	return null;
 }
 
 add_action( 'wp_ajax_csa_jobs_run', 'csa_ajax_jobs_run' );
@@ -240,22 +483,103 @@ function csa_ajax_jobs_run() {
 	if ( $g ) {
 		wp_send_json_error( $g['error'] ?? 'Live editing is off.' );
 	}
-	$jobs = csa_jobs_get( $id );
-	foreach ( $jobs as $i => $j ) {
+	foreach ( csa_jobs_get( $id ) as $j ) {
 		if ( (int) $j['n'] !== $n ) {
 			continue;
 		}
-		list( $st, $msg ) = csa_jobs_do( $id, $j );
-		if ( 'agent' === $st ) {
-			$msg = 'Needs the chat agent (editing text or structure).';
+		if ( 'done' === $j['status'] ) {
+			wp_send_json_error( 'This job is already done.' );
 		}
-		$jobs[ $i ]['status'] = 'agent' === $st ? 'agent' : $st;
-		$jobs[ $i ]['result'] = $msg;
-		update_post_meta( $id, '_csa_jobs', wp_slash( $jobs ) );
+		$before = csa_jobs_log_ids();
+		list( $st, $msg, $title, $extra ) = csa_jobs_do( $id, $j );
+		$new = array_values( array_diff( csa_jobs_log_ids(), $before ) );
+		$job = csa_jobs_save_one( $id, $n, function ( $j ) use ( $st, $msg, $title, $extra, $new ) {
+			$j['status'] = in_array( $st, array( 'done', 'fail', 'choose' ), true ) ? $st : 'todo';
+			$j['result'] = $msg;
+			if ( 'done' === $st ) {
+				$j['done_title'] = $title;
+				$j['undo']      = $new;
+			}
+			$j['options'] = 'choose' === $st ? ( $extra['options'] ?? array() ) : array();
+			return $j;
+		} );
 		$sc = csa_seo_score( $id );
-		wp_send_json_success( array( 'job' => $jobs[ $i ], 'own' => is_wp_error( $sc ) ? null : $sc['score'], 'alerts' => csa_take_alerts() ) );
+		wp_send_json_success( array( 'job' => $job, 'own' => is_wp_error( $sc ) ? null : $sc['score'], 'alerts' => csa_take_alerts() ) );
 	}
 	wp_send_json_error( 'No such job. Scan the page again.' );
+}
+
+/** Owner approves a keyword (one of the AI options or his own). */
+add_action( 'wp_ajax_csa_jobs_setkw', 'csa_ajax_jobs_setkw' );
+function csa_ajax_jobs_setkw() {
+	csa_guard( 'chat' );
+	$id = (int) ( $_POST['id'] ?? 0 );
+	$n  = (int) ( $_POST['n'] ?? 0 );
+	$kw = sanitize_text_field( wp_unslash( $_POST['keyword'] ?? '' ) );
+	$p  = csa_valid_post( $id );
+	if ( ! $p || '' === $kw ) {
+		wp_send_json_error( csa_t( 'Choose or type a keyword.' ) );
+	}
+	$before = csa_jobs_log_ids();
+	$old    = csa_jobs_kw( $id );
+	$r      = csa_seo_set( $id, array( 'keyword' => $kw ), csa_t( 'Focus keyword set on' ) );
+	if ( is_wp_error( $r ) ) {
+		wp_send_json_error( $r->get_error_message() );
+	}
+	$new = array_values( array_diff( csa_jobs_log_ids(), $before ) );
+	csa_jobs_save_one( $id, $n, function ( $j ) use ( $kw, $new, $old ) {
+		$j['status']     = 'done';
+		$j['options']    = array();
+		$j['result']     = 'Focus keyword: ' . $kw;
+		$j['done_title'] = 'Focus keyword: ' . ( '' !== $old ? $old . ' → ' : '' ) . $kw;
+		$j['undo']       = $new;
+		return $j;
+	} );
+	// Keyword changed: rebuild the list, keeping what is already done.
+	$b = csa_jobs_build( $id );
+	wp_send_json_success( array( 'jobs' => is_wp_error( $b ) ? csa_jobs_get( $id ) : $b['jobs'], 'own' => is_wp_error( $b ) ? null : $b['score']['score'] ) );
+}
+
+add_action( 'wp_ajax_csa_jobs_undo', 'csa_ajax_jobs_undo' );
+function csa_ajax_jobs_undo() {
+	csa_guard( 'chat' );
+	$id = (int) ( $_POST['id'] ?? 0 );
+	$n  = (int) ( $_POST['n'] ?? 0 );
+	$err = '';
+	$job = csa_jobs_save_one( $id, $n, function ( $j ) use ( &$err ) {
+		foreach ( array_reverse( (array) ( $j['undo'] ?? array() ) ) as $lid ) {
+			$r = csa_undo( $lid );
+			if ( is_wp_error( $r ) ) {
+				$err = $r->get_error_message();
+			}
+		}
+		if ( ! $err ) {
+			$j['status']     = 'todo';
+			$j['done_title'] = '';
+			$j['result']     = 'Undone.';
+			$j['undo']       = array();
+		}
+		return $j;
+	} );
+	if ( $err ) {
+		wp_send_json_error( $err );
+	}
+	$sc = csa_seo_score( $id );
+	wp_send_json_success( array( 'job' => $job, 'own' => is_wp_error( $sc ) ? null : $sc['score'] ) );
+}
+
+add_action( 'wp_ajax_csa_jobs_manual', 'csa_ajax_jobs_manual' );
+function csa_ajax_jobs_manual() {
+	csa_guard( 'chat' );
+	$id = (int) ( $_POST['id'] ?? 0 );
+	$n  = (int) ( $_POST['n'] ?? 0 );
+	$st = 'skip' === ( $_POST['status'] ?? '' ) ? 'skip' : ( 'todo' === ( $_POST['status'] ?? '' ) ? 'todo' : 'done' );
+	$job = csa_jobs_save_one( $id, $n, function ( $j ) use ( $st ) {
+		$j['status']     = $st;
+		$j['done_title'] = 'done' === $st ? 'You did: ' . preg_replace( '/^YOU( \(optional\))?: /', '', $j['title'] ) : '';
+		return $j;
+	} );
+	wp_send_json_success( array( 'job' => $job ) );
 }
 
 add_action( 'wp_ajax_csa_jobs_overview', 'csa_ajax_jobs_overview' );
@@ -282,7 +606,7 @@ function csa_ajax_jobs_load() {
 		wp_send_json_error( csa_t( 'Page not found.' ) );
 	}
 	$sc = csa_seo_score( $id );
-	wp_send_json_success( array( 'title' => get_the_title( $id ), 'jobs' => csa_jobs_get( $id ), 'own' => is_wp_error( $sc ) ? 0 : $sc['score'], 'source' => is_wp_error( $sc ) ? '' : $sc['source'], 'plugin' => csa_plugin_score( $id ) ) );
+	wp_send_json_success( array( 'title' => get_the_title( $id ), 'jobs' => csa_jobs_get( $id ), 'own' => is_wp_error( $sc ) ? 0 : $sc['score'], 'first' => (int) get_post_meta( $id, '_csa_score_first', true ), 'source' => is_wp_error( $sc ) ? '' : $sc['source'], 'plugin' => csa_plugin_score( $id ) ) );
 }
 
 add_action( 'wp_ajax_csa_jobs_site', 'csa_ajax_jobs_site' );
@@ -312,11 +636,11 @@ function csa_ajax_jobs_site() {
 /* ------------------------------------------------------------------ */
 
 function csa_screen_jobs() {
-	csa_header( csa_t( 'Jobs' ) );
+	csa_header( csa_t( 'SEO Agent' ) );
 	?>
 	<div class="csa-card"><h2><?php echo esc_html( csa_t( 'Saved jobs: which page needs what' ) ); ?></h2><p class="csa-muted"><?php echo esc_html( csa_t( 'Every scanned page keeps its job list here, with what is done and what is left.' ) ); ?></p><div id="csa-jb-over"></div></div>
 	<div class="csa-card" id="csa-jobs-app" data-chat="<?php echo esc_attr( admin_url( 'admin.php?page=csa-chat' ) ); ?>">
-		<p class="csa-muted"><?php echo esc_html( csa_t( '1) Pick a page or post and press Scan (free, no AI). 2) You get numbered jobs. 3) Tick the ones you want, or type their numbers (for example 1,2,5 or 1-4), and press Run.' ) ); ?></p>
+		<p class="csa-muted"><?php echo esc_html( csa_t( '1) Pick a page or post and press Scan (free, no AI). 2) You get numbered jobs in the right order; the first is the focus keyword (the AI suggests, you approve). 3) Press Run all in order, which is your approval for the SEO changes, or run single jobs. Each finished job shows what changed in its title, and has an Undo button. Design problems are only listed, for the design agent.' ) ); ?></p>
 		<div class="csa-row">
 			<input type="search" class="regular-text" id="csa-jb-q" placeholder="<?php echo esc_attr( csa_t( 'Search pages and posts…' ) ); ?>">
 			<select id="csa-jb-page" style="min-width:320px"></select>

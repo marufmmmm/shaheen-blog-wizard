@@ -322,3 +322,4 @@
 .csa-media>.csa-pick{margin-top:4px}
 
 .csa-jb-table td{vertical-align:top}.csa-jb-done td{background:#f6fff7}.csa-jb-fail td{background:#fcf0f1}.csa-jb-res{color:#1d6b2f;font-size:12px}.csa-jb-fail .csa-jb-res{color:#b32d2e}
+.csa-jb-kw{margin-top:8px;padding:8px;background:#f6f7f7;border-radius:4px}.csa-jb-kwown{width:180px}

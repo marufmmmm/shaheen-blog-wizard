@@ -1245,9 +1245,9 @@
 	if (jbApp) (function () {
 		var qIn = $('#csa-jb-q'), sel = $('#csa-jb-page'), head = $('#csa-jb-head'), listEl = $('#csa-jb-list'), runBox = $('#csa-jb-run'), prog = $('#csa-jb-prog');
 		var jobs = [], pid = 0, running = false;
-		var ICON = { css: '🎨', seo_meta: '🔎', schema: '🧩', alt: '🖼', agent: '💬', owner: '👤' };
-		var HOW = { css: T('Free, no AI'), seo_meta: T('1 small AI call'), schema: T('1 small AI call'), alt: T('1 AI call per image'), agent: T('Needs the chat agent'), owner: T('You do this') };
-		var runnable = function (j) { return ['css', 'seo_meta', 'schema', 'alt'].indexOf(j.kind) >= 0 && j.status !== 'done'; };
+		var ICON = { keyword: '🔑', seo_meta: '🔎', h1_kw: '✏️', intro_kw: '✏️', content: '📝', schema: '🧩', alt: '🖼', owner: '👤', design: '🎨' };
+		var HOW = { keyword: T('1 small AI call, then you approve'), seo_meta: T('1 small AI call'), h1_kw: T('1 small AI call'), intro_kw: T('1 small AI call'), content: T('1 AI call'), schema: T('1 small AI call'), alt: T('1 AI call per image'), owner: T('You do this'), design: T('For the design agent') };
+		var runnable = function (j) { return ['keyword', 'seo_meta', 'h1_kw', 'intro_kw', 'content', 'schema', 'alt'].indexOf(j.kind) >= 0 && j.status !== 'done' && j.status !== 'skip'; };
 
 		async function loadPages() {
 			var r = await post('csa_job_pages', { q: qIn.value.trim(), pid: params.get('page_id') || '' });
@@ -1267,17 +1267,27 @@
 				var pl = meta.plugin || {};
 				head.innerHTML = '<h2>' + esc(meta.title) + '</h2><p>'
 					+ '<strong>' + esc(pl.plugin || '') + ':</strong> ' + badge(pl.seo, T('SEO score')) + (pl.read !== null && pl.read !== undefined ? ' · ' + csaScore(pl.read) + ' ' + esc(T('Readability')) : '')
-					+ ' &nbsp;|&nbsp; <strong>' + esc(T('This plugin\'s checklist')) + ':</strong> <span id="csa-jb-own">' + csaScore(meta.own) + '</span> / 100'
+					+ ' &nbsp;|&nbsp; <strong>' + esc(T('This plugin\'s checklist')) + ':</strong> ' + (meta.first !== undefined && meta.first !== null && meta.first !== meta.own ? csaScore(meta.first) + ' → ' : '') + '<span id="csa-jb-own">' + csaScore(meta.own) + '</span> / 100'
 					+ '</p>' + (pl.note ? '<p class="csa-muted">' + esc(pl.note) + '</p>' : '') + '<p class="csa-muted">' + esc(meta.source) + '</p>';
 			}
 			if (!jobs.length) { listEl.innerHTML = '<p>✅ ' + esc(T('No jobs: nothing to fix found.')) + '</p>'; runBox.hidden = true; return; }
 			runBox.hidden = false;
-			listEl.innerHTML = '<table class="widefat striped csa-jb-table"><thead><tr><th></th><th>#</th><th>' + esc(T('Job')) + '</th><th>' + esc(T('How')) + '</th><th>' + esc(T('Status')) + '</th></tr></thead><tbody>'
+			listEl.innerHTML = '<table class="widefat striped csa-jb-table"><thead><tr><th></th><th>#</th><th>' + esc(T('Job (the title shows what was changed)')) + '</th><th>' + esc(T('How')) + '</th><th>' + esc(T('Status')) + '</th></tr></thead><tbody>'
 				+ jobs.map(function (j) {
-					var st = j.status === 'done' ? '✅ ' + esc(T('done')) : (j.status === 'fail' ? '❌ ' + esc(T('failed')) : (j.status === 'agent' ? '💬 ' + esc(T('chat agent')) : esc(T('to do'))));
+					var done = j.status === 'done';
+					var st = done ? '✅ ' + esc(T('done')) : (j.status === 'fail' ? '❌ ' + esc(T('failed')) : (j.status === 'choose' ? '🔑 ' + esc(T('choose')) : (j.status === 'skip' ? esc(T('skipped')) : esc(T('to do')))));
+					var title = done && j.done_title ? '✅ ' + esc(j.done_title) : esc(j.title);
+					var extra = '';
+					if (j.status === 'choose' && j.options && j.options.length) {
+						extra = '<div class="csa-jb-kw">' + j.options.map(function (o, i) { return '<label><input type="radio" name="kw' + j.n + '" value="' + esc(o.keyword) + '"' + (i === 0 ? ' checked' : '') + '> <strong>' + esc(o.keyword) + '</strong> <span class="csa-muted">' + esc(o.why) + '</span></label>'; }).join('<br>')
+							+ '<br><label>' + esc(T('or your own')) + ': <input type="text" class="csa-jb-kwown" placeholder="' + esc(T('your keyword')) + '"></label> <button type="button" class="button button-primary button-small" data-kw="' + j.n + '">✔ ' + esc(T('Approve keyword')) + '</button></div>';
+					}
+					var btn = '';
+					if (done && j.undo && j.undo.length) btn = '<br><button type="button" class="button button-small" data-undo="' + j.n + '">↩ ' + esc(T('Undo')) + '</button>';
+					if (j.kind === 'owner' && !done) btn = '<br><button type="button" class="button button-small" data-man="' + j.n + '">✔ ' + esc(T('Mark done')) + '</button>';
 					return '<tr data-n="' + j.n + '" class="csa-jb-' + j.status + '"><td>' + (runnable(j) ? '<input type="checkbox" class="csa-jb-pick" value="' + j.n + '">' : '') + '</td><td><strong>' + j.n + '</strong></td>'
-						+ '<td>' + (ICON[j.kind] || '') + ' <strong>' + esc(j.title) + '</strong>' + (j.pts ? ' <span class="csa-muted">+' + j.pts + ' ' + esc(T('points')) + '</span>' : '') + '<br><span class="csa-muted">' + esc(j.detail || '') + '</span>'
-						+ (j.result ? '<br><span class="csa-jb-res">' + esc(j.result) + '</span>' : '') + '</td><td>' + esc(HOW[j.kind] || '') + (j.kind === 'agent' && j.status !== 'done' ? '<br><button type="button" class="button button-small" data-agent="' + j.n + '">💬 ' + esc(T('Do with agent')) + '</button>' : '') + '</td><td>' + st + '</td></tr>';
+						+ '<td>' + (ICON[j.kind] || '') + ' <strong>' + title + '</strong>' + (!done && j.pts ? ' <span class="csa-muted">+' + j.pts + ' ' + esc(T('points')) + '</span>' : '') + (done ? '' : '<br><span class="csa-muted">' + esc(j.detail || '') + '</span>')
+						+ (j.result && !done ? '<br><span class="csa-jb-res">' + esc(j.result) + '</span>' : '') + (done && j.result ? '<br><span class="csa-muted">' + esc(j.result) + '</span>' : '') + extra + '</td><td>' + esc(HOW[j.kind] || '') + btn + '</td><td>' + st + '</td></tr>';
 				}).join('') + '</tbody></table>';
 		}
 
@@ -1311,6 +1321,7 @@
 				jobs[k] = r.data.job; if (r.data.own !== null) { var o = $('#csa-jb-own'); if (o) o.innerHTML = csaScore(r.data.own); }
 				showAlerts(r.data.alerts); draw();
 				if (r.data.job.status === 'fail') { toast(T('Stopped: this job failed.'), 'err'); break; }
+				if (r.data.job.status === 'choose') { toast(T('Choose the keyword, then press Run all in order again.'), 'ok'); break; }
 			}
 			prog.textContent = T('Done.'); running = false; overview();
 		}
@@ -1322,10 +1333,22 @@
 		};
 		$('#csa-jb-next').onclick = function () { runNums(nextOpen().slice(0, 1)); };
 		$('#csa-jb-order').onclick = function () { runNums(nextOpen()); };
-		listEl.addEventListener('click', function (e) {
-			var n = e.target.dataset && e.target.dataset.agent; if (!n) return;
-			var j = jobs.find(function (x) { return String(x.n) === n; });
-			location.href = jbApp.dataset.chat + '&prompt=' + encodeURIComponent('Page #' + pid + ' (' + $('h2', head).textContent + '): do job ' + n + ' of its saved checklist: ' + j.title + '. ' + (j.detail || ''));
+		listEl.addEventListener('click', async function (e) {
+			var d = e.target.dataset || {}, r, k;
+			if (d.kw) {
+				var row = e.target.closest('tr'), own = $('.csa-jb-kwown', row).value.trim(), pick = $('input[type=radio]:checked', row);
+				var kw = own || (pick ? pick.value : ''); if (!kw) { toast(T('Choose or type a keyword.'), 'err'); return; }
+				r = await post('csa_jobs_setkw', { id: pid, n: d.kw, keyword: kw }); if (r.error) { toast(r.error, 'err'); return; }
+				jobs = r.data.jobs; if (r.data.own !== null) { var o = $('#csa-jb-own'); if (o) o.innerHTML = csaScore(r.data.own); } draw(); overview(); return;
+			}
+			if (d.undo) {
+				r = await post('csa_jobs_undo', { id: pid, n: d.undo }); if (r.error) { toast(r.error, 'err'); return; }
+				k = jobs.findIndex(function (j) { return String(j.n) === d.undo; }); jobs[k] = r.data.job; if (r.data.own !== null) { var o2 = $('#csa-jb-own'); if (o2) o2.innerHTML = csaScore(r.data.own); } draw(); overview(); return;
+			}
+			if (d.man) {
+				r = await post('csa_jobs_manual', { id: pid, n: d.man, status: 'done' }); if (r.error) { toast(r.error, 'err'); return; }
+				k = jobs.findIndex(function (j) { return String(j.n) === d.man; }); jobs[k] = r.data.job; draw(); overview();
+			}
 		});
 		$('#csa-jb-chat').onclick = function () {
 			var txt = $('#csa-jb-ask').value.trim(); if (!txt) return;
