@@ -86,7 +86,7 @@ function csa_tools_read() {
 
 /** Allowed in any state: low-risk, no page content changes. */
 function csa_tools_anytime() {
-	return array_merge( csa_am_tools(), csa_si_tool(), csa_dsg_read_tool(), csa_gd_ask_tool(), csa_tools_anytime_base() );
+	return array_merge( csa_am_tools(), csa_si_tool(), csa_score_tool(), csa_dsg_read_tool(), csa_gd_ask_tool(), csa_tools_anytime_base() );
 }
 
 function csa_tools_anytime_base() {
@@ -256,6 +256,7 @@ function csa_tool_label( $name, $in ) {
 		'get_page'                 => csa_t( 'Read page' ) . $id,
 		'get_elementor_html'       => csa_t( 'Read page design' ) . $id,
 		'get_seo_data'             => csa_t( 'Checked SEO of page' ) . $id,
+		'seo_score'                => '📊 ' . csa_t( 'SEO score of page' ) . $id,
 		'find_in_html'             => csa_t( 'Searched page' ) . $id,
 		'read_html'                => csa_t( 'Read part of page' ) . $id,
 		'page_outline'             => csa_t( 'Mapped page structure' ) . $id,
@@ -642,6 +643,10 @@ function csa_run_tool( $name, $in, &$ctx ) {
 			$ctx['mem']['notes'] = mb_substr( $n, -2000 );
 			return array( 'ok' => true );
 
+		case 'seo_score':
+			$r = csa_seo_score( $in['id'] ?? 0 );
+			return is_wp_error( $r ) ? array( 'error' => $r->get_error_message() ) : $r;
+
 		case 'get_seo_data':
 			$p = csa_valid_post( $in['id'] ?? 0 );
 			if ( ! $p ) {
@@ -928,6 +933,8 @@ function csa_agent_prompt( $state, $auto = null, $mem = array() ) {
 		. "\n- Mobile fixes: check fixed widths, big fixed font sizes, grids/flex rows that don't wrap, tables, large paddings, overflow, 100vw. Usually append one <style> block with @media (max-width:768px) and (max-width:480px) rules scoped to the page's own classes."
 		. "\n- Blog posts you create get the site's post format automatically (table of contents, CTA box, share buttons). Inside post content you may use: <div class=\"csa-takeaways\"><p class=\"csa-takeaways-title\">…</p><ul>…</ul></div>, <div class=\"csa-tip|csa-note|csa-warning\">…</div>, tables, and an FAQ as <div class=\"csa-faq\"><h2>…</h2><details><summary>Q</summary><p>A</p></details></div>. Don't add inline styles to posts."
 		. "\n- New designs: clean responsive HTML with inline <style> scoped under a unique wrapper class, wrapped in <!-- wp:html --> ... <!-- /wp:html -->. No external scripts."
+		. "\n- SEO target is a score of 90 or more. Call seo_score first, fix the failed items (biggest points first) with the proper tools, then call seo_score AGAIN and report the real before and after numbers. Repeat up to 3 rounds. Never say a score was reached unless the last seo_score call shows it; if items remain that you cannot fix (theme or plugin settings, missing photos), list them for the owner."
+		. "\n- Coherence of text: before writing, read the neighbouring sections and match their language, tone, form of address (আপনি/তুমি), spelling, terms and numbers; use only facts from Site Memory or the page; never invent fees, dates or counts. After text changes, re-read the edited section once and fix any clash. Run check_consistency when you changed phone numbers, e-mails, years or counts."
 		. "\n- SEO: use get_seo_data; fix the most important issues first (title, meta description, one H1, alt text, headings, internal links, schema)."
 		. "\n- Images: when a page needs photos, call suggest_image_slots (what to shoot, recommended size, SEO alt text with the page's keywords, SEO file name). The user uploads them in the Images section. When asked to insert them, use get_image_slots and the uploaded URLs/alt in your edits (this needs a plan)."
 		. "\n- When the user says to remember something about the site, call save_note."
