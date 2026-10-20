@@ -289,6 +289,35 @@ function csa_media_context( $id ) {
 	return implode( ' ', $parts );
 }
 
+/** Write alt text for one image with the vision model, from what it shows and where it is used. Saves it; returns the text. */
+function csa_media_make_alt( $id ) {
+	if ( ! wp_attachment_is_image( $id ) ) {
+		return new WP_Error( 'img', csa_t( 'Image not found.' ) );
+	}
+	$src = image_get_intermediate_size( $id, csa_eco_val( 'medium', 'medium_large' ) );
+	if ( ! $src ) {
+		$src = image_get_intermediate_size( $id, 'medium' );
+	}
+	$path = $src ? path_join( dirname( get_attached_file( $id ) ), $src['file'] ) : get_attached_file( $id );
+	$blk  = csa_image_block( $path );
+	if ( ! $blk ) {
+		return new WP_Error( 'img', csa_t( 'Could not read this image.' ) );
+	}
+	$a      = get_post( $id );
+	$ctx    = csa_media_context( $id );
+	$system = 'You write image alt text for SEO and accessibility. ' . csa_site_context()
+		. "\n\nDescribe what the image shows in one concise sentence (max 120 characters). Make it fit the page topic given in the context: use the page's focus keyword or topic naturally only when the image really relates to it (never stuff keywords, never describe things not visible). If no context is given, use a relevant keyword for this website when it fits. Language: " . csa_opt( 'seo_lang' ) . '. Return ONLY the alt text, no quotes.';
+	$data   = csa_claude( array( array( 'role' => 'user', 'content' => array( $blk, array( 'type' => 'text', 'text' => 'File: ' . $a->post_title . '. ' . $ctx ) ) ) ), $system, array( 'max_tokens' => 200, 'task' => 'vision', 'needs_vision' => true, 'feature' => 'Alt text' ) );
+	if ( is_wp_error( $data ) ) {
+		return $data;
+	}
+	$alt = trim( csa_text_of( $data ), " \t\n\r\"'" );
+	$old = get_post_meta( $id, '_wp_attachment_image_alt', true );
+	update_post_meta( $id, '_wp_attachment_image_alt', sanitize_text_field( $alt ) );
+	csa_log( csa_t( 'AI alt text for image' ) . ' #' . $id . ': ' . $alt, array( 'type' => 'alt', 'post' => $id, 'old' => $old ) );
+	return $alt;
+}
+
 add_action( 'wp_ajax_csa_media', 'csa_ajax_media' );
 function csa_ajax_media() {
 	csa_guard( 'images' );
@@ -318,32 +347,11 @@ function csa_ajax_media() {
 	}
 
 	if ( 'alt' === $do ) {
-		$id = (int) ( $_POST['id'] ?? 0 );
-		if ( ! wp_attachment_is_image( $id ) ) {
-			wp_send_json_error( csa_t( 'Image not found.' ) );
+		$r = csa_media_make_alt( (int) ( $_POST['id'] ?? 0 ) );
+		if ( is_wp_error( $r ) ) {
+			wp_send_json_error( $r->get_error_message() );
 		}
-		$src = image_get_intermediate_size( $id, csa_eco_val( 'medium', 'medium_large' ) );
-		if ( ! $src ) {
-			$src = image_get_intermediate_size( $id, 'medium' );
-		}
-		$path = $src ? path_join( dirname( get_attached_file( $id ) ), $src['file'] ) : get_attached_file( $id );
-		$blk  = csa_image_block( $path );
-		if ( ! $blk ) {
-			wp_send_json_error( csa_t( 'Could not read this image.' ) );
-		}
-		$a      = get_post( $id );
-		$ctx    = csa_media_context( $id );
-		$system = 'You write image alt text for SEO and accessibility. ' . csa_site_context()
-			. "\n\nDescribe what the image shows in one concise sentence (max 120 characters). Make it fit the page topic given in the context: use the page's focus keyword or topic naturally only when the image really relates to it (never stuff keywords, never describe things not visible). If no context is given, use a relevant keyword for this website when it fits. Language: " . csa_opt( 'seo_lang' ) . '. Return ONLY the alt text, no quotes.';
-		$data   = csa_claude( array( array( 'role' => 'user', 'content' => array( $blk, array( 'type' => 'text', 'text' => 'File: ' . $a->post_title . '. ' . $ctx ) ) ) ), $system, array( 'max_tokens' => 200, 'task' => 'vision', 'needs_vision' => true, 'feature' => 'Alt text' ) );
-		if ( is_wp_error( $data ) ) {
-			wp_send_json_error( $data->get_error_message() );
-		}
-		$alt = trim( csa_text_of( $data ), " \t\n\r\"'" );
-		$old = get_post_meta( $id, '_wp_attachment_image_alt', true );
-		update_post_meta( $id, '_wp_attachment_image_alt', sanitize_text_field( $alt ) );
-		csa_log( csa_t( 'AI alt text for image' ) . ' #' . $id . ': ' . $alt, array( 'type' => 'alt', 'post' => $id, 'old' => $old ) );
-		wp_send_json_success( array( 'alt' => $alt, 'alerts' => csa_take_alerts() ) );
+		wp_send_json_success( array( 'alt' => $r, 'alerts' => csa_take_alerts() ) );
 	}
 
 	if ( 'save_alt' === $do ) {

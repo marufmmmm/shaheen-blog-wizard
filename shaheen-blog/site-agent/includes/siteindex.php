@@ -158,6 +158,10 @@ function csa_si_facts( $text ) {
 }
 
 function csa_si_seo( $id ) {
+	if ( function_exists( 'csa_seo_plugin' ) && 'All in One SEO' === csa_seo_plugin() ) {
+		$a = csa_aio_get( $id );
+		return array( 'st' => trim( $a['title'] ), 'sd' => trim( $a['description'] ), 'sk' => trim( $a['keyword'] ) );
+	}
 	$k = function_exists( 'csa_seo_keys' ) ? csa_seo_keys() : array();
 	return array(
 		'st' => $k ? trim( (string) get_post_meta( $id, $k['title'], true ) ) : '',

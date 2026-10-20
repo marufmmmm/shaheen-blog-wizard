@@ -552,6 +552,12 @@ function csa_undo( $log_id ) {
 					update_post_meta( $id, $meta, $v );
 				}
 				break;
+			case 'aio':
+				global $wpdb;
+				if ( csa_aio_table() && $u['old'] ) {
+					$wpdb->update( csa_aio_table(), (array) $u['old'], array( 'post_id' => $id ) );
+				}
+				break;
 			case 'created':
 				wp_trash_post( $id );
 				break;
@@ -628,7 +634,66 @@ function csa_seo_plugin() {
 	if ( defined( 'RANK_MATH_VERSION' ) || class_exists( 'RankMath' ) ) {
 		return 'Rank Math';
 	}
+	if ( defined( 'AIOSEO_VERSION' ) || function_exists( 'aioseo' ) ) {
+		return 'All in One SEO';
+	}
 	return '';
+}
+
+/** All in One SEO keeps its fields in its own table. */
+function csa_aio_table() {
+	global $wpdb;
+	$t = $wpdb->prefix . 'aioseo_posts';
+	return $wpdb->get_var( $wpdb->prepare( 'SHOW TABLES LIKE %s', $t ) ) === $t ? $t : '';
+}
+
+function csa_aio_get( $id ) {
+	global $wpdb;
+	$t = csa_aio_table();
+	if ( ! $t ) {
+		return array( 'title' => '', 'description' => '', 'keyword' => '' );
+	}
+	$r  = $wpdb->get_row( $wpdb->prepare( "SELECT title, description, keyphrases FROM {$t} WHERE post_id = %d", $id ), ARRAY_A );
+	$kp = $r && ! empty( $r['keyphrases'] ) ? json_decode( $r['keyphrases'], true ) : array();
+	return array( 'title' => (string) ( $r['title'] ?? '' ), 'description' => (string) ( $r['description'] ?? '' ), 'keyword' => (string) ( $kp['focus']['keyphrase'] ?? '' ) );
+}
+
+function csa_aio_set( $id, $fields ) {
+	global $wpdb;
+	$t = csa_aio_table();
+	if ( ! $t ) {
+		return new WP_Error( 'noseo', 'The All in One SEO table was not found.' );
+	}
+	$row = $wpdb->get_row( $wpdb->prepare( "SELECT * FROM {$t} WHERE post_id = %d", $id ), ARRAY_A );
+	$set = array();
+	if ( isset( $fields['title'] ) ) {
+		$set['title'] = sanitize_text_field( $fields['title'] );
+	}
+	if ( isset( $fields['description'] ) ) {
+		$set['description'] = sanitize_text_field( $fields['description'] );
+	}
+	if ( isset( $fields['keyword'] ) ) {
+		$kp                           = $row && ! empty( $row['keyphrases'] ) ? json_decode( $row['keyphrases'], true ) : array();
+		$kp                           = is_array( $kp ) ? $kp : array();
+		$kp['focus']                  = array_merge( (array) ( $kp['focus'] ?? array( 'score' => 0, 'analysis' => new stdClass() ) ), array( 'keyphrase' => sanitize_text_field( $fields['keyword'] ) ) );
+		$kp['additional']             = $kp['additional'] ?? array();
+		$set['keyphrases']            = wp_json_encode( $kp );
+	}
+	if ( ! $set ) {
+		return true;
+	}
+	$old = $row ? array_intersect_key( $row, $set ) : array();
+	if ( $row ) {
+		$ok = $wpdb->update( $t, $set, array( 'post_id' => $id ) );
+	} else {
+		$ok = $wpdb->insert( $t, array_merge( array( 'post_id' => $id, 'created' => current_time( 'mysql' ), 'updated' => current_time( 'mysql' ) ), $set ) );
+	}
+	if ( false === $ok ) {
+		return new WP_Error( 'aio', 'Could not save to the All in One SEO table.' );
+	}
+	csa_clear_cache( $id );
+	csa_log( csa_t( 'Updated SEO fields on' ) . ' #' . $id . ' ' . get_the_title( $id ) . ' (All in One SEO)', array( 'type' => 'aio', 'post' => (int) $id, 'old' => $old ) );
+	return true;
 }
 
 function csa_seo_keys() {
@@ -643,9 +708,12 @@ function csa_seo_keys() {
 
 /** Set SEO fields (title/description/keyword) with undo; returns true|WP_Error. */
 function csa_seo_set( $id, $fields, $label = '' ) {
+	if ( 'All in One SEO' === csa_seo_plugin() ) {
+		return csa_aio_set( $id, $fields );
+	}
 	$keys = csa_seo_keys();
 	if ( ! $keys ) {
-		return new WP_Error( 'noseo', csa_t( 'No supported SEO plugin (Yoast SEO or Rank Math) is active.' ) );
+		return new WP_Error( 'noseo', csa_t( 'No supported SEO plugin (Yoast SEO, Rank Math or All in One SEO) is active.' ) );
 	}
 	$old = array();
 	foreach ( $fields as $f => $v ) {

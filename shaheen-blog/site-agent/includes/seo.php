@@ -138,6 +138,12 @@ function csa_seo_collect( $id ) {
 		$out['plugin_title']         = get_post_meta( $id, $keys['title'], true );
 		$out['plugin_description']   = get_post_meta( $id, $keys['description'], true );
 		$out['plugin_focus_keyword'] = get_post_meta( $id, $keys['keyword'], true );
+	} elseif ( 'All in One SEO' === csa_seo_plugin() ) {
+		$a                           = csa_aio_get( $id );
+		$out['seo_plugin']           = 'All in One SEO';
+		$out['plugin_title']         = $a['title'];
+		$out['plugin_description']   = $a['description'];
+		$out['plugin_focus_keyword'] = $a['keyword'];
 	} else {
 		$out['seo_plugin'] = 'none';
 	}

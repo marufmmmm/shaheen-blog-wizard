@@ -320,3 +320,5 @@
 .csa-jobform .csa-jf-list{margin:8px 0}
 .csa-jobform .csa-jf-note{margin:8px 0}
 .csa-media>.csa-pick{margin-top:4px}
+
+.csa-jb-table td{vertical-align:top}.csa-jb-done td{background:#f6fff7}.csa-jb-fail td{background:#fcf0f1}.csa-jb-res{color:#1d6b2f;font-size:12px}.csa-jb-fail .csa-jb-res{color:#b32d2e}

@@ -1227,6 +1227,120 @@
 		};
 	})();
 
+
+	/* ================================================================
+	   Jobs board: scan -> numbered jobs -> run "1,2,5"
+	   ================================================================ */
+
+	var jbApp = $('#csa-jobs-app');
+	if (jbApp) (function () {
+		var qIn = $('#csa-jb-q'), sel = $('#csa-jb-page'), head = $('#csa-jb-head'), listEl = $('#csa-jb-list'), runBox = $('#csa-jb-run'), prog = $('#csa-jb-prog');
+		var jobs = [], pid = 0, running = false;
+		var ICON = { css: '🎨', seo_meta: '🔎', schema: '🧩', alt: '🖼', agent: '💬', owner: '👤' };
+		var HOW = { css: T('Free, no AI'), seo_meta: T('1 small AI call'), schema: T('1 small AI call'), alt: T('1 AI call per image'), agent: T('Needs the chat agent'), owner: T('You do this') };
+		var runnable = function (j) { return ['css', 'seo_meta', 'schema', 'alt'].indexOf(j.kind) >= 0 && j.status !== 'done'; };
+
+		async function loadPages() {
+			var r = await post('csa_job_pages', { q: qIn.value.trim(), pid: params.get('page_id') || '' });
+			if (r.error) { sel.innerHTML = '<option>' + esc(r.error) + '</option>'; return; }
+			sel.innerHTML = r.data.map(function (p) { return '<option value="' + p.id + '">' + esc(p.title) + ' — ' + esc(p.type) + ' #' + p.id + '</option>'; }).join('');
+		}
+		var t; qIn.oninput = function () { clearTimeout(t); t = setTimeout(loadPages, 300); };
+
+		function badge(score, label) {
+			if (score === null || score === undefined) return '<span class="csa-score">—</span> ' + esc(label);
+			return csaScore(score) + ' ' + esc(label);
+		}
+		function csaScore(s) { s = parseInt(s, 10); return '<span class="csa-score ' + (s >= 80 ? 'good' : (s >= 50 ? 'ok' : 'bad')) + '">' + s + '</span>'; }
+
+		function draw(meta) {
+			if (meta) {
+				var pl = meta.plugin || {};
+				head.innerHTML = '<h2>' + esc(meta.title) + '</h2><p>'
+					+ '<strong>' + esc(pl.plugin || '') + ':</strong> ' + badge(pl.seo, T('SEO score')) + (pl.read !== null && pl.read !== undefined ? ' · ' + csaScore(pl.read) + ' ' + esc(T('Readability')) : '')
+					+ ' &nbsp;|&nbsp; <strong>' + esc(T('This plugin\'s checklist')) + ':</strong> <span id="csa-jb-own">' + csaScore(meta.own) + '</span> / 100'
+					+ '</p>' + (pl.note ? '<p class="csa-muted">' + esc(pl.note) + '</p>' : '') + '<p class="csa-muted">' + esc(meta.source) + '</p>';
+			}
+			if (!jobs.length) { listEl.innerHTML = '<p>✅ ' + esc(T('No jobs: nothing to fix found.')) + '</p>'; runBox.hidden = true; return; }
+			runBox.hidden = false;
+			listEl.innerHTML = '<table class="widefat striped csa-jb-table"><thead><tr><th></th><th>#</th><th>' + esc(T('Job')) + '</th><th>' + esc(T('How')) + '</th><th>' + esc(T('Status')) + '</th></tr></thead><tbody>'
+				+ jobs.map(function (j) {
+					var st = j.status === 'done' ? '✅ ' + esc(T('done')) : (j.status === 'fail' ? '❌ ' + esc(T('failed')) : (j.status === 'agent' ? '💬 ' + esc(T('chat agent')) : esc(T('to do'))));
+					return '<tr data-n="' + j.n + '" class="csa-jb-' + j.status + '"><td>' + (runnable(j) ? '<input type="checkbox" class="csa-jb-pick" value="' + j.n + '">' : '') + '</td><td><strong>' + j.n + '</strong></td>'
+						+ '<td>' + (ICON[j.kind] || '') + ' <strong>' + esc(j.title) + '</strong>' + (j.pts ? ' <span class="csa-muted">+' + j.pts + ' ' + esc(T('points')) + '</span>' : '') + '<br><span class="csa-muted">' + esc(j.detail || '') + '</span>'
+						+ (j.result ? '<br><span class="csa-jb-res">' + esc(j.result) + '</span>' : '') + '</td><td>' + esc(HOW[j.kind] || '') + '</td><td>' + st + '</td></tr>';
+				}).join('') + '</tbody></table>';
+		}
+
+		$('#csa-jb-scan').onclick = async function () {
+			pid = parseInt(sel.value, 10); if (!pid) return;
+			head.innerHTML = '<p class="csa-muted">' + esc(T('Scanning…')) + '</p>'; listEl.innerHTML = '';
+			var r = await post('csa_jobs_scan', { id: pid });
+			if (r.error) { head.innerHTML = '<p class="csa-err">' + esc(r.error) + '</p>'; return; }
+			jobs = r.data.jobs; jbApp.dataset.chatpage = r.data.chat; draw(r.data);
+		};
+		$('#csa-jb-all').onchange = function () { var on = this.checked; $$('.csa-jb-pick', listEl).forEach(function (c) { c.checked = on; }); };
+
+		function parseNums(str) {
+			var out = [];
+			String(str || '').split(/[,\s]+/).forEach(function (p) {
+				var m = p.match(/^(\d+)-(\d+)$/);
+				if (m) { for (var i = +m[1]; i <= +m[2]; i++) out.push(i); } else if (/^\d+$/.test(p)) out.push(+p);
+			});
+			return out;
+		}
+		$('#csa-jb-go').onclick = async function () {
+			if (running) return;
+			var nums = parseNums($('#csa-jb-nums').value);
+			if (!nums.length) nums = $$('.csa-jb-pick:checked', listEl).map(function (c) { return +c.value; });
+			nums = nums.filter(function (n) { return jobs.some(function (j) { return j.n === n; }); });
+			if (!nums.length) { toast(T('Tick jobs or type their numbers first.'), 'err'); return; }
+			running = true;
+			for (var i = 0; i < nums.length; i++) {
+				prog.textContent = T('Running') + ' ' + (i + 1) + ' / ' + nums.length + ' (#' + nums[i] + ')…';
+				var r = await post('csa_jobs_run', { id: pid, n: nums[i] });
+				if (r.error) { toast(r.error, 'err'); break; }
+				var k = jobs.findIndex(function (j) { return j.n === nums[i]; });
+				jobs[k] = r.data.job; if (r.data.own !== null) { var o = $('#csa-jb-own'); if (o) o.innerHTML = csaScore(r.data.own); }
+				showAlerts(r.data.alerts); draw();
+			}
+			prog.textContent = T('Done.'); running = false; if (typeof overview === 'function') overview();
+		};
+		$('#csa-jb-chat').onclick = function () {
+			var txt = $('#csa-jb-ask').value.trim(); if (!txt) return;
+			var pg = parseInt(sel.value, 10);
+			location.href = jbApp.dataset.chat + '&prompt=' + encodeURIComponent((pg ? 'Page ID ' + pg + ' (' + sel.options[sel.selectedIndex].text.replace(/ #\d+$/, '') + '): ' : '') + txt);
+		};
+		$('#csa-jb-site').onclick = async function () {
+			var box = $('#csa-jb-sitelist'); box.innerHTML = '<p class="csa-muted">' + esc(T('Checking…')) + '</p>';
+			var r = await post('csa_jobs_site', {});
+			if (r.error) { box.innerHTML = '<p class="csa-err">' + esc(r.error) + '</p>'; return; }
+			if (!r.data.length) { box.innerHTML = '<p>✅ ' + esc(T('No layout problems found.')) + '</p>'; return; }
+			box.innerHTML = '<table class="widefat striped"><thead><tr><th>' + esc(T('Page')) + '</th><th>' + esc(T('Serious')) + '</th><th>' + esc(T('All')) + '</th><th>' + esc(T('Example')) + '</th><th></th></tr></thead><tbody>' + r.data.map(function (p) {
+				return '<tr><td>' + esc(p.title) + ' <span class="csa-muted">#' + p.id + '</span></td><td>' + p.high + '</td><td>' + p.total + '</td><td class="csa-muted">' + esc(p.first) + '</td><td><button type="button" class="button button-small" data-open="' + p.id + '">' + esc(T('Scan this page')) + '</button></td></tr>';
+			}).join('') + '</tbody></table>';
+			box.onclick = function (e) {
+				var id = e.target.dataset && e.target.dataset.open; if (!id) return;
+				sel.innerHTML = '<option value="' + id + '">#' + id + '</option>'; sel.value = id; $('#csa-jb-scan').click(); window.scrollTo(0, 0);
+			};
+		};
+		async function overview() {
+			var o = $('#csa-jb-over'); if (!o) return;
+			var r = await post('csa_jobs_overview', {});
+			if (r.error || !r.data.length) { o.innerHTML = '<p class="csa-muted">' + esc(r.error || T('No page scanned yet.')) + '</p>'; return; }
+			o.innerHTML = '<table class="widefat striped"><thead><tr><th>' + esc(T('Page')) + '</th><th>' + esc(T('To do')) + '</th><th>' + esc(T('Done')) + '</th><th>' + esc(T('Chat agent')) + '</th><th>' + esc(T('Scanned')) + '</th><th></th></tr></thead><tbody>' + r.data.map(function (p) {
+				return '<tr><td>' + esc(p.title) + ' <span class="csa-muted">' + esc(p.type) + ' #' + p.id + '</span></td><td>' + p.c.todo + '</td><td>' + p.c.done + '</td><td>' + (p.c.agent + p.c.fail) + '</td><td class="csa-muted">' + esc(p.when) + '</td><td><button type="button" class="button button-small" data-load="' + p.id + '">' + esc(T('Open')) + '</button></td></tr>';
+			}).join('') + '</tbody></table>';
+			o.onclick = async function (e) {
+				var id = e.target.dataset && e.target.dataset.load; if (!id) return;
+				var rr = await post('csa_jobs_load', { id: id }); if (rr.error) { toast(rr.error, 'err'); return; }
+				pid = parseInt(id, 10); jobs = rr.data.jobs; sel.innerHTML = '<option value="' + id + '">' + esc(rr.data.title) + ' #' + id + '</option>'; sel.value = id; draw(rr.data); jbApp.scrollIntoView();
+			};
+		}
+		overview();
+		loadPages();
+	})();
+
 	/* ================================================================
 	   Settings: model presets
 	   ================================================================ */

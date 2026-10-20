@@ -102,6 +102,7 @@ function csa_seo_score( $id ) {
 		'reached'  => $score >= 90,
 		'items'    => $items,
 		'warnings' => $warn,
+		'facts'    => array( 'images' => $img, 'images_missing_alt' => $miss ),
 		'source'   => $live ? 'live page' : 'saved content only (page not published or not reachable: title tag, meta, schema and language cannot be seen, so the score may be lower than the real one)',
 		'note'     => 'This is the plugin\'s own fixed checklist, not the Yoast, Rank Math or Google score. Items marked "tell the owner" cannot be fixed by you.',
 	);
