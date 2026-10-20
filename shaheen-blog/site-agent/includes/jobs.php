@@ -292,7 +292,7 @@ function csa_jobs_do( $id, $j ) {
 	$ttl = get_the_title( $id );
 	switch ( $j['kind'] ) {
 		case 'keyword':
-			$sys = 'You are an SEO strategist for a school website in Bangladesh. ' . csa_site_context() . "\n\nSuggest exactly 3 focus keywords for ONE page: what parents really type into Google for this page's topic, 1-4 words, in the language people would search (Bangla or English). Return ONLY JSON: {\"options\":[{\"keyword\":\"...\",\"why\":\"one short reason\"},{...},{...}]}";
+			$sys = 'You are an SEO strategist for a school website in Bangladesh. ' . csa_site_context() . "\n\nSuggest exactly 3 focus keywords for ONE page. Take them from the KEYWORD STRATEGY above: pick the brand that matches this page (school or cadet), choose words that fit this page's topic, and fill [AREA] with this page's branch if it is a branch page (never mix brands, never invent an area). If nothing in the strategy fits, use what parents really type into Google (1-4 words). Return ONLY JSON: {\"options\":[{\"keyword\":\"...\",\"why\":\"one short reason\"},{...},{...}]}";
 			$r   = csa_jobs_ai_json( $sys, csa_jobs_page_brief( $id ), 'SEO agent: keywords' );
 			if ( is_wp_error( $r ) || empty( $r['options'] ) ) {
 				return array( 'fail', is_wp_error( $r ) ? $r->get_error_message() : 'No keywords returned.', '', array() );

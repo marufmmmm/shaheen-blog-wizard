@@ -68,7 +68,9 @@ function csa_register_settings() {
 					'roles_blog'       => $roles( $in['roles_blog'] ?? array() ),
 					'roles_images'     => $roles( $in['roles_images'] ?? array() ),
 					'weekly_email'     => empty( $in['weekly_email'] ) ? 0 : 1,
-					'design_std'       => trim( (string) ( $in['design_std'] ?? '' ) ) === trim( csa_design_std_default() ) ? '' : sanitize_textarea_field( $in['design_std'] ?? '' ),
+					'design_std'       => trim( str_replace( "\r", '', (string) ( $in['design_std'] ?? '' ) ) ) === trim( csa_design_std_default() ) ? '' : sanitize_textarea_field( $in['design_std'] ?? '' ),
+					'kw_strategy'      => trim( str_replace( "\r", '', (string) ( $in['kw_strategy'] ?? '' ) ) ) === trim( csa_kw_default() ) ? '' : sanitize_textarea_field( $in['kw_strategy'] ?? '' ),
+					'kw_branch_words'  => sanitize_text_field( $in['kw_branch_words'] ?? '' ),
 					'email_to'         => sanitize_email( $in['email_to'] ?? '' ),
 					'weekly_audit'     => empty( $in['weekly_audit'] ) ? 0 : 1,
 					'weekly_pages'     => max( 1, min( 50, (int) ( $in['weekly_pages'] ?? 10 ) ) ),
@@ -1157,6 +1159,15 @@ function csa_models_settings_html( $o, $n ) {
 		<h3><?php echo esc_html( csa_t( 'Design standard for the AI (admin instruction)' ) ); ?></h3>
 		<p class="description"><?php echo esc_html( csa_t( 'The agent follows this for every page design, gap, font and mobile-view job. Change the numbers to your own standard. Clear the box and save to go back to the built-in standard.' ) ); ?></p>
 		<textarea name="<?php echo esc_attr( $n . '[design_std]' ); ?>" rows="18" class="large-text code"><?php echo esc_textarea( csa_design_std() ); ?></textarea>
+
+		<h3><?php echo esc_html( csa_t( 'Keyword strategy (every AI job follows this)' ) ); ?></h3>
+		<p class="description"><?php echo esc_html( csa_t( 'When the AI creates or changes any page, post or blog it uses the right keywords for the right brand. Edit freely. Clear the box and save to go back to the built-in list. [AREA] is replaced by the branch of the page, read live from your branch pages below.' ) ); ?></p>
+		<textarea name="<?php echo esc_attr( $n . '[kw_strategy]' ); ?>" rows="24" class="large-text code"><?php echo esc_textarea( csa_kw_strategy() ); ?></textarea>
+		<p><label><?php echo esc_html( csa_t( 'Words that mark a branch page (in its title or address, comma separated)' ) ); ?>:
+			<input type="text" class="large-text" name="<?php echo esc_attr( $n . '[kw_branch_words]' ); ?>" value="<?php echo esc_attr( implode( ', ', csa_kw_branch_words() ) ); ?>"></label></p>
+		<?php delete_transient( 'csa_branches' ); $br = csa_branches(); ?>
+		<p class="description"><strong><?php echo esc_html( csa_t( 'Branch pages found on the site now' ) ); ?> (<?php echo (int) count( $br ); ?>):</strong>
+			<?php echo $br ? esc_html( implode( ' · ', array_map( function ( $x ) { return $x['title']; }, $br ) ) ) : esc_html( csa_t( 'none. Change the words above so they match your branch page titles.' ) ); ?></p>
 
 		<h3><?php echo esc_html( csa_t( '3. Guide: why choose which model' ) ); ?></h3>
 		<div class="csa-table-wrap"><table class="widefat striped csa-guide">

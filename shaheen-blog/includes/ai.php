@@ -13,6 +13,9 @@ class SB_AI {
 
     protected static function system_prompt($mem = true) {
         $memory = ($mem && function_exists('sb_memory_context')) ? sb_memory_context() : '';
+        if ($mem && function_exists('csa_kw_context')) {
+            $memory .= csa_kw_context();
+        }
         $style = trim((string) sb_get('style_note'));
         return 'তুমি শাহীন শিক্ষা পরিবারের (বাংলাদেশের একটি শিক্ষা প্রতিষ্ঠান-নেটওয়ার্ক, স্কুল ও ক্যাডেট কোচিং) ব্লগের জন্য একজন অভিজ্ঞ বাংলা কনটেন্ট লেখক। '
             . 'শিক্ষার্থী, অভিভাবক ও শিক্ষকরা পাঠক। কোনো মিথ্যা তথ্য, ভুয়া পরিসংখ্যান বা ভুয়া উদ্ধৃতি বানাবে না। নিশ্চিত না হলে সাধারণ ও নিরাপদ কথা লিখবে। '

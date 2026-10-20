@@ -74,6 +74,8 @@ function csa_defaults() {
 		'roles_images'     => array( 'administrator', 'editor' ),
 		'weekly_email'     => 1,
 		'design_std'       => '',
+		'kw_strategy'      => '',
+		'kw_branch_words'  => '',
 		'email_to'         => get_option( 'admin_email' ),
 		'weekly_audit'     => 0,
 		'weekly_pages'     => 10,
@@ -494,6 +496,9 @@ function csa_site_context( $auto = null ) {
 		if ( '' !== $sbm ) {
 			$s .= "\n\n## Owner's memory (shared with the blog writer; always follow, these facts are correct)\n" . $sbm;
 		}
+	}
+	if ( function_exists( 'csa_kw_context' ) ) {
+		$s .= csa_kw_context();
 	}
 	if ( function_exists( 'csa_si_map_text' ) ) {
 		$s .= csa_si_map_text();
