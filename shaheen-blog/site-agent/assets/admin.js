@@ -750,6 +750,15 @@
 				return;
 			}
 			input.placeholder = T('Ask in Bangla or English… (Ctrl+Enter to send)');
+			// "Show me the mobile view": just open the phone preview, no AI.
+			if (!imgs.length && t.length < 80 && /^(please\s+)?(show|open|see|dekhao|dekhan|দেখাও|দেখান|দেখি)\b.*\b(mobile|phone|মোবাইল|ফোন)\b|\b(mobile|phone|মোবাইল|ফোন)\s*(view|ভিউ|preview).*\b(show|dekhao|দেখাও|দেখান|দেখি)\b|^(mobile|phone)\s+view\s*$|^show me the (mobile|phone) view/i.test(t)) {
+				post('csa_view_page', { text: t, chat_id: chatId }).then(function (r) {
+					if (r.error) { add({ r: 'bot', t: r.error }); return; }
+					pWidth = 390; openPreview(r.data.url);
+					add({ r: 'act', t: '📱 ' + T('Mobile view of') + ' ' + r.data.title, l: r.data.url });
+				});
+				return;
+			}
 			disableOldPlans();
 			run(t, imgs);
 		};

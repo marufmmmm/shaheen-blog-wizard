@@ -346,3 +346,27 @@ function csa_gd_clean_questions( $in ) {
 	}
 	return $out;
 }
+
+
+/** "Show me the mobile view": no AI needed, the page is opened in the phone preview. */
+add_action( 'wp_ajax_csa_view_page', 'csa_ajax_view_page' );
+function csa_ajax_view_page() {
+	csa_guard( 'chat' );
+	$text = sanitize_textarea_field( wp_unslash( $_POST['text'] ?? '' ) );
+	$cid  = (int) ( $_POST['chat_id'] ?? 0 );
+	$ids  = function_exists( 'csa_am_pages_in_text' ) ? (array) csa_am_pages_in_text( $text ) : array();
+	if ( ! $ids && $cid ) {
+		$mem = csa_mem_load( $cid );
+		$ids = array_reverse( array_keys( (array) $mem['pages'] ) );
+		if ( ! $ids && ! empty( $mem['mention'] ) ) {
+			$ids = (array) $mem['mention'];
+		}
+	}
+	foreach ( $ids as $id ) {
+		$p = csa_valid_post( (int) $id );
+		if ( $p ) {
+			wp_send_json_success( array( 'url' => get_permalink( $p ), 'title' => get_the_title( $p ), 'id' => $p->ID ) );
+		}
+	}
+	wp_send_json_error( csa_t( 'Which page? Mention its name or #ID, or start from the Page job button.' ) );
+}

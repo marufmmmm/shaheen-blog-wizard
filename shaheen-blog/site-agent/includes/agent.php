@@ -1334,6 +1334,19 @@ function csa_text_plan( $text ) {
 			$intro[] = trim( $ln );
 		}
 	}
+	// A numbered list of QUESTIONS or CHOICES for the owner is not a plan.
+	$qs = 0;
+	foreach ( $steps as $st ) {
+		if ( preg_match( '/\?\s*$|\bor\b.*\?|নাকি|\bshould i\b|চান\s*[?？]?$/iu', $st ) ) {
+			$qs++;
+		}
+	}
+	if ( $steps && $qs * 2 >= count( $steps ) ) {
+		return null;
+	}
+	if ( preg_match( '/আপনি কি চান|what would you like|which (one|option)|do you want (me )?to/iu', implode( ' ', $intro ) ) && $qs ) {
+		return null;
+	}
 	if ( count( $steps ) < 2 || ! preg_match( '/approve|confirm|proceed|shall i|should i|ok\?|go ahead|অনুমোদন|করব|করবো|korbo|korbe|\?/iu', $text ) ) {
 		return null;
 	}
