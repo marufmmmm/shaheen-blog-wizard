@@ -153,6 +153,10 @@ function csa_tool_step_done() {
 }
 
 function csa_tools_write() {
+	return array_merge( csa_te_tool(), csa_tools_write_base() );
+}
+
+function csa_tools_write_base() {
 	return array(
 		array(
 			'name'         => 'create_page',
@@ -256,6 +260,7 @@ function csa_tool_label( $name, $in ) {
 		'get_page'                 => csa_t( 'Read page' ) . $id,
 		'get_elementor_html'       => csa_t( 'Read page design' ) . $id,
 		'get_seo_data'             => csa_t( 'Checked SEO of page' ) . $id,
+		'replace_text'             => '✏️ ' . csa_t( 'Changed text of page' ) . $id,
 		'seo_score'                => '📊 ' . csa_t( 'SEO score of page' ) . $id,
 		'find_in_html'             => csa_t( 'Searched page' ) . $id,
 		'read_html'                => csa_t( 'Read part of page' ) . $id,
@@ -765,6 +770,14 @@ function csa_run_tool( $name, $in, &$ctx ) {
 			$act( csa_t( 'Updated' ) . ' #' . $p->ID . ': ' . get_the_title( $p->ID ), $undo, get_permalink( $p->ID ) );
 			return array( 'ok' => true, 'link' => get_permalink( $p->ID ), 'preview' => get_preview_post_link( $p->ID ) );
 
+		case 'replace_text':
+			$r = csa_te_run( $in );
+			if ( ! empty( $r['_log'] ) ) {
+				$act( $r['_log'][0], $r['_log'][1], $r['link'] ?? '' );
+				unset( $r['_log'] );
+			}
+			return $r;
+
 		case 'edit_elementor_html':
 			$p = csa_valid_post( $in['id'] ?? 0 );
 			if ( ! $p ) {
@@ -943,6 +956,8 @@ function csa_agent_prompt( $state, $auto = null, $mem = array() ) {
 		. "\n- Never repeat or summarize the CHAT MEMORY back to the user, and don't start replies with thanks. Say only what is new."
 		. "\n- If an edit fails, don't retry the same old_text. For CSS changes append a new <style> block (empty old_text). If it fails twice, stop and explain."
 		. "\n- Structured data (JSON-LD): NEVER paste <script type=\"application/ld+json\"> into page HTML or an Elementor widget. Use set_page_schema (printed in the <head>, page untouched). Use real facts only: search_site / the site map for phone numbers, addresses and the URLs of branch (campus) pages; reference each branch page by its URL."
+		. "\n- To change wording use replace_text with the VISIBLE sentence (no HTML): it works in every widget type. edit_elementor_html only handles HTML widgets; use it for markup and CSS, never for plain sentences. If a text edit fails twice, stop re-reading the page: use find_in_html with 2-3 words, then retry once, then tell the owner."
+		. "\n- After the owner approved a plan, never ask 'shall I do it?' or 'do you want me to continue?': just do the steps. Ask only when a fact is truly missing (one short question). Do not call the same read tool (seo_score, get_seo_data, get_page) twice without a change in between."
 		. "\n- ALWAYS do what the user's LATEST message asks, and nothing else first. The plan checklist, earlier plans and [CHAT MEMORY] are only a record: never resume or re-offer an older plan (for example an SEO step) when the latest message is about something else. If the latest message is a design check, your very next call is design_audit, not SEO tools. Ask about old unfinished steps only in one short line at the very end."
 		. "\n- Design, mobile, fonts, padding, spacing: when asked for suggestions or fixes, run design_audit on the page first (free), tell the user the findings by priority in plain words, then plan ONE fix per step. Apply fixes with set_page_css (works on normal Elementor widgets too; use the .elementor-element-<id> selectors from the audit; phone = max-width:767px, tablet = 1024px). Use edit_elementor_html only for the markup inside HTML widgets. Keep every rule scoped to the page; site-wide CSS only if the user asked for a site-wide change. After a fix suggest the Preview button (phone). You can do all of this: say so instead of refusing."
 		. "\n- search_site: search with words that really appear on the site, in Bangla or English (the site's own language). Never use Urdu, Hindi or Arabic script. No match? Try another Bangla or English word, or read the page."
@@ -1359,8 +1374,9 @@ function csa_ajax_step() {
 	if ( $skip ) {
 		$blocks = array();
 	}
-	$typed_ok   = false;
-	$was_asking = false;
+	$typed_ok      = false;
+	$was_asking    = false;
+	$keep_approved = false;
 	if ( 'planned' === $state && $blocks && ! $skip && '' !== $text && count( $blocks ) === 1 && csa_is_approval_text( $text ) && $chat_id && csa_mem_load( $chat_id )['steps'] ) {
 		// Typed "approve" / "ok" / "yes" = the Approve button.
 		$typed_ok = true;
@@ -1369,7 +1385,17 @@ function csa_ajax_step() {
 	}
 	if ( $blocks ) {
 		$was_asking = ( 'asking' === $state );
-		if ( ! $typed_ok && ( 'planned' === $state || 'approved' === $state || 'asking' === $state ) ) {
+		// A typed comment or answer while an APPROVED plan still has open steps does not cancel the approval.
+		if ( 'approved' === $state && ! $typed_ok && '' !== $text && 0 !== strpos( $text, '[[' ) && $chat_id
+			&& ! preg_match( '/\b(cancel|stop|undo|instead|forget|new plan|change the plan)\b|বাতিল|থামো|থামুন|বদলাও|নতুন প্ল্যান|পরিকল্পনা বদল/iu', $text ) ) {
+			foreach ( (array) csa_mem_load( $chat_id )['steps'] as $st ) {
+				if ( 'todo' === ( $st['s'] ?? '' ) ) {
+					$keep_approved = true;
+					break;
+				}
+			}
+		}
+		if ( ! $typed_ok && ! $keep_approved && ( 'planned' === $state || 'approved' === $state || 'asking' === $state ) ) {
 			$state = 'analyse'; // New message while a plan waits = the user wants changes.
 		}
 		csa_push_user( $messages, $blocks );
@@ -1411,7 +1437,7 @@ function csa_ajax_step() {
 	$GLOBALS['csa_current_chat'] = $chat_id;
 	$GLOBALS['csa_section']      = sanitize_key( $_POST['section'] ?? '' );
 	$mem = csa_mem_load( $chat_id );
-	if ( '' !== $text && ! $typed_ok && ! $was_asking && 0 !== strpos( $text, '[[' ) && empty( $mem['guided'] ) && ! empty( $mem['steps'] ) && mb_strlen( $text ) > 12
+	if ( '' !== $text && ! $typed_ok && ! $was_asking && 0 !== strpos( $text, '[[' ) && 'approved' !== $state && empty( $mem['guided'] ) && ! empty( $mem['steps'] ) && mb_strlen( $text ) > 12
 		&& ! preg_match( '/\b(continue|next|step|resume|proceed|go on|baki|porer|agey|abar)\b|পরের|চালিয়ে|বাকি/iu', $text ) ) {
 		// A fresh request: keep the old plan as a one-line record, so it cannot steer this request.
 		$open = 0;
@@ -1448,6 +1474,7 @@ function csa_ajax_step() {
 	}
 	if ( '' !== $text || empty( $mem['snap_set'] ) ) {
 		$mem['snap_set']  = 1;
+		$mem['keep_note'] = $keep_approved ? 1 : 0;
 		$mem['read_sigs'] = array();
 		// New message from the person: refresh the site-wide memory snapshot and look for page names.
 		$mem['site_snap'] = csa_am_site_text();
@@ -1551,17 +1578,17 @@ function csa_ajax_step() {
 			} else {
 				$ctx['items'][] = array( 'r' => 'tool', 't' => csa_tool_label( $b['name'], $in ) );
 				csa_keepalive_tick();
-				$sig = md5( $b['name'] . wp_json_encode( $in ) );
+				$sig = md5( $b['name'] . wp_json_encode( $in ) . ( 'seo_score' === $b['name'] ? '#' . (int) ( $ctx['mem']['wr'] ?? 0 ) : '' ) );
 				if ( in_array( $sig, (array) ( $ctx['mem']['fail_sigs'] ?? array() ), true ) ) {
 					// Same call already failed: don't run it again.
 					$out = array( 'error' => 'You already tried exactly this and it failed. Do not repeat it. Use a different approach (for CSS: empty old_text to append a <style> block), or stop and explain the problem to the user.' );
-				} elseif ( in_array( $b['name'], wp_list_pluck( csa_tools_read(), 'name' ), true ) && in_array( $sig, (array) ( $ctx['mem']['read_sigs'] ?? array() ), true ) ) {
+				} elseif ( ( 'seo_score' === $b['name'] || in_array( $b['name'], wp_list_pluck( csa_tools_read(), 'name' ), true ) ) && in_array( $sig, (array) ( $ctx['mem']['read_sigs'] ?? array() ), true ) ) {
 					$ctx['mem']['dup_run'] = (int) ( $ctx['mem']['dup_run'] ?? 0 ) + 1;
 					$out = array( 'note' => 'You already read exactly this in this task; the result is earlier in the conversation and in your chat notes. Do NOT read it again. Call propose_plan now (or read something different).' );
 				} else {
 					$out = csa_run_tool( $b['name'], $in, $ctx );
 					$ctx['mem']['dup_run'] = 0;
-					if ( in_array( $b['name'], wp_list_pluck( csa_tools_read(), 'name' ), true ) && ! isset( $out['error'] ) ) {
+					if ( ( 'seo_score' === $b['name'] || in_array( $b['name'], wp_list_pluck( csa_tools_read(), 'name' ), true ) ) && ! isset( $out['error'] ) ) {
 						$ctx['mem']['read_sigs'][] = $sig;
 					}
 				}
@@ -1571,6 +1598,7 @@ function csa_ajax_step() {
 						$ctx['mem']['fail_sigs'] = array_slice( array_merge( (array) ( $ctx['mem']['fail_sigs'] ?? array() ), array( $sig ) ), -10 );
 					} else {
 						$ctx['mem']['fail_run'] = 0;
+						$ctx['mem']['wr']       = (int) ( $ctx['mem']['wr'] ?? 0 ) + 1;
 						if ( ! empty( $in['id'] ) ) {
 							csa_slots_detect( (int) $in['id'], (string) ( $in['new_text'] ?? $in['html'] ?? $in['content'] ?? '' ) );
 						}

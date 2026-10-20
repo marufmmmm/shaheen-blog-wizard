@@ -30,7 +30,7 @@ define( 'CSA_FILE', SB_FILE );
 define( 'CSA_DIR', SB_PATH . 'site-agent/' );
 define( 'CSA_URL', SB_URL . 'site-agent/' );
 
-foreach ( array( 'core', 'i18n', 'models', 'install', 'agent', 'memory', 'automem', 'siteindex', 'design', 'seo', 'score', 'blog', 'media', 'guided', 'format', 'pin', 'fonts', 'admin' ) as $csa_f ) {
+foreach ( array( 'core', 'i18n', 'models', 'install', 'agent', 'memory', 'automem', 'siteindex', 'design', 'seo', 'score', 'textedit', 'blog', 'media', 'guided', 'format', 'pin', 'fonts', 'admin' ) as $csa_f ) {
 	require_once CSA_DIR . 'includes/' . $csa_f . '.php';
 }
 unset( $csa_f );

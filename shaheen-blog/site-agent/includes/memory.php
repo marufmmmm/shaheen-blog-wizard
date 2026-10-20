@@ -161,6 +161,9 @@ function csa_mem_text( $mem ) {
 		}
 		$l[] = 'Pages: ' . implode( '; ', $pp );
 	}
+	if ( ! empty( $mem['keep_note'] ) ) {
+		$l[] = 'The plan is APPROVED and stays approved. The owner\'s latest message is a comment, answer or small request, not a new approval question: act on it and carry on with the open steps without asking again.';
+	}
 	if ( ! empty( $mem['old_open'] ) ) {
 		$l[] = 'Note (not a request): ' . $mem['old_open'] . '. Mention it in one short line at the very end only.';
 	}
