@@ -658,7 +658,7 @@ function csa_screen_seo() {
 
 function csa_seo_images_card() {
 	$rows = array();
-	foreach ( get_posts( array( 'post_type' => array( 'page', 'post' ), 'post_status' => array( 'publish', 'draft', 'private' ), 'numberposts' => 300, 'meta_key' => '_csa_image_slots', 'fields' => 'ids' ) ) as $id ) {
+	foreach ( get_posts( array( 'post_type' => csa_seo_types(), 'post_status' => array( 'publish', 'draft', 'private' ), 'numberposts' => 300, 'meta_key' => '_csa_image_slots', 'fields' => 'ids' ) ) as $id ) {
 		$m = csa_slots_missing( $id );
 		if ( $m['total'] ) {
 			$rows[] = array( 'id' => $id, 'm' => $m );
@@ -747,13 +747,16 @@ function csa_seo_tab_dashboard() {
 }
 
 function csa_seo_tab_audit() {
-	$type  = ( isset( $_GET['type'] ) && 'post' === $_GET['type'] ) ? 'post' : 'page';
-	$pages = get_posts( array( 'post_type' => $type, 'post_status' => 'publish', 'numberposts' => 300, 'orderby' => 'title', 'order' => 'ASC' ) );
+	$type  = ( isset( $_GET['type'] ) && in_array( $_GET['type'], csa_seo_types(), true ) ) ? $_GET['type'] : 'page';
+	$pages = get_posts( array( 'post_type' => $type, 'post_status' => csa_seo_statuses(), 'numberposts' => 300, 'orderby' => 'title', 'order' => 'ASC' ) );
 	?>
 	<p class="csa-muted"><?php echo esc_html( csa_t( 'Each audit reads the live page and gives a score, problems and fixes. Add a screenshot for design and mobile feedback. SEO plugin:' ) ); ?> <strong><?php echo esc_html( csa_seo_plugin() ? csa_seo_plugin() : csa_t( 'none' ) ); ?></strong></p>
 	<div class="csa-row">
 		<a class="button <?php echo 'page' === $type ? 'button-primary' : ''; ?>" href="<?php echo esc_url( remove_query_arg( 'type' ) ); ?>"><?php echo esc_html( csa_t( 'Pages' ) ); ?></a>
 		<a class="button <?php echo 'post' === $type ? 'button-primary' : ''; ?>" href="<?php echo esc_url( add_query_arg( 'type', 'post' ) ); ?>"><?php echo esc_html( csa_t( 'Posts' ) ); ?></a>
+		<?php if ( post_type_exists( 'sb_post' ) ) : ?>
+		<a class="button <?php echo 'sb_post' === $type ? 'button-primary' : ''; ?>" href="<?php echo esc_url( add_query_arg( 'type', 'sb_post' ) ); ?>"><?php echo esc_html( csa_t( 'Blog Write posts' ) ); ?></a>
+		<?php endif; ?>
 		<span class="csa-spacer-sm"></span>
 		<button type="button" class="button" id="csa-seo-unchecked"><?php echo esc_html( csa_t( 'Analyse unchecked' ) ); ?></button>
 		<button type="button" class="button" id="csa-seo-all"><?php echo esc_html( csa_t( 'Re-analyse all' ) ); ?></button>
@@ -768,7 +771,7 @@ function csa_seo_tab_audit() {
 			$psi = get_post_meta( $p->ID, '_csa_psi', true );
 			?>
 			<tr class="csa-seo-row" data-id="<?php echo (int) $p->ID; ?>" data-checked="<?php echo is_array( $s ) ? '1' : ''; ?>">
-				<td><strong><?php echo esc_html( $p->post_title ? $p->post_title : '(no title)' ); ?></strong><?php echo csa_is_elementor( $p->ID ) ? ' <span class="csa-tag">Elementor</span>' : ''; ?><br><a href="<?php echo esc_url( get_permalink( $p ) ); ?>" target="_blank" class="csa-muted"><?php echo esc_html( wp_make_link_relative( get_permalink( $p ) ) ); ?></a><?php $im = csa_slots_missing( $p->ID ); if ( $im['total'] ) : ?><br><a class="csa-img-need" href="<?php echo esc_url( admin_url( 'admin.php?page=csa-images' ) ); ?>">🖼 <?php echo esc_html( sprintf( csa_t( 'Image upload required (%d)' ), $im['total'] ) ); ?></a><?php endif; ?></td>
+				<td><strong><?php echo esc_html( $p->post_title ? $p->post_title : '(no title)' ); ?></strong><?php echo 'publish' !== $p->post_status ? ' <span class="csa-tag">' . esc_html( $p->post_status ) . '</span>' : ''; ?><?php echo csa_is_elementor( $p->ID ) ? ' <span class="csa-tag">Elementor</span>' : ''; ?><br><a href="<?php echo esc_url( get_permalink( $p ) ); ?>" target="_blank" class="csa-muted"><?php echo esc_html( wp_make_link_relative( get_permalink( $p ) ) ); ?></a><?php $im = csa_slots_missing( $p->ID ); if ( $im['total'] ) : ?><br><a class="csa-img-need" href="<?php echo esc_url( admin_url( 'admin.php?page=csa-images' ) ); ?>">🖼 <?php echo esc_html( sprintf( csa_t( 'Image upload required (%d)' ), $im['total'] ) ); ?></a><?php endif; ?></td>
 				<td class="csa-score-cell"><?php echo csa_score_badge( is_array( $s ) ? $s['score'] : null ); ?></td>
 				<td class="csa-psi-cell"><?php echo is_array( $psi ) && isset( $psi['mobile'] ) ? '📱 ' . csa_score_badge( $psi['mobile']['score'] ) : ''; ?><?php echo is_array( $psi ) && isset( $psi['desktop'] ) ? ' 🖥 ' . csa_score_badge( $psi['desktop']['score'] ) : ''; ?></td>
 				<td class="csa-time-cell csa-muted"><?php echo is_array( $s ) ? esc_html( mysql2date( 'j M, H:i', $s['time'] ) ) : ''; ?></td>

@@ -586,9 +586,23 @@ function csa_is_elementor( $id ) {
 	return 'builder' === get_post_meta( $id, '_elementor_edit_mode', true );
 }
 
+/** Content types the SEO tools work on: pages, posts and the posts made with Blog Write .ai. */
+function csa_seo_types() {
+	$t = array( 'page', 'post' );
+	if ( post_type_exists( 'sb_post' ) ) {
+		$t[] = 'sb_post';
+	}
+	return $t;
+}
+
+/** Drafts, scheduled and private items are listed too, so new work shows up before it is published. */
+function csa_seo_statuses() {
+	return array( 'publish', 'draft', 'pending', 'future', 'private' );
+}
+
 function csa_valid_post( $id ) {
 	$p = get_post( (int) $id );
-	return ( $p && in_array( $p->post_type, array( 'page', 'post' ), true ) ) ? $p : null;
+	return ( $p && in_array( $p->post_type, csa_seo_types(), true ) ) ? $p : null;
 }
 
 function csa_clear_cache( $id ) {

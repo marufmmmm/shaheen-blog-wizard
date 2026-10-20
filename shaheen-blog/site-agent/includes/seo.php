@@ -270,7 +270,7 @@ function csa_seo_snapshot() {
 }
 
 function csa_seo_overview() {
-	$ids = get_posts( array( 'post_type' => array( 'page', 'post' ), 'post_status' => 'publish', 'numberposts' => 500, 'fields' => 'ids' ) );
+	$ids = get_posts( array( 'post_type' => csa_seo_types(), 'post_status' => csa_seo_statuses(), 'numberposts' => 500, 'fields' => 'ids' ) );
 	$o   = array(
 		'total'    => count( $ids ),
 		'audited'  => 0,
@@ -706,7 +706,7 @@ add_action( 'csa_weekly', 'csa_weekly_run' );
 function csa_weekly_run() {
 	$audited = array();
 	if ( csa_opt( 'weekly_audit' ) && csa_has_any_key() ) {
-		$ids  = get_posts( array( 'post_type' => array( 'page', 'post' ), 'post_status' => 'publish', 'numberposts' => 500, 'fields' => 'ids' ) );
+		$ids  = get_posts( array( 'post_type' => csa_seo_types(), 'post_status' => 'publish', 'numberposts' => 500, 'fields' => 'ids' ) );
 		$rows = array();
 		foreach ( $ids as $id ) {
 			$s     = get_post_meta( $id, '_csa_seo', true );
