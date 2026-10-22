@@ -19,11 +19,36 @@ function csa_te_tool() {
 					'old_text'  => array( 'type' => 'string', 'description' => 'Visible text to replace, at least 3 words.' ),
 					'new_text'  => array( 'type' => 'string', 'description' => 'Plain replacement text (no tags).' ),
 					'widget_id' => array( 'type' => 'string', 'description' => 'Optional: only look in this Elementor element id.' ),
+					'allow_common' => array( 'type' => 'boolean', 'description' => 'Only when the owner explicitly asked to change a SHARED block on every page. Normally leave out.' ),
 				),
 				array( 'id', 'old_text', 'new_text' )
 			),
 		),
 	);
+}
+
+
+/** Pages (other than $id) that contain the same visible text: a sign of a shared / premade section. */
+function csa_common_pages( $id, $plain ) {
+	$plain = trim( preg_replace( '/\s+/u', ' ', html_entity_decode( wp_strip_all_tags( (string) $plain ), ENT_QUOTES, 'UTF-8' ) ) );
+	if ( mb_strlen( $plain ) < 12 || ! function_exists( 'csa_si_load' ) ) {
+		return array();
+	}
+	$out = array();
+	foreach ( (array) csa_si_load()['pages'] as $pid => $p ) {
+		if ( (int) $pid === (int) $id ) {
+			continue;
+		}
+		$hay = preg_replace( '/\s+/u', ' ', (string) ( $p['text'] ?? '' ) );
+		if ( false !== mb_stripos( $hay, $plain ) ) {
+			$out[] = ( $p['t'] ?? '#' . $pid ) . ' (#' . $pid . ')';
+		}
+	}
+	return $out;
+}
+
+function csa_common_error( $plain, $pages ) {
+	return array( 'error' => 'COMMON SECTION: this exact text also appears on ' . count( $pages ) . ' other pages (for example ' . implode( ', ', array_slice( $pages, 0, 3 ) ) . '). It is a shared / premade block, not this page\'s own content, so it was NOT changed. Do not edit it and do not treat it as this page\'s H1. Find this page\'s OWN text instead: the page title (set_page_title), or the H1 from seo_score facts. Only if the owner clearly asked to change the shared block on every page, repeat the call with allow_common true.' );
 }
 
 /** Regex that matches the words of $plain with tags/whitespace/entities between them. */
@@ -101,6 +126,12 @@ function csa_te_run( $in ) {
 	$re  = csa_te_regex( $old );
 	if ( '' === $re ) {
 		return array( 'error' => 'old_text is too short. Give at least 3 words of the visible text.' );
+	}
+	if ( empty( $in['allow_common'] ) ) {
+		$cp = csa_common_pages( $p->ID, $old );
+		if ( count( $cp ) >= 2 ) {
+			return csa_common_error( $old, $cp );
+		}
 	}
 	$wid  = (string) ( $in['widget_id'] ?? '' );
 	$skip = array( 'elType', 'widgetType', 'id', 'isInner', '_element_id', '_css_classes', 'custom_css', 'link', 'url', 'image', 'background_image' );
