@@ -94,7 +94,11 @@ function csa_jobs_build( $id ) {
 			$mf   = (array) ( $sc['facts']['missing_alt_files'] ?? array() );
 			$real = array_filter( $mf, function ( $x ) { return 'data:placeholder' !== $x; } );
 			if ( $mf && ! $real ) {
-				$add( 'owner', 'image', 'YOU: ' . count( $mf ) . ' image(s) are inline placeholders (SVG/data), not real photos', 'Upload real photos in Site Agent > Images and ask the chat agent: "replace the placeholder images with my photos". Placeholders never get alt text.', $gap );
+				if ( csa_jobs_image_candidates( $id ) ) {
+					$add( 'image_place', 'image', 'Replace ' . count( $mf ) . ' placeholder image(s) with photos from your Media Library', 'The AI picks the best unused photos for this page. They replace the placeholders, with alt text.', $gap, array( 'needs_kw' => 1 ) );
+				} else {
+					$add( 'owner', 'image', 'YOU: ' . count( $mf ) . ' image(s) are inline placeholders (SVG/data), not real photos', 'Upload real photos in Site Agent > Images, then run this scan again: the agent will place them. Placeholders never get alt text.', $gap );
+				}
 			} elseif ( (int) ( $sc['facts']['images_missing_alt'] ?? 0 ) > 0 ) {
 				$add( 'alt', 'image', 'Write alt text for ' . (int) $sc['facts']['images_missing_alt'] . ' image(s) without it', 'Uses the focus keyword only where the image really fits.', $gap );
 			}
@@ -105,7 +109,11 @@ function csa_jobs_build( $id ) {
 		} elseif ( 0 === strpos( $c, 'Keyword in the first part' ) && '' !== $kw ) {
 			$add( 'intro_kw', 'text', 'Put the keyword "' . $kw . '" into the opening paragraph', 'The AI rewrites the first paragraph with the same facts.', $gap );
 		} elseif ( 0 === strpos( $c, 'At least one image' ) || 0 === strpos( $c, 'Social image' ) ) {
-			$add( 'owner', 'image', 'YOU: add a photo and set it as the featured image', 'Upload the photo in Site Agent > Images (it is renamed, compressed and given alt text). Then set it as the featured image. This also fixes the social (og:image) image.', $gap );
+			if ( csa_jobs_image_candidates( $id ) ) {
+				$add( 'image_place', 'image', 'Place photos from your Media Library on this page (and set the featured image)', 'The AI picks the best unused photos. Alt text is written for each. This also fixes the social (og:image) image.', $gap, array( 'needs_kw' => 1 ) );
+			} else {
+				$add( 'owner', 'image', 'YOU: add a photo and set it as the featured image', 'Upload the photo in Site Agent > Images (it is renamed, compressed and given alt text), then run this scan again: the agent will place it and set the featured image.', $gap );
+			}
 		} elseif ( preg_match( '/^(Language|Canonical|Viewport)/', $c ) ) {
 			if ( 'publish' !== get_post_status( $id ) ) {
 				continue;
@@ -146,7 +154,7 @@ function csa_jobs_build( $id ) {
 			$jobs[] = $o;
 		}
 	}
-	$rank = array( 'keyword' => 1, 'seo_meta' => 2, 'h1_fix' => 2.5, 'h1_kw' => 3, 'intro_kw' => 4, 'h2' => 5, 'content' => 6, 'alt' => 7, 'schema' => 8, 'owner' => 9, 'design' => 10 );
+	$rank = array( 'keyword' => 1, 'seo_meta' => 2, 'h1_fix' => 2.5, 'h1_kw' => 3, 'intro_kw' => 4, 'h2' => 5, 'content' => 6, 'image_place' => 6.5, 'alt' => 7, 'schema' => 8, 'owner' => 9, 'design' => 10 );
 	foreach ( $jobs as $i => &$j0 ) {
 		$j0['_o'] = $i;
 	}
@@ -291,6 +299,29 @@ function csa_jobs_append( $id, $html ) {
 	return $undo;
 }
 
+
+/** Unused photos in the Media Library that could go on a page (newest first). */
+function csa_jobs_image_candidates( $id ) {
+	static $cache = null;
+	if ( null === $cache ) {
+		$cache = array();
+		$q     = get_posts( array( 'post_type' => 'attachment', 'post_mime_type' => 'image', 'post_status' => 'inherit', 'numberposts' => 60, 'orderby' => 'date', 'order' => 'DESC' ) );
+		foreach ( $q as $a ) {
+			if ( ! wp_get_attachment_image_url( $a->ID, 'full' ) || 'image/svg+xml' === $a->post_mime_type ) {
+				continue;
+			}
+			if ( csa_media_usage( $a->ID, 1 ) ) {
+				continue;
+			}
+			$cache[] = $a->ID;
+			if ( count( $cache ) >= 25 ) {
+				break;
+			}
+		}
+	}
+	return $cache;
+}
+
 /* ------------------------------------------------------------------ */
 /* Run one job                                                          */
 /* ------------------------------------------------------------------ */
@@ -330,6 +361,9 @@ function csa_jobs_do( $id, $j ) {
 			}
 			if ( mb_strlen( $d ) > 158 ) {
 				$d = trim( mb_substr( $d, 0, 155 ) ) . '…';
+			}
+			if ( mb_strlen( $t ) < 20 || mb_strlen( $d ) < 80 ) {
+				return array( 'fail', 'The AI did not return a usable title and description. Nothing was changed. Press Run again.', '', array() );
 			}
 			$o = csa_run_tool( 'update_seo_meta', array( 'id' => $id, 'title' => $t, 'description' => $d ), $ctx );
 			if ( isset( $o['error'] ) ) {
@@ -448,6 +482,86 @@ function csa_jobs_do( $id, $j ) {
 			$o = csa_run_tool( 'set_page_schema', array( 'id' => $id, 'jsonld' => wp_json_encode( $r, CSA_JSON ) ), $ctx );
 			return isset( $o['error'] ) ? array( 'fail', $o['error'], '', array() ) : array( 'done', 'Schema type ' . ( $r['@type'] ?? '' ) . ' added.', 'Schema added: ' . ( $r['@type'] ?? '' ), array() );
 
+		case 'image_place':
+			$cand = csa_jobs_image_candidates( $id );
+			if ( ! $cand ) {
+				return array( 'fail', 'No unused photos in the Media Library. Upload photos in Site Agent > Images first.', '', array() );
+			}
+			$list = '';
+			foreach ( $cand as $aid ) {
+				$list .= $aid . ': ' . get_the_title( $aid ) . ' | ' . basename( (string) get_attached_file( $aid ) ) . ' | alt: ' . get_post_meta( $aid, '_wp_attachment_image_alt', true ) . "\n";
+			}
+			$sys = 'You choose photos for a school web page. ' . csa_site_context() . "\n\nFrom the list pick the 1-2 photos that fit THIS page best (by title, file name and alt). Never pick a photo that clearly belongs to another topic. If none fits, return an empty list. Return ONLY JSON: {\"pick\":[123,456]}";
+			$r   = csa_jobs_ai_json( $sys, csa_jobs_page_brief( $id ) . "\n\nUnused photos (id: title | file | alt):\n" . $list, 'SEO agent: photos', 300 );
+			if ( is_wp_error( $r ) ) {
+				return array( 'fail', $r->get_error_message(), '', array() );
+			}
+			$pick = array();
+			foreach ( array_slice( (array) ( $r['pick'] ?? array() ), 0, 2 ) as $pid ) {
+				if ( in_array( (int) $pid, $cand, true ) ) {
+					$pick[] = (int) $pid;
+				}
+			}
+			if ( ! $pick ) {
+				return array( 'fail', 'No photo in the Media Library fits this page. Upload a fitting photo, then run again.', '', array() );
+			}
+			$imgs = array();
+			foreach ( $pick as $aid ) {
+				$alt = trim( (string) get_post_meta( $aid, '_wp_attachment_image_alt', true ) );
+				if ( '' === $alt ) {
+					$a2 = csa_media_make_alt( $aid );
+					$alt = is_wp_error( $a2 ) ? get_the_title( $aid ) : $a2;
+				}
+				$imgs[] = '<figure class="wp-block-image"><img src="' . esc_url( wp_get_attachment_image_url( $aid, 'large' ) ) . '" alt="' . esc_attr( $alt ) . '"></figure>';
+			}
+			$p      = get_post( $id );
+			$placed = 0;
+			if ( csa_is_elementor( $id ) ) {
+				$u = csa_jobs_append( $id, implode( "\n", $imgs ) );
+				if ( is_wp_error( $u ) ) {
+					return array( 'fail', $u->get_error_message(), '', array() );
+				}
+				$placed = count( $imgs );
+				csa_log( csa_t( 'Placed photos on' ) . ' #' . $id . ': ' . $ttl, $u );
+			} else {
+				$c = $p->post_content;
+				$n = 0;
+				// Placeholders (inline data images) are replaced first, one photo each.
+				$c = preg_replace_callback( '#<img[^>]+src=["\']data:[^>]*>#i', function ( $m ) use ( &$n, $imgs ) {
+					if ( $n >= count( $imgs ) ) {
+						return $m[0];
+					}
+					preg_match( '#src=["\']([^"\']+)["\']#', $imgs[ $n ], $sm );
+					preg_match( '#alt=["\']([^"\']*)["\']#', $imgs[ $n ], $am );
+					$n++;
+					return '<img src="' . $sm[1] . '" alt="' . $am[1] . '">';
+				}, $c );
+				$placed = $n;
+				for ( $k = $n; $k < count( $imgs ); $k++ ) {
+					if ( 0 === $k && preg_match( '#</p>#i', $c ) ) {
+						$c = preg_replace( '#</p>#i', "</p>\n" . $imgs[ $k ], $c, 1 );
+					} elseif ( preg_match( '#<h2#i', $c ) && preg_match_all( '#<h2#i', $c ) >= 2 ) {
+						$pos = strripos( $c, '<h2' );
+						$c   = substr( $c, 0, $pos ) . $imgs[ $k ] . "\n" . substr( $c, $pos );
+					} else {
+						$c .= "\n" . $imgs[ $k ];
+					}
+					$placed++;
+				}
+				$u = csa_snapshot_post( $id );
+				wp_update_post( array( 'ID' => $id, 'post_content' => $c ) );
+				csa_clear_cache( $id );
+				csa_log( csa_t( 'Placed photos on' ) . ' #' . $id . ': ' . $ttl, $u );
+			}
+			$feat = '';
+			if ( ! has_post_thumbnail( $id ) ) {
+				$old = get_post_meta( $id, '_thumbnail_id', true );
+				set_post_thumbnail( $id, $pick[0] );
+				csa_log( csa_t( 'Set featured image on' ) . ' #' . $id . ': ' . $ttl, array( 'type' => 'seo', 'post' => (int) $id, 'old' => array( '_thumbnail_id' => $old ) ) );
+				$feat = ' + featured image';
+			}
+			return array( 'done', 'Placed ' . $placed . ' photo(s): ' . implode( ', ', array_map( function ( $a ) { return basename( (string) get_attached_file( $a ) ); }, $pick ) ) . $feat, 'Photos placed: ' . $placed . $feat, array() );
+
 		case 'alt':
 			global $wpdb;
 			$f    = csa_seo_collect( $id );
@@ -461,6 +575,10 @@ function csa_jobs_do( $id, $j ) {
 				if ( ! is_wp_error( $a ) ) {
 					$made[] = $file . ': ' . $a;
 				}
+			}
+			$left = array_filter( (array) ( csa_seo_collect( $id )['missing_alt_files'] ?? array() ), function ( $x ) { return 'data:placeholder' !== $x; } );
+			if ( ! $made && ! $left ) {
+				return array( 'done', 'No image without alt text is left.', 'Alt text: nothing left to fix', array() );
 			}
 			return $made ? array( 'done', implode( ' | ', $made ), 'Alt text written for ' . count( $made ) . ' image(s)', array() ) : array( 'fail', 'No image from the media library could be matched. Add alt text in the Images screen, or use the chat agent.', '', array() );
 	}
@@ -617,6 +735,21 @@ function csa_ajax_jobs_manual() {
 	wp_send_json_success( array( 'job' => $job ) );
 }
 
+
+/** Pages for the autopilot: published pages/posts, optionally one type. */
+add_action( 'wp_ajax_csa_jobs_targets', 'csa_ajax_jobs_targets' );
+function csa_ajax_jobs_targets() {
+	csa_guard( 'chat' );
+	$type  = sanitize_key( $_POST['type'] ?? '' );
+	$types = in_array( $type, csa_seo_types(), true ) ? array( $type ) : csa_seo_types();
+	$ids   = get_posts( array( 'post_type' => $types, 'post_status' => 'publish', 'numberposts' => 60, 'orderby' => 'modified', 'order' => 'DESC', 'fields' => 'ids' ) );
+	$out   = array();
+	foreach ( $ids as $id ) {
+		$out[] = array( 'id' => $id, 'title' => get_the_title( $id ), 'type' => get_post_type( $id ) );
+	}
+	wp_send_json_success( $out );
+}
+
 add_action( 'wp_ajax_csa_jobs_overview', 'csa_ajax_jobs_overview' );
 function csa_ajax_jobs_overview() {
 	csa_guard( 'chat' );
@@ -674,6 +807,18 @@ function csa_screen_jobs() {
 	csa_header( csa_t( 'SEO Agent' ) );
 	?>
 	<div class="csa-card"><h2><?php echo esc_html( csa_t( 'Saved jobs: which page needs what' ) ); ?></h2><p class="csa-muted"><?php echo esc_html( csa_t( 'Every scanned page keeps its job list here, with what is done and what is left.' ) ); ?></p><div id="csa-jb-over"></div></div>
+	<div class="csa-card" id="csa-ap">
+		<h2>🚀 <?php echo esc_html( csa_t( 'Autopilot: do everything with one click' ) ); ?></h2>
+		<p class="csa-muted"><?php echo esc_html( csa_t( 'For each page: scan, choose the focus keyword, then run every SEO job in order (title and meta, headings, keyword text, photos from your Media Library, alt text, schema). At the end you get one report with what changed on each page, the score before and after, and what only you can do. Every change can be undone on the page\'s own list.' ) ); ?></p>
+		<p>
+			<label><?php echo esc_html( csa_t( 'Which pages' ) ); ?>:
+			<select id="csa-ap-scope"><option value="one"><?php echo esc_html( csa_t( 'Only the page chosen below' ) ); ?></option><option value="page"><?php echo esc_html( csa_t( 'All pages (newest 60)' ) ); ?></option><option value="post"><?php echo esc_html( csa_t( 'All posts (newest 60)' ) ); ?></option><option value="sb_post"><?php echo esc_html( csa_t( 'All blog posts (Blog Write .ai)' ) ); ?></option></select></label>
+			<label><input type="checkbox" id="csa-ap-kw" checked> <?php echo esc_html( csa_t( 'Choose the keyword for me (the AI\'s first suggestion; I will review it in the report)' ) ); ?></label>
+			<label><input type="checkbox" id="csa-ap-skip" checked> <?php echo esc_html( csa_t( 'Skip pages that already score 90 or more' ) ); ?></label>
+		</p>
+		<p><button type="button" class="button button-primary button-hero" id="csa-ap-go">🚀 <?php echo esc_html( csa_t( 'Start autopilot' ) ); ?></button> <button type="button" class="button" id="csa-ap-stop" hidden>⏹ <?php echo esc_html( csa_t( 'Stop after this job' ) ); ?></button> <span id="csa-ap-prog" class="csa-muted"></span></p>
+		<div id="csa-ap-report"></div>
+	</div>
 	<div class="csa-card" id="csa-jobs-app" data-chat="<?php echo esc_attr( admin_url( 'admin.php?page=csa-chat' ) ); ?>">
 		<p class="csa-muted"><?php echo esc_html( csa_t( '1) Pick a page or post and press Scan (free, no AI). 2) You get numbered jobs in the right order; the first is the focus keyword (the AI suggests, you approve). 3) Press Run all in order, which is your approval for the SEO changes, or run single jobs. Each finished job shows what changed in its title, and has an Undo button. Design problems are only listed, for the design agent.' ) ); ?></p>
 		<div class="csa-row">
