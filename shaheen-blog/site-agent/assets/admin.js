@@ -1304,65 +1304,43 @@
 			if (r.error) { head.innerHTML = '<p class="csa-err">' + esc(r.error) + '</p>'; return; }
 			jobs = r.data.jobs; jbApp.dataset.chatpage = r.data.chat; draw(r.data);
 		};
-				/* Autopilot: run the whole checklist on one page or on many pages. */
-		var apStop = false, apRun = false;
-		$('#csa-ap-stop').onclick = function () { apStop = true; this.textContent = T('Stopping…'); };
+				/* Autopilot: runs on the server (keeps going when this page is closed); this screen only starts it and shows progress. */
+		var apTimer = null, apBusy = false;
+		function apDraw(d) {
+			var prg = $('#csa-ap-prog'), rep = $('#csa-ap-report'), go = $('#csa-ap-go'), stop = $('#csa-ap-stop');
+			var run = d.status === 'running';
+			go.disabled = run; stop.hidden = !run;
+			prg.textContent = run ? d.msg : (d.status === 'done' ? T('Autopilot finished.') : (d.status === 'stopped' ? T('Stopped.') : ''));
+			var rows = (d.rows || []).slice(); if (run && d.current && d.current.id) rows.push(d.current);
+			rep.innerHTML = rows.length ? apReport(rows, !run) : '';
+		}
+		async function apPoll(work) {
+			if (apBusy) return; apBusy = true;
+			var r = await postT('csa_ap_status', { work: work ? 1 : 0 });
+			apBusy = false;
+			if (r.error) return;
+			apDraw(r.data);
+			if (r.data.status === 'running') { clearTimeout(apTimer); apTimer = setTimeout(function () { apPoll(true); }, 3000); }
+			else { clearTimeout(apTimer); overview(); }
+		}
+		$('#csa-ap-stop').onclick = async function () {
+			var r = await postT('csa_ap_stop', {}); if (r.error) { toast(r.error, 'err'); return; } apDraw(r.data); clearTimeout(apTimer);
+		};
 		$('#csa-ap-go').onclick = async function () {
-			if (apRun) return;
-			var scope = $('#csa-ap-scope').value, autoKw = $('#csa-ap-kw').checked, skipHigh = $('#csa-ap-skip').checked;
-			var prg = $('#csa-ap-prog'), rep = $('#csa-ap-report'), stopBtn = $('#csa-ap-stop'), goBtn = this;
-			var targets = [];
-			if (scope === 'one') { var one = parseInt(sel.value, 10); if (!one) { toast(T('Choose a page below first.'), 'err'); return; } targets = [{ id: one, title: sel.options[sel.selectedIndex].text.replace(/ — .*$/, '') }]; }
-			else { var tr = await postT('csa_jobs_targets', { type: scope === 'page' || scope === 'post' || scope === 'sb_post' ? scope : '' }); if (tr.error) { toast(tr.error, 'err'); return; } targets = tr.data; }
-			if (!targets.length) { toast(T('No pages found.'), 'err'); return; }
-			if (targets.length > 1 && !window.confirm(T('Run the autopilot on') + ' ' + targets.length + ' ' + T('pages? Each page uses several small AI calls.'))) return;
-			apRun = true; apStop = false; goBtn.disabled = true; stopBtn.hidden = false; stopBtn.textContent = '⏹ ' + T('Stop after this job');
-			var rows = [];
-			for (var i = 0; i < targets.length && !apStop; i++) {
-				var t = targets[i], row = { id: t.id, title: t.title, done: [], failed: [], owner: [], first: null, now: null, note: '' };
-				prg.textContent = (i + 1) + ' / ' + targets.length + ': ' + t.title + ' — ' + T('scanning…');
-				var sr = await postT('csa_jobs_scan', { id: t.id });
-				if (sr.error) { row.note = sr.error; rows.push(row); continue; }
-				row.first = sr.data.own; row.now = sr.data.own;
-				var js = sr.data.jobs;
-				if (skipHigh && sr.data.own >= 90) { row.note = T('already 90+, skipped'); rows.push(row); continue; }
-				if (autoKw) {
-					var kj = js.find(function (x) { return x.kind === 'keyword' && x.status !== 'done'; });
-					if (kj) {
-						prg.textContent = (i + 1) + ' / ' + targets.length + ': ' + t.title + ' — ' + T('choosing keyword…');
-						var kr = await postT('csa_jobs_run', { id: t.id, n: kj.n });
-						if (kr.error) { kr = await postT('csa_jobs_run', { id: t.id, n: kj.n }); }
-						if (!kr.error && kr.data.job.status === 'choose' && kr.data.job.options.length) {
-							var kw = kr.data.job.options[0].keyword;
-							var ks = await postT('csa_jobs_setkw', { id: t.id, n: kj.n, keyword: kw });
-							if (!ks.error) { js = ks.data.jobs; row.done.push('🔑 ' + T('Focus keyword') + ': ' + kw); }
-						} else if (kr.error || kr.data.job.status === 'fail') { row.failed.push('🔑 ' + (kr.error || kr.data.job.result)); }
-					}
-				}
-				var todo = js.filter(runnable).filter(function (x) { return x.kind !== 'keyword'; });
-				for (var k = 0; k < todo.length && !apStop; k++) {
-					prg.textContent = (i + 1) + ' / ' + targets.length + ': ' + t.title + ' — ' + todo[k].title;
-					var rr = await postT('csa_jobs_run', { id: t.id, n: todo[k].n });
-					if (rr.error) { row.failed.push(todo[k].title + ': ' + rr.error); continue; }
-					if (rr.data.own !== null) row.now = rr.data.own;
-					if (rr.data.job.status === 'done') row.done.push('✅ ' + rr.data.job.done_title);
-					else if (rr.data.job.status === 'fail') row.failed.push('❌ ' + todo[k].title + ' — ' + rr.data.job.result);
-				}
-				var lr = await postT('csa_jobs_load', { id: t.id });
-				if (!lr.error) { row.now = lr.data.own; (lr.data.jobs || []).forEach(function (x) { if (x.kind === 'owner' && x.status !== 'done') row.owner.push(x.title.replace(/^YOU( \(optional\))?: /, '')); }); }
-				rows.push(row);
-				rep.innerHTML = apReport(rows, false);
-			}
-			rep.innerHTML = apReport(rows, true);
-			prg.textContent = apStop ? T('Stopped.') : T('Autopilot finished.');
-			apRun = false; goBtn.disabled = false; stopBtn.hidden = true; overview();
+			var scope = $('#csa-ap-scope').value, one = parseInt(sel.value, 10);
+			if (scope === 'one' && !one) { toast(T('Choose a page below first.'), 'err'); return; }
+			if (scope !== 'one' && !window.confirm(T('Run the autopilot on up to 60 pages? It runs on the server: you can close this page. Each page uses several small AI calls.'))) return;
+			var r = await postT('csa_ap_start', { scope: scope, id: one || 0, auto_kw: $('#csa-ap-kw').checked ? 1 : 0, skip_high: $('#csa-ap-skip').checked ? 1 : 0 });
+			if (r.error) { toast(r.error, 'err'); return; }
+			apDraw(r.data); apPoll(true);
 		};
 		function apReport(rows, final) {
 			return '<h3>' + esc(final ? T('Report') : T('Report so far')) + '</h3><table class="widefat striped"><thead><tr><th>' + esc(T('Page')) + '</th><th>' + esc(T('Score')) + '</th><th>' + esc(T('What changed')) + '</th><th>' + esc(T('Needs you')) + '</th></tr></thead><tbody>' + rows.map(function (r) {
 				var sc = r.first === null ? '—' : (r.first === r.now ? String(r.now) : r.first + ' → ' + r.now);
-				return '<tr><td><strong>' + esc(r.title) + '</strong> <span class="csa-muted">#' + r.id + '</span></td><td>' + esc(sc) + '</td><td>' + (r.done.map(esc).join('<br>') || '') + (r.failed.length ? '<br><span class="csa-err">' + r.failed.map(esc).join('<br>') + '</span>' : '') + (r.note ? '<span class="csa-muted">' + esc(r.note) + '</span>' : '') + '</td><td>' + (r.owner.map(function (x) { return '👤 ' + esc(x); }).join('<br>') || '') + '</td></tr>';
+				return '<tr><td><strong>' + esc(r.title) + '</strong> <span class="csa-muted">#' + r.id + '</span></td><td>' + esc(sc) + '</td><td>' + ((r.done || []).map(esc).join('<br>') || '') + ((r.failed || []).length ? '<br><span class="csa-err">' + r.failed.map(esc).join('<br>') + '</span>' : '') + (r.note ? '<span class="csa-muted">' + esc(r.note) + '</span>' : '') + '</td><td>' + ((r.owner || []).map(function (x) { return '👤 ' + esc(x); }).join('<br>') || '') + '</td></tr>';
 			}).join('') + '</tbody></table>';
 		}
+		apPoll(false); // show a run that is already going or the last report
 		$('#csa-jb-all').onchange = function () { var on = this.checked; $$('.csa-jb-pick', listEl).forEach(function (c) { c.checked = on; }); };
 
 		function parseNums(str) {

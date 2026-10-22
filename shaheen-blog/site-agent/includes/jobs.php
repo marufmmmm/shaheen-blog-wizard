@@ -623,25 +623,22 @@ function csa_jobs_save_one( $id, $n, $fn ) {
 	return null;
 }
 
-add_action( 'wp_ajax_csa_jobs_run', 'csa_ajax_jobs_run' );
-function csa_ajax_jobs_run() {
-	csa_guard( 'chat' );
-	$id = (int) ( $_POST['id'] ?? 0 );
-	$n  = (int) ( $_POST['n'] ?? 0 );
-	$p  = csa_valid_post( $id );
+/** Run one job of a page and save the result. Returns array( job, own ) or WP_Error. Used by the screen and by the background autopilot. */
+function csa_jobs_run_one( $id, $n ) {
+	$p = csa_valid_post( $id );
 	if ( ! $p ) {
-		wp_send_json_error( csa_t( 'Page not found.' ) );
+		return new WP_Error( 'run', csa_t( 'Page not found.' ) );
 	}
 	$g = csa_live_guard( $p );
 	if ( $g ) {
-		wp_send_json_error( $g['error'] ?? 'Live editing is off.' );
+		return new WP_Error( 'run', $g['error'] ?? 'Live editing is off.' );
 	}
 	foreach ( csa_jobs_get( $id ) as $j ) {
 		if ( (int) $j['n'] !== $n ) {
 			continue;
 		}
 		if ( 'done' === $j['status'] ) {
-			wp_send_json_error( 'This job is already done.' );
+			return new WP_Error( 'run', 'This job is already done.' );
 		}
 		$before = csa_jobs_log_ids();
 		list( $st, $msg, $title, $extra ) = csa_jobs_do( $id, $j );
@@ -660,27 +657,33 @@ function csa_ajax_jobs_run() {
 			return $j;
 		} );
 		$sc = csa_seo_score( $id );
-		wp_send_json_success( array( 'job' => $job, 'own' => is_wp_error( $sc ) ? null : $sc['score'], 'alerts' => csa_take_alerts() ) );
+		return array( 'job' => $job, 'own' => is_wp_error( $sc ) ? null : $sc['score'] );
 	}
-	wp_send_json_error( 'No such job. Scan the page again.' );
+	return new WP_Error( 'run', 'No such job. Scan the page again.' );
 }
 
-/** Owner approves a keyword (one of the AI options or his own). */
-add_action( 'wp_ajax_csa_jobs_setkw', 'csa_ajax_jobs_setkw' );
-function csa_ajax_jobs_setkw() {
+add_action( 'wp_ajax_csa_jobs_run', 'csa_ajax_jobs_run' );
+function csa_ajax_jobs_run() {
 	csa_guard( 'chat' );
-	$id = (int) ( $_POST['id'] ?? 0 );
-	$n  = (int) ( $_POST['n'] ?? 0 );
-	$kw = sanitize_text_field( wp_unslash( $_POST['keyword'] ?? '' ) );
-	$p  = csa_valid_post( $id );
+	$r = csa_jobs_run_one( (int) ( $_POST['id'] ?? 0 ), (int) ( $_POST['n'] ?? 0 ) );
+	if ( is_wp_error( $r ) ) {
+		wp_send_json_error( $r->get_error_message() );
+	}
+	$r['alerts'] = csa_take_alerts();
+	wp_send_json_success( $r );
+}
+
+/** Save the approved keyword and rebuild the list. Returns array( jobs, own ) or WP_Error. */
+function csa_jobs_apply_kw( $id, $n, $kw ) {
+	$p = csa_valid_post( $id );
 	if ( ! $p || '' === $kw ) {
-		wp_send_json_error( csa_t( 'Choose or type a keyword.' ) );
+		return new WP_Error( 'kw', csa_t( 'Choose or type a keyword.' ) );
 	}
 	$before = csa_jobs_log_ids();
 	$old    = csa_jobs_kw( $id );
 	$r      = csa_seo_set( $id, array( 'keyword' => $kw ), csa_t( 'Focus keyword set on' ) );
 	if ( is_wp_error( $r ) ) {
-		wp_send_json_error( $r->get_error_message() );
+		return $r;
 	}
 	$new = array_values( array_diff( csa_jobs_log_ids(), $before ) );
 	csa_jobs_save_one( $id, $n, function ( $j ) use ( $kw, $new, $old ) {
@@ -691,9 +694,18 @@ function csa_ajax_jobs_setkw() {
 		$j['undo']       = $new;
 		return $j;
 	} );
-	// Keyword changed: rebuild the list, keeping what is already done.
-	$b = csa_jobs_build( $id );
-	wp_send_json_success( array( 'jobs' => is_wp_error( $b ) ? csa_jobs_get( $id ) : $b['jobs'], 'own' => is_wp_error( $b ) ? null : $b['score']['score'] ) );
+	$b = csa_jobs_build( $id ); // Keyword changed: rebuild the list, keeping what is already done.
+	return array( 'jobs' => is_wp_error( $b ) ? csa_jobs_get( $id ) : $b['jobs'], 'own' => is_wp_error( $b ) ? null : $b['score']['score'] );
+}
+
+add_action( 'wp_ajax_csa_jobs_setkw', 'csa_ajax_jobs_setkw' );
+function csa_ajax_jobs_setkw() {
+	csa_guard( 'chat' );
+	$r = csa_jobs_apply_kw( (int) ( $_POST['id'] ?? 0 ), (int) ( $_POST['n'] ?? 0 ), sanitize_text_field( wp_unslash( $_POST['keyword'] ?? '' ) ) );
+	if ( is_wp_error( $r ) ) {
+		wp_send_json_error( $r->get_error_message() );
+	}
+	wp_send_json_success( $r );
 }
 
 add_action( 'wp_ajax_csa_jobs_undo', 'csa_ajax_jobs_undo' );
@@ -812,14 +824,14 @@ function csa_screen_jobs() {
 	<div class="csa-card"><h2><?php echo esc_html( csa_t( 'Saved jobs: which page needs what' ) ); ?></h2><p class="csa-muted"><?php echo esc_html( csa_t( 'Every scanned page keeps its job list here, with what is done and what is left.' ) ); ?></p><div id="csa-jb-over"></div></div>
 	<div class="csa-card" id="csa-ap">
 		<h2>🚀 <?php echo esc_html( csa_t( 'Autopilot: do everything with one click' ) ); ?></h2>
-		<p class="csa-muted"><?php echo esc_html( csa_t( 'For each page: scan, choose the focus keyword, then run every SEO job in order (title and meta, headings, keyword text, photos from your Media Library, alt text, schema). At the end you get one report with what changed on each page, the score before and after, and what only you can do. Every change can be undone on the page\'s own list.' ) ); ?></p>
+		<p class="csa-muted"><?php echo esc_html( csa_t( 'For each page: scan, choose the focus keyword, then run every SEO job in order (title and meta, headings, keyword text, photos from your Media Library, alt text, schema). It runs on the server, so you can close this page and come back later (it needs normal site visits or a server cron to keep WP-Cron moving). At the end you get one report with what changed on each page, the score before and after, and what only you can do. Every change can be undone on the page\'s own list.' ) ); ?></p>
 		<p>
 			<label><?php echo esc_html( csa_t( 'Which pages' ) ); ?>:
 			<select id="csa-ap-scope"><option value="one"><?php echo esc_html( csa_t( 'Only the page chosen below' ) ); ?></option><option value="page"><?php echo esc_html( csa_t( 'All pages (newest 60)' ) ); ?></option><option value="post"><?php echo esc_html( csa_t( 'All posts (newest 60)' ) ); ?></option><option value="sb_post"><?php echo esc_html( csa_t( 'All blog posts (Blog Write .ai)' ) ); ?></option></select></label>
 			<label><input type="checkbox" id="csa-ap-kw" checked> <?php echo esc_html( csa_t( 'Choose the keyword for me (the AI\'s first suggestion; I will review it in the report)' ) ); ?></label>
 			<label><input type="checkbox" id="csa-ap-skip" checked> <?php echo esc_html( csa_t( 'Skip pages that already score 90 or more' ) ); ?></label>
 		</p>
-		<p><button type="button" class="button button-primary button-hero" id="csa-ap-go">🚀 <?php echo esc_html( csa_t( 'Start autopilot' ) ); ?></button> <button type="button" class="button" id="csa-ap-stop" hidden>⏹ <?php echo esc_html( csa_t( 'Stop after this job' ) ); ?></button> <span id="csa-ap-prog" class="csa-muted"></span></p>
+		<p><button type="button" class="button button-primary button-hero" id="csa-ap-go">🚀 <?php echo esc_html( csa_t( 'Start autopilot' ) ); ?></button> <button type="button" class="button" id="csa-ap-stop" hidden>⏹ <?php echo esc_html( csa_t( 'Stop' ) ); ?></button> <span id="csa-ap-prog" class="csa-muted"></span></p>
 		<div id="csa-ap-report"></div>
 	</div>
 	<div class="csa-card" id="csa-jobs-app" data-chat="<?php echo esc_attr( admin_url( 'admin.php?page=csa-chat' ) ); ?>">
