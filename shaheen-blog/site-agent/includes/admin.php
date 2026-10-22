@@ -393,6 +393,9 @@ function csa_header( $title, $tabs = array(), $current = '' ) {
 	if ( ! csa_has_any_key() ) {
 		echo '<div class="notice notice-warning inline"><p>' . esc_html( csa_t( 'Add the API key in Settings first.' ) ) . ( current_user_can( 'manage_options' ) ? ' <a href="' . esc_url( admin_url( 'admin.php?page=csa-settings' ) ) . '">' . esc_html( csa_t( 'Settings' ) ) . '</a>' : '' ) . '</p></div>';
 	}
+	if ( 'csa-jobs' !== sanitize_key( $_GET['page'] ?? '' ) && csa_can( 'chat' ) ) {
+		echo '<p class="csa-ap-link"><a class="button button-primary" href="' . esc_url( admin_url( 'admin.php?page=csa-jobs#csa-ap' ) ) . '">🚀 ' . esc_html( csa_t( 'Autopilot (SEO for a page or all pages)' ) ) . '</a></p>';
+	}
 	if ( $tabs ) {
 		echo '<nav class="nav-tab-wrapper csa-tabs">';
 		foreach ( $tabs as $k => $label ) {
