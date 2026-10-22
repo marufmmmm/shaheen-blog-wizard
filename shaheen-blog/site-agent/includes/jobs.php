@@ -645,6 +645,9 @@ function csa_ajax_jobs_run() {
 		}
 		$before = csa_jobs_log_ids();
 		list( $st, $msg, $title, $extra ) = csa_jobs_do( $id, $j );
+		if ( 'fail' === $st && false !== strpos( (string) $msg, 'Press Run again' ) ) {
+			list( $st, $msg, $title, $extra ) = csa_jobs_do( $id, $j ); // The AI answer was unusable: ask once more before giving up.
+		}
 		$new = array_values( array_diff( csa_jobs_log_ids(), $before ) );
 		$job = csa_jobs_save_one( $id, $n, function ( $j ) use ( $st, $msg, $title, $extra, $new ) {
 			$j['status'] = in_array( $st, array( 'done', 'fail', 'choose' ), true ) ? $st : 'todo';

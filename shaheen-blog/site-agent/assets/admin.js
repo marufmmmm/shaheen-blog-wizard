@@ -1245,6 +1245,12 @@
 	if (jbApp) (function () {
 		var qIn = $('#csa-jb-q'), sel = $('#csa-jb-page'), head = $('#csa-jb-head'), listEl = $('#csa-jb-list'), runBox = $('#csa-jb-run'), prog = $('#csa-jb-prog');
 		var jobs = [], pid = 0, running = false;
+		/** post() that gives up after 150 s, so one slow AI call can never freeze the whole run. */
+		async function postT(action, data) {
+			var ctl = new AbortController(); ctl.timedOut = false;
+			var tm = setTimeout(function () { ctl.timedOut = true; ctl.abort(); }, 150000);
+			try { return await post(action, data, null, ctl); } finally { clearTimeout(tm); }
+		}
 		var ICON = { keyword: '🔑', seo_meta: '🔎', h1_kw: '✏️', intro_kw: '✏️', h2: '🔠', h1_fix: '🔠', content: '📝', image_place: '🖼', schema: '🧩', alt: '🖼', owner: '👤', design: '🎨' };
 		var HOW = { keyword: T('1 small AI call, then you approve'), seo_meta: T('1 small AI call'), h1_kw: T('1 small AI call'), intro_kw: T('1 small AI call'), h2: T('Free, no AI'), h1_fix: T('Free, no AI'), content: T('1 AI call'), image_place: T('1-3 AI calls'), schema: T('1 small AI call'), alt: T('1 AI call per image'), owner: T('You do this'), design: T('For the design agent') };
 		var runnable = function (j) { return ['keyword', 'seo_meta', 'h1_kw', 'intro_kw', 'h1_fix', 'h2', 'content', 'image_place', 'schema', 'alt'].indexOf(j.kind) >= 0 && j.status !== 'done' && j.status !== 'skip'; };
@@ -1294,7 +1300,7 @@
 		$('#csa-jb-scan').onclick = async function () {
 			pid = parseInt(sel.value, 10); if (!pid) return;
 			head.innerHTML = '<p class="csa-muted">' + esc(T('Scanning…')) + '</p>'; listEl.innerHTML = '';
-			var r = await post('csa_jobs_scan', { id: pid });
+			var r = await postT('csa_jobs_scan', { id: pid });
 			if (r.error) { head.innerHTML = '<p class="csa-err">' + esc(r.error) + '</p>'; return; }
 			jobs = r.data.jobs; jbApp.dataset.chatpage = r.data.chat; draw(r.data);
 		};
@@ -1307,7 +1313,7 @@
 			var prg = $('#csa-ap-prog'), rep = $('#csa-ap-report'), stopBtn = $('#csa-ap-stop'), goBtn = this;
 			var targets = [];
 			if (scope === 'one') { var one = parseInt(sel.value, 10); if (!one) { toast(T('Choose a page below first.'), 'err'); return; } targets = [{ id: one, title: sel.options[sel.selectedIndex].text.replace(/ — .*$/, '') }]; }
-			else { var tr = await post('csa_jobs_targets', { type: scope === 'page' || scope === 'post' || scope === 'sb_post' ? scope : '' }); if (tr.error) { toast(tr.error, 'err'); return; } targets = tr.data; }
+			else { var tr = await postT('csa_jobs_targets', { type: scope === 'page' || scope === 'post' || scope === 'sb_post' ? scope : '' }); if (tr.error) { toast(tr.error, 'err'); return; } targets = tr.data; }
 			if (!targets.length) { toast(T('No pages found.'), 'err'); return; }
 			if (targets.length > 1 && !window.confirm(T('Run the autopilot on') + ' ' + targets.length + ' ' + T('pages? Each page uses several small AI calls.'))) return;
 			apRun = true; apStop = false; goBtn.disabled = true; stopBtn.hidden = false; stopBtn.textContent = '⏹ ' + T('Stop after this job');
@@ -1315,7 +1321,7 @@
 			for (var i = 0; i < targets.length && !apStop; i++) {
 				var t = targets[i], row = { id: t.id, title: t.title, done: [], failed: [], owner: [], first: null, now: null, note: '' };
 				prg.textContent = (i + 1) + ' / ' + targets.length + ': ' + t.title + ' — ' + T('scanning…');
-				var sr = await post('csa_jobs_scan', { id: t.id });
+				var sr = await postT('csa_jobs_scan', { id: t.id });
 				if (sr.error) { row.note = sr.error; rows.push(row); continue; }
 				row.first = sr.data.own; row.now = sr.data.own;
 				var js = sr.data.jobs;
@@ -1324,10 +1330,11 @@
 					var kj = js.find(function (x) { return x.kind === 'keyword' && x.status !== 'done'; });
 					if (kj) {
 						prg.textContent = (i + 1) + ' / ' + targets.length + ': ' + t.title + ' — ' + T('choosing keyword…');
-						var kr = await post('csa_jobs_run', { id: t.id, n: kj.n });
+						var kr = await postT('csa_jobs_run', { id: t.id, n: kj.n });
+						if (kr.error) { kr = await postT('csa_jobs_run', { id: t.id, n: kj.n }); }
 						if (!kr.error && kr.data.job.status === 'choose' && kr.data.job.options.length) {
 							var kw = kr.data.job.options[0].keyword;
-							var ks = await post('csa_jobs_setkw', { id: t.id, n: kj.n, keyword: kw });
+							var ks = await postT('csa_jobs_setkw', { id: t.id, n: kj.n, keyword: kw });
 							if (!ks.error) { js = ks.data.jobs; row.done.push('🔑 ' + T('Focus keyword') + ': ' + kw); }
 						} else if (kr.error || kr.data.job.status === 'fail') { row.failed.push('🔑 ' + (kr.error || kr.data.job.result)); }
 					}
@@ -1335,13 +1342,13 @@
 				var todo = js.filter(runnable).filter(function (x) { return x.kind !== 'keyword'; });
 				for (var k = 0; k < todo.length && !apStop; k++) {
 					prg.textContent = (i + 1) + ' / ' + targets.length + ': ' + t.title + ' — ' + todo[k].title;
-					var rr = await post('csa_jobs_run', { id: t.id, n: todo[k].n });
+					var rr = await postT('csa_jobs_run', { id: t.id, n: todo[k].n });
 					if (rr.error) { row.failed.push(todo[k].title + ': ' + rr.error); continue; }
 					if (rr.data.own !== null) row.now = rr.data.own;
 					if (rr.data.job.status === 'done') row.done.push('✅ ' + rr.data.job.done_title);
 					else if (rr.data.job.status === 'fail') row.failed.push('❌ ' + todo[k].title + ' — ' + rr.data.job.result);
 				}
-				var lr = await post('csa_jobs_load', { id: t.id });
+				var lr = await postT('csa_jobs_load', { id: t.id });
 				if (!lr.error) { row.now = lr.data.own; (lr.data.jobs || []).forEach(function (x) { if (x.kind === 'owner' && x.status !== 'done') row.owner.push(x.title.replace(/^YOU( \(optional\))?: /, '')); }); }
 				rows.push(row);
 				rep.innerHTML = apReport(rows, false);
@@ -1373,7 +1380,7 @@
 			running = true;
 			for (var i = 0; i < nums.length; i++) {
 				prog.textContent = T('Running') + ' ' + (i + 1) + ' / ' + nums.length + ' (#' + nums[i] + ')…';
-				var r = await post('csa_jobs_run', { id: pid, n: nums[i] });
+				var r = await postT('csa_jobs_run', { id: pid, n: nums[i] });
 				if (r.error) { toast(r.error, 'err'); break; }
 				var k = jobs.findIndex(function (j) { return j.n === nums[i]; });
 				jobs[k] = r.data.job; if (r.data.own !== null) { var o = $('#csa-jb-own'); if (o) o.innerHTML = csaScore(r.data.own); }
@@ -1396,21 +1403,21 @@
 			if (d.kw) {
 				var row = e.target.closest('tr'), own = $('.csa-jb-kwown', row).value.trim(), pick = $('input[type=radio]:checked', row);
 				var kw = own || (pick ? pick.value : ''); if (!kw) { toast(T('Choose or type a keyword.'), 'err'); return; }
-				r = await post('csa_jobs_setkw', { id: pid, n: d.kw, keyword: kw }); if (r.error) { toast(r.error, 'err'); return; }
+				r = await postT('csa_jobs_setkw', { id: pid, n: d.kw, keyword: kw }); if (r.error) { toast(r.error, 'err'); return; }
 				jobs = r.data.jobs; if (r.data.own !== null) { var o = $('#csa-jb-own'); if (o) o.innerHTML = csaScore(r.data.own); } draw(); overview(); return;
 			}
 			if (d.undo) {
-				r = await post('csa_jobs_undo', { id: pid, n: d.undo }); if (r.error) { toast(r.error, 'err'); return; }
+				r = await postT('csa_jobs_undo', { id: pid, n: d.undo }); if (r.error) { toast(r.error, 'err'); return; }
 				k = jobs.findIndex(function (j) { return String(j.n) === d.undo; }); jobs[k] = r.data.job; if (r.data.own !== null) { var o2 = $('#csa-jb-own'); if (o2) o2.innerHTML = csaScore(r.data.own); } draw(); overview(); return;
 			}
 			if (d.man) {
-				r = await post('csa_jobs_manual', { id: pid, n: d.man, status: 'done' }); if (r.error) { toast(r.error, 'err'); return; }
+				r = await postT('csa_jobs_manual', { id: pid, n: d.man, status: 'done' }); if (r.error) { toast(r.error, 'err'); return; }
 				k = jobs.findIndex(function (j) { return String(j.n) === d.man; }); jobs[k] = r.data.job; draw(); overview();
 			}
 		});
 		$('#csa-jb-html').onclick = async function () {
 			if (!pid || !window.confirm(T('Convert this page to clean HTML? All text, headings, lists, images and links stay. The Elementor layout and styling are removed (the theme styles the page). You can undo it in Activity.'))) return;
-			var r = await post('csa_jobs_tohtml', { id: pid });
+			var r = await postT('csa_jobs_tohtml', { id: pid });
 			if (r.error) { toast(r.error, 'err'); return; }
 			toast(T('Converted to clean HTML.') + (r.data.not_carried_over && r.data.not_carried_over.length ? ' ' + T('Not carried over') + ': ' + r.data.not_carried_over.join(', ') : ''), 'ok');
 			$('#csa-jb-scan').click();
@@ -1422,7 +1429,7 @@
 		};
 		$('#csa-jb-site').onclick = async function () {
 			var box = $('#csa-jb-sitelist'); box.innerHTML = '<p class="csa-muted">' + esc(T('Checking…')) + '</p>';
-			var r = await post('csa_jobs_site', {});
+			var r = await postT('csa_jobs_site', {});
 			if (r.error) { box.innerHTML = '<p class="csa-err">' + esc(r.error) + '</p>'; return; }
 			if (!r.data.length) { box.innerHTML = '<p>✅ ' + esc(T('No layout problems found.')) + '</p>'; return; }
 			box.innerHTML = '<table class="widefat striped"><thead><tr><th>' + esc(T('Page')) + '</th><th>' + esc(T('Serious')) + '</th><th>' + esc(T('All')) + '</th><th>' + esc(T('Example')) + '</th><th></th></tr></thead><tbody>' + r.data.map(function (p) {
@@ -1435,14 +1442,14 @@
 		};
 		async function overview() {
 			var o = $('#csa-jb-over'); if (!o) return;
-			var r = await post('csa_jobs_overview', {});
+			var r = await postT('csa_jobs_overview', {});
 			if (r.error || !r.data.length) { o.innerHTML = '<p class="csa-muted">' + esc(r.error || T('No page scanned yet.')) + '</p>'; return; }
 			o.innerHTML = '<table class="widefat striped"><thead><tr><th>' + esc(T('Page')) + '</th><th>' + esc(T('To do')) + '</th><th>' + esc(T('Done')) + '</th><th>' + esc(T('Chat agent')) + '</th><th>' + esc(T('Scanned')) + '</th><th></th></tr></thead><tbody>' + r.data.map(function (p) {
 				return '<tr><td>' + esc(p.title) + ' <span class="csa-muted">' + esc(p.type) + ' #' + p.id + '</span></td><td>' + p.c.todo + '</td><td>' + p.c.done + '</td><td>' + (p.c.agent + p.c.fail) + '</td><td class="csa-muted">' + esc(p.when) + '</td><td><button type="button" class="button button-small" data-load="' + p.id + '">' + esc(T('Open')) + '</button></td></tr>';
 			}).join('') + '</tbody></table>';
 			o.onclick = async function (e) {
 				var id = e.target.dataset && e.target.dataset.load; if (!id) return;
-				var rr = await post('csa_jobs_load', { id: id }); if (rr.error) { toast(rr.error, 'err'); return; }
+				var rr = await postT('csa_jobs_load', { id: id }); if (rr.error) { toast(rr.error, 'err'); return; }
 				pid = parseInt(id, 10); jobs = rr.data.jobs; sel.innerHTML = '<option value="' + id + '">' + esc(rr.data.title) + ' #' + id + '</option>'; sel.value = id; draw(rr.data); jbApp.scrollIntoView();
 			};
 		}
