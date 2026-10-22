@@ -109,7 +109,7 @@ function csa_seo_collect( $id ) {
 		foreach ( $imgs as $img ) {
 			if ( '' === trim( $img->getAttribute( 'alt' ) ) ) {
 				$src    = $img->getAttribute( 'src' ) ? $img->getAttribute( 'src' ) : $img->getAttribute( 'data-src' );
-				$miss[] = basename( (string) strtok( $src, '?' ) );
+				$miss[] = 0 === strpos( (string) $src, 'data:' ) ? 'data:placeholder' : basename( (string) strtok( $src, '?' ) );
 			}
 		}
 		$out['images']             = $imgs->length;

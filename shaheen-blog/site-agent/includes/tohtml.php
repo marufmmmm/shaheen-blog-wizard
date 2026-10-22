@@ -252,6 +252,11 @@ function csa_th_links( $in ) {
 function csa_th_tool() {
 	return array(
 		array(
+			'name'         => 'fix_heading_levels',
+			'description'  => 'Fix heading LEVELS of ONE page with no AI and no text change. mode "one_h1": the page must have exactly one H1; extra H1 headings inside the content become H2 (the theme\'s page title counts as the H1 when it shows one). mode "two_h2": H3-H6 headings become H2 until the page has at least 2 H2. Use this instead of replace_text/edit_content for heading levels. Undoable.',
+			'input_schema' => csa_schema( array( 'id' => array( 'type' => 'integer' ), 'mode' => array( 'type' => 'string', 'enum' => array( 'one_h1', 'two_h2' ) ) ), array( 'id', 'mode' ) ),
+		),
+		array(
 			'name'         => 'add_related_links',
 			'description'  => 'Add a line of REAL clickable internal links (for example "আরও জানুন: Branch · Management · Academic") at the end of the page text. Use this for internal linking instead of replace_text (which cannot make links). Works on Elementor and normal pages, needs no HTML, undoable.',
 			'input_schema' => csa_schema(
@@ -279,3 +284,87 @@ add_action( 'wp_ajax_csa_jobs_tohtml', function () {
 	}
 	wp_send_json_success( $r );
 } );
+
+
+/** Change heading levels without touching text or look. mode 'two_h2': promote H3-H6 so there are 2+ H2. mode 'one_h1': keep exactly one H1 on the live page. */
+function csa_th_levels( $id, $mode ) {
+	$p = csa_valid_post( $id );
+	if ( ! $p ) {
+		return array( 'error' => 'Page not found.' );
+	}
+	$g = csa_live_guard( $p );
+	if ( $g ) {
+		return $g;
+	}
+	$f   = csa_seo_collect( $p->ID );
+	$h1s = is_array( $f ) ? (array) ( $f['h1'] ?? array() ) : array();
+	$ttl = mb_strtolower( trim( wp_strip_all_tags( $p->post_title ) ) );
+	$title_is_h1 = false;
+	foreach ( $h1s as $h ) {
+		if ( mb_strtolower( trim( $h ) ) === $ttl ) {
+			$title_is_h1 = true;
+		}
+	}
+	$need = 'two_h2' === $mode ? max( 1, 2 - count( (array) ( $f['h2'] ?? array() ) ) ) : 0;
+	$keep = $title_is_h1 ? 0 : 1; // H1s allowed inside the content.
+	$done = array();
+	if ( csa_is_elementor( $p->ID ) ) {
+		list( $raw, $data ) = csa_el_load( $p->ID );
+		$seen = 0;
+		$walk = function ( array &$els ) use ( &$walk, &$done, &$seen, $mode, $need, $keep ) {
+			foreach ( $els as &$el ) {
+				if ( 'widget' === ( $el['elType'] ?? '' ) && 'heading' === ( $el['widgetType'] ?? '' ) ) {
+					$sz = strtolower( (string) ( $el['settings']['header_size'] ?? 'h2' ) );
+					$tx = trim( wp_strip_all_tags( (string) ( $el['settings']['title'] ?? '' ) ) );
+					if ( 'two_h2' === $mode && count( $done ) < $need && in_array( $sz, array( 'h3', 'h4', 'h5', 'h6' ), true ) && '' !== $tx ) {
+						$el['settings']['header_size'] = 'h2';
+						$done[] = $tx;
+					} elseif ( 'one_h1' === $mode && 'h1' === $sz ) {
+						$seen++;
+						if ( $seen > $keep ) {
+							$el['settings']['header_size'] = 'h2';
+							$done[] = $tx;
+						}
+					}
+				}
+				if ( ! empty( $el['elements'] ) && is_array( $el['elements'] ) ) {
+					$walk( $el['elements'] );
+				}
+			}
+			unset( $el );
+		};
+		$walk( $data );
+		if ( ! $done ) {
+			return array( 'error' => 'Nothing to change: no matching heading widget found.' );
+		}
+		$bid = csa_el_save( $p->ID, $raw, $data );
+		csa_log( csa_t( 'Heading levels changed on' ) . ' #' . $p->ID . ': ' . $p->post_title, array( 'type' => 'elementor', 'post' => (int) $p->ID, 'backup' => $bid ) );
+	} else {
+		$cnt = 0;
+		$seen = 0;
+		$re  = 'two_h2' === $mode ? '#<h([3-6])(\b[^>]*)>(.*?)</h\1>#is' : '#<h(1)(\b[^>]*)>(.*?)</h1>#is';
+		$new = preg_replace_callback( $re, function ( $m ) use ( &$cnt, &$seen, &$done, $mode, $need, $keep ) {
+			if ( 'two_h2' === $mode ) {
+				if ( $cnt >= $need ) {
+					return $m[0];
+				}
+			} else {
+				$seen++;
+				if ( $seen <= $keep ) {
+					return $m[0];
+				}
+			}
+			$cnt++;
+			$done[] = trim( wp_strip_all_tags( $m[3] ) );
+			return '<h2' . $m[2] . '>' . $m[3] . '</h2>';
+		}, $p->post_content );
+		if ( ! $done ) {
+			return array( 'error' => 'Nothing to change: no matching heading in the page content.' );
+		}
+		$u = csa_snapshot_post( $p->ID );
+		wp_update_post( array( 'ID' => $p->ID, 'post_content' => $new ) );
+		csa_clear_cache( $p->ID );
+		csa_log( csa_t( 'Heading levels changed on' ) . ' #' . $p->ID . ': ' . $p->post_title, $u );
+	}
+	return array( 'ok' => true, 'changed' => $done, 'title_is_h1' => $title_is_h1 );
+}

@@ -91,11 +91,15 @@ function csa_jobs_build( $id ) {
 		} elseif ( 0 === strpos( $c, 'Schema' ) ) {
 			$add( 'schema', 'seo', 'Add schema (JSON-LD)', 'The AI writes it from the page text and the site memory.', $gap );
 		} elseif ( 0 === strpos( $c, 'Every image has alt' ) ) {
-			if ( (int) ( $sc['facts']['images_missing_alt'] ?? 0 ) > 0 ) {
+			$mf   = (array) ( $sc['facts']['missing_alt_files'] ?? array() );
+			$real = array_filter( $mf, function ( $x ) { return 'data:placeholder' !== $x; } );
+			if ( $mf && ! $real ) {
+				$add( 'owner', 'image', 'YOU: ' . count( $mf ) . ' image(s) are inline placeholders (SVG/data), not real photos', 'Upload real photos in Site Agent > Images and ask the chat agent: "replace the placeholder images with my photos". Placeholders never get alt text.', $gap );
+			} elseif ( (int) ( $sc['facts']['images_missing_alt'] ?? 0 ) > 0 ) {
 				$add( 'alt', 'image', 'Write alt text for ' . (int) $sc['facts']['images_missing_alt'] . ' image(s) without it', 'Uses the focus keyword only where the image really fits.', $gap );
 			}
 		} elseif ( 0 === strpos( $c, 'Exactly one H1' ) ) {
-			$add( 'owner', 'text', 'YOU: make the page have exactly one H1', 'In Elementor: select the main heading, set its HTML tag to H1, and set all other headings to H2 or H3. (' . $i['fix'] . ')', $gap );
+			$add( 'h1_fix', 'text', 'Make the page have exactly one H1', 'No AI: extra H1 headings in the content become H2 (the page title counts as the H1). Only the heading level changes. (' . $i['fix'] . ')', $gap );
 		} elseif ( 0 === strpos( $c, 'Keyword in H1' ) && '' !== $kw ) {
 			$add( 'h1_kw', 'text', 'Put the keyword "' . $kw . '" into the main heading (H1)', 'The AI rewrites the H1 with the same meaning.', $gap );
 		} elseif ( 0 === strpos( $c, 'Keyword in the first part' ) && '' !== $kw ) {
@@ -142,7 +146,7 @@ function csa_jobs_build( $id ) {
 			$jobs[] = $o;
 		}
 	}
-	$rank = array( 'keyword' => 1, 'seo_meta' => 2, 'h1_kw' => 3, 'intro_kw' => 4, 'h2' => 5, 'content' => 6, 'alt' => 7, 'schema' => 8, 'owner' => 9, 'design' => 10 );
+	$rank = array( 'keyword' => 1, 'seo_meta' => 2, 'h1_fix' => 2.5, 'h1_kw' => 3, 'intro_kw' => 4, 'h2' => 5, 'content' => 6, 'alt' => 7, 'schema' => 8, 'owner' => 9, 'design' => 10 );
 	foreach ( $jobs as $i => &$j0 ) {
 		$j0['_o'] = $i;
 	}
@@ -427,53 +431,13 @@ function csa_jobs_do( $id, $j ) {
 			return array( 'done', 'Added about ' . $wc . ' words in ' . count( (array) $r['sections'] ) . ' section(s) and ' . count( $ln ) . ' internal link(s) at the end of the page text.', 'Added ~' . $wc . ' words, ' . count( $ln ) . ' internal links', array() );
 
 		case 'h2':
-			$f    = csa_seo_collect( $id );
-			$need = max( 1, 2 - count( (array) ( $f['h2'] ?? array() ) ) );
-			if ( ! csa_is_elementor( $id ) ) {
-				$p   = get_post( $id );
-				$cnt = 0;
-				$new = preg_replace_callback( '#<h([3-6])(\b[^>]*)>(.*?)</h\1>#is', function ( $m ) use ( &$cnt, $need ) {
-					if ( $cnt >= $need ) {
-						return $m[0];
-					}
-					$cnt++;
-					return '<h2' . $m[2] . '>' . $m[3] . '</h2>';
-				}, $p->post_content );
-				if ( ! $cnt ) {
-					return array( 'fail', 'No H3-H6 heading found to promote. Use the Add useful text job instead.', '', array() );
-				}
-				$u = csa_snapshot_post( $id );
-				wp_update_post( array( 'ID' => $id, 'post_content' => $new ) );
-				csa_clear_cache( $id );
-				csa_log( csa_t( 'Heading level changed to H2 on' ) . ' #' . $id . ': ' . $ttl, $u );
-				return array( 'done', $cnt . ' heading(s) changed to H2.', $cnt . ' heading(s) now H2', array() );
+		case 'h1_fix':
+			$r = csa_th_levels( $id, 'h2' === $j['kind'] ? 'two_h2' : 'one_h1' );
+			if ( isset( $r['error'] ) ) {
+				return array( 'fail', $r['error'], '', array() );
 			}
-			list( $raw, $data ) = csa_el_load( $id );
-			$done = array();
-			$walk = function ( array &$els ) use ( &$walk, &$done, $need ) {
-				foreach ( $els as &$el ) {
-					if ( count( $done ) < $need && 'widget' === ( $el['elType'] ?? '' ) && 'heading' === ( $el['widgetType'] ?? '' ) ) {
-						$sz = strtolower( (string) ( $el['settings']['header_size'] ?? 'h2' ) );
-						$tx = trim( wp_strip_all_tags( (string) ( $el['settings']['title'] ?? '' ) ) );
-						if ( in_array( $sz, array( 'h3', 'h4', 'h5', 'h6' ), true ) && '' !== $tx ) {
-							$el['settings']['header_size'] = 'h2';
-							$done[] = $tx;
-						}
-					}
-					if ( ! empty( $el['elements'] ) && is_array( $el['elements'] ) ) {
-						$walk( $el['elements'] );
-					}
-				}
-				unset( $el );
-			};
-			$walk( $data );
-			if ( ! $done ) {
-				return array( 'fail', 'No heading widget of level H3-H6 found. Add a heading widget in Elementor or use the Add useful text job.', '', array() );
-			}
-			$bid = csa_el_save( $id, $raw, $data );
-			csa_clear_cache( $id );
-			csa_log( csa_t( 'Heading level changed to H2 on' ) . ' #' . $id . ': ' . $ttl, array( 'type' => 'elementor', 'post' => (int) $id, 'backup' => $bid ) );
-			return array( 'done', 'Now H2: ' . implode( ' | ', array_map( function ( $t ) { return mb_substr( $t, 0, 40 ); }, $done ) ), count( $done ) . ' heading(s) now H2: ' . mb_substr( $done[0], 0, 30 ), array() );
+			$lst = implode( ' | ', array_map( function ( $t ) { return mb_substr( $t, 0, 40 ); }, $r['changed'] ) );
+			return array( 'done', 'Now H2: ' . $lst, count( $r['changed'] ) . ' heading(s) changed to H2: ' . mb_substr( $r['changed'][0], 0, 30 ), array() );
 
 		case 'schema':
 			$sys = 'You write schema.org JSON-LD for a school website. ' . csa_site_context() . "\n\nReturn ONLY one valid JSON object with @context and @type (EducationalOrganization, Course or FAQPage, whichever fits this page; FAQPage only if the page text really has questions and answers). Use only facts from the page text and site memory; leave out anything unknown.";

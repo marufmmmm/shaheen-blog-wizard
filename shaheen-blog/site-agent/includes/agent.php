@@ -269,6 +269,7 @@ function csa_tool_label( $name, $in ) {
 		'get_page'                 => csa_t( 'Read page' ) . $id,
 		'get_elementor_html'       => csa_t( 'Read page design' ) . $id,
 		'get_seo_data'             => csa_t( 'Checked SEO of page' ) . $id,
+		'fix_heading_levels'       => '🔠 ' . csa_t( 'Fixing heading levels' ) . ' #' . $id,
 		'set_page_title'           => '🏷 ' . csa_t( 'Changing page title' ) . ' #' . $id,
 		'add_related_links'        => '🔗 ' . csa_t( 'Adding related links' ) . ' #' . $id,
 		'convert_to_html'          => '🧱 ' . csa_t( 'Converting to clean HTML' ) . ' #' . $id,
@@ -770,6 +771,14 @@ function csa_run_tool( $name, $in, &$ctx ) {
 			}
 			$data = array( 'ID' => $p->ID );
 			if ( 'edit_content' === $name ) {
+				// Never add the same image twice (a re-run step must not duplicate it).
+				if ( preg_match_all( '#<img[^>]+src=["\']([^"\']+)["\']#i', (string) ( $in['new_text'] ?? '' ), $im ) ) {
+					foreach ( $im[1] as $src ) {
+						if ( 0 !== strpos( $src, 'data:' ) && false !== strpos( $p->post_content, $src ) && false === strpos( (string) ( $in['old_text'] ?? '' ), $src ) ) {
+							return array( 'error' => 'This image is already on the page (' . basename( $src ) . '). Do not add it again: mark this step done with step_done.' );
+						}
+					}
+				}
 				$new = csa_replace_once( $p->post_content, $in['old_text'] ?? '', (string) ( $in['new_text'] ?? '' ) );
 				if ( is_wp_error( $new ) ) {
 					return array( 'error' => $new->get_error_message() );
@@ -794,6 +803,13 @@ function csa_run_tool( $name, $in, &$ctx ) {
 			csa_clear_cache( $p->ID );
 			$act( csa_t( 'Updated' ) . ' #' . $p->ID . ': ' . get_the_title( $p->ID ), $undo, get_permalink( $p->ID ) );
 			return array( 'ok' => true, 'link' => get_permalink( $p->ID ), 'preview' => get_preview_post_link( $p->ID ) );
+
+		case 'fix_heading_levels':
+			$r = csa_th_levels( (int) ( $in['id'] ?? 0 ), 'one_h1' === ( $in['mode'] ?? '' ) ? 'one_h1' : 'two_h2' );
+			if ( ! empty( $r['ok'] ) ) {
+				$ctx['items'][] = array( 'r' => 'act', 't' => '🔠 ' . csa_t( 'Fixed heading levels' ) . ' #' . (int) $in['id'], 'l' => '' );
+			}
+			return $r;
 
 		case 'set_page_title':
 			$p = csa_valid_post( $in['id'] ?? 0 );
@@ -1019,7 +1035,7 @@ function csa_agent_prompt( $state, $auto = null, $mem = array() ) {
 		. "\n- If an edit fails, don't retry the same old_text. For CSS changes append a new <style> block (empty old_text). If it fails twice, stop and explain."
 		. "\n- Structured data (JSON-LD): NEVER paste <script type=\"application/ld+json\"> into page HTML or an Elementor widget. Use set_page_schema (printed in the <head>, page untouched). Use real facts only: search_site / the site map for phone numbers, addresses and the URLs of branch (campus) pages; reference each branch page by its URL."
 		. "\n- If [CHAT MEMORY] contains a saved job checklist for a page, it is the owner's master plan: remember it, work through the OPEN jobs strictly in the listed order (earlier jobs prepare later ones), say which job number you are on, tick it with mark_job when done, and when the owner asks for several jobs do them all in one run."
-		. "\n- To change wording use replace_text with the VISIBLE sentence (no HTML): it works in every widget type. edit_elementor_html only handles HTML widgets; use it for markup and CSS, never for plain sentences. If a text edit on an Elementor page fails ONCE (Widget not found / no match), do not search or retry: call convert_to_html for that page (the owner pre-approved this for text, SEO and keyword jobs; it keeps all content, removes the Elementor layout and is undoable), then do the edit with replace_text on the plain HTML. Never convert for design or layout jobs. The visible H1 of most pages is the page TITLE: change it with set_page_title, not replace_text. For too much empty space at the sides of a plain-HTML page, do not run design_audit again and again (it checks Elementor settings): propose a plan with ONE set_page_css block scoped to the page, for example `.page-id-ID .entry-content, .page-id-ID .site-main, .page-id-ID article {max-width:100%; padding-left:16px; padding-right:16px}` and on desktop `@media(min-width:1025px){ ... max-width:1100px; margin-inline:auto }`, then ask the owner to check the page. For internal links call add_related_links (real clickable links, no HTML needed); replace_text cannot make links. When the owner asks to make a page HTML or to remove the Elementor blocks, include convert_to_html in the plan as the first step."
+		. "\n- To change wording use replace_text with the VISIBLE sentence (no HTML): it works in every widget type. edit_elementor_html only handles HTML widgets; use it for markup and CSS, never for plain sentences. If a text edit on an Elementor page fails ONCE (Widget not found / no match), do not search or retry: call convert_to_html for that page (the owner pre-approved this for text, SEO and keyword jobs; it keeps all content, removes the Elementor layout and is undoable), then do the edit with replace_text on the plain HTML. Never convert for design or layout jobs. The visible H1 of most pages is the page TITLE: change it with set_page_title, not replace_text. For too much empty space at the sides of a plain-HTML page, do not run design_audit again and again (it checks Elementor settings): propose a plan with ONE set_page_css block scoped to the page, for example `.page-id-ID .entry-content, .page-id-ID .site-main, .page-id-ID article {max-width:100%; padding-left:16px; padding-right:16px}` and on desktop `@media(min-width:1025px){ ... max-width:1100px; margin-inline:auto }`, then ask the owner to check the page. For heading levels (exactly one H1, at least two H2) call fix_heading_levels: it needs no text and no search. Before you insert anything (an image, a section, a link line) check that it is not already on the page; when a step is already done, call step_done and move on, never repeat it. When several plan steps are done in one go, call step_done for each. Inline data:image/svg placeholders are not photos: replace them with the saved photo, they never need alt text. For internal links call add_related_links (real clickable links, no HTML needed); replace_text cannot make links. When the owner asks to make a page HTML or to remove the Elementor blocks, include convert_to_html in the plan as the first step."
 		. "\n- After the owner approved a plan, never ask 'shall I do it?' or 'do you want me to continue?': just do the steps. Ask only when a fact is truly missing (one short question). Do not call the same read tool (seo_score, get_seo_data, get_page) twice without a change in between."
 		. "\n- ALWAYS do what the user's LATEST message asks, and nothing else first. The plan checklist, earlier plans and [CHAT MEMORY] are only a record: never resume or re-offer an older plan (for example an SEO step) when the latest message is about something else. If the latest message is a design check, your very next call is design_audit, not SEO tools. Ask about old unfinished steps only in one short line at the very end."
 		. "\n- Design, mobile, fonts, padding, spacing: when asked for suggestions or fixes, run design_audit on the page first (free), tell the user the findings by priority in plain words, then plan ONE fix per step. Apply fixes with set_page_css (works on normal Elementor widgets too; use the .elementor-element-<id> selectors from the audit; phone = max-width:767px, tablet = 1024px). Use edit_elementor_html only for the markup inside HTML widgets. Keep every rule scoped to the page; site-wide CSS only if the user asked for a site-wide change. After a fix suggest the Preview button (phone). You can do all of this: say so instead of refusing."
