@@ -1,0 +1,579 @@
+<?php
+/**
+ * Page Studio: build or rebuild pages from ready templates and sections.
+ * Pages are plain HTML made of sections. Text comes from the AI (small JSON call), facts (phone, address, branches)
+ * are filled in when the page is drawn, so changing them once updates every Studio page.
+ */
+defined( 'ABSPATH' ) || exit;
+
+/* ------------------------------------------------------------------ */
+/* Design tokens                                                        */
+/* ------------------------------------------------------------------ */
+
+function csa_ps_token_defaults() {
+	return array(
+		'primary'  => '#2e7d32', // Shaheen green
+		'dark'     => '#0f3d1e',
+		'accent'   => '#d9961a', // kathali (jackfruit gold)
+		'soft'     => '#e8f3ea',
+		'bg'       => '#ffffff',
+		'text'     => '#1d2b22',
+		'radius'   => 14,
+		'gradient' => 1,
+		'phone'    => '+880 1622-222111',
+		'email'    => 'corporate@shaheen.edu.bd',
+		'address'  => 'রেজিস্ট্রিপাড়া, টাঙ্গাইল সদর',
+	);
+}
+
+function csa_ps_presets() {
+	return array(
+		'shaheen' => array( 'label' => 'শাহীন সবুজ + কাঠালি', 'primary' => '#2e7d32', 'dark' => '#0f3d1e', 'accent' => '#d9961a', 'soft' => '#e8f3ea', 'gradient' => 1 ),
+		'deep'    => array( 'label' => 'গাঢ় সবুজ + সোনালি', 'primary' => '#14532d', 'dark' => '#052e16', 'accent' => '#eab308', 'soft' => '#ecfdf3', 'gradient' => 1 ),
+		'soft'    => array( 'label' => 'হালকা সবুজ + ক্রিম', 'primary' => '#3f8f4f', 'dark' => '#1f4d2b', 'accent' => '#c98a2b', 'soft' => '#f3f8ee', 'gradient' => 0 ),
+		'cadet'   => array( 'label' => 'ক্যাডেট: নেভি + সবুজ + সোনালি', 'primary' => '#1e3a5f', 'dark' => '#0b1f38', 'accent' => '#d9961a', 'soft' => '#e8eef6', 'gradient' => 1 ),
+	);
+}
+
+function csa_ps_tokens( $override = array() ) {
+	$g = get_option( 'csa_ps_tokens', array() );
+	return array_merge( csa_ps_token_defaults(), is_array( $g ) ? $g : array(), is_array( $override ) ? $override : array() );
+}
+
+function csa_ps_color( $c, $fallback ) {
+	return preg_match( '/^#[0-9a-f]{6}$/i', (string) $c ) ? $c : $fallback;
+}
+
+function csa_ps_css( $t ) {
+	$d = csa_ps_token_defaults();
+	$p = csa_ps_color( $t['primary'], $d['primary'] );
+	$k = csa_ps_color( $t['dark'], $d['dark'] );
+	$a = csa_ps_color( $t['accent'], $d['accent'] );
+	$s = csa_ps_color( $t['soft'], $d['soft'] );
+	$b = csa_ps_color( $t['bg'], $d['bg'] );
+	$x = csa_ps_color( $t['text'], $d['text'] );
+	$r = max( 0, min( 40, (int) $t['radius'] ) );
+	$grad = ! empty( $t['gradient'] ) ? "linear-gradient(135deg,{$k} 0%,{$p} 60%,{$a} 140%)" : $p;
+	return "<style>.ps-page{--p:{$p};--k:{$k};--a:{$a};--s:{$s};--bg:{$b};--tx:{$x};--r:{$r}px;--g:{$grad};max-width:1100px;margin:0 auto;padding:0 16px;color:var(--tx);line-height:1.75;font-size:17px;box-sizing:border-box}"
+		. ".ps-page *{box-sizing:border-box}.ps-sec{margin:0 0 40px}.ps-sec h2{color:var(--k);font-size:clamp(24px,3.2vw,34px);line-height:1.3;margin:0 0 14px}.ps-sec h3{color:var(--k);margin:0 0 6px;font-size:20px}"
+		. ".ps-hero{background:var(--g);color:#fff;border-radius:var(--r);padding:clamp(28px,6vw,64px) clamp(18px,4vw,48px);text-align:center}.ps-hero h2{color:#fff;font-size:clamp(26px,4.4vw,44px);margin:0 0 10px}.ps-hero p{margin:0 auto 18px;max-width:720px;opacity:.95}"
+		. ".ps-btn{display:inline-block;background:var(--a);color:#fff!important;padding:12px 26px;border-radius:999px;font-weight:700;text-decoration:none}.ps-btn:hover{filter:brightness(1.08)}.ps-hero .ps-btn{background:#fff;color:var(--k)!important}"
+		. ".ps-grid{display:grid;gap:16px;grid-template-columns:repeat(auto-fit,minmax(230px,1fr))}.ps-card{background:var(--s);border:1px solid rgba(0,0,0,.06);border-radius:var(--r);padding:20px}.ps-card p{margin:0}.ps-card .n{display:inline-flex;width:34px;height:34px;border-radius:50%;background:var(--p);color:#fff;align-items:center;justify-content:center;font-weight:700;margin-bottom:8px}"
+		. ".ps-table{width:100%;border-collapse:collapse;border-radius:var(--r);overflow:hidden}.ps-table th,.ps-table td{padding:12px 14px;text-align:left;border-bottom:1px solid rgba(0,0,0,.08);vertical-align:top}.ps-table th{background:var(--s);color:var(--k);width:34%}"
+		. ".ps-list{list-style:none;margin:0;padding:0}.ps-list li{padding:12px 0;border-bottom:1px dashed rgba(0,0,0,.15)}.ps-list b{color:var(--p)}"
+		. ".ps-faq details{background:var(--s);border-radius:var(--r);padding:12px 16px;margin-bottom:10px}.ps-faq summary{cursor:pointer;font-weight:700;color:var(--k)}.ps-faq p{margin:8px 0 0}"
+		. ".ps-gal{display:grid;gap:10px;grid-template-columns:repeat(auto-fill,minmax(200px,1fr))}.ps-gal img{width:100%;height:170px;object-fit:cover;border-radius:var(--r);display:block}"
+		. ".ps-cta{background:var(--g);color:#fff;border-radius:var(--r);padding:clamp(24px,4vw,44px);text-align:center}.ps-cta h2{color:#fff}.ps-cta .ps-btn{background:#fff;color:var(--k)!important}"
+		. ".ps-contact{display:grid;gap:12px;grid-template-columns:repeat(auto-fit,minmax(220px,1fr))}.ps-contact div{background:var(--s);border-radius:var(--r);padding:16px}.ps-contact b{display:block;color:var(--p);margin-bottom:2px}"
+		. "@media(max-width:600px){.ps-page{font-size:16px;padding:0 14px}.ps-sec{margin-bottom:28px}.ps-table th{width:40%}}</style>";
+}
+
+/* ------------------------------------------------------------------ */
+/* Sections and templates                                               */
+/* ------------------------------------------------------------------ */
+
+function csa_ps_sections() {
+	return array(
+		'hero'     => array( 'label' => 'হিরো (বড় শিরোনাম)', 'ai' => '{"title":"short strong heading with the keyword","subtitle":"1-2 sentences","cta_text":"2-4 words","cta_url":"#contact or a real path like /admission/"}' ),
+		'intro'    => array( 'label' => 'ভূমিকা', 'ai' => '{"heading":"...","paragraphs":["2-3 short paragraphs, 40-70 words each"]}' ),
+		'features' => array( 'label' => 'বৈশিষ্ট্য কার্ড', 'ai' => '{"heading":"...","items":[{"title":"2-4 words","text":"1-2 sentences"}]} (3 to 6 items)' ),
+		'steps'    => array( 'label' => 'ধাপে ধাপে (প্রক্রিয়া)', 'ai' => '{"heading":"...","items":[{"title":"...","text":"1 sentence"}]} (3 to 6 steps)' ),
+		'details'  => array( 'label' => 'তথ্য টেবিল (তারিখ, যোগ্যতা…)', 'ai' => '{"heading":"...","rows":[{"label":"...","value":"..."}]} (4 to 8 rows; only facts from the source or site memory, otherwise leave the row out)' ),
+		'notice'   => array( 'label' => 'নোটিশ তালিকা', 'ai' => '{"heading":"...","items":[{"date":"","text":"..."}]} (only real facts; if none are known write one general line)' ),
+		'results'  => array( 'label' => 'ফলাফল দেখার বাটন', 'ai' => '{"heading":"...","text":"1-2 sentences","button_text":"...","button_url":"link from the source or #"}' ),
+		'branches' => array( 'label' => 'শাখা তালিকা (সাইট থেকে স্বয়ংক্রিয়)', 'ai' => '' ),
+		'gallery'  => array( 'label' => 'ছবির গ্যালারি (মিডিয়া লাইব্রেরি)', 'ai' => '{"heading":"..."}' ),
+		'faq'      => array( 'label' => 'সচরাচর প্রশ্ন (FAQ)', 'ai' => '{"heading":"...","items":[{"q":"...","a":"..."}]} (4 to 6; answers only from facts you know)' ),
+		'cta'      => array( 'label' => 'ডাকা-বাটন (CTA)', 'ai' => '{"heading":"...","text":"1 sentence","button_text":"...","button_url":"..."}' ),
+		'contact'  => array( 'label' => 'যোগাযোগ (ফোন/ঠিকানা স্বয়ংক্রিয়)', 'ai' => '{"heading":"...","text":"1 sentence"}' ),
+	);
+}
+
+function csa_ps_templates() {
+	return array(
+		'admission'   => array( 'label' => 'ভর্তি', 'icon' => '🎓', 'type' => 'page', 'pal' => 'shaheen', 'sections' => array( 'hero', 'intro', 'features', 'steps', 'faq', 'contact', 'cta' ) ),
+		'branch'      => array( 'label' => 'শাখা', 'icon' => '🏫', 'type' => 'page', 'pal' => 'shaheen', 'sections' => array( 'hero', 'intro', 'features', 'gallery', 'contact', 'cta' ) ),
+		'result'      => array( 'label' => 'ফলাফল', 'icon' => '📊', 'type' => 'page', 'pal' => 'deep', 'sections' => array( 'hero', 'intro', 'results', 'notice', 'contact' ) ),
+		'recruitment' => array( 'label' => 'নিয়োগ', 'icon' => '👩‍🏫', 'type' => 'page', 'pal' => 'shaheen', 'sections' => array( 'hero', 'intro', 'details', 'steps', 'notice', 'contact' ) ),
+		'cadet'       => array( 'label' => 'ক্যাডেট কোচিং', 'icon' => '🎖', 'type' => 'page', 'pal' => 'cadet', 'sections' => array( 'hero', 'intro', 'features', 'steps', 'faq', 'contact', 'cta' ) ),
+		'event'       => array( 'label' => 'ইভেন্ট', 'icon' => '🎉', 'type' => 'page', 'pal' => 'deep', 'sections' => array( 'hero', 'intro', 'details', 'gallery', 'cta', 'contact' ) ),
+		'gallery'     => array( 'label' => 'গ্যালারি', 'icon' => '🖼', 'type' => 'page', 'pal' => 'soft', 'sections' => array( 'hero', 'intro', 'gallery' ) ),
+		'notice'      => array( 'label' => 'নোটিশ', 'icon' => '📢', 'type' => 'page', 'pal' => 'shaheen', 'sections' => array( 'hero', 'notice', 'contact' ) ),
+		'contact'     => array( 'label' => 'যোগাযোগ', 'icon' => '📞', 'type' => 'page', 'pal' => 'soft', 'sections' => array( 'hero', 'contact', 'branches' ) ),
+		'home'        => array( 'label' => 'হোম', 'icon' => '🏠', 'type' => 'page', 'pal' => 'shaheen', 'sections' => array( 'hero', 'features', 'branches', 'results', 'notice', 'gallery', 'cta', 'contact' ) ),
+		'article'     => array( 'label' => 'ব্লগ পোস্ট / প্রবন্ধ', 'icon' => '✍️', 'type' => 'post', 'pal' => 'soft', 'sections' => array( 'intro', 'features', 'faq', 'cta' ) ),
+	);
+}
+
+function csa_ps_e( $s ) {
+	return esc_html( (string) $s );
+}
+
+function csa_ps_render_section( $key, $c, $t, $imgs = array() ) {
+	$c = is_array( $c ) ? $c : array();
+	$h = ! empty( $c['heading'] ) ? '<h2>' . csa_ps_e( $c['heading'] ) . '</h2>' : '';
+	switch ( $key ) {
+		case 'hero':
+			$btn = ! empty( $c['cta_text'] ) ? '<a class="ps-btn" href="' . esc_url( $c['cta_url'] ?? '#contact' ) . '">' . csa_ps_e( $c['cta_text'] ) . '</a>' : '';
+			return '<section class="ps-sec ps-hero"><h2>' . csa_ps_e( $c['title'] ?? '' ) . '</h2><p>' . csa_ps_e( $c['subtitle'] ?? '' ) . '</p>' . $btn . '</section>';
+		case 'intro':
+			$p = '';
+			foreach ( (array) ( $c['paragraphs'] ?? array() ) as $x ) {
+				$p .= '<p>' . csa_ps_e( $x ) . '</p>';
+			}
+			return '<section class="ps-sec">' . $h . $p . '</section>';
+		case 'features':
+		case 'steps':
+			$i = '';
+			$n = 0;
+			foreach ( (array) ( $c['items'] ?? array() ) as $it ) {
+				$n++;
+				$i .= '<div class="ps-card">' . ( 'steps' === $key ? '<span class="n">' . $n . '</span>' : '' ) . '<h3>' . csa_ps_e( $it['title'] ?? '' ) . '</h3><p>' . csa_ps_e( $it['text'] ?? '' ) . '</p></div>';
+			}
+			return '<section class="ps-sec">' . $h . '<div class="ps-grid">' . $i . '</div></section>';
+		case 'details':
+			$r = '';
+			foreach ( (array) ( $c['rows'] ?? array() ) as $row ) {
+				$r .= '<tr><th>' . csa_ps_e( $row['label'] ?? '' ) . '</th><td>' . csa_ps_e( $row['value'] ?? '' ) . '</td></tr>';
+			}
+			return '<section class="ps-sec">' . $h . '<table class="ps-table"><tbody>' . $r . '</tbody></table></section>';
+		case 'notice':
+			$l = '';
+			foreach ( (array) ( $c['items'] ?? array() ) as $it ) {
+				$l .= '<li>' . ( ! empty( $it['date'] ) ? '<b>' . csa_ps_e( $it['date'] ) . '</b> — ' : '' ) . csa_ps_e( $it['text'] ?? '' ) . '</li>';
+			}
+			return '<section class="ps-sec">' . $h . '<ul class="ps-list">' . $l . '</ul></section>';
+		case 'results':
+			$btn = ! empty( $c['button_text'] ) ? '<p><a class="ps-btn" href="' . esc_url( $c['button_url'] ?? '#' ) . '">' . csa_ps_e( $c['button_text'] ) . '</a></p>' : '';
+			return '<section class="ps-sec">' . $h . '<p>' . csa_ps_e( $c['text'] ?? '' ) . '</p>' . $btn . '</section>';
+		case 'branches':
+			$l = '';
+			foreach ( function_exists( 'csa_branches' ) ? csa_branches() : array() as $b ) {
+				$l .= '<div class="ps-card"><h3><a href="' . esc_url( $b['url'] ) . '">' . csa_ps_e( $b['title'] ) . '</a></h3></div>';
+			}
+			return $l ? '<section class="ps-sec"><h2>' . csa_ps_e( $c['heading'] ?? 'আমাদের শাখাসমূহ' ) . '</h2><div class="ps-grid">' . $l . '</div></section>' : '';
+		case 'gallery':
+			$g = '';
+			foreach ( $imgs as $aid ) {
+				$u = wp_get_attachment_image_url( (int) $aid, 'large' );
+				if ( $u ) {
+					$g .= '<img loading="lazy" src="' . esc_url( $u ) . '" alt="' . esc_attr( (string) get_post_meta( (int) $aid, '_wp_attachment_image_alt', true ) ) . '">';
+				}
+			}
+			return $g ? '<section class="ps-sec">' . $h . '<div class="ps-gal">' . $g . '</div></section>' : '';
+		case 'faq':
+			$f = '';
+			foreach ( (array) ( $c['items'] ?? array() ) as $it ) {
+				$f .= '<details><summary>' . csa_ps_e( $it['q'] ?? '' ) . '</summary><p>' . csa_ps_e( $it['a'] ?? '' ) . '</p></details>';
+			}
+			return '<section class="ps-sec ps-faq">' . $h . $f . '</section>';
+		case 'cta':
+			$btn = ! empty( $c['button_text'] ) ? '<a class="ps-btn" href="' . esc_url( $c['button_url'] ?? '#contact' ) . '">' . csa_ps_e( $c['button_text'] ) . '</a>' : '';
+			return '<section class="ps-sec ps-cta">' . $h . '<p>' . csa_ps_e( $c['text'] ?? '' ) . '</p>' . $btn . '</section>';
+		case 'contact':
+			return '<section class="ps-sec" id="contact">' . $h . '<p>' . csa_ps_e( $c['text'] ?? '' ) . '</p><div class="ps-contact"><div><b>ফোন</b>' . csa_ps_e( $t['phone'] ) . '</div><div><b>ইমেইল</b>' . csa_ps_e( $t['email'] ) . '</div><div><b>ঠিকানা</b>' . csa_ps_e( $t['address'] ) . '</div></div></section>';
+	}
+	return '';
+}
+
+/** The whole page HTML from its Studio data. */
+function csa_ps_render( $ps ) {
+	$t    = csa_ps_tokens( $ps['tokens'] ?? array() );
+	$body = '';
+	foreach ( (array) $ps['sections'] as $s ) {
+		if ( ! empty( $s['off'] ) ) {
+			continue;
+		}
+		$body .= csa_ps_render_section( $s['key'], $s['c'] ?? array(), $t, $s['imgs'] ?? array() ) . "\n";
+	}
+	return "<!-- wp:html -->\n" . csa_ps_css( $t ) . '<div class="ps-page">' . "\n" . $body . "</div>\n<!-- /wp:html -->";
+}
+
+/** FAQ schema built from the FAQ section. */
+function csa_ps_schema( $id, $ps ) {
+	$all = get_post_meta( $id, '_csa_jsonld', true );
+	$all = is_array( $all ) ? $all : array();
+	unset( $all['FAQPage'] );
+	foreach ( (array) $ps['sections'] as $s ) {
+		if ( 'faq' === $s['key'] && empty( $s['off'] ) && ! empty( $s['c']['items'] ) ) {
+			$q = array();
+			foreach ( $s['c']['items'] as $it ) {
+				if ( ! empty( $it['q'] ) && ! empty( $it['a'] ) ) {
+					$q[] = array( '@type' => 'Question', 'name' => $it['q'], 'acceptedAnswer' => array( '@type' => 'Answer', 'text' => $it['a'] ) );
+				}
+			}
+			if ( $q ) {
+				$all['FAQPage'] = wp_json_encode( array( '@context' => 'https://schema.org', '@type' => 'FAQPage', 'mainEntity' => $q ), CSA_JSON );
+			}
+		}
+	}
+	update_post_meta( $id, '_csa_jsonld', wp_slash( $all ) );
+}
+
+/* ------------------------------------------------------------------ */
+/* Storage and versions                                                 */
+/* ------------------------------------------------------------------ */
+
+function csa_ps_get( $id ) {
+	$ps = get_post_meta( $id, '_csa_ps', true );
+	return is_array( $ps ) && ! empty( $ps['sections'] ) ? $ps : null;
+}
+
+/** Save Studio data, draw the page and keep a version. */
+function csa_ps_save( $id, $ps, $label ) {
+	$ps['sections'] = array_values( $ps['sections'] );
+	update_post_meta( $id, '_csa_ps', wp_slash( $ps ) );
+	$r = wp_update_post( array( 'ID' => $id, 'post_content' => wp_slash( csa_ps_render( $ps ) ) ), true );
+	if ( is_wp_error( $r ) ) {
+		return $r;
+	}
+	csa_ps_schema( $id, $ps );
+	csa_clear_cache( $id );
+	$v   = get_post_meta( $id, '_csa_ps_ver', true );
+	$v   = is_array( $v ) ? $v : array();
+	$v[] = array( 'id' => substr( md5( uniqid( '', true ) ), 0, 8 ), 't' => current_time( 'mysql' ), 'label' => $label, 'ps' => $ps );
+	update_post_meta( $id, '_csa_ps_ver', wp_slash( array_slice( $v, -10 ) ) );
+	return true;
+}
+
+function csa_ps_public( $id ) {
+	$ps = csa_ps_get( $id );
+	if ( ! $ps ) {
+		return null;
+	}
+	$secs = csa_ps_sections();
+	$out  = array();
+	foreach ( $ps['sections'] as $i => $s ) {
+		$out[] = array( 'i' => $i, 'key' => $s['key'], 'label' => $secs[ $s['key'] ]['label'] ?? $s['key'], 'off' => ! empty( $s['off'] ) ? 1 : 0, 'ai' => ! empty( $secs[ $s['key'] ]['ai'] ) ? 1 : 0 );
+	}
+	$ver = array();
+	foreach ( array_reverse( (array) get_post_meta( $id, '_csa_ps_ver', true ) ) as $v ) {
+		$ver[] = array( 'id' => $v['id'], 't' => $v['t'], 'label' => $v['label'] );
+	}
+	return array(
+		'id'      => $id,
+		'title'   => get_the_title( $id ),
+		'status'  => get_post_status( $id ),
+		'preview' => get_preview_post_link( $id ),
+		'link'    => get_permalink( $id ),
+		'sections' => $out,
+		'tokens'  => csa_ps_tokens( $ps['tokens'] ?? array() ),
+		'versions' => $ver,
+	);
+}
+
+/* ------------------------------------------------------------------ */
+/* AI                                                                   */
+/* ------------------------------------------------------------------ */
+
+const CSA_PS_RULES = ' Write in Bangla (unless the topic is clearly English) with a warm, clear voice for parents: short plain sentences, concrete details, no hype or stock phrases (no "cutting-edge", "holistic", "unlock", "in today\'s world"). Use ONLY facts from the SOURCE text or the site memory: never invent fees, dates, numbers, names, results or promises; if a fact is unknown leave that row or sentence out. Do NOT write phone numbers, e-mails or addresses (the contact section fills them). Use the focus keyword naturally in the hero title, the first paragraph and one heading, never stuffed.';
+
+function csa_ps_ai_content( $tpl_key, $keys, $in, $source = '' ) {
+	$secs = csa_ps_sections();
+	$spec = '';
+	foreach ( $keys as $k ) {
+		if ( ! empty( $secs[ $k ]['ai'] ) ) {
+			$spec .= '- "' . $k . '": ' . $secs[ $k ]['ai'] . "\n";
+		}
+	}
+	$sys  = 'You write the content of a school web page made of sections. ' . csa_site_context() . "\n\nReturn ONLY one JSON object whose keys are the section names below, each with exactly the shape shown:\n" . $spec . CSA_PS_RULES;
+	$user = 'Page type: ' . $tpl_key . "\nTitle/topic: " . ( $in['title'] ?? '' ) . "\nBranch/area: " . ( $in['area'] ?? '' ) . "\nFocus keyword: " . ( $in['keyword'] ?? '' ) . "\nExtra instructions from the owner: " . ( $in['note'] ?? '' ) . ( '' !== $source ? "\n\nSOURCE (existing page text; keep every fact):\n" . mb_substr( $source, 0, 4500 ) : '' );
+	$r    = csa_jobs_ai_json( $sys, $user, 'Page Studio: content', 3800 );
+	if ( is_wp_error( $r ) ) {
+		return $r;
+	}
+	return $r;
+}
+
+/* ------------------------------------------------------------------ */
+/* Ajax                                                                 */
+/* ------------------------------------------------------------------ */
+
+add_action( 'wp_ajax_csa_ps_meta', function () {
+	csa_guard( 'chat' );
+	$tpl = array();
+	foreach ( csa_ps_templates() as $k => $t ) {
+		$tpl[] = array( 'key' => $k, 'label' => $t['label'], 'icon' => $t['icon'], 'type' => $t['type'], 'pal' => $t['pal'], 'sections' => $t['sections'] );
+	}
+	$secs = array();
+	foreach ( csa_ps_sections() as $k => $s ) {
+		$secs[ $k ] = $s['label'];
+	}
+	$br = array();
+	foreach ( function_exists( 'csa_branches' ) ? csa_branches() : array() as $b ) {
+		$br[] = $b['title'];
+	}
+	$mine = array();
+	foreach ( get_posts( array( 'post_type' => array( 'page', 'post' ), 'post_status' => array( 'publish', 'draft', 'private' ), 'numberposts' => 60, 'meta_key' => '_csa_ps', 'orderby' => 'modified', 'fields' => 'ids' ) ) as $pid ) {
+		$mine[] = array( 'id' => $pid, 'title' => get_the_title( $pid ), 'status' => get_post_status( $pid ) );
+	}
+	wp_send_json_success( array( 'templates' => $tpl, 'sections' => $secs, 'branches' => $br, 'presets' => csa_ps_presets(), 'tokens' => csa_ps_tokens(), 'mine' => $mine ) );
+} );
+
+/** AI suggests which sections the page should have (and why). */
+add_action( 'wp_ajax_csa_ps_suggest', function () {
+	csa_guard( 'chat' );
+	$tk   = sanitize_key( $_POST['template'] ?? '' );
+	$tpls = csa_ps_templates();
+	if ( ! isset( $tpls[ $tk ] ) ) {
+		wp_send_json_error( 'Unknown template.' );
+	}
+	$secs = array();
+	foreach ( csa_ps_sections() as $k => $s ) {
+		$secs[] = $k . ' = ' . $s['label'];
+	}
+	$sys = 'You plan school web pages. ' . csa_site_context() . "\n\nFrom the section list choose the sections this page should have (3 to 8, in a sensible reading order) and give one short reason each, in Bangla. Also give 3 short tips about what else the owner should prepare (photos, facts, documents). Return ONLY JSON: {\"sections\":[{\"key\":\"hero\",\"why\":\"...\"}],\"tips\":[\"...\"]}\n\nSections:\n" . implode( "\n", $secs );
+	$r   = csa_jobs_ai_json( $sys, 'Page type: ' . $tk . "\nTitle: " . sanitize_text_field( wp_unslash( $_POST['title'] ?? '' ) ) . "\nArea: " . sanitize_text_field( wp_unslash( $_POST['area'] ?? '' ) ) . "\nNotes: " . sanitize_textarea_field( wp_unslash( $_POST['note'] ?? '' ) ), 'Page Studio: suggest', 900 );
+	if ( is_wp_error( $r ) ) {
+		wp_send_json_error( $r->get_error_message() );
+	}
+	$all = csa_ps_sections();
+	$out = array();
+	foreach ( (array) ( $r['sections'] ?? array() ) as $s ) {
+		if ( isset( $all[ $s['key'] ?? '' ] ) ) {
+			$out[] = array( 'key' => $s['key'], 'why' => sanitize_text_field( $s['why'] ?? '' ) );
+		}
+	}
+	wp_send_json_success( array( 'sections' => $out, 'tips' => array_map( 'sanitize_text_field', array_slice( (array) ( $r['tips'] ?? array() ), 0, 4 ) ) ) );
+} );
+
+/** Create a new page, or rebuild an existing one. */
+add_action( 'wp_ajax_csa_ps_create', function () {
+	csa_guard( 'chat' );
+	$tk   = sanitize_key( $_POST['template'] ?? '' );
+	$tpls = csa_ps_templates();
+	if ( ! isset( $tpls[ $tk ] ) ) {
+		wp_send_json_error( 'Choose a template.' );
+	}
+	$secs  = csa_ps_sections();
+	$keys  = array_values( array_filter( array_map( 'sanitize_key', explode( ',', (string) ( $_POST['sections'] ?? '' ) ) ), function ( $k ) use ( $secs ) { return isset( $secs[ $k ] ); } ) );
+	$keys  = $keys ? $keys : $tpls[ $tk ]['sections'];
+	$in    = array(
+		'title'   => sanitize_text_field( wp_unslash( $_POST['title'] ?? '' ) ),
+		'area'    => sanitize_text_field( wp_unslash( $_POST['area'] ?? '' ) ),
+		'keyword' => sanitize_text_field( wp_unslash( $_POST['keyword'] ?? '' ) ),
+		'note'    => sanitize_textarea_field( wp_unslash( $_POST['note'] ?? '' ) ),
+	);
+	if ( '' === $in['title'] ) {
+		wp_send_json_error( csa_t( 'Write a title first.' ) );
+	}
+	$tok = array();
+	foreach ( array( 'primary', 'dark', 'accent', 'soft' ) as $k ) {
+		if ( ! empty( $_POST[ $k ] ) && preg_match( '/^#[0-9a-f]{6}$/i', $_POST[ $k ] ) ) {
+			$tok[ $k ] = $_POST[ $k ];
+		}
+	}
+	$tok['gradient'] = empty( $_POST['gradient'] ) ? 0 : 1;
+	$target = (int) ( $_POST['target'] ?? 0 );
+	$source = '';
+	if ( $target ) {
+		$p = csa_valid_post( $target );
+		if ( ! $p ) {
+			wp_send_json_error( csa_t( 'Page not found.' ) );
+		}
+		$g = csa_live_guard( $p );
+		if ( $g ) {
+			wp_send_json_error( $g['error'] ?? 'Live editing is off.' );
+		}
+		$source = function_exists( 'csa_si_text' ) ? csa_si_text( $p ) : wp_strip_all_tags( $p->post_content );
+		if ( csa_is_elementor( $target ) ) {
+			$cv = csa_th_convert( $target ); // Backed up, undoable from Activity.
+			if ( isset( $cv['error'] ) ) {
+				wp_send_json_error( $cv['error'] );
+			}
+		}
+		$undo = csa_snapshot_post( $target );
+		csa_log( csa_t( 'Page Studio rebuilt' ) . ' #' . $target . ' ' . $p->post_title, $undo );
+	}
+	$content = csa_ps_ai_content( $tk, $keys, $in, $source );
+	if ( is_wp_error( $content ) ) {
+		wp_send_json_error( $content->get_error_message() );
+	}
+	$sections = array();
+	$gal      = array();
+	foreach ( get_posts( array( 'post_type' => 'attachment', 'post_mime_type' => 'image', 'post_status' => 'inherit', 'numberposts' => 6, 'orderby' => 'date', 'order' => 'DESC' ) ) as $a ) {
+		if ( 'image/svg+xml' !== $a->post_mime_type ) {
+			$gal[] = $a->ID;
+		}
+	}
+	foreach ( $keys as $k ) {
+		$s = array( 'key' => $k, 'c' => $content[ $k ] ?? array() );
+		if ( 'gallery' === $k ) {
+			$s['imgs'] = $gal;
+		}
+		$sections[] = $s;
+	}
+	$ps = array( 'template' => $tk, 'sections' => $sections, 'tokens' => $tok, 'in' => $in );
+	if ( $target ) {
+		$id = $target;
+		wp_update_post( array( 'ID' => $id, 'post_title' => $in['title'] ) );
+	} else {
+		$id = wp_insert_post( array( 'post_title' => $in['title'], 'post_status' => 'draft', 'post_type' => $tpls[ $tk ]['type'], 'post_content' => '' ), true );
+		if ( is_wp_error( $id ) ) {
+			wp_send_json_error( $id->get_error_message() );
+		}
+		csa_log( csa_t( 'Page Studio created draft' ) . ' #' . $id . ' ' . $in['title'], array( 'type' => 'created', 'post' => (int) $id ) );
+	}
+	if ( '' !== $in['keyword'] ) {
+		csa_seo_set( $id, array( 'keyword' => $in['keyword'] ) );
+	}
+	$r = csa_ps_save( $id, $ps, csa_t( 'First version' ) );
+	if ( is_wp_error( $r ) ) {
+		wp_send_json_error( $r->get_error_message() );
+	}
+	wp_send_json_success( csa_ps_public( $id ) );
+} );
+
+add_action( 'wp_ajax_csa_ps_load', function () {
+	csa_guard( 'chat' );
+	$id = (int) ( $_POST['id'] ?? 0 );
+	$d  = csa_valid_post( $id ) ? csa_ps_public( $id ) : null;
+	$d ? wp_send_json_success( $d ) : wp_send_json_error( csa_t( 'This page was not made with Page Studio.' ) );
+} );
+
+/** Change the page: move / remove / restore a section, change colours, regenerate one section with an instruction. */
+add_action( 'wp_ajax_csa_ps_edit', function () {
+	csa_guard( 'chat' );
+	$id = (int) ( $_POST['id'] ?? 0 );
+	$p  = csa_valid_post( $id );
+	$ps = $p ? csa_ps_get( $id ) : null;
+	if ( ! $ps ) {
+		wp_send_json_error( csa_t( 'This page was not made with Page Studio.' ) );
+	}
+	$g = csa_live_guard( $p );
+	if ( $g ) {
+		wp_send_json_error( $g['error'] ?? 'Live editing is off.' );
+	}
+	$act = sanitize_key( $_POST['act'] ?? '' );
+	$i   = (int) ( $_POST['i'] ?? -1 );
+	$s   =& $ps['sections'];
+	$lab = '';
+	switch ( $act ) {
+		case 'up':
+		case 'down':
+			$j = 'up' === $act ? $i - 1 : $i + 1;
+			if ( ! isset( $s[ $i ], $s[ $j ] ) ) {
+				wp_send_json_error( 'Cannot move.' );
+			}
+			$tmp = $s[ $i ]; $s[ $i ] = $s[ $j ]; $s[ $j ] = $tmp;
+			$lab = csa_t( 'Moved a section' );
+			break;
+		case 'toggle':
+			if ( ! isset( $s[ $i ] ) ) {
+				wp_send_json_error( 'No such section.' );
+			}
+			$s[ $i ]['off'] = empty( $s[ $i ]['off'] ) ? 1 : 0;
+			$lab = csa_t( 'Section shown/hidden' );
+			break;
+		case 'colors':
+			$tok = $ps['tokens'] ?? array();
+			foreach ( array( 'primary', 'dark', 'accent', 'soft' ) as $k ) {
+				if ( ! empty( $_POST[ $k ] ) && preg_match( '/^#[0-9a-f]{6}$/i', $_POST[ $k ] ) ) {
+					$tok[ $k ] = $_POST[ $k ];
+				}
+			}
+			$tok['gradient'] = empty( $_POST['gradient'] ) ? 0 : 1;
+			$ps['tokens']    = $tok;
+			$lab             = csa_t( 'Colours changed' );
+			break;
+		case 'regen':
+			if ( ! isset( $s[ $i ] ) ) {
+				wp_send_json_error( 'No such section.' );
+			}
+			$key  = $s[ $i ]['key'];
+			$spec = csa_ps_sections()[ $key ]['ai'] ?? '';
+			if ( '' === $spec ) {
+				wp_send_json_error( csa_t( 'This section has no text to change.' ) );
+			}
+			$note = sanitize_textarea_field( wp_unslash( $_POST['note'] ?? '' ) );
+			$sys  = 'You rewrite ONE section of a school web page. ' . csa_site_context() . "\n\nReturn ONLY one JSON object of this exact shape: " . $spec . CSA_PS_RULES;
+			$r    = csa_jobs_ai_json( $sys, 'Current section content: ' . wp_json_encode( $s[ $i ]['c'], CSA_JSON ) . "\nPage title: " . $p->post_title . "\nOwner's instruction: " . $note, 'Page Studio: fix section', 1800 );
+			if ( is_wp_error( $r ) || ! is_array( $r ) || ! $r ) {
+				wp_send_json_error( is_wp_error( $r ) ? $r->get_error_message() : 'No usable answer. Try again.' );
+			}
+			$s[ $i ]['c'] = $r;
+			$lab          = csa_t( 'Section rewritten' ) . ': ' . mb_substr( $note, 0, 40 );
+			break;
+		default:
+			wp_send_json_error( 'Unknown action.' );
+	}
+	$undo = csa_snapshot_post( $id );
+	$r    = csa_ps_save( $id, $ps, $lab );
+	if ( is_wp_error( $r ) ) {
+		wp_send_json_error( $r->get_error_message() );
+	}
+	csa_log( 'Page Studio: ' . $lab . ' #' . $id . ' ' . $p->post_title, $undo );
+	wp_send_json_success( csa_ps_public( $id ) );
+} );
+
+add_action( 'wp_ajax_csa_ps_restore', function () {
+	csa_guard( 'chat' );
+	$id = (int) ( $_POST['id'] ?? 0 );
+	$vid = sanitize_text_field( $_POST['ver'] ?? '' );
+	$p  = csa_valid_post( $id );
+	if ( ! $p ) {
+		wp_send_json_error( csa_t( 'Page not found.' ) );
+	}
+	foreach ( (array) get_post_meta( $id, '_csa_ps_ver', true ) as $v ) {
+		if ( $v['id'] === $vid ) {
+			$r = csa_ps_save( $id, $v['ps'], csa_t( 'Restored an earlier version' ) );
+			is_wp_error( $r ) ? wp_send_json_error( $r->get_error_message() ) : wp_send_json_success( csa_ps_public( $id ) );
+		}
+	}
+	wp_send_json_error( 'Version not found.' );
+} );
+
+add_action( 'wp_ajax_csa_ps_publish', function () {
+	csa_guard( 'chat' );
+	$id = (int) ( $_POST['id'] ?? 0 );
+	$p  = csa_valid_post( $id );
+	if ( ! $p || ! csa_ps_get( $id ) ) {
+		wp_send_json_error( csa_t( 'Page not found.' ) );
+	}
+	wp_update_post( array( 'ID' => $id, 'post_status' => 'publish' ) );
+	csa_log( csa_t( 'Published' ) . ' #' . $id . ' ' . $p->post_title, array( 'type' => 'post', 'post' => $id, 'key' => '' ) );
+	wp_send_json_success( csa_ps_public( $id ) );
+} );
+
+/** Save the shared facts and default colours, and redraw every Studio page. */
+add_action( 'wp_ajax_csa_ps_global', function () {
+	csa_guard( 'chat' );
+	$cur = get_option( 'csa_ps_tokens', array() );
+	$cur = is_array( $cur ) ? $cur : array();
+	foreach ( array( 'phone', 'email', 'address' ) as $k ) {
+		if ( isset( $_POST[ $k ] ) ) {
+			$cur[ $k ] = sanitize_text_field( wp_unslash( $_POST[ $k ] ) );
+		}
+	}
+	foreach ( array( 'primary', 'dark', 'accent', 'soft' ) as $k ) {
+		if ( ! empty( $_POST[ $k ] ) && preg_match( '/^#[0-9a-f]{6}$/i', $_POST[ $k ] ) ) {
+			$cur[ $k ] = $_POST[ $k ];
+		}
+	}
+	update_option( 'csa_ps_tokens', $cur, false );
+	$n = 0;
+	foreach ( get_posts( array( 'post_type' => array( 'page', 'post' ), 'post_status' => array( 'publish', 'draft', 'private' ), 'numberposts' => 200, 'meta_key' => '_csa_ps', 'fields' => 'ids' ) ) as $pid ) {
+		$ps = csa_ps_get( $pid );
+		if ( $ps ) {
+			wp_update_post( array( 'ID' => $pid, 'post_content' => wp_slash( csa_ps_render( $ps ) ) ) );
+			csa_clear_cache( $pid );
+			$n++;
+		}
+	}
+	wp_send_json_success( array( 'redrawn' => $n, 'tokens' => csa_ps_tokens() ) );
+} );
+
+/* ------------------------------------------------------------------ */
+/* Screen                                                               */
+/* ------------------------------------------------------------------ */
+
+function csa_screen_studio() {
+	csa_header( csa_t( 'Page Studio' ) );
+	?>
+	<div class="csa-card" id="csa-studio-app">
+		<p class="csa-muted"><?php echo esc_html( csa_t( 'Build a new page, rebuild an old one, or change a Studio page. Steps: 1) what to do, 2) template, 3) options and colours, 4) confirm, then look at the draft and correct it. Pages are plain HTML made of sections: nothing breaks when the text is edited, and phone, address and branches update everywhere.' ) ); ?></p>
+		<div id="ps-body"><p class="csa-muted"><?php echo esc_html( csa_t( 'Loading…' ) ); ?></p></div>
+	</div>
+	<?php
+	csa_footer();
+}

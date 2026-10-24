@@ -141,6 +141,7 @@ function csa_pages() {
 	return array(
 		'csa-chat'     => array( 'chat', csa_t( 'Chat' ), 'csa_screen_chat' ),
 		'csa-jobs'     => array( 'chat', csa_t( 'SEO Agent' ), 'csa_screen_jobs' ),
+		'csa-studio'   => array( 'chat', csa_t( 'Page Studio' ), 'csa_screen_studio' ),
 		'csa-blog'     => array( 'blog', csa_t( 'Blog Studio' ), 'csa_screen_blog' ),
 		'csa-seo'      => array( 'seo', csa_t( 'SEO' ), 'csa_screen_seo' ),
 		'csa-images'   => array( 'images', csa_t( 'Images' ), 'csa_screen_images' ),
@@ -162,7 +163,7 @@ function csa_menu() {
 	}
 	$groups = array(
 		'csa-seo'  => array( 'SEO', 'dashicons-chart-area', 27, array( 'csa-seo' ) ),
-		'csa-chat' => array( 'Site Agent', 'dashicons-format-chat', 28, array( 'csa-chat', 'csa-jobs', 'csa-images', 'csa-activity', 'csa-memory' ) ),
+		'csa-chat' => array( 'Site Agent', 'dashicons-format-chat', 28, array( 'csa-chat', 'csa-jobs', 'csa-studio', 'csa-images', 'csa-activity', 'csa-memory' ) ),
 	);
 	$pages  = csa_pages();
 	foreach ( $groups as $top => $g ) {

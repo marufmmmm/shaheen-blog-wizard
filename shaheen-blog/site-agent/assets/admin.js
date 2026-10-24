@@ -1471,4 +1471,157 @@
 			b.replaceWith(document.createTextNode(T('Undone ✓')));
 		};
 	});
+
+	/* ================================================================
+	   Page Studio
+	   ================================================================ */
+	var psApp = $('#csa-studio-app');
+	if (psApp) (function () {
+		var body = $('#ps-body'), M = null, S = { mode: '', tpl: '', secs: [], pal: 'shaheen', tok: {}, target: 0 };
+		async function postT(action, data) {
+			var ctl = new AbortController(); ctl.timedOut = false;
+			var tm = setTimeout(function () { ctl.timedOut = true; ctl.abort(); }, 170000);
+			try { return await post(action, data, null, ctl); } finally { clearTimeout(tm); }
+		}
+		function pick(r) { if (r.error) { toast(r.error, 'err'); return null; } return r.data; }
+		function setPal(k) {
+			var p = M.presets[k]; S.pal = k;
+			S.tok = { primary: p.primary, dark: p.dark, accent: p.accent, soft: p.soft, gradient: p.gradient };
+		}
+		function colorUI(prefix) {
+			var t = S.tok, h = '<div class="ps-pals">';
+			Object.keys(M.presets).forEach(function (k) {
+				var p = M.presets[k];
+				h += '<button type="button" class="button ps-pal' + (S.pal === k ? ' button-primary' : '') + '" data-pal="' + k + '"><span style="background:' + p.primary + '"></span><span style="background:' + p.accent + '"></span> ' + esc(p.label) + '</button>';
+			});
+			h += '</div><p class="ps-cols">';
+			[['primary', 'মূল রং'], ['dark', 'গাঢ়'], ['accent', 'কাঠালি/অ্যাকসেন্ট'], ['soft', 'হালকা']].forEach(function (c) {
+				h += '<label>' + c[1] + ' <input type="color" data-col="' + c[0] + '" value="' + esc(t[c[0]]) + '"></label> ';
+			});
+			h += '<label><input type="checkbox" data-grad ' + (t.gradient ? 'checked' : '') + '> গ্রেডিয়েন্ট</label></p>';
+			return h;
+		}
+		function bindColors(root, onchange) {
+			$$('[data-pal]', root).forEach(function (b) { b.onclick = function () { setPal(b.dataset.pal); onchange(true); }; });
+			$$('[data-col]', root).forEach(function (i) { i.onchange = function () { S.tok[i.dataset.col] = i.value; S.pal = ''; onchange(false); }; });
+			var g = $('[data-grad]', root); if (g) g.onchange = function () { S.tok.gradient = g.checked ? 1 : 0; onchange(false); };
+		}
+
+		function stepMode() {
+			var mine = M.mine.map(function (m) { return '<option value="' + m.id + '">' + esc(m.title) + ' #' + m.id + ' (' + esc(m.status) + ')</option>'; }).join('');
+			body.innerHTML = '<h3>১. কী করবেন?</h3><div class="ps-cards">' +
+				'<button class="ps-card" data-m="new">➕<b>নতুন পেজ / পোস্ট</b><span>টেমপ্লেট থেকে তৈরি</span></button>' +
+				'<button class="ps-card" data-m="regen">♻️<b>পুরনো পেজ নতুন করে সাজান</b><span>লেখা ঠিক রেখে নতুন ডিজাইন (আগের অবস্থা Activity-তে Undo)</span></button>' +
+				'<button class="ps-card" data-m="edit">✏️<b>Studio পেজ এডিট</b><span>' + (M.mine.length ? M.mine.length + 'টি পেজ' : 'এখনো নেই') + '</span></button>' +
+				'<button class="ps-card" data-m="global">⚙️<b>ফোন/ঠিকানা ও ডিফল্ট রং</b><span>সব Studio পেজে একসাথে</span></button></div><div id="ps-sub"></div>';
+			var sub = $('#ps-sub');
+			$$('.ps-card', body).forEach(function (b) {
+				b.onclick = async function () {
+					var m = b.dataset.m; S.mode = m;
+					if (m === 'new') return stepTpl();
+					if (m === 'regen') {
+						sub.innerHTML = '<p><input type="text" id="ps-q" placeholder="পেজ খুঁজুন…" style="min-width:260px"> <select id="ps-pg"></select> <button class="button button-primary" id="ps-go">পরের ধাপ</button></p>';
+						var load = async function () { var r = pick(await post('csa_job_pages', { q: $('#ps-q').value.trim() })); if (r) $('#ps-pg').innerHTML = r.map(function (p) { return '<option value="' + p.id + '">' + esc(p.title) + ' #' + p.id + '</option>'; }).join(''); };
+						$('#ps-q').onchange = load; load();
+						$('#ps-go').onclick = function () { S.target = parseInt($('#ps-pg').value, 10); S.title0 = $('#ps-pg').selectedOptions[0].textContent.replace(/ #\d+$/, ''); stepTpl(); };
+					} else if (m === 'edit') {
+						sub.innerHTML = '<p>' + (mine ? '<select id="ps-pg">' + mine + '</select> <button class="button button-primary" id="ps-go">খুলুন</button>' : 'কোনো Studio পেজ নেই।') + '</p>';
+						if (mine) $('#ps-go').onclick = async function () { var d = pick(await post('csa_ps_load', { id: $('#ps-pg').value })); if (d) stepFix(d); };
+					} else {
+						var t = M.tokens;
+						sub.innerHTML = '<p>ফোন <input id="g-phone" value="' + esc(t.phone) + '"> ইমেইল <input id="g-email" value="' + esc(t.email) + '"> ঠিকানা <input id="g-address" value="' + esc(t.address) + '" style="min-width:240px"></p><div id="g-col"></div><p><button class="button button-primary" id="g-save">সংরক্ষণ করুন ও সব Studio পেজ আবার আঁকুন</button></p>';
+						setPal('shaheen'); S.tok = { primary: t.primary, dark: t.dark, accent: t.accent, soft: t.soft, gradient: t.gradient }; S.pal = '';
+						var draw = function () { $('#g-col').innerHTML = colorUI(); bindColors($('#g-col'), draw); }; draw();
+						$('#g-save').onclick = async function () {
+							var d = Object.assign({ phone: $('#g-phone').value, email: $('#g-email').value, address: $('#g-address').value }, S.tok);
+							var r = pick(await post('csa_ps_global', d)); if (r) { M.tokens = r.tokens; toast(r.redrawn + 'টি Studio পেজ আবার আঁকা হয়েছে ✓'); }
+						};
+					}
+				};
+			});
+		}
+
+		function stepTpl() {
+			var h = '<h3>২. টেমপ্লেট বাছুন</h3><div class="ps-cards">';
+			M.templates.forEach(function (t) { h += '<button class="ps-card" data-t="' + t.key + '">' + t.icon + '<b>' + esc(t.label) + '</b><span>' + t.sections.length + 'টি সেকশন</span></button>'; });
+			body.innerHTML = h + '</div><p><button class="button" id="ps-back">← পেছনে</button></p>';
+			$('#ps-back').onclick = stepMode;
+			$$('.ps-card', body).forEach(function (b) { b.onclick = function () { var t = M.templates.filter(function (x) { return x.key === b.dataset.t; })[0]; S.tpl = t.key; S.secs = t.sections.slice(); setPal(t.pal); stepOpts(); }; });
+		}
+
+		function stepOpts() {
+			var t = M.templates.filter(function (x) { return x.key === S.tpl; })[0];
+			var br = '<option value="">— (নির্দিষ্ট শাখা নেই) —</option>' + M.branches.map(function (b) { return '<option>' + esc(b) + '</option>'; }).join('');
+			var h = '<h3>৩. অপশন — ' + t.icon + ' ' + esc(t.label) + '</h3>' +
+				'<p><label>পেজের শিরোনাম<br><input type="text" id="o-title" style="width:100%;max-width:560px" value="' + esc(S.title0 || '') + '"></label></p>' +
+				'<p><label>শাখা/এলাকা <select id="o-area">' + br + '</select></label> &nbsp; <label>ফোকাস কিওয়ার্ড <input type="text" id="o-kw" style="min-width:240px"></label></p>' +
+				'<p><label>AI-কে নির্দেশ (ঐচ্ছিক)<br><textarea id="o-note" rows="3" style="width:100%;max-width:560px" placeholder="যেমন: ভর্তির শেষ তারিখ ৩০ নভেম্বর, কথা বলার সুর আন্তরিক হোক"></textarea></label></p>' +
+				'<h4>সেকশন (টিক দিয়ে বাছুন)</h4><div class="ps-secs">' +
+				Object.keys(M.sections).map(function (k) { return '<label><input type="checkbox" data-s="' + k + '"' + (S.secs.indexOf(k) > -1 ? ' checked' : '') + '> ' + esc(M.sections[k]) + '</label>'; }).join('') +
+				'</div><p><button class="button" id="o-sug">🤖 AI সাজেস্ট করুক কোন সেকশন রাখব</button></p><div id="o-sugout"></div>' +
+				'<h4>রং ও গ্রেডিয়েন্ট</h4><div id="o-col"></div>' +
+				'<p><button class="button" id="o-back">← পেছনে</button> <button class="button button-primary" id="o-next">৪. যাচাই করুন →</button></p>';
+			body.innerHTML = h;
+			var draw = function () { $('#o-col').innerHTML = colorUI(); bindColors($('#o-col'), draw); }; draw();
+			$('#o-back').onclick = stepTpl;
+			var collect = function () { S.title = $('#o-title').value.trim(); S.area = $('#o-area').value; S.kw = $('#o-kw').value.trim(); S.note = $('#o-note').value.trim(); S.secs = $$('[data-s]', body).filter(function (c) { return c.checked; }).map(function (c) { return c.dataset.s; }); };
+			$('#o-sug').onclick = async function () {
+				collect(); this.disabled = true;
+				var d = pick(await postT('csa_ps_suggest', { template: S.tpl, title: S.title, area: S.area, note: S.note })); this.disabled = false;
+				if (!d) return;
+				$('#o-sugout').innerHTML = '<div class="ps-note"><b>AI-র পরামর্শ:</b><ul>' + d.sections.map(function (s) { return '<li><b>' + esc(M.sections[s.key]) + '</b> — ' + esc(s.why) + '</li>'; }).join('') + '</ul>' + (d.tips.length ? '<b>আগে থেকে প্রস্তুত রাখুন:</b><ul>' + d.tips.map(function (x) { return '<li>' + esc(x) + '</li>'; }).join('') + '</ul>' : '') + '<button class="button" id="o-apply">এই সেকশনগুলো টিক দিন</button></div>';
+				$('#o-apply').onclick = function () { var ks = d.sections.map(function (s) { return s.key; }); $$('[data-s]', body).forEach(function (c) { c.checked = ks.indexOf(c.dataset.s) > -1; }); };
+			};
+			$('#o-next').onclick = function () { collect(); if (!S.title) { toast('শিরোনাম লিখুন', 'err'); return; } if (!S.secs.length) { toast('অন্তত একটি সেকশন বাছুন', 'err'); return; } stepConfirm(); };
+		}
+
+		function stepConfirm() {
+			body.innerHTML = '<h3>৪. নিশ্চিত করুন</h3><div class="ps-note"><p><b>' + esc(S.title) + '</b> — ' + esc(S.tpl) + (S.target ? ' (পুরনো পেজ #' + S.target + ' নতুন করে সাজানো হবে, আগের অবস্থা Activity থেকে Undo করা যাবে)' : ' (নতুন ড্রাফট)') + '</p><p>সেকশন: ' + S.secs.map(function (k) { return esc(M.sections[k]); }).join(' → ') + '</p><p>শাখা: ' + esc(S.area || '—') + ' · কিওয়ার্ড: ' + esc(S.kw || '—') + '</p><p>রং: <span class="ps-sw" style="background:' + S.tok.primary + '"></span><span class="ps-sw" style="background:' + S.tok.dark + '"></span><span class="ps-sw" style="background:' + S.tok.accent + '"></span> ' + (S.tok.gradient ? 'গ্রেডিয়েন্ট সহ' : 'সমতল') + '</p></div><p><button class="button" id="c-back">← পেছনে</button> <button class="button button-primary" id="c-go">✅ তৈরি করুন</button></p><p class="csa-muted">AI লেখা তৈরিতে এক-দুই মিনিট লাগতে পারে।</p>';
+			$('#c-back').onclick = stepOpts;
+			$('#c-go').onclick = async function () {
+				this.disabled = true; this.textContent = 'তৈরি হচ্ছে…';
+				var d = pick(await postT('csa_ps_create', Object.assign({ template: S.tpl, sections: S.secs.join(','), title: S.title, area: S.area || '', keyword: S.kw || '', note: S.note || '', target: S.target || 0 }, S.tok)));
+				if (!d) { this.disabled = false; this.textContent = '✅ তৈরি করুন'; return; }
+				stepFix(d);
+			};
+		}
+
+		function stepFix(d) {
+			var h = '<h3>৫. ডিজাইন দেখুন ও ঠিক করুন — ' + esc(d.title) + ' <small>(#' + d.id + ', ' + esc(d.status) + ')</small></h3>' +
+				'<p><button class="button" data-w="100%">ডেস্কটপ</button> <button class="button" data-w="390px">মোবাইল</button> <a class="button" target="_blank" href="' + esc(d.preview) + '">নতুন ট্যাবে প্রিভিউ</a> <button class="button button-primary" id="f-pub">প্রকাশ করুন</button> <button class="button" id="f-home">← শুরুতে</button></p>' +
+				'<div class="ps-fix"><div class="ps-prev"><iframe id="f-if" src="' + esc(d.preview) + '"></iframe></div><div class="ps-side">' +
+				'<h4>সেকশন</h4>' + d.sections.map(function (s) {
+					return '<div class="ps-sec' + (s.off ? ' off' : '') + '"><span>' + esc(s.label) + '</span> <button class="button button-small" data-a="up" data-i="' + s.i + '">↑</button><button class="button button-small" data-a="down" data-i="' + s.i + '">↓</button><button class="button button-small" data-a="toggle" data-i="' + s.i + '">' + (s.off ? 'দেখান' : 'লুকান') + '</button>' +
+						(s.ai ? '<br><input type="text" class="ps-ins" data-i="' + s.i + '" placeholder="কী বদলাতে চান? যেমন: ছোট করুন"> <button class="button button-small" data-a="regen" data-i="' + s.i + '">AI দিয়ে বদলান</button>' : '') + '</div>';
+				}).join('') +
+				'<h4>রং</h4><div id="f-col"></div><button class="button" id="f-colsave">রং প্রয়োগ করুন</button>' +
+				'<h4>আগের সংস্করণ</h4><ul class="ps-ver">' + d.versions.map(function (v) { return '<li>' + esc(v.t) + ' — ' + esc(v.label) + ' <button class="button button-small" data-r="' + v.id + '">ফেরত</button></li>'; }).join('') + '</ul></div></div>';
+			body.innerHTML = h;
+			var tk = d.tokens; S.tok = { primary: tk.primary, dark: tk.dark, accent: tk.accent, soft: tk.soft, gradient: tk.gradient }; S.pal = '';
+			var draw = function () { $('#f-col').innerHTML = colorUI(); bindColors($('#f-col'), draw); }; draw();
+			var fr = $('#f-if');
+			$$('[data-w]', body).forEach(function (b) { b.onclick = function () { fr.style.width = b.dataset.w; }; });
+			$('#f-home').onclick = function () { location.reload(); };
+			$('#f-pub').onclick = async function () { var r = pick(await post('csa_ps_publish', { id: d.id })); if (r) { toast('প্রকাশিত ✓'); stepFix(r); } };
+			var act = async function (data, btn) { if (btn) btn.disabled = true; var r = pick(await postT('csa_ps_edit', Object.assign({ id: d.id }, data))); if (r) stepFix(r); else if (btn) btn.disabled = false; };
+			$$('[data-a]', body).forEach(function (b) {
+				b.onclick = function () {
+					var data = { act: b.dataset.a, i: b.dataset.i };
+					if (b.dataset.a === 'regen') { var inp = $('.ps-ins[data-i="' + b.dataset.i + '"]'); data.note = inp.value.trim(); if (!data.note) { toast('কী বদলাতে চান লিখুন', 'err'); return; } }
+					act(data, b);
+				};
+			});
+			$('#f-colsave').onclick = function () { act(Object.assign({ act: 'colors' }, S.tok), this); };
+			$$('[data-r]', body).forEach(function (b) { b.onclick = async function () { var r = pick(await post('csa_ps_restore', { id: d.id, ver: b.dataset.r })); if (r) stepFix(r); }; });
+		}
+
+		(async function () {
+			var r = pick(await post('csa_ps_meta', {}));
+			if (!r) { body.innerHTML = '<p>লোড হয়নি।</p>'; return; }
+			M = r; stepMode();
+			var q = new URLSearchParams(location.search).get('page_id');
+			if (q) { var d = pick(await post('csa_ps_load', { id: q })); if (d) stepFix(d); }
+		})();
+	})();
+
 })();
