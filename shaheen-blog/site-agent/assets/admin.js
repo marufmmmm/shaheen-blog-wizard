@@ -1563,7 +1563,7 @@
 			if (tabNow === 'sec') {
 				var opts = Object.keys(M.sections).map(function (k) { return '<option value="' + k + '">' + esc(M.sections[k]) + '</option>'; }).join('');
 				el.innerHTML = d.sections.map(function (s) {
-					return '<div class="ps-row' + (s.off ? ' off' : '') + '"><span class="ps-n">' + esc(s.label) + '</span><button class="button button-small" data-a="up" data-i="' + s.i + '">↑</button><button class="button button-small" data-a="down" data-i="' + s.i + '">↓</button><button class="button button-small" data-a="toggle" data-i="' + s.i + '">' + (s.off ? 'দেখান' : 'লুকান') + '</button>' + (s.ai ? '<button class="button button-small" data-ed="' + s.i + '">✏️ লেখা</button>' : '') + '<button class="button button-small" data-a="remove" data-i="' + s.i + '">🗑</button><div class="ps-edbox" id="ps-ed' + s.i + '"></div></div>';
+					return '<div class="ps-row' + (s.off ? ' off' : '') + '"><span class="ps-n">' + esc(s.label) + (s.warn ? ' <em class="ps-warn">⚠ লিংক/কোড বসান (✏️ লেখা)</em>' : '') + '</span><button class="button button-small" data-a="up" data-i="' + s.i + '">↑</button><button class="button button-small" data-a="down" data-i="' + s.i + '">↓</button><button class="button button-small" data-a="toggle" data-i="' + s.i + '">' + (s.off ? 'দেখান' : 'লুকান') + '</button>' + (s.ai ? '<button class="button button-small" data-ed="' + s.i + '">✏️ লেখা</button>' : '') + '<button class="button button-small" data-a="remove" data-i="' + s.i + '">🗑</button><div class="ps-edbox" id="ps-ed' + s.i + '"></div></div>';
 				}).join('') + '<p class="ps-add">নতুন সেকশন যোগ: <select id="ps-addk">' + opts + '</select> <input id="ps-addn" type="text" placeholder="কী থাকবে (ঐচ্ছিক)"> <button class="button" id="ps-addb">যোগ করুন</button></p>';
 				$$('[data-a]', el).forEach(function (b) { b.onclick = function () { b.disabled = true; act(d, { act: b.dataset.a, i: b.dataset.i }); }; });
 				$$('[data-ed]', el).forEach(function (b) { b.onclick = function () { editForm(d, parseInt(b.dataset.ed, 10)); }; });
@@ -1588,7 +1588,7 @@
 		function editForm(d, i) {
 			var box = $('#ps-ed' + i), W = JSON.parse(JSON.stringify(d.sections[i].c || {}));
 			if (box.innerHTML) { box.innerHTML = ''; return; }
-			var LAB = { heading: 'শিরোনাম', title: 'শিরোনাম', subtitle: 'উপশিরোনাম', text: 'লেখা', paragraphs: 'অনুচ্ছেদ', items: 'তালিকা', rows: 'সারি', label: 'নাম', value: 'মান', q: 'প্রশ্ন', a: 'উত্তর', date: 'তারিখ', cta_text: 'বাটনের লেখা', cta_url: 'বাটনের লিংক', button_text: 'বাটনের লেখা', button_url: 'বাটনের লিংক' };
+			var LAB = { heading: 'শিরোনাম', title: 'শিরোনাম', subtitle: 'উপশিরোনাম', text: 'লেখা', paragraphs: 'অনুচ্ছেদ', items: 'তালিকা', rows: 'সারি', label: 'নাম', value: 'মান', q: 'প্রশ্ন', a: 'উত্তর', date: 'তারিখ', cta_text: 'বাটনের লেখা', cta_url: 'বাটনের লিংক', button_text: 'বাটনের লেখা', button_url: 'বাটনের লিংক', url: 'লিংক (এখানে পেস্ট করুন)', caption: 'ক্যাপশন', html: 'কোড/এমবেড', fields: 'ফর্মের ঘর', type: 'ধরন (text/tel/email/textarea/select)', options: 'অপশন (কমা দিয়ে)' };
 			function draw() {
 				box.innerHTML = '<div class="ps-form">' + build(W, []) + '</div><p><button class="button button-primary" id="ps-fsave' + i + '">সংরক্ষণ</button> <button class="button" id="ps-fcancel' + i + '">বাতিল</button></p>';
 				$$('[data-p]', box).forEach(function (n) { n.oninput = function () { setP(n.dataset.p, n.value); }; });
@@ -1615,7 +1615,7 @@
 				});
 				return h;
 			}
-			function field(pp, v, k) { v = v == null ? '' : String(v); return (v.length > 70 || k === 'text' || k === 'a') ? '<textarea rows="3" data-p="' + pp + '">' + esc(v) + '</textarea>' : '<input type="text" data-p="' + pp + '" value="' + esc(v) + '">'; }
+			function field(pp, v, k) { v = v == null ? '' : String(v); return (v.length > 70 || k === 'text' || k === 'a' || k === 'html') ? '<textarea rows="3" data-p="' + pp + '">' + esc(v) + '</textarea>' : '<input type="text" data-p="' + pp + '" value="' + esc(v) + '">'; }
 			draw();
 		}
 

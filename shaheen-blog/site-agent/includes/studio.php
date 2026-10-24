@@ -76,7 +76,7 @@ function csa_ps_css( $t ) {
 		. ".ps-gal{display:grid;gap:10px;grid-template-columns:repeat(auto-fill,minmax(200px,1fr))}.ps-gal img{width:100%;height:170px;object-fit:cover;border-radius:var(--r);display:block}"
 		. ".ps-cta{background:var(--g);color:#fff;border-radius:var(--r);padding:clamp(24px,4vw,44px);text-align:center}.ps-cta h2{color:#fff}.ps-cta .ps-btn{background:#fff;color:var(--k)!important}"
 		. ".ps-contact{display:grid;gap:12px;grid-template-columns:repeat(auto-fit,minmax(220px,1fr))}.ps-contact div{background:var(--s);border-radius:var(--r);padding:16px}.ps-contact b{display:block;color:var(--p);margin-bottom:2px}"
-		. "@media(max-width:600px){.ps-page{font-size:{$fm}px;padding:0 14px}.ps-sec{margin-bottom:{$gm}px}.ps-table th{width:40%}}</style>";
+		. "" . '.ps-embed{position:relative;border-radius:var(--r);overflow:hidden;background:#000}.ps-embed.yt{aspect-ratio:16/9}.ps-embed.yt iframe{width:100%;height:100%;position:absolute;inset:0}.ps-embed.reel{max-width:380px;margin:0 auto}.ps-embed.fbbox{max-width:520px;margin:0 auto;background:var(--s)}.ps-embed.map{background:var(--s)}.ps-vid{width:100%;border-radius:var(--r);display:block;background:#000}.ps-cap{text-align:center;color:#556;font-size:.9em;margin:8px 0 0}.ps-btns{display:flex;flex-wrap:wrap;gap:10px}.ps-form{display:grid;gap:12px;max-width:640px}.ps-form label{display:grid;gap:4px;font-weight:600;color:var(--k)}.ps-form input,.ps-form textarea,.ps-form select{width:100%;padding:11px 12px;border:1px solid rgba(0,0,0,.2);border-radius:calc(var(--r) / 1.5);font:inherit;background:#fff}.ps-form .ps-btn{border:0;cursor:pointer;justify-self:start;font:inherit;font-weight:700}.ps-hp{position:absolute;left:-9999px;height:0;overflow:hidden}.ps-raw iframe,.ps-raw video,.ps-raw img{max-width:100%}' . "@media(max-width:600px){.ps-page{font-size:{$fm}px;padding:0 14px}.ps-sec{margin-bottom:{$gm}px}.ps-table th{width:40%}}</style>";
 }
 
 /* ------------------------------------------------------------------ */
@@ -96,6 +96,15 @@ function csa_ps_sections() {
 		'gallery'  => array( 'label' => 'ছবির গ্যালারি (মিডিয়া লাইব্রেরি)', 'ai' => '{"heading":"..."}' ),
 		'faq'      => array( 'label' => 'সচরাচর প্রশ্ন (FAQ)', 'ai' => '{"heading":"...","items":[{"q":"...","a":"..."}]} (4 to 6; answers only from facts you know)' ),
 		'cta'      => array( 'label' => 'ডাকা-বাটন (CTA)', 'ai' => '{"heading":"...","text":"1 sentence","button_text":"...","button_url":"..."}' ),
+		'youtube'  => array( 'label' => 'ইউটিউব ভিডিও', 'ai' => '{"heading":"...","url":"YouTube link ONLY if the owner gave one, else empty","caption":"1 short line"}' ),
+		'video'    => array( 'label' => 'নিজস্ব ভিডিও (mp4 ফাইল)', 'ai' => '{"heading":"...","url":"direct .mp4 link ONLY if the owner gave one, else empty","caption":""}' ),
+		'fb_video' => array( 'label' => 'ফেসবুক ভিডিও / রিল', 'ai' => '{"heading":"...","url":"Facebook video or reel link ONLY if the owner gave one, else empty"}' ),
+		'fb_post'  => array( 'label' => 'ফেসবুক পোস্ট', 'ai' => '{"heading":"...","url":"Facebook post link ONLY if the owner gave one, else empty"}' ),
+		'fb_page'  => array( 'label' => 'ফেসবুক পেজ বক্স (লাইক/ফলো)', 'ai' => '{"heading":"...","url":"Facebook page link ONLY if the owner gave one, else empty"}' ),
+		'social'   => array( 'label' => 'সোশ্যাল বাটন (লাইক, সাবস্ক্রাইব, ফলো)', 'ai' => '{"heading":"...","items":[{"label":"Facebook or YouTube or Instagram or TikTok","text":"button words, e.g. Like our page / Subscribe","url":"link ONLY if the owner gave one, else empty"}]}' ),
+		'form'     => array( 'label' => 'ফর্ম (ইমেইলে আসবে)', 'ai' => '{"heading":"...","text":"1 sentence","button_text":"...","fields":[{"label":"...","type":"text|tel|email|textarea|select","options":"comma separated, only for select"}]} (3 to 6 fields; always a name and a phone)' ),
+		'map'      => array( 'label' => 'গুগল ম্যাপ', 'ai' => '{"heading":"...","url":"Google Maps embed link (from Share > Embed a map) ONLY if the owner gave one, else empty"}' ),
+		'html'     => array( 'label' => 'নিজের কোড/এমবেড (HTML)', 'ai' => '{"html":"the exact embed or HTML code the owner pasted; empty if none"}' ),
 		'contact'  => array( 'label' => 'যোগাযোগ (ফোন/ঠিকানা স্বয়ংক্রিয়)', 'ai' => '{"heading":"...","text":"1 sentence"}' ),
 	);
 }
@@ -118,6 +127,147 @@ function csa_ps_templates() {
 
 function csa_ps_e( $s ) {
 	return esc_html( (string) $s );
+}
+
+
+/** YouTube / Facebook / map addresses become safe embed addresses; anything else gives an empty string. */
+function csa_ps_embed_url( $kind, $url ) {
+	$url = trim( (string) $url );
+	$h   = strtolower( (string) wp_parse_url( $url, PHP_URL_HOST ) );
+	$h   = preg_replace( '/^(www\.|m\.)/', '', $h );
+	if ( 'youtube' === $kind ) {
+		$id = '';
+		if ( preg_match( '#(?:youtube\.com/(?:watch\?(?:.*&)?v=|embed/|shorts/|live/)|youtu\.be/)([\w-]{11})#', $url, $m ) ) {
+			$id = $m[1];
+		}
+		return $id ? 'https://www.youtube-nocookie.com/embed/' . $id : '';
+	}
+	if ( 'map' === $kind ) {
+		return ( 'google.com' === $h || 'maps.google.com' === $h ) && false !== strpos( $url, '/maps/embed' ) ? esc_url_raw( $url ) : '';
+	}
+	if ( ! in_array( $h, array( 'facebook.com', 'fb.watch', 'fb.com' ), true ) ) {
+		return '';
+	}
+	$q = rawurlencode( $url );
+	switch ( $kind ) {
+		case 'fb_video':
+			return 'https://www.facebook.com/plugins/video.php?href=' . $q . '&show_text=false&width=560';
+		case 'fb_post':
+			return 'https://www.facebook.com/plugins/post.php?href=' . $q . '&show_text=true&width=500';
+		case 'fb_page':
+			return 'https://www.facebook.com/plugins/page.php?href=' . $q . '&tabs=timeline&width=500&height=600&small_header=true&adapt_container_width=true&hide_cover=false&show_facepile=true';
+	}
+	return '';
+}
+
+/** Sections that need a link and have none: shown as a warning in the studio. */
+function csa_ps_missing( $s ) {
+	$k = $s['key'];
+	if ( in_array( $k, array( 'youtube', 'video', 'fb_video', 'fb_post', 'fb_page', 'map' ), true ) ) {
+		return '' === trim( (string) ( $s['c']['url'] ?? '' ) ) || ( 'video' !== $k && '' === csa_ps_embed_url( $k, $s['c']['url'] ?? '' ) );
+	}
+	if ( 'html' === $k ) {
+		return '' === trim( (string) ( $s['c']['html'] ?? '' ) );
+	}
+	if ( 'social' === $k ) {
+		foreach ( (array) ( $s['c']['items'] ?? array() ) as $it ) {
+			if ( ! empty( $it['url'] ) ) {
+				return false;
+			}
+		}
+		return true;
+	}
+	return false;
+}
+
+function csa_ps_render_embed( $key, $c, $h ) {
+	$cap = ! empty( $c['caption'] ) ? '<p class="ps-cap">' . csa_ps_e( $c['caption'] ) . '</p>' : '';
+	if ( 'video' === $key ) {
+		$u = esc_url( $c['url'] ?? '' );
+		return $u ? '<section class="ps-sec">' . $h . '<video class="ps-vid" controls preload="metadata" src="' . $u . '"></video>' . $cap . '</section>' : '';
+	}
+	$src = csa_ps_embed_url( $key, $c['url'] ?? '' );
+	if ( '' === $src ) {
+		if ( 'map' === $key && ! empty( $c['url'] ) ) {
+			return '<section class="ps-sec">' . $h . '<p><a class="ps-btn" target="_blank" rel="noopener" href="' . esc_url( $c['url'] ) . '">📍 মানচিত্রে দেখুন</a></p></section>';
+		}
+		return '';
+	}
+	$reel = 'fb_video' === $key && false !== strpos( (string) $c['url'], '/reel' );
+	$cls  = 'ps-embed' . ( 'youtube' === $key ? ' yt' : '' ) . ( $reel ? ' reel' : '' ) . ( in_array( $key, array( 'fb_post', 'fb_page' ), true ) ? ' fbbox' : '' ) . ( 'fb_video' === $key && ! $reel ? ' yt' : '' ) . ( 'map' === $key ? ' map' : '' );
+	$ih   = 'fb_post' === $key ? 560 : ( 'fb_page' === $key ? 600 : ( $reel ? 680 : 420 ) );
+	return '<section class="ps-sec">' . $h . '<div class="' . $cls . '"><iframe src="' . esc_url( $src ) . '" loading="lazy" allowfullscreen allow="autoplay; clipboard-write; encrypted-media; picture-in-picture; web-share" style="border:0;width:100%;' . ( 'yt' === substr( $cls, 12, 2 ) || false !== strpos( $cls, ' yt' ) ? '' : 'height:' . $ih . 'px' ) . '" title="' . esc_attr( $c['heading'] ?? $key ) . '"></iframe></div>' . $cap . '</section>';
+}
+
+function csa_ps_render_form( $c, $t ) {
+	static $n = 0;
+	$n++;
+	$h = ! empty( $c['heading'] ) ? '<h2>' . csa_ps_e( $c['heading'] ) . '</h2>' : '';
+	$f = '';
+	$fields = ! empty( $c['fields'] ) && is_array( $c['fields'] ) ? $c['fields'] : array( array( 'label' => 'নাম', 'type' => 'text' ), array( 'label' => 'মোবাইল', 'type' => 'tel' ), array( 'label' => 'বার্তা', 'type' => 'textarea' ) );
+	foreach ( $fields as $i => $fd ) {
+		$lab  = csa_ps_e( $fd['label'] ?? '' );
+		$type = in_array( $fd['type'] ?? '', array( 'text', 'tel', 'email', 'textarea', 'select' ), true ) ? $fd['type'] : 'text';
+		if ( 'textarea' === $type ) {
+			$in = '<textarea name="f' . $i . '" rows="4"></textarea>';
+		} elseif ( 'select' === $type ) {
+			$in = '<select name="f' . $i . '"><option value="">—</option>';
+			foreach ( array_filter( array_map( 'trim', explode( ',', (string) ( $fd['options'] ?? '' ) ) ) ) as $o ) {
+				$in .= '<option>' . csa_ps_e( $o ) . '</option>';
+			}
+			$in .= '</select>';
+		} else {
+			$in = '<input type="' . $type . '" name="f' . $i . '">';
+		}
+		$f .= '<label>' . $lab . $in . '<input type="hidden" name="l' . $i . '" value="' . esc_attr( $fd['label'] ?? '' ) . '"></label>';
+	}
+	$id = 'psf' . $n;
+	return '<section class="ps-sec">' . $h . ( ! empty( $c['text'] ) ? '<p>' . csa_ps_e( $c['text'] ) . '</p>' : '' ) . '<form class="ps-form" id="' . $id . '" onsubmit="return false"><div class="ps-hp" aria-hidden="true"><input type="text" name="website" tabindex="-1" autocomplete="off"></div>' . $f . '<input type="hidden" name="page" value="{{PSID}}"><button type="button" class="ps-btn" data-send>' . csa_ps_e( $c['button_text'] ?? 'পাঠান' ) . '</button><p class="ps-msg" role="status"></p></form>'
+		. '<script>(function(){var f=document.getElementById("' . $id . '");if(!f)return;var t=Date.now();f.querySelector("[data-send]").onclick=function(){var b=this,m=f.querySelector(".ps-msg"),d=new FormData(f);d.append("action","csa_ps_form");d.append("tm",Date.now()-t);b.disabled=true;m.textContent="পাঠানো হচ্ছে…";fetch("' . esc_js( admin_url( 'admin-ajax.php' ) ) . '",{method:"POST",body:d}).then(function(r){return r.json()}).then(function(j){m.textContent=j.success?"ধন্যবাদ! আমরা শীঘ্রই যোগাযোগ করব।":(j.data||"পাঠানো যায়নি, আবার চেষ্টা করুন।");if(j.success)f.reset();b.disabled=false}).catch(function(){m.textContent="পাঠানো যায়নি, আবার চেষ্টা করুন।";b.disabled=false})}})();</script></section>';
+}
+
+function csa_ps_render_social( $c, $h ) {
+	$b = '';
+	foreach ( (array) ( $c['items'] ?? array() ) as $it ) {
+		if ( empty( $it['url'] ) ) {
+			continue;
+		}
+		$lab = strtolower( (string) ( $it['label'] ?? '' ) );
+		$ic  = false !== strpos( $lab, 'face' ) ? '👍' : ( false !== strpos( $lab, 'you' ) ? '▶️' : ( false !== strpos( $lab, 'insta' ) ? '📷' : '🔗' ) );
+		$b  .= '<a class="ps-btn ps-soc" target="_blank" rel="noopener" href="' . esc_url( $it['url'] ) . ( false !== strpos( $lab, 'you' ) && false === strpos( $it['url'], 'sub_confirmation' ) ? ( false === strpos( $it['url'], '?' ) ? '?' : '&' ) . 'sub_confirmation=1' : '' ) . '">' . $ic . ' ' . csa_ps_e( ( $it['text'] ?? '' ) ?: ( $it['label'] ?? '' ) ) . '</a> ';
+	}
+	return $b ? '<section class="ps-sec ps-social">' . $h . '<div class="ps-btns">' . $b . '</div></section>' : '';
+}
+
+add_action( 'wp_ajax_nopriv_csa_ps_form', 'csa_ps_form_handler' );
+add_action( 'wp_ajax_csa_ps_form', 'csa_ps_form_handler' );
+function csa_ps_form_handler() {
+	if ( ! empty( $_POST['website'] ) || (int) ( $_POST['tm'] ?? 0 ) < 1500 ) {
+		wp_send_json_error( 'পাঠানো যায়নি।' );
+	}
+	$ip  = md5( $_SERVER['REMOTE_ADDR'] ?? '' );
+	$cnt = (int) get_transient( 'csa_psf_' . $ip );
+	if ( $cnt >= 5 ) {
+		wp_send_json_error( 'অনেকবার পাঠানো হয়েছে, কিছুক্ষণ পরে চেষ্টা করুন।' );
+	}
+	$pid   = (int) ( $_POST['page'] ?? 0 );
+	$rows  = array();
+	$phone = '';
+	for ( $i = 0; $i < 12; $i++ ) {
+		if ( isset( $_POST[ 'f' . $i ] ) ) {
+			$v = sanitize_textarea_field( wp_unslash( $_POST[ 'f' . $i ] ) );
+			if ( '' !== $v ) {
+				$rows[] = sanitize_text_field( wp_unslash( $_POST[ 'l' . $i ] ?? '' ) ) . ': ' . $v;
+			}
+		}
+	}
+	if ( ! $rows ) {
+		wp_send_json_error( 'ফর্মটি পূরণ করুন।' );
+	}
+	$to = csa_ps_tokens()['email'];
+	set_transient( 'csa_psf_' . $ip, $cnt + 1, HOUR_IN_SECONDS );
+	$ok = wp_mail( $to, 'ওয়েবসাইট ফর্ম: ' . ( $pid ? get_the_title( $pid ) : 'Page Studio' ), implode( "\n", $rows ) . "\n\n" . ( $pid ? get_permalink( $pid ) : '' ) );
+	$ok ? wp_send_json_success() : wp_send_json_error( 'ইমেইল পাঠানো যায়নি।' );
 }
 
 function csa_ps_render_section( $key, $c, $t, $imgs = array() ) {
@@ -172,6 +322,19 @@ function csa_ps_render_section( $key, $c, $t, $imgs = array() ) {
 				}
 			}
 			return $g ? '<section class="ps-sec">' . $h . '<div class="ps-gal">' . $g . '</div></section>' : '';
+		case 'youtube':
+		case 'video':
+		case 'fb_video':
+		case 'fb_post':
+		case 'fb_page':
+		case 'map':
+			return csa_ps_render_embed( $key, $c, $h );
+		case 'social':
+			return csa_ps_render_social( $c, $h );
+		case 'form':
+			return csa_ps_render_form( $c, $t );
+		case 'html':
+			return ! empty( $c['html'] ) ? '<section class="ps-sec ps-raw">' . $c['html'] . '</section>' : '';
 		case 'faq':
 			$f = '';
 			foreach ( (array) ( $c['items'] ?? array() ) as $it ) {
@@ -197,6 +360,7 @@ function csa_ps_render( $ps ) {
 		}
 		$body .= csa_ps_render_section( $s['key'], $s['c'] ?? array(), $t, $s['imgs'] ?? array() ) . "\n";
 	}
+	$body = str_replace( '{{PSID}}', (int) ( $ps['id'] ?? 0 ), $body );
 	return "<!-- wp:html -->\n" . csa_ps_css( $t ) . '<div class="ps-page">' . "\n" . $body . "</div>\n<!-- /wp:html -->";
 }
 
@@ -233,6 +397,7 @@ function csa_ps_get( $id ) {
 /** Save Studio data, draw the page and keep a version. */
 function csa_ps_save( $id, $ps, $label ) {
 	$ps['sections'] = array_values( $ps['sections'] );
+	$ps['id']       = (int) $id;
 	update_post_meta( $id, '_csa_ps', wp_slash( $ps ) );
 	$r = wp_update_post( array( 'ID' => $id, 'post_content' => wp_slash( csa_ps_render( $ps ) ) ), true );
 	if ( is_wp_error( $r ) ) {
@@ -255,7 +420,7 @@ function csa_ps_public( $id ) {
 	$secs = csa_ps_sections();
 	$out  = array();
 	foreach ( $ps['sections'] as $i => $s ) {
-		$out[] = array( 'c' => $s['c'] ?? new stdClass(), 'i' => $i, 'key' => $s['key'], 'label' => $secs[ $s['key'] ]['label'] ?? $s['key'], 'off' => ! empty( $s['off'] ) ? 1 : 0, 'ai' => ! empty( $secs[ $s['key'] ]['ai'] ) ? 1 : 0 );
+		$out[] = array( 'warn' => csa_ps_missing( $s ) ? 1 : 0, 'c' => $s['c'] ?? new stdClass(), 'i' => $i, 'key' => $s['key'], 'label' => $secs[ $s['key'] ]['label'] ?? $s['key'], 'off' => ! empty( $s['off'] ) ? 1 : 0, 'ai' => ! empty( $secs[ $s['key'] ]['ai'] ) ? 1 : 0 );
 	}
 	$ver = array();
 	foreach ( array_reverse( (array) get_post_meta( $id, '_csa_ps_ver', true ) ) as $v ) {
@@ -277,7 +442,7 @@ function csa_ps_public( $id ) {
 /* AI                                                                   */
 /* ------------------------------------------------------------------ */
 
-const CSA_PS_RULES = ' Write in Bangla (unless the topic is clearly English) with a warm, clear voice for parents: short plain sentences, concrete details, no hype or stock phrases (no "cutting-edge", "holistic", "unlock", "in today\'s world"). Use ONLY facts from the SOURCE text or the site memory: never invent fees, dates, numbers, names, results or promises; if a fact is unknown leave that row or sentence out. Do NOT write phone numbers, e-mails or addresses (the contact section fills them). Use the focus keyword naturally in the hero title, the first paragraph and one heading, never stuffed.';
+const CSA_PS_RULES = ' Write in Bangla (unless the topic is clearly English) with a warm, clear voice for parents: short plain sentences, concrete details, no hype or stock phrases (no "cutting-edge", "holistic", "unlock", "in today\'s world"). Use ONLY facts from the SOURCE text or the site memory: never invent fees, dates, numbers, names, results or promises; if a fact is unknown leave that row or sentence out. Do NOT write phone numbers, e-mails or addresses (the contact section fills them). Links (YouTube, Facebook, maps, social) must be copied EXACTLY from what the owner wrote: if the owner gave none, leave that url empty, never invent one. Use the focus keyword naturally in the hero title, the first paragraph and one heading, never stuffed.';
 
 function csa_ps_ai_content( $tpl_key, $keys, $in, $source = '' ) {
 	$secs = csa_ps_sections();
@@ -626,7 +791,12 @@ function csa_ps_clean( $v ) {
 	if ( is_array( $v ) ) {
 		$o = array();
 		foreach ( $v as $k => $x ) {
-			$o[ is_int( $k ) ? $k : sanitize_key( $k ) ] = csa_ps_clean( $x );
+			$kk = is_int( $k ) ? $k : sanitize_key( $k );
+			if ( 'html' === $kk && is_string( $x ) ) {
+				$o[ $kk ] = current_user_can( 'unfiltered_html' ) ? $x : wp_kses( $x, array_merge( wp_kses_allowed_html( 'post' ), array( 'iframe' => array( 'src' => true, 'width' => true, 'height' => true, 'allow' => true, 'allowfullscreen' => true, 'loading' => true, 'style' => true, 'title' => true, 'frameborder' => true ) ) ) );
+				continue;
+			}
+			$o[ $kk ] = csa_ps_clean( $x );
 		}
 		return $o;
 	}

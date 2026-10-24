@@ -353,3 +353,4 @@
 #csa-studio-app .ps-pal span{display:inline-block;width:14px;height:14px;border-radius:50%;vertical-align:middle}
 #csa-studio-app .ps-sls{display:grid;gap:10px;grid-template-columns:repeat(auto-fit,minmax(220px,1fr))}#csa-studio-app .ps-sl{display:block;font-size:12px}#csa-studio-app .ps-sl input{width:100%}
 @media(max-width:1000px){#csa-studio-app .ps2{grid-template-columns:1fr}#csa-studio-app .ps2-l{position:static;height:auto;min-height:0}#csa-studio-app .ps-log{max-height:60vh}}
+#csa-studio-app .ps-warn{color:#b45309;font-style:normal;font-size:11px;font-weight:600}
