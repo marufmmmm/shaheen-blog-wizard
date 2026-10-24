@@ -86,6 +86,17 @@ function csa_tools_read() {
 
 /** Allowed in any state: low-risk, no page content changes. */
 /** Tools whose repeated identical call is blocked (the result is already in the conversation). */
+/** True when a plan step asks for something the tools cannot do (structure changes in Elementor). */
+function csa_plan_impossible( $steps ) {
+	foreach ( $steps as $s ) {
+		$t = is_array( $s ) ? wp_json_encode( $s, JSON_UNESCAPED_UNICODE ) : (string) $s;
+		if ( preg_match( '/\b(add|insert|create|put|place|move|delete|remove|duplicate)\b[^.]{0,60}\b(new )?(widget|section|column|container|slider|carousel|row)\b/i', $t ) || preg_match( '/(নতুন|যোগ|সরা|মুছ)[^।]{0,40}(উইজেট|সেকশন|কলাম|স্লাইডার)/u', $t ) ) {
+			return true;
+		}
+	}
+	return false;
+}
+
 function csa_is_dedupe_tool( $name ) {
 	// Every read-only tool: the same call twice in one task gives the same answer, so the second one is blocked.
 	return ! in_array( $name, csa_write_tool_names(), true ) && ! in_array( $name, array( 'propose_plan', 'step_done', 'ask_questions', 'mark_job', 'chat_note', 'save_note', 'save_chat_image', 'remember', 'forget', 'convert_to_html', 'add_related_links', 'fix_heading_levels' ), true );
@@ -1691,6 +1702,8 @@ function csa_ajax_step() {
 				$qs             = csa_gd_clean_questions( $in );
 				$ctx['items'][] = array( 'r' => 'ask', 'intro' => sanitize_text_field( $in['intro'] ?? '' ), 'questions' => $qs, 'pending' => true );
 				$out            = array( 'ok' => true, 'note' => 'The questions are shown to the owner as a form. Stop now and wait for the answers.' );
+			} elseif ( 'propose_plan' === $b['name'] && csa_plan_impossible( (array) ( $in['steps'] ?? array() ) ) ) {
+				$out = array( 'error' => 'This plan contains a step you cannot do: adding, moving or deleting Elementor widgets, sections, columns or sliders is NOT possible with your tools. Remove that step. If the job really needs it, tell the owner in one sentence what to click in Elementor, or plan convert_to_html (text/SEO jobs only). Then call propose_plan again with only steps you can do.' );
 			} elseif ( 'propose_plan' === $b['name'] ) {
 				$planned        = true;
 				$ctx['items'][] = array( 'r' => 'plan', 's' => $in['summary'] ?? '', 'steps' => array_map( 'csa_clean_step', (array) ( $in['steps'] ?? array() ) ), 'pending' => true );
