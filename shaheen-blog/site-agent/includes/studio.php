@@ -351,16 +351,19 @@ function csa_ps_render_section( $key, $c, $t, $imgs = array() ) {
 }
 
 /** The whole page HTML from its Studio data. */
-function csa_ps_render( $ps ) {
+function csa_ps_render( $ps, $only = null, $bare = false ) {
 	$t    = csa_ps_tokens( $ps['tokens'] ?? array() );
 	$body = '';
-	foreach ( (array) $ps['sections'] as $s ) {
-		if ( ! empty( $s['off'] ) ) {
+	foreach ( (array) $ps['sections'] as $n => $s ) {
+		if ( ! empty( $s['off'] ) || ( null !== $only && ! in_array( $n, $only, true ) ) ) {
 			continue;
 		}
 		$body .= csa_ps_render_section( $s['key'], $s['c'] ?? array(), $t, $s['imgs'] ?? array() ) . "\n";
 	}
 	$body = str_replace( '{{PSID}}', (int) ( $ps['id'] ?? 0 ), $body );
+	if ( $bare ) {
+		return csa_ps_css( $t ) . '<div class="ps-page">' . "\n" . $body . '</div>';
+	}
 	return "<!-- wp:html -->\n" . csa_ps_css( $t ) . '<div class="ps-page">' . "\n" . $body . "</div>\n<!-- /wp:html -->";
 }
 
@@ -398,6 +401,9 @@ function csa_ps_get( $id ) {
 function csa_ps_save( $id, $ps, $label ) {
 	$ps['sections'] = array_values( $ps['sections'] );
 	$ps['id']       = (int) $id;
+	$lg             = isset( $ps['log'] ) && is_array( $ps['log'] ) ? $ps['log'] : array();
+	$lg[]           = array( 't' => current_time( 'mysql' ), 'what' => $label );
+	$ps['log']      = array_slice( $lg, -60 );
 	update_post_meta( $id, '_csa_ps', wp_slash( $ps ) );
 	$r = wp_update_post( array( 'ID' => $id, 'post_content' => wp_slash( csa_ps_render( $ps ) ) ), true );
 	if ( is_wp_error( $r ) ) {
@@ -435,6 +441,14 @@ function csa_ps_public( $id ) {
 		'sections' => $out,
 		'tokens'  => csa_ps_tokens( $ps['tokens'] ?? array() ),
 		'versions' => $ver,
+		'brief'   => array(
+			'tpl'     => $ps['template'] ?? '',
+			'in'      => $ps['in'] ?? array(),
+			'secs'    => array_map( function ( $x ) { return $x['key']; }, $ps['sections'] ),
+			'log'     => array_reverse( (array) ( $ps['log'] ?? array() ) ),
+			'placed'  => (array) ( $ps['placed'] ?? array() ),
+		),
+		'shortcode' => '[shaheen_studio id="' . $id . '"]',
 	);
 }
 
@@ -594,7 +608,7 @@ add_action( 'wp_ajax_csa_ps_create', function () {
 	if ( '' !== $in['keyword'] ) {
 		csa_seo_set( $id, array( 'keyword' => $in['keyword'] ) );
 	}
-	$r = csa_ps_save( $id, $ps, csa_t( 'First version' ) );
+	$r = csa_ps_save( $id, $ps, csa_t( 'Created' ) . ': ' . mb_substr( $in['note'] ?: $in['title'], 0, 120 ) );
 	if ( is_wp_error( $r ) ) {
 		wp_send_json_error( $r->get_error_message() );
 	}
@@ -740,6 +754,50 @@ add_action( 'wp_ajax_csa_ps_publish', function () {
 	}
 	wp_update_post( array( 'ID' => $id, 'post_status' => 'publish' ) );
 	csa_log( csa_t( 'Published' ) . ' #' . $id . ' ' . $p->post_title, array( 'type' => 'post', 'post' => $id, 'key' => '' ) );
+	wp_send_json_success( csa_ps_public( $id ) );
+} );
+
+
+
+/** [shaheen_studio id="12"] or [shaheen_studio id="12" section="2,3"]: put a Studio page (or some of its sections) anywhere, always up to date. */
+add_shortcode( 'shaheen_studio', function ( $a ) {
+	$a  = shortcode_atts( array( 'id' => 0, 'section' => '' ), $a );
+	$ps = csa_ps_get( (int) $a['id'] );
+	if ( ! $ps || 'publish' !== get_post_status( (int) $a['id'] ) && ! current_user_can( 'edit_posts' ) ) {
+		return '';
+	}
+	$only = '' === trim( $a['section'] ) ? null : array_map( 'intval', explode( ',', $a['section'] ) );
+	return csa_ps_render( $ps, $only, true );
+} );
+
+/** Put a Studio page / section into any other page (adds the shortcode at the end; Undo in Activity). */
+add_action( 'wp_ajax_csa_ps_place', function () {
+	csa_guard( 'chat' );
+	$id  = (int) ( $_POST['id'] ?? 0 );
+	$tid = (int) ( $_POST['target'] ?? 0 );
+	$ps  = csa_ps_get( $id );
+	$t   = csa_valid_post( $tid );
+	if ( ! $ps || ! $t || $tid === $id ) {
+		wp_send_json_error( csa_t( 'Choose another page.' ) );
+	}
+	$g = csa_live_guard( $t );
+	if ( $g ) {
+		wp_send_json_error( $g['error'] ?? 'Live editing is off.' );
+	}
+	$sec = sanitize_text_field( $_POST['section'] ?? 'all' );
+	$sc  = '[shaheen_studio id="' . $id . '"' . ( 'all' !== $sec && preg_match( '/^\d+(,\d+)*$/', $sec ) ? ' section="' . $sec . '"' : '' ) . ']';
+	if ( false !== strpos( (string) get_post_field( 'post_content', $tid ), $sc ) || ( csa_is_elementor( $tid ) && false !== strpos( (string) get_post_meta( $tid, '_elementor_data', true ), esc_attr( $sc ) ) ) ) {
+		wp_send_json_error( csa_t( 'It is already on that page.' ) );
+	}
+	$u = csa_jobs_append( $tid, "\n" . $sc );
+	if ( is_wp_error( $u ) ) {
+		wp_send_json_error( $u->get_error_message() );
+	}
+	csa_log( 'Page Studio: ' . $sc . ' → #' . $tid . ' ' . $t->post_title, $u );
+	$pl   = (array) ( $ps['placed'] ?? array() );
+	$pl[] = array( 'id' => $tid, 'title' => $t->post_title, 'sc' => $sc );
+	$ps['placed'] = array_slice( $pl, -30 );
+	update_post_meta( $id, '_csa_ps', wp_slash( $ps ) );
 	wp_send_json_success( csa_ps_public( $id ) );
 } );
 
@@ -910,7 +968,7 @@ add_action( 'wp_ajax_csa_ps_command', function () {
 	$sys = 'You edit a school web page made of sections. ' . csa_site_context() . "\n\nReply in Bangla. Return ONLY JSON: {\"reply\":\"1-2 short sentences: what you did, or what you could not do\",\"ops\":[...]}. Each op is one of:\n"
 		. "{\"op\":\"set\",\"i\":N,\"c\":{full new content in that section's shape}}\n{\"op\":\"add\",\"key\":\"...\",\"at\":N,\"c\":{content}}\n{\"op\":\"remove\",\"i\":N}\n{\"op\":\"move\",\"i\":N,\"to\":M}\n{\"op\":\"hide\",\"i\":N} or {\"op\":\"show\",\"i\":N}\n{\"op\":\"colors\",\"primary\":\"#rrggbb\",\"dark\":\"#rrggbb\",\"accent\":\"#rrggbb\",\"soft\":\"#rrggbb\",\"gradient\":0|1}\n{\"op\":\"style\",\"fs\":15-22 (desktop text px),\"fs_m\":13-20 (phone text px),\"width\":700-1400,\"gap\":16-80,\"radius\":0-30,\"lh\":1.4-2.1}\n{\"op\":\"title\",\"v\":\"new page title\"}\n"
 		. "Indexes N/M refer to the list as it is after the previous ops. Only include the keys you change. When you change text keep all facts; use the exact shapes:\n" . implode( "\n", $shapes ) . CSA_PS_RULES . "\nIf the request is impossible (a video, a form, a new unsupported block) say so in reply with ops [].";
-	$r = csa_jobs_ai_json( $sys, 'Current page "' . $p->post_title . '": ' . wp_json_encode( $state, CSA_JSON ) . "\nCurrent settings: " . wp_json_encode( array_intersect_key( csa_ps_tokens( $ps['tokens'] ?? array() ), array_flip( array( 'primary', 'dark', 'accent', 'soft', 'gradient', 'fs', 'fs_m', 'width', 'gap', 'radius', 'lh' ) ) ), CSA_JSON ) . "\n\nOwner says: " . $text, 'Page Studio: command', 3800 );
+	$r = csa_jobs_ai_json( $sys, 'What this page was made from (original brief): ' . wp_json_encode( $ps['in'] ?? array(), CSA_JSON ) . "\nEarlier changes: " . wp_json_encode( array_slice( (array) ( $ps['log'] ?? array() ), -15 ), CSA_JSON ) . "\n\n" . 'Current page "' . $p->post_title . '": ' . wp_json_encode( $state, CSA_JSON ) . "\nCurrent settings: " . wp_json_encode( array_intersect_key( csa_ps_tokens( $ps['tokens'] ?? array() ), array_flip( array( 'primary', 'dark', 'accent', 'soft', 'gradient', 'fs', 'fs_m', 'width', 'gap', 'radius', 'lh' ) ) ), CSA_JSON ) . "\n\nOwner says: " . $text, 'Page Studio: command', 3800 );
 	if ( is_wp_error( $r ) ) {
 		wp_send_json_error( $r->get_error_message() );
 	}

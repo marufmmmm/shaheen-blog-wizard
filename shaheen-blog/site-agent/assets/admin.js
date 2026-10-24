@@ -1549,7 +1549,7 @@
 		var tabNow = 'sec';
 		function drawTabs(d) {
 			var tb = $('#ps-tabs');
-			tb.innerHTML = '<div class="ps-tb"><button data-tb="sec">📑 সেকশন</button><button data-tb="sty">🎨 রং ও লেখার মাপ</button><button data-tb="ver">🕘 আগের সংস্করণ</button></div><div id="ps-pane"></div>';
+			tb.innerHTML = '<div class="ps-tb"><button data-tb="sec">📑 সেকশন</button><button data-tb="sty">🎨 রং ও লেখার মাপ</button><button data-tb="plc">📌 অন্য পেজে বসান</button><button data-tb="his">🧠 কীভাবে বানানো</button><button data-tb="ver">🕘 আগের সংস্করণ</button></div><div id="ps-pane"></div>';
 			$$('[data-tb]', tb).forEach(function (b) { b.onclick = function () { tabNow = b.dataset.tb; pane(d); }; });
 			pane(d);
 		}
@@ -1578,6 +1578,16 @@
 				$$('[data-col]', el).forEach(function (i) { i.onchange = function () { S.tok[i.dataset.col] = i.value; }; });
 				$$('[data-s]', el).forEach(function (i) { i.oninput = function () { $('#v-' + i.dataset.s).textContent = i.value; }; });
 				$('#ps-sty').onclick = function () { var data = Object.assign({ act: 'colors' }, S.tok, { gradient: $('[data-grad]', el).checked ? 1 : 0 }); $$('[data-s]', el).forEach(function (i) { data[i.dataset.s] = i.value; }); this.disabled = true; act(d, data, 'রং ও মাপ প্রয়োগ হয়েছে।'); };
+			} else if (tabNow === 'plc') {
+				var so = '<option value="all">পুরো পেজটা</option>' + d.sections.map(function (s) { return '<option value="' + s.i + '">শুধু: ' + esc(s.label) + ' (#' + (s.i + 1) + ')</option>'; }).join('');
+				el.innerHTML = '<p class="csa-muted">যেকোনো পেজ বা পোস্টে এই পেজের অংশ বসান। এটা সবসময় এখানকার সর্বশেষ চেহারা দেখায়, এখানে বদলালে ওখানেও বদলায়।</p><p><select id="pl-s">' + so + '</select></p><p><input type="text" id="pl-q" placeholder="যে পেজে বসাবেন তার নাম লিখুন…"> <select id="pl-t"></select> <button class="button button-primary" id="pl-go">বসান</button></p><p class="csa-muted">হাতে বসাতে চাইলে (Elementor-এ Shortcode উইজেটে) এই কোড কপি করুন: <code id="pl-sc">' + esc(d.shortcode) + '</code> — নির্দিষ্ট সেকশনের জন্য <code>[shaheen_studio id="' + d.id + '" section="2"]</code> (২ = তালিকার ৩য় সেকশন, গোনা ০ থেকে)</p>' +
+					'<h4>এখন যেখানে বসানো আছে</h4><ul>' + (d.brief.placed.length ? d.brief.placed.map(function (x) { return '<li>' + esc(x.title) + ' <code>' + esc(x.sc) + '</code></li>'; }).join('') : '<li class="csa-muted">কোথাও না</li>') + '</ul>';
+				var lp = async function () { var r = await post('csa_job_pages', { q: $('#pl-q').value.trim() }); if (!r.error) $('#pl-t').innerHTML = r.data.map(function (p) { return '<option value="' + p.id + '">' + esc(p.title) + ' — ' + esc(p.type) + ' #' + p.id + '</option>'; }).join(''); };
+				$('#pl-q').onchange = lp; lp();
+				$('#pl-go').onclick = async function () { this.disabled = true; var r = await post('csa_ps_place', { id: d.id, target: $('#pl-t').value, section: $('#pl-s').value }); this.disabled = false; if (r.error) return toast(r.error, 'err'); PG = r.data; toast('বসানো হয়েছে ✓ (Undo: Activity)'); say('ai', 'পেজে বসিয়েছি। ওই পেজ খুলে দেখে নিন।'); pane(PG); };
+			} else if (tabNow === 'his') {
+				var b = d.brief, inn = b.in || {};
+				el.innerHTML = '<p><b>শুরুতে যা বলেছিলেন:</b><br>' + esc(inn.note || '—').replace(/\n/g, '<br>') + '</p><p><b>শিরোনাম:</b> ' + esc(inn.title || '') + ' · <b>শাখা:</b> ' + esc(inn.area || '—') + ' · <b>কিওয়ার্ড:</b> ' + esc(inn.keyword || '—') + ' · <b>টেমপ্লেট:</b> ' + esc(b.tpl || '—') + '</p><p><b>সেকশন:</b> ' + b.secs.map(function (k) { return esc(M.sections[k] || k); }).join(' → ') + '</p><h4>এ পর্যন্ত কী কী হয়েছে</h4><ul class="ps-ver">' + b.log.map(function (l) { return '<li>' + esc(l.t) + ' — ' + esc(l.what) + '</li>'; }).join('') + '</ul><p class="csa-muted">এই ইতিহাস পেজের সাথেই জমা থাকে। পরে পেজ খুলে কমান্ড দিলে Claude এটা মনে রেখেই কাজ করে।</p>';
 			} else {
 				el.innerHTML = '<ul class="ps-ver">' + d.versions.map(function (v) { return '<li>' + esc(v.t) + ' — ' + esc(v.label) + ' <button class="button button-small" data-r="' + v.id + '">এখানে ফিরুন</button></li>'; }).join('') + '</ul>';
 				$$('[data-r]', el).forEach(function (b) { b.onclick = async function () { var r = await post('csa_ps_restore', { id: d.id, ver: b.dataset.r }); if (r.error) return toast(r.error, 'err'); PG = r.data; showPage(PG); say('ai', 'আগের সংস্করণে ফিরেছি।'); }; });
