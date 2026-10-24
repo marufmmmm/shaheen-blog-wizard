@@ -1473,154 +1473,204 @@
 	});
 
 	/* ================================================================
-	   Page Studio
+	   Page Studio: one screen, a prompt box on the left, the live page on the right
 	   ================================================================ */
 	var psApp = $('#csa-studio-app');
 	if (psApp) (function () {
-		var body = $('#ps-body'), M = null, S = { mode: '', tpl: '', secs: [], pal: 'shaheen', tok: {}, target: 0 };
-		async function postT(action, data) {
+		var M = null, PG = null, S = { ptype: 'page', target: 0, prompt: '', brief: null, ans: {}, pal: 'shaheen', tok: {} };
+		var root = $('#ps-body');
+		async function postT(a, d) {
 			var ctl = new AbortController(); ctl.timedOut = false;
 			var tm = setTimeout(function () { ctl.timedOut = true; ctl.abort(); }, 170000);
-			try { return await post(action, data, null, ctl); } finally { clearTimeout(tm); }
+			try { return await post(a, d, null, ctl); } finally { clearTimeout(tm); }
 		}
-		function pick(r) { if (r.error) { toast(r.error, 'err'); return null; } return r.data; }
-		function setPal(k) {
-			var p = M.presets[k]; S.pal = k;
-			S.tok = { primary: p.primary, dark: p.dark, accent: p.accent, soft: p.soft, gradient: p.gradient };
-		}
-		function colorUI(prefix) {
-			var t = S.tok, h = '<div class="ps-pals">';
-			Object.keys(M.presets).forEach(function (k) {
-				var p = M.presets[k];
-				h += '<button type="button" class="button ps-pal' + (S.pal === k ? ' button-primary' : '') + '" data-pal="' + k + '"><span style="background:' + p.primary + '"></span><span style="background:' + p.accent + '"></span> ' + esc(p.label) + '</button>';
-			});
-			h += '</div><p class="ps-cols">';
-			[['primary', 'মূল রং'], ['dark', 'গাঢ়'], ['accent', 'কাঠালি/অ্যাকসেন্ট'], ['soft', 'হালকা']].forEach(function (c) {
-				h += '<label>' + c[1] + ' <input type="color" data-col="' + c[0] + '" value="' + esc(t[c[0]]) + '"></label> ';
-			});
-			h += '<label><input type="checkbox" data-grad ' + (t.gradient ? 'checked' : '') + '> গ্রেডিয়েন্ট</label></p>';
-			return h;
-		}
-		function bindColors(root, onchange) {
-			$$('[data-pal]', root).forEach(function (b) { b.onclick = function () { setPal(b.dataset.pal); onchange(true); }; });
-			$$('[data-col]', root).forEach(function (i) { i.onchange = function () { S.tok[i.dataset.col] = i.value; S.pal = ''; onchange(false); }; });
-			var g = $('[data-grad]', root); if (g) g.onchange = function () { S.tok.gradient = g.checked ? 1 : 0; onchange(false); };
+		function say(who, html) { var l = $('#ps-log'), d = document.createElement('div'); d.className = 'ps-msg ' + who; d.innerHTML = html; l.appendChild(d); l.scrollTop = l.scrollHeight; return d; }
+		function setPal(k) { var p = M.presets[k]; S.pal = k; S.tok = { primary: p.primary, dark: p.dark, accent: p.accent, soft: p.soft, gradient: p.gradient }; }
+
+		function shell() {
+			root.innerHTML = '<div class="ps2"><div class="ps2-l"><div id="ps-src"></div><div id="ps-log" class="ps-log"></div>' +
+				'<div class="ps-in"><textarea id="ps-t" rows="3"></textarea><button class="button button-primary" id="ps-send">পাঠান</button></div></div>' +
+				'<div class="ps2-r"><div id="ps-bar"></div><div class="ps-prev"><iframe id="ps-if"></iframe><div id="ps-empty">এখানে আপনার পেজ দেখা যাবে</div></div><div id="ps-tabs"></div></div></div>';
+			$('#ps-send').onclick = send;
+			$('#ps-t').onkeydown = function (e) { if (e.key === 'Enter' && (e.ctrlKey || e.metaKey)) send(); };
 		}
 
-		function stepMode() {
-			var mine = M.mine.map(function (m) { return '<option value="' + m.id + '">' + esc(m.title) + ' #' + m.id + ' (' + esc(m.status) + ')</option>'; }).join('');
-			body.innerHTML = '<h3>১. কী করবেন?</h3><div class="ps-cards">' +
-				'<button class="ps-card" data-m="new">➕<b>নতুন পেজ / পোস্ট</b><span>টেমপ্লেট থেকে তৈরি</span></button>' +
-				'<button class="ps-card" data-m="regen">♻️<b>পুরনো পেজ নতুন করে সাজান</b><span>লেখা ঠিক রেখে নতুন ডিজাইন (আগের অবস্থা Activity-তে Undo)</span></button>' +
-				'<button class="ps-card" data-m="edit">✏️<b>Studio পেজ এডিট</b><span>' + (M.mine.length ? M.mine.length + 'টি পেজ' : 'এখনো নেই') + '</span></button>' +
-				'<button class="ps-card" data-m="global">⚙️<b>ফোন/ঠিকানা ও ডিফল্ট রং</b><span>সব Studio পেজে একসাথে</span></button></div><div id="ps-sub"></div>';
-			var sub = $('#ps-sub');
-			$$('.ps-card', body).forEach(function (b) {
-				b.onclick = async function () {
-					var m = b.dataset.m; S.mode = m;
-					if (m === 'new') return stepTpl();
-					if (m === 'regen') {
-						sub.innerHTML = '<p><input type="text" id="ps-q" placeholder="পেজ খুঁজুন…" style="min-width:260px"> <select id="ps-pg"></select> <button class="button button-primary" id="ps-go">পরের ধাপ</button></p>';
-						var load = async function () { var r = pick(await post('csa_job_pages', { q: $('#ps-q').value.trim() })); if (r) $('#ps-pg').innerHTML = r.map(function (p) { return '<option value="' + p.id + '">' + esc(p.title) + ' #' + p.id + '</option>'; }).join(''); };
-						$('#ps-q').onchange = load; load();
-						$('#ps-go').onclick = function () { S.target = parseInt($('#ps-pg').value, 10); S.title0 = $('#ps-pg').selectedOptions[0].textContent.replace(/ #\d+$/, ''); stepTpl(); };
-					} else if (m === 'edit') {
-						sub.innerHTML = '<p>' + (mine ? '<select id="ps-pg">' + mine + '</select> <button class="button button-primary" id="ps-go">খুলুন</button>' : 'কোনো Studio পেজ নেই।') + '</p>';
-						if (mine) $('#ps-go').onclick = async function () { var d = pick(await post('csa_ps_load', { id: $('#ps-pg').value })); if (d) stepFix(d); };
-					} else {
-						var t = M.tokens;
-						sub.innerHTML = '<p>ফোন <input id="g-phone" value="' + esc(t.phone) + '"> ইমেইল <input id="g-email" value="' + esc(t.email) + '"> ঠিকানা <input id="g-address" value="' + esc(t.address) + '" style="min-width:240px"></p><div id="g-col"></div><p><button class="button button-primary" id="g-save">সংরক্ষণ করুন ও সব Studio পেজ আবার আঁকুন</button></p>';
-						setPal('shaheen'); S.tok = { primary: t.primary, dark: t.dark, accent: t.accent, soft: t.soft, gradient: t.gradient }; S.pal = '';
-						var draw = function () { $('#g-col').innerHTML = colorUI(); bindColors($('#g-col'), draw); }; draw();
-						$('#g-save').onclick = async function () {
-							var d = Object.assign({ phone: $('#g-phone').value, email: $('#g-email').value, address: $('#g-address').value }, S.tok);
-							var r = pick(await post('csa_ps_global', d)); if (r) { M.tokens = r.tokens; toast(r.redrawn + 'টি Studio পেজ আবার আঁকা হয়েছে ✓'); }
-						};
-					}
-				};
-			});
+		/* --- source picker (top left) --- */
+		function drawSrc() {
+			var h = '<div class="ps-src"><button class="button' + (!S.target && !PG && S.ptype === 'page' ? ' button-primary' : '') + '" data-k="page">➕ নতুন পেজ</button> <button class="button' + (!S.target && !PG && S.ptype === 'post' ? ' button-primary' : '') + '" data-k="post">✍️ নতুন পোস্ট</button> <button class="button" data-k="old">📄 পুরনো পেজ/পোস্ট নিন</button> <button class="button" data-k="mine">🗂 আমার Studio পেজ</button></div><div id="ps-srcx"></div>';
+			$('#ps-src').innerHTML = h;
+			$$('[data-k]', $('#ps-src')).forEach(function (b) { b.onclick = function () { pickSrc(b.dataset.k); }; });
 		}
-
-		function stepTpl() {
-			var h = '<h3>২. টেমপ্লেট বাছুন</h3><div class="ps-cards">';
-			M.templates.forEach(function (t) { h += '<button class="ps-card" data-t="' + t.key + '">' + t.icon + '<b>' + esc(t.label) + '</b><span>' + t.sections.length + 'টি সেকশন</span></button>'; });
-			body.innerHTML = h + '</div><p><button class="button" id="ps-back">← পেছনে</button></p>';
-			$('#ps-back').onclick = stepMode;
-			$$('.ps-card', body).forEach(function (b) { b.onclick = function () { var t = M.templates.filter(function (x) { return x.key === b.dataset.t; })[0]; S.tpl = t.key; S.secs = t.sections.slice(); setPal(t.pal); stepOpts(); }; });
-		}
-
-		function stepOpts() {
-			var t = M.templates.filter(function (x) { return x.key === S.tpl; })[0];
-			var br = '<option value="">— (নির্দিষ্ট শাখা নেই) —</option>' + M.branches.map(function (b) { return '<option>' + esc(b) + '</option>'; }).join('');
-			var h = '<h3>৩. অপশন — ' + t.icon + ' ' + esc(t.label) + '</h3>' +
-				'<p><label>পেজের শিরোনাম<br><input type="text" id="o-title" style="width:100%;max-width:560px" value="' + esc(S.title0 || '') + '"></label></p>' +
-				'<p><label>শাখা/এলাকা <select id="o-area">' + br + '</select></label> &nbsp; <label>ফোকাস কিওয়ার্ড <input type="text" id="o-kw" style="min-width:240px"></label></p>' +
-				'<p><label>AI-কে নির্দেশ (ঐচ্ছিক)<br><textarea id="o-note" rows="3" style="width:100%;max-width:560px" placeholder="যেমন: ভর্তির শেষ তারিখ ৩০ নভেম্বর, কথা বলার সুর আন্তরিক হোক"></textarea></label></p>' +
-				'<h4>সেকশন (টিক দিয়ে বাছুন)</h4><div class="ps-secs">' +
-				Object.keys(M.sections).map(function (k) { return '<label><input type="checkbox" data-s="' + k + '"' + (S.secs.indexOf(k) > -1 ? ' checked' : '') + '> ' + esc(M.sections[k]) + '</label>'; }).join('') +
-				'</div><p><button class="button" id="o-sug">🤖 AI সাজেস্ট করুক কোন সেকশন রাখব</button></p><div id="o-sugout"></div>' +
-				'<h4>রং ও গ্রেডিয়েন্ট</h4><div id="o-col"></div>' +
-				'<p><button class="button" id="o-back">← পেছনে</button> <button class="button button-primary" id="o-next">৪. যাচাই করুন →</button></p>';
-			body.innerHTML = h;
-			var draw = function () { $('#o-col').innerHTML = colorUI(); bindColors($('#o-col'), draw); }; draw();
-			$('#o-back').onclick = stepTpl;
-			var collect = function () { S.title = $('#o-title').value.trim(); S.area = $('#o-area').value; S.kw = $('#o-kw').value.trim(); S.note = $('#o-note').value.trim(); S.secs = $$('[data-s]', body).filter(function (c) { return c.checked; }).map(function (c) { return c.dataset.s; }); };
-			$('#o-sug').onclick = async function () {
-				collect(); this.disabled = true;
-				var d = pick(await postT('csa_ps_suggest', { template: S.tpl, title: S.title, area: S.area, note: S.note })); this.disabled = false;
-				if (!d) return;
-				$('#o-sugout').innerHTML = '<div class="ps-note"><b>AI-র পরামর্শ:</b><ul>' + d.sections.map(function (s) { return '<li><b>' + esc(M.sections[s.key]) + '</b> — ' + esc(s.why) + '</li>'; }).join('') + '</ul>' + (d.tips.length ? '<b>আগে থেকে প্রস্তুত রাখুন:</b><ul>' + d.tips.map(function (x) { return '<li>' + esc(x) + '</li>'; }).join('') + '</ul>' : '') + '<button class="button" id="o-apply">এই সেকশনগুলো টিক দিন</button></div>';
-				$('#o-apply').onclick = function () { var ks = d.sections.map(function (s) { return s.key; }); $$('[data-s]', body).forEach(function (c) { c.checked = ks.indexOf(c.dataset.s) > -1; }); };
-			};
-			$('#o-next').onclick = function () { collect(); if (!S.title) { toast('শিরোনাম লিখুন', 'err'); return; } if (!S.secs.length) { toast('অন্তত একটি সেকশন বাছুন', 'err'); return; } stepConfirm(); };
-		}
-
-		function stepConfirm() {
-			body.innerHTML = '<h3>৪. নিশ্চিত করুন</h3><div class="ps-note"><p><b>' + esc(S.title) + '</b> — ' + esc(S.tpl) + (S.target ? ' (পুরনো পেজ #' + S.target + ' নতুন করে সাজানো হবে, আগের অবস্থা Activity থেকে Undo করা যাবে)' : ' (নতুন ড্রাফট)') + '</p><p>সেকশন: ' + S.secs.map(function (k) { return esc(M.sections[k]); }).join(' → ') + '</p><p>শাখা: ' + esc(S.area || '—') + ' · কিওয়ার্ড: ' + esc(S.kw || '—') + '</p><p>রং: <span class="ps-sw" style="background:' + S.tok.primary + '"></span><span class="ps-sw" style="background:' + S.tok.dark + '"></span><span class="ps-sw" style="background:' + S.tok.accent + '"></span> ' + (S.tok.gradient ? 'গ্রেডিয়েন্ট সহ' : 'সমতল') + '</p></div><p><button class="button" id="c-back">← পেছনে</button> <button class="button button-primary" id="c-go">✅ তৈরি করুন</button></p><p class="csa-muted">AI লেখা তৈরিতে এক-দুই মিনিট লাগতে পারে।</p>';
-			$('#c-back').onclick = stepOpts;
-			$('#c-go').onclick = async function () {
-				this.disabled = true; this.textContent = 'তৈরি হচ্ছে…';
-				var d = pick(await postT('csa_ps_create', Object.assign({ template: S.tpl, sections: S.secs.join(','), title: S.title, area: S.area || '', keyword: S.kw || '', note: S.note || '', target: S.target || 0 }, S.tok)));
-				if (!d) { this.disabled = false; this.textContent = '✅ তৈরি করুন'; return; }
-				stepFix(d);
+		async function pickSrc(k) {
+			var x = $('#ps-srcx');
+			if (k === 'page' || k === 'post') { S.ptype = k; S.target = 0; PG = null; S.brief = null; showPage(null); resetChat(); return; }
+			if (k === 'mine') {
+				x.innerHTML = M.mine.length ? '<select id="ps-pg">' + M.mine.map(function (m) { return '<option value="' + m.id + '">' + esc(m.title) + ' #' + m.id + ' (' + esc(m.status) + ')</option>'; }).join('') + '</select> <button class="button button-primary" id="ps-go">খুলুন</button>' : '<p class="csa-muted">এখনো কোনো Studio পেজ নেই।</p>';
+				if (M.mine.length) $('#ps-go').onclick = async function () { var r = await post('csa_ps_load', { id: $('#ps-pg').value }); if (r.error) return toast(r.error, 'err'); x.innerHTML = ''; openPage(r.data); };
+				return;
+			}
+			x.innerHTML = '<input type="text" id="ps-q" placeholder="নাম লিখে খুঁজুন…"> <select id="ps-pg"></select> <button class="button button-primary" id="ps-go">এটা নিন</button>';
+			var load = async function () { var r = await post('csa_job_pages', { q: $('#ps-q').value.trim() }); if (r.error) return; $('#ps-pg').innerHTML = r.data.map(function (p) { return '<option value="' + p.id + '">' + esc(p.title) + ' — ' + esc(p.type) + ' #' + p.id + '</option>'; }).join(''); };
+			$('#ps-q').onchange = load; load();
+			$('#ps-go').onclick = async function () {
+				var id = parseInt($('#ps-pg').value, 10); if (!id) return;
+				var r = await post('csa_ps_load', { id: id });
+				if (!r.error) { x.innerHTML = ''; return openPage(r.data); } // already a Studio page
+				S.target = id; S.title0 = $('#ps-pg').selectedOptions[0].textContent.replace(/ — .*$/, ''); S.brief = null; PG = null; x.innerHTML = '';
+				showPage(null); resetChat();
+				say('ai', 'পুরনো পেজ <b>' + esc(S.title0) + '</b> নেওয়া হলো। এর লেখা ঠিক রেখে ডিজাইন নতুন করে বানাব (Elementor থাকলে আগে ব্যাকআপ নিয়ে সরিয়ে ফেলব, Activity থেকে Undo করা যাবে)। কী পরিবর্তন চান লিখুন।');
 			};
 		}
+		function resetChat() {
+			$('#ps-log').innerHTML = '';
+			say('ai', S.target ? 'পেজ নেওয়া হয়েছে। নিচের বাক্সে লিখুন কী চান।' : 'নমস্কার! কী ধরনের ' + (S.ptype === 'post' ? 'পোস্ট' : 'পেজ') + ' বানাতে চান? সাধারণ ভাষায় লিখুন। যেমন:<br><i>"টাঙ্গাইল শাখার ভর্তি পেজ, সবুজ রং, ভর্তির ধাপ আর যোগাযোগ থাকবে"</i>');
+			$('#ps-t').placeholder = 'এখানে লিখুন… (পাঠাতে Ctrl+Enter)'; S.stage = 'start';
+		}
 
-		function stepFix(d) {
-			var h = '<h3>৫. ডিজাইন দেখুন ও ঠিক করুন — ' + esc(d.title) + ' <small>(#' + d.id + ', ' + esc(d.status) + ')</small></h3>' +
-				'<p><button class="button" data-w="100%">ডেস্কটপ</button> <button class="button" data-w="390px">মোবাইল</button> <a class="button" target="_blank" href="' + esc(d.preview) + '">নতুন ট্যাবে প্রিভিউ</a> <button class="button button-primary" id="f-pub">প্রকাশ করুন</button> <button class="button" id="f-home">← শুরুতে</button></p>' +
-				'<div class="ps-fix"><div class="ps-prev"><iframe id="f-if" src="' + esc(d.preview) + '"></iframe></div><div class="ps-side">' +
-				'<h4>সেকশন</h4>' + d.sections.map(function (s) {
-					return '<div class="ps-sec' + (s.off ? ' off' : '') + '"><span>' + esc(s.label) + '</span> <button class="button button-small" data-a="up" data-i="' + s.i + '">↑</button><button class="button button-small" data-a="down" data-i="' + s.i + '">↓</button><button class="button button-small" data-a="toggle" data-i="' + s.i + '">' + (s.off ? 'দেখান' : 'লুকান') + '</button>' +
-						(s.ai ? '<br><input type="text" class="ps-ins" data-i="' + s.i + '" placeholder="কী বদলাতে চান? যেমন: ছোট করুন"> <button class="button button-small" data-a="regen" data-i="' + s.i + '">AI দিয়ে বদলান</button>' : '') + '</div>';
-				}).join('') +
-				'<h4>রং</h4><div id="f-col"></div><button class="button" id="f-colsave">রং প্রয়োগ করুন</button>' +
-				'<h4>আগের সংস্করণ</h4><ul class="ps-ver">' + d.versions.map(function (v) { return '<li>' + esc(v.t) + ' — ' + esc(v.label) + ' <button class="button button-small" data-r="' + v.id + '">ফেরত</button></li>'; }).join('') + '</ul></div></div>';
-			body.innerHTML = h;
-			var tk = d.tokens; S.tok = { primary: tk.primary, dark: tk.dark, accent: tk.accent, soft: tk.soft, gradient: tk.gradient }; S.pal = '';
-			var draw = function () { $('#f-col').innerHTML = colorUI(); bindColors($('#f-col'), draw); }; draw();
-			var fr = $('#f-if');
-			$$('[data-w]', body).forEach(function (b) { b.onclick = function () { fr.style.width = b.dataset.w; }; });
-			$('#f-home').onclick = function () { location.reload(); };
-			$('#f-pub').onclick = async function () { var r = pick(await post('csa_ps_publish', { id: d.id })); if (r) { toast('প্রকাশিত ✓'); stepFix(r); } };
-			var act = async function (data, btn) { if (btn) btn.disabled = true; var r = pick(await postT('csa_ps_edit', Object.assign({ id: d.id }, data))); if (r) stepFix(r); else if (btn) btn.disabled = false; };
-			$$('[data-a]', body).forEach(function (b) {
-				b.onclick = function () {
-					var data = { act: b.dataset.a, i: b.dataset.i };
-					if (b.dataset.a === 'regen') { var inp = $('.ps-ins[data-i="' + b.dataset.i + '"]'); data.note = inp.value.trim(); if (!data.note) { toast('কী বদলাতে চান লিখুন', 'err'); return; } }
-					act(data, b);
-				};
-			});
-			$('#f-colsave').onclick = function () { act(Object.assign({ act: 'colors' }, S.tok), this); };
-			$$('[data-r]', body).forEach(function (b) { b.onclick = async function () { var r = pick(await post('csa_ps_restore', { id: d.id, ver: b.dataset.r })); if (r) stepFix(r); }; });
+		/* --- right side --- */
+		function showPage(d) {
+			var fr = $('#ps-if'), em = $('#ps-empty');
+			if (!d) { fr.style.display = 'none'; em.style.display = ''; $('#ps-bar').innerHTML = ''; $('#ps-tabs').innerHTML = ''; return; }
+			fr.style.display = ''; em.style.display = 'none';
+			fr.src = d.preview + (d.preview.indexOf('?') > -1 ? '&' : '?') + 't=' + Date.now();
+			$('#ps-bar').innerHTML = '<b>' + esc(d.title) + '</b> <small>#' + d.id + ' · ' + esc(d.status) + '</small> <span class="ps-sp"></span><button class="button" data-w="100%">🖥</button><button class="button" data-w="390px">📱</button><a class="button" target="_blank" href="' + esc(d.preview) + '">↗</a><button class="button button-primary" id="ps-pub">' + (d.status === 'publish' ? 'প্রকাশিত ✓' : 'প্রকাশ করুন') + '</button>';
+			$$('[data-w]', $('#ps-bar')).forEach(function (b) { b.onclick = function () { fr.style.width = b.dataset.w; }; });
+			$('#ps-pub').onclick = async function () { var r = await post('csa_ps_publish', { id: d.id }); if (r.error) return toast(r.error, 'err'); toast('প্রকাশিত ✓'); PG = r.data; showPage(PG); };
+			drawTabs(d);
+		}
+		function openPage(d) {
+			PG = d; S.stage = 'live'; S.target = 0; shellSrcReset();
+			showPage(d); $('#ps-log').innerHTML = '';
+			say('ai', '<b>' + esc(d.title) + '</b> খুলেছি। বদলাতে বাক্সে লিখুন, যেমন: <i>"হিরোর লেখা ছোট করো", "FAQ সরাও", "মোবাইলে লেখা বড় করো", "রং গাঢ় সবুজ করো"</i>। ডানের নিচের ট্যাব দিয়ে হাতেও বদলাতে পারবেন।');
+			$('#ps-t').placeholder = 'কী বদলাতে চান লিখুন…';
+		}
+		function shellSrcReset() { drawSrc(); }
+
+		var tabNow = 'sec';
+		function drawTabs(d) {
+			var tb = $('#ps-tabs');
+			tb.innerHTML = '<div class="ps-tb"><button data-tb="sec">📑 সেকশন</button><button data-tb="sty">🎨 রং ও লেখার মাপ</button><button data-tb="ver">🕘 আগের সংস্করণ</button></div><div id="ps-pane"></div>';
+			$$('[data-tb]', tb).forEach(function (b) { b.onclick = function () { tabNow = b.dataset.tb; pane(d); }; });
+			pane(d);
+		}
+		async function act(d, data, label) {
+			var r = await postT('csa_ps_edit', Object.assign({ id: d.id }, data));
+			if (r.error) { toast(r.error, 'err'); return false; }
+			PG = r.data; showPage(PG); if (label) say('ai', label); return true;
+		}
+		function pane(d) {
+			var el = $('#ps-pane'); $$('[data-tb]', $('#ps-tabs')).forEach(function (b) { b.classList.toggle('on', b.dataset.tb === tabNow); });
+			if (tabNow === 'sec') {
+				var opts = Object.keys(M.sections).map(function (k) { return '<option value="' + k + '">' + esc(M.sections[k]) + '</option>'; }).join('');
+				el.innerHTML = d.sections.map(function (s) {
+					return '<div class="ps-row' + (s.off ? ' off' : '') + '"><span class="ps-n">' + esc(s.label) + '</span><button class="button button-small" data-a="up" data-i="' + s.i + '">↑</button><button class="button button-small" data-a="down" data-i="' + s.i + '">↓</button><button class="button button-small" data-a="toggle" data-i="' + s.i + '">' + (s.off ? 'দেখান' : 'লুকান') + '</button>' + (s.ai ? '<button class="button button-small" data-ed="' + s.i + '">✏️ লেখা</button>' : '') + '<button class="button button-small" data-a="remove" data-i="' + s.i + '">🗑</button><div class="ps-edbox" id="ps-ed' + s.i + '"></div></div>';
+				}).join('') + '<p class="ps-add">নতুন সেকশন যোগ: <select id="ps-addk">' + opts + '</select> <input id="ps-addn" type="text" placeholder="কী থাকবে (ঐচ্ছিক)"> <button class="button" id="ps-addb">যোগ করুন</button></p>';
+				$$('[data-a]', el).forEach(function (b) { b.onclick = function () { b.disabled = true; act(d, { act: b.dataset.a, i: b.dataset.i }); }; });
+				$$('[data-ed]', el).forEach(function (b) { b.onclick = function () { editForm(d, parseInt(b.dataset.ed, 10)); }; });
+				$('#ps-addb').onclick = function () { this.disabled = true; this.textContent = 'লিখছে…'; act(d, { act: 'add', key: $('#ps-addk').value, note: $('#ps-addn').value, at: d.sections.length }, 'সেকশন যোগ হয়েছে।'); };
+			} else if (tabNow === 'sty') {
+				var t = d.tokens; S.tok = { primary: t.primary, dark: t.dark, accent: t.accent, soft: t.soft, gradient: t.gradient };
+				var sl = function (k, lab, mn, mx, st) { return '<label class="ps-sl">' + lab + ' <b id="v-' + k + '">' + t[k] + '</b><input type="range" data-s="' + k + '" min="' + mn + '" max="' + mx + '" step="' + (st || 1) + '" value="' + t[k] + '"></label>'; };
+				el.innerHTML = '<div class="ps-pals">' + Object.keys(M.presets).map(function (k) { var p = M.presets[k]; return '<button type="button" class="button ps-pal" data-pal="' + k + '"><span style="background:' + p.primary + '"></span><span style="background:' + p.accent + '"></span> ' + esc(p.label) + '</button>'; }).join('') + '</div>' +
+					'<p class="ps-cols">' + [['primary', 'মূল রং'], ['dark', 'গাঢ়'], ['accent', 'কাঠালি'], ['soft', 'হালকা']].map(function (c) { return '<label>' + c[1] + ' <input type="color" data-col="' + c[0] + '" value="' + esc(S.tok[c[0]]) + '"></label>'; }).join(' ') + ' <label><input type="checkbox" data-grad ' + (t.gradient ? 'checked' : '') + '> গ্রেডিয়েন্ট</label></p>' +
+					'<div class="ps-sls">' + sl('fs', 'লেখার মাপ (কম্পিউটার)', 13, 24) + sl('fs_m', 'লেখার মাপ (মোবাইল)', 12, 22) + sl('width', 'পেজের প্রস্থ', 700, 1500, 10) + sl('gap', 'সেকশনের মাঝে ফাঁক', 12, 100) + sl('radius', 'কোণের গোলাকার', 0, 40) + sl('lh', 'লাইনের ফাঁক', 1.2, 2.4, 0.05) + '</div><p><button class="button button-primary" id="ps-sty">প্রয়োগ করুন</button></p>';
+				$$('[data-pal]', el).forEach(function (b) { b.onclick = function () { setPal(b.dataset.pal); var p = M.presets[b.dataset.pal]; $$('[data-col]', el).forEach(function (i) { i.value = S.tok[i.dataset.col]; }); $('[data-grad]', el).checked = !!p.gradient; }; });
+				$$('[data-col]', el).forEach(function (i) { i.onchange = function () { S.tok[i.dataset.col] = i.value; }; });
+				$$('[data-s]', el).forEach(function (i) { i.oninput = function () { $('#v-' + i.dataset.s).textContent = i.value; }; });
+				$('#ps-sty').onclick = function () { var data = Object.assign({ act: 'colors' }, S.tok, { gradient: $('[data-grad]', el).checked ? 1 : 0 }); $$('[data-s]', el).forEach(function (i) { data[i.dataset.s] = i.value; }); this.disabled = true; act(d, data, 'রং ও মাপ প্রয়োগ হয়েছে।'); };
+			} else {
+				el.innerHTML = '<ul class="ps-ver">' + d.versions.map(function (v) { return '<li>' + esc(v.t) + ' — ' + esc(v.label) + ' <button class="button button-small" data-r="' + v.id + '">এখানে ফিরুন</button></li>'; }).join('') + '</ul>';
+				$$('[data-r]', el).forEach(function (b) { b.onclick = async function () { var r = await post('csa_ps_restore', { id: d.id, ver: b.dataset.r }); if (r.error) return toast(r.error, 'err'); PG = r.data; showPage(PG); say('ai', 'আগের সংস্করণে ফিরেছি।'); }; });
+			}
+		}
+
+		/* hand edit: a form made from the section's own fields */
+		function editForm(d, i) {
+			var box = $('#ps-ed' + i), W = JSON.parse(JSON.stringify(d.sections[i].c || {}));
+			if (box.innerHTML) { box.innerHTML = ''; return; }
+			var LAB = { heading: 'শিরোনাম', title: 'শিরোনাম', subtitle: 'উপশিরোনাম', text: 'লেখা', paragraphs: 'অনুচ্ছেদ', items: 'তালিকা', rows: 'সারি', label: 'নাম', value: 'মান', q: 'প্রশ্ন', a: 'উত্তর', date: 'তারিখ', cta_text: 'বাটনের লেখা', cta_url: 'বাটনের লিংক', button_text: 'বাটনের লেখা', button_url: 'বাটনের লিংক' };
+			function draw() {
+				box.innerHTML = '<div class="ps-form">' + build(W, []) + '</div><p><button class="button button-primary" id="ps-fsave' + i + '">সংরক্ষণ</button> <button class="button" id="ps-fcancel' + i + '">বাতিল</button></p>';
+				$$('[data-p]', box).forEach(function (n) { n.oninput = function () { setP(n.dataset.p, n.value); }; });
+				$$('[data-del]', box).forEach(function (b) { b.onclick = function () { var pp = b.dataset.del.split('.'), idx = parseInt(pp.pop(), 10), a = get(pp); a.splice(idx, 1); draw(); }; });
+				$$('[data-add]', box).forEach(function (b) { b.onclick = function () { var a = get(b.dataset.add.split('.')); var f = a[0]; a.push(typeof f === 'object' ? Object.keys(f).reduce(function (o, k) { o[k] = ''; return o; }, {}) : ''); draw(); }; });
+				$('#ps-fcancel' + i).onclick = function () { box.innerHTML = ''; };
+				$('#ps-fsave' + i).onclick = async function () { this.disabled = true; var r = await post('csa_ps_edit', { id: d.id, act: 'setc', i: i, c: JSON.stringify(W) }); if (r.error) { toast(r.error, 'err'); this.disabled = false; return; } PG = r.data; showPage(PG); say('ai', 'লেখা সংরক্ষিত হয়েছে।'); };
+			}
+			function get(path) { var o = W; path.forEach(function (k) { if (k !== '') o = o[k]; }); return o; }
+			function setP(path, v) { var pp = path.split('.'), last = pp.pop(), o = get(pp); o[last] = v; }
+			function build(o, path) {
+				var h = '';
+				if (Array.isArray(o)) {
+					o.forEach(function (x, k) {
+						var pp = path.concat(k).join('.');
+						h += '<div class="ps-it">' + (typeof x === 'object' ? build(x, path.concat(k)) : field(pp, x, '')) + '<button class="button button-small" data-del="' + pp + '">🗑</button></div>';
+					});
+					return h + '<button class="button button-small" data-add="' + path.join('.') + '">+ যোগ</button>';
+				}
+				Object.keys(o).forEach(function (k) {
+					var v = o[k], pp = path.concat(k).join('.'), lab = LAB[k] || k;
+					if (typeof v === 'object' && v) h += '<fieldset><legend>' + esc(lab) + '</legend>' + build(v, path.concat(k)) + '</fieldset>';
+					else h += '<label class="ps-fl">' + esc(lab) + field(pp, v, k) + '</label>';
+				});
+				return h;
+			}
+			function field(pp, v, k) { v = v == null ? '' : String(v); return (v.length > 70 || k === 'text' || k === 'a') ? '<textarea rows="3" data-p="' + pp + '">' + esc(v) + '</textarea>' : '<input type="text" data-p="' + pp + '" value="' + esc(v) + '">'; }
+			draw();
+		}
+
+		/* --- the prompt box --- */
+		async function send() {
+			var t = $('#ps-t'), txt = t.value.trim(); if (!txt) return;
+			var btn = $('#ps-send'); btn.disabled = true; t.value = '';
+			say('me', esc(txt).replace(/\n/g, '<br>'));
+			var wait = say('ai', '<span class="ps-dots">ভাবছি…</span>');
+			try {
+				if (PG) await sendCommand(txt);
+				else await sendBrief(txt);
+			} finally { wait.remove(); btn.disabled = false; }
+		}
+		async function sendCommand(txt) {
+			var r = await postT('csa_ps_command', { id: PG.id, text: txt });
+			if (r.error) return say('ai', '⚠️ ' + esc(r.error));
+			PG = r.data.page; showPage(PG);
+			say('ai', esc(r.data.reply || (r.data.changed ? 'হয়ে গেছে।' : 'কিছু বদলাইনি।')) + (r.data.changed ? ' <small>(ভুল হলে "আগের সংস্করণ" ট্যাব)</small>' : ''));
+		}
+		async function sendBrief(txt) {
+			S.prompt = (S.prompt ? S.prompt + '\n' : '') + txt;
+			var r = await postT('csa_ps_brief', { prompt: S.prompt + (Object.keys(S.ans).length ? '\nউত্তর: ' + Object.keys(S.ans).map(function (k) { return k + ' → ' + S.ans[k]; }).join('; ') : ''), ptype: S.ptype, target: S.target });
+			if (r.error) return say('ai', '⚠️ ' + esc(r.error));
+			var b = r.data; S.brief = b; setPal(b.palette || 'shaheen'); S.secs = b.sections.map(function (x) { return x.key; });
+			var h = '<p>' + esc(b.summary) + '</p>';
+			if (b.questions.length) {
+				h += '<p><b>কিছু প্রশ্ন</b> (চাপ দিয়ে বাছুন, না চাইলে এড়িয়ে যান):</p>';
+				b.questions.forEach(function (q, qi) { h += '<div class="ps-q"><div>' + esc(q.q) + '</div>' + q.options.map(function (o) { return '<button class="button button-small ps-opt" data-q="' + qi + '" data-o="' + esc(o) + '">' + esc(o) + '</button>'; }).join(' ') + '</div>'; });
+			}
+			h += '<p><b>প্রস্তাবিত সাজানো</b> (টিক সরালে বাদ যাবে):</p><div class="ps-plan">' + b.sections.map(function (s, k) { return '<label><input type="checkbox" data-sk="' + s.key + '" checked> <b>' + (k + 1) + '. ' + esc(s.label) + '</b> <small>' + esc(s.where) + ' — ' + esc(s.why) + '</small></label>'; }).join('') + '</div>';
+			h += '<p><b>রং:</b> ' + Object.keys(M.presets).map(function (k) { var p = M.presets[k]; return '<button class="button button-small ps-pk' + (S.pal === k ? ' button-primary' : '') + '" data-pk="' + k + '">' + esc(p.label) + '</button>'; }).join(' ') + '</p>';
+			h += '<p>শিরোনাম: <input type="text" id="ps-bt" value="' + esc(b.title || S.title0 || '') + '" style="width:100%"></p><p class="csa-muted">আরও কিছু চাইলে নিচের বাক্সে লিখে পাঠান, আমি পরিকল্পনা নতুন করে সাজাব। ঠিক থাকলে:</p><p><button class="button button-primary" id="ps-build">✅ এভাবে পেজ বানাও</button></p>';
+			var m = say('ai', h);
+			$$('.ps-opt', m).forEach(function (o) { o.onclick = function () { var qi = o.dataset.q; $$('.ps-opt[data-q="' + qi + '"]', m).forEach(function (x) { x.classList.remove('button-primary'); }); o.classList.add('button-primary'); S.ans[b.questions[qi].q] = o.dataset.o; }; });
+			$$('.ps-pk', m).forEach(function (o) { o.onclick = function () { setPal(o.dataset.pk); $$('.ps-pk', m).forEach(function (x) { x.classList.toggle('button-primary', x === o); }); }; });
+			$('#ps-build', m).onclick = function () { build(m, b); };
+		}
+		async function build(m, b) {
+			var ks = $$('[data-sk]', m).filter(function (c) { return c.checked; }).map(function (c) { return c.dataset.sk; });
+			var title = $('#ps-bt', m).value.trim(); if (!title) return toast('শিরোনাম লিখুন', 'err'); if (!ks.length) return toast('অন্তত একটি সেকশন রাখুন', 'err');
+			var btn = $('#ps-build', m); btn.disabled = true; btn.textContent = 'বানাচ্ছি… (১-২ মিনিট)';
+			var note = S.prompt + (Object.keys(S.ans).length ? '\n' + Object.keys(S.ans).map(function (k) { return k + ': ' + S.ans[k]; }).join('\n') : '');
+			var r = await postT('csa_ps_create', Object.assign({ template: b.template || '', ptype: S.ptype, sections: ks.join(','), title: title, area: b.area || '', keyword: b.keyword || '', note: note, target: S.target || 0 }, S.tok));
+			if (r.error) { btn.disabled = false; btn.textContent = '✅ এভাবে পেজ বানাও'; return say('ai', '⚠️ ' + esc(r.error)); }
+			M.mine.unshift({ id: r.data.id, title: r.data.title, status: r.data.status });
+			openPage(r.data); say('ai', '✅ পেজ তৈরি (ড্রাফট)। ডানে দেখুন। কিছু বদলাতে বাক্সে লিখুন, তৃপ্ত হলে "প্রকাশ করুন"।');
 		}
 
 		(async function () {
-			var r = pick(await post('csa_ps_meta', {}));
-			if (!r) { body.innerHTML = '<p>লোড হয়নি।</p>'; return; }
-			M = r; stepMode();
+			var r = await post('csa_ps_meta', {});
+			if (r.error) { root.innerHTML = '<p>' + esc(r.error) + '</p>'; return; }
+			M = r.data; shell(); drawSrc(); showPage(null); resetChat();
 			var q = new URLSearchParams(location.search).get('page_id');
-			if (q) { var d = pick(await post('csa_ps_load', { id: q })); if (d) stepFix(d); }
+			if (q) { var d = await post('csa_ps_load', { id: q }); if (!d.error) openPage(d.data); }
 		})();
 	})();
 

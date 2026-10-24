@@ -20,6 +20,11 @@ function csa_ps_token_defaults() {
 		'text'     => '#1d2b22',
 		'radius'   => 14,
 		'gradient' => 1,
+		'fs'       => 17,
+		'fs_m'     => 16,
+		'width'    => 1100,
+		'gap'      => 40,
+		'lh'       => 1.75,
 		'phone'    => '+880 1622-222111',
 		'email'    => 'corporate@shaheen.edu.bd',
 		'address'  => 'রেজিস্ট্রিপাড়া, টাঙ্গাইল সদর',
@@ -52,10 +57,16 @@ function csa_ps_css( $t ) {
 	$s = csa_ps_color( $t['soft'], $d['soft'] );
 	$b = csa_ps_color( $t['bg'], $d['bg'] );
 	$x = csa_ps_color( $t['text'], $d['text'] );
-	$r = max( 0, min( 40, (int) $t['radius'] ) );
+	$r  = max( 0, min( 40, (int) $t['radius'] ) );
+	$fs = max( 13, min( 24, (int) $t['fs'] ) );
+	$fm = max( 12, min( 22, (int) $t['fs_m'] ) );
+	$w  = max( 600, min( 1600, (int) $t['width'] ) );
+	$gp = max( 12, min( 100, (int) $t['gap'] ) );
+	$gm = min( $gp, 28 );
+	$lh = max( 1.2, min( 2.4, (float) $t['lh'] ) );
 	$grad = ! empty( $t['gradient'] ) ? "linear-gradient(135deg,{$k} 0%,{$p} 60%,{$a} 140%)" : $p;
-	return "<style>.ps-page{--p:{$p};--k:{$k};--a:{$a};--s:{$s};--bg:{$b};--tx:{$x};--r:{$r}px;--g:{$grad};max-width:1100px;margin:0 auto;padding:0 16px;color:var(--tx);line-height:1.75;font-size:17px;box-sizing:border-box}"
-		. ".ps-page *{box-sizing:border-box}.ps-sec{margin:0 0 40px}.ps-sec h2{color:var(--k);font-size:clamp(24px,3.2vw,34px);line-height:1.3;margin:0 0 14px}.ps-sec h3{color:var(--k);margin:0 0 6px;font-size:20px}"
+	return "<style>.ps-page{--p:{$p};--k:{$k};--a:{$a};--s:{$s};--bg:{$b};--tx:{$x};--r:{$r}px;--g:{$grad};max-width:{$w}px;margin:0 auto;padding:0 16px;color:var(--tx);line-height:{$lh};font-size:{$fs}px;box-sizing:border-box}"
+		. ".ps-page *{box-sizing:border-box}.ps-sec{margin:0 0 {$gp}px}.ps-sec h2{color:var(--k);font-size:clamp(24px,3.2vw,34px);line-height:1.3;margin:0 0 14px}.ps-sec h3{color:var(--k);margin:0 0 6px;font-size:20px}"
 		. ".ps-hero{background:var(--g);color:#fff;border-radius:var(--r);padding:clamp(28px,6vw,64px) clamp(18px,4vw,48px);text-align:center}.ps-hero h2{color:#fff;font-size:clamp(26px,4.4vw,44px);margin:0 0 10px}.ps-hero p{margin:0 auto 18px;max-width:720px;opacity:.95}"
 		. ".ps-btn{display:inline-block;background:var(--a);color:#fff!important;padding:12px 26px;border-radius:999px;font-weight:700;text-decoration:none}.ps-btn:hover{filter:brightness(1.08)}.ps-hero .ps-btn{background:#fff;color:var(--k)!important}"
 		. ".ps-grid{display:grid;gap:16px;grid-template-columns:repeat(auto-fit,minmax(230px,1fr))}.ps-card{background:var(--s);border:1px solid rgba(0,0,0,.06);border-radius:var(--r);padding:20px}.ps-card p{margin:0}.ps-card .n{display:inline-flex;width:34px;height:34px;border-radius:50%;background:var(--p);color:#fff;align-items:center;justify-content:center;font-weight:700;margin-bottom:8px}"
@@ -65,7 +76,7 @@ function csa_ps_css( $t ) {
 		. ".ps-gal{display:grid;gap:10px;grid-template-columns:repeat(auto-fill,minmax(200px,1fr))}.ps-gal img{width:100%;height:170px;object-fit:cover;border-radius:var(--r);display:block}"
 		. ".ps-cta{background:var(--g);color:#fff;border-radius:var(--r);padding:clamp(24px,4vw,44px);text-align:center}.ps-cta h2{color:#fff}.ps-cta .ps-btn{background:#fff;color:var(--k)!important}"
 		. ".ps-contact{display:grid;gap:12px;grid-template-columns:repeat(auto-fit,minmax(220px,1fr))}.ps-contact div{background:var(--s);border-radius:var(--r);padding:16px}.ps-contact b{display:block;color:var(--p);margin-bottom:2px}"
-		. "@media(max-width:600px){.ps-page{font-size:16px;padding:0 14px}.ps-sec{margin-bottom:28px}.ps-table th{width:40%}}</style>";
+		. "@media(max-width:600px){.ps-page{font-size:{$fm}px;padding:0 14px}.ps-sec{margin-bottom:{$gm}px}.ps-table th{width:40%}}</style>";
 }
 
 /* ------------------------------------------------------------------ */
@@ -244,7 +255,7 @@ function csa_ps_public( $id ) {
 	$secs = csa_ps_sections();
 	$out  = array();
 	foreach ( $ps['sections'] as $i => $s ) {
-		$out[] = array( 'i' => $i, 'key' => $s['key'], 'label' => $secs[ $s['key'] ]['label'] ?? $s['key'], 'off' => ! empty( $s['off'] ) ? 1 : 0, 'ai' => ! empty( $secs[ $s['key'] ]['ai'] ) ? 1 : 0 );
+		$out[] = array( 'c' => $s['c'] ?? new stdClass(), 'i' => $i, 'key' => $s['key'], 'label' => $secs[ $s['key'] ]['label'] ?? $s['key'], 'off' => ! empty( $s['off'] ) ? 1 : 0, 'ai' => ! empty( $secs[ $s['key'] ]['ai'] ) ? 1 : 0 );
 	}
 	$ver = array();
 	foreach ( array_reverse( (array) get_post_meta( $id, '_csa_ps_ver', true ) ) as $v ) {
@@ -343,7 +354,8 @@ add_action( 'wp_ajax_csa_ps_create', function () {
 	$tk   = sanitize_key( $_POST['template'] ?? '' );
 	$tpls = csa_ps_templates();
 	if ( ! isset( $tpls[ $tk ] ) ) {
-		wp_send_json_error( 'Choose a template.' );
+		$tk = 'custom';
+		$tpls['custom'] = array( 'type' => 'post' === ( $_POST['ptype'] ?? '' ) ? 'post' : 'page', 'sections' => array( 'hero', 'intro', 'contact' ) );
 	}
 	$secs  = csa_ps_sections();
 	$keys  = array_values( array_filter( array_map( 'sanitize_key', explode( ',', (string) ( $_POST['sections'] ?? '' ) ) ), function ( $k ) use ( $secs ) { return isset( $secs[ $k ] ); } ) );
@@ -473,8 +485,39 @@ add_action( 'wp_ajax_csa_ps_edit', function () {
 				}
 			}
 			$tok['gradient'] = empty( $_POST['gradient'] ) ? 0 : 1;
+			$tok             = array_merge( $tok, csa_ps_style_in( $_POST ) );
 			$ps['tokens']    = $tok;
-			$lab             = csa_t( 'Colours changed' );
+			$lab             = csa_t( 'Colours / sizes changed' );
+			break;
+		case 'remove':
+			if ( ! isset( $s[ $i ] ) ) {
+				wp_send_json_error( 'No such section.' );
+			}
+			array_splice( $s, $i, 1 );
+			$lab = csa_t( 'Section removed' );
+			break;
+		case 'setc':
+			if ( ! isset( $s[ $i ] ) ) {
+				wp_send_json_error( 'No such section.' );
+			}
+			$c = json_decode( wp_unslash( $_POST['c'] ?? '' ), true );
+			if ( ! is_array( $c ) ) {
+				wp_send_json_error( 'Bad data.' );
+			}
+			$s[ $i ]['c'] = csa_ps_clean( $c );
+			$lab          = csa_t( 'Text edited by hand' );
+			break;
+		case 'add':
+			$key = sanitize_key( $_POST['key'] ?? '' );
+			if ( ! isset( csa_ps_sections()[ $key ] ) ) {
+				wp_send_json_error( 'Unknown section.' );
+			}
+			$new = csa_ps_new_section( $key, $p->post_title, sanitize_textarea_field( wp_unslash( $_POST['note'] ?? '' ) ) );
+			if ( is_wp_error( $new ) ) {
+				wp_send_json_error( $new->get_error_message() );
+			}
+			array_splice( $s, max( 0, min( count( $s ), (int) ( $_POST['at'] ?? count( $s ) ) ) ), 0, array( $new ) );
+			$lab = csa_t( 'Section added' ) . ': ' . $key;
 			break;
 		case 'regen':
 			if ( ! isset( $s[ $i ] ) ) {
@@ -563,6 +606,218 @@ add_action( 'wp_ajax_csa_ps_global', function () {
 	wp_send_json_success( array( 'redrawn' => $n, 'tokens' => csa_ps_tokens() ) );
 } );
 
+
+/** Number settings (sizes) from a request, kept inside safe ranges. */
+function csa_ps_style_in( $src ) {
+	$o   = array();
+	$lim = array( 'fs' => array( 13, 24 ), 'fs_m' => array( 12, 22 ), 'width' => array( 600, 1600 ), 'gap' => array( 12, 100 ), 'radius' => array( 0, 40 ) );
+	foreach ( $lim as $k => $r ) {
+		if ( isset( $src[ $k ] ) && is_numeric( $src[ $k ] ) ) {
+			$o[ $k ] = max( $r[0], min( $r[1], (int) $src[ $k ] ) );
+		}
+	}
+	if ( isset( $src['lh'] ) && is_numeric( $src['lh'] ) ) {
+		$o['lh'] = max( 1.2, min( 2.4, (float) $src['lh'] ) );
+	}
+	return $o;
+}
+
+function csa_ps_clean( $v ) {
+	if ( is_array( $v ) ) {
+		$o = array();
+		foreach ( $v as $k => $x ) {
+			$o[ is_int( $k ) ? $k : sanitize_key( $k ) ] = csa_ps_clean( $x );
+		}
+		return $o;
+	}
+	return is_scalar( $v ) ? sanitize_textarea_field( (string) $v ) : '';
+}
+
+/** A fresh section with AI-written text (or none for auto sections). */
+function csa_ps_new_section( $key, $title, $note ) {
+	$spec = csa_ps_sections()[ $key ]['ai'] ?? '';
+	$s    = array( 'key' => $key, 'c' => array() );
+	if ( 'gallery' === $key ) {
+		$s['imgs'] = get_posts( array( 'post_type' => 'attachment', 'post_mime_type' => 'image', 'post_status' => 'inherit', 'numberposts' => 6, 'fields' => 'ids' ) );
+	}
+	if ( '' === $spec ) {
+		return $s;
+	}
+	$sys = 'You write ONE section of a school web page. ' . csa_site_context() . "\n\nReturn ONLY one JSON object of this exact shape: " . $spec . CSA_PS_RULES;
+	$r   = csa_jobs_ai_json( $sys, 'Page title: ' . $title . "\nOwner's instruction: " . $note, 'Page Studio: new section', 1800 );
+	if ( is_wp_error( $r ) ) {
+		return $r;
+	}
+	$s['c'] = csa_ps_clean( $r );
+	return $s;
+}
+
+/**
+ * First step of the prompt box: the owner says what he wants in plain words; the AI answers with
+ * a short summary, up to 3 questions with ready options, and a proposed list of sections (with the reason and place).
+ */
+add_action( 'wp_ajax_csa_ps_brief', function () {
+	csa_guard( 'chat' );
+	$prompt = sanitize_textarea_field( wp_unslash( $_POST['prompt'] ?? '' ) );
+	if ( '' === $prompt ) {
+		wp_send_json_error( csa_t( 'Write what you want first.' ) );
+	}
+	$ptype  = 'post' === ( $_POST['ptype'] ?? '' ) ? 'post' : 'page';
+	$target = (int) ( $_POST['target'] ?? 0 );
+	$old    = '';
+	if ( $target && ( $p = csa_valid_post( $target ) ) ) {
+		$old = 'EXISTING PAGE "' . $p->post_title . '" text (it will be rebuilt, keep its facts):' . "\n" . mb_substr( function_exists( 'csa_si_text' ) ? csa_si_text( $p ) : wp_strip_all_tags( $p->post_content ), 0, 2500 );
+	}
+	$secs = array();
+	foreach ( csa_ps_sections() as $k => $x ) {
+		$secs[] = $k . ' = ' . $x['label'];
+	}
+	$tp = array();
+	foreach ( csa_ps_templates() as $k => $x ) {
+		$tp[] = $k . ' = ' . $x['label'] . ' (' . implode( ',', $x['sections'] ) . ')';
+	}
+	$pal = implode( ', ', array_keys( csa_ps_presets() ) );
+	$sys = 'You are the page planner for a school website. ' . csa_site_context() . "\n\nThe owner describes a page in plain words (Bangla or English). Reply in Bangla. Return ONLY JSON:\n{\"summary\":\"1-2 short sentences: what you understood\",\"title\":\"suggested page title\",\"keyword\":\"focus keyword or empty\",\"area\":\"branch name or empty\",\"template\":\"closest template key or empty\",\"palette\":\"one of: {$pal}\",\"questions\":[{\"q\":\"short question\",\"options\":[\"2 to 4 short ready answers\"]}],\"sections\":[{\"key\":\"section key\",\"where\":\"top|middle|bottom\",\"why\":\"short reason\"}]}\n\nRules: ask at most 3 questions and only about things that change the page (which branch, what colour mood, what the visitor should do, which facts you must not guess). Choose 4 to 9 sections in reading order, only from this list:\n" . implode( "\n", $secs ) . "\nTemplates:\n" . implode( "\n", $tp );
+	$r   = csa_jobs_ai_json( $sys, 'Page kind: ' . $ptype . "\nOwner says: " . $prompt . ( $old ? "\n\n" . $old : '' ) . "\nBranches on the site: " . implode( ', ', array_map( function ( $b ) { return $b['title']; }, function_exists( 'csa_branches' ) ? array_slice( csa_branches(), 0, 40 ) : array() ) ), 'Page Studio: brief', 1400 );
+	if ( is_wp_error( $r ) ) {
+		wp_send_json_error( $r->get_error_message() );
+	}
+	$all = csa_ps_sections();
+	$sec = array();
+	foreach ( (array) ( $r['sections'] ?? array() ) as $x ) {
+		if ( isset( $all[ $x['key'] ?? '' ] ) ) {
+			$sec[] = array( 'key' => $x['key'], 'label' => $all[ $x['key'] ]['label'], 'where' => sanitize_text_field( $x['where'] ?? '' ), 'why' => sanitize_text_field( $x['why'] ?? '' ) );
+		}
+	}
+	$qs = array();
+	foreach ( array_slice( (array) ( $r['questions'] ?? array() ), 0, 3 ) as $x ) {
+		if ( ! empty( $x['q'] ) ) {
+			$qs[] = array( 'q' => sanitize_text_field( $x['q'] ), 'options' => array_map( 'sanitize_text_field', array_slice( (array) ( $x['options'] ?? array() ), 0, 4 ) ) );
+		}
+	}
+	$tpl = sanitize_key( $r['template'] ?? '' );
+	$pk  = sanitize_key( $r['palette'] ?? '' );
+	wp_send_json_success( array(
+		'summary'   => sanitize_text_field( $r['summary'] ?? '' ),
+		'title'     => sanitize_text_field( $r['title'] ?? '' ),
+		'keyword'   => sanitize_text_field( $r['keyword'] ?? '' ),
+		'area'      => sanitize_text_field( $r['area'] ?? '' ),
+		'template'  => isset( csa_ps_templates()[ $tpl ] ) ? $tpl : '',
+		'palette'   => isset( csa_ps_presets()[ $pk ] ) ? $pk : 'shaheen',
+		'questions' => $qs,
+		'sections'  => $sec,
+	) );
+} );
+
+/** The command box on a finished page: the AI turns the owner's words into a list of exact changes, which are applied at once. */
+add_action( 'wp_ajax_csa_ps_command', function () {
+	csa_guard( 'chat' );
+	$id = (int) ( $_POST['id'] ?? 0 );
+	$p  = csa_valid_post( $id );
+	$ps = $p ? csa_ps_get( $id ) : null;
+	if ( ! $ps ) {
+		wp_send_json_error( csa_t( 'This page was not made with Page Studio.' ) );
+	}
+	$g = csa_live_guard( $p );
+	if ( $g ) {
+		wp_send_json_error( $g['error'] ?? 'Live editing is off.' );
+	}
+	$text = sanitize_textarea_field( wp_unslash( $_POST['text'] ?? '' ) );
+	if ( '' === $text ) {
+		wp_send_json_error( csa_t( 'Write what to change.' ) );
+	}
+	$all = csa_ps_sections();
+	$state = array();
+	foreach ( $ps['sections'] as $i => $s ) {
+		$state[] = array( 'i' => $i, 'key' => $s['key'], 'hidden' => ! empty( $s['off'] ), 'content' => $s['c'] ?? array() );
+	}
+	$shapes = array();
+	foreach ( $all as $k => $x ) {
+		if ( $x['ai'] ) {
+			$shapes[] = $k . ': ' . $x['ai'];
+		}
+	}
+	$sys = 'You edit a school web page made of sections. ' . csa_site_context() . "\n\nReply in Bangla. Return ONLY JSON: {\"reply\":\"1-2 short sentences: what you did, or what you could not do\",\"ops\":[...]}. Each op is one of:\n"
+		. "{\"op\":\"set\",\"i\":N,\"c\":{full new content in that section's shape}}\n{\"op\":\"add\",\"key\":\"...\",\"at\":N,\"c\":{content}}\n{\"op\":\"remove\",\"i\":N}\n{\"op\":\"move\",\"i\":N,\"to\":M}\n{\"op\":\"hide\",\"i\":N} or {\"op\":\"show\",\"i\":N}\n{\"op\":\"colors\",\"primary\":\"#rrggbb\",\"dark\":\"#rrggbb\",\"accent\":\"#rrggbb\",\"soft\":\"#rrggbb\",\"gradient\":0|1}\n{\"op\":\"style\",\"fs\":15-22 (desktop text px),\"fs_m\":13-20 (phone text px),\"width\":700-1400,\"gap\":16-80,\"radius\":0-30,\"lh\":1.4-2.1}\n{\"op\":\"title\",\"v\":\"new page title\"}\n"
+		. "Indexes N/M refer to the list as it is after the previous ops. Only include the keys you change. When you change text keep all facts; use the exact shapes:\n" . implode( "\n", $shapes ) . CSA_PS_RULES . "\nIf the request is impossible (a video, a form, a new unsupported block) say so in reply with ops [].";
+	$r = csa_jobs_ai_json( $sys, 'Current page "' . $p->post_title . '": ' . wp_json_encode( $state, CSA_JSON ) . "\nCurrent settings: " . wp_json_encode( array_intersect_key( csa_ps_tokens( $ps['tokens'] ?? array() ), array_flip( array( 'primary', 'dark', 'accent', 'soft', 'gradient', 'fs', 'fs_m', 'width', 'gap', 'radius', 'lh' ) ) ), CSA_JSON ) . "\n\nOwner says: " . $text, 'Page Studio: command', 3800 );
+	if ( is_wp_error( $r ) ) {
+		wp_send_json_error( $r->get_error_message() );
+	}
+	$undo = csa_snapshot_post( $id );
+	$s    =& $ps['sections'];
+	$tok  = $ps['tokens'] ?? array();
+	$n    = 0;
+	foreach ( (array) ( $r['ops'] ?? array() ) as $o ) {
+		$i  = isset( $o['i'] ) ? (int) $o['i'] : -1;
+		switch ( $o['op'] ?? '' ) {
+			case 'set':
+				if ( isset( $s[ $i ] ) && is_array( $o['c'] ?? null ) ) {
+					$s[ $i ]['c'] = csa_ps_clean( $o['c'] ); $n++;
+				}
+				break;
+			case 'add':
+				$k = sanitize_key( $o['key'] ?? '' );
+				if ( isset( $all[ $k ] ) ) {
+					$new = array( 'key' => $k, 'c' => csa_ps_clean( is_array( $o['c'] ?? null ) ? $o['c'] : array() ) );
+					if ( 'gallery' === $k ) {
+						$new['imgs'] = get_posts( array( 'post_type' => 'attachment', 'post_mime_type' => 'image', 'post_status' => 'inherit', 'numberposts' => 6, 'fields' => 'ids' ) );
+					}
+					array_splice( $s, max( 0, min( count( $s ), (int) ( $o['at'] ?? count( $s ) ) ) ), 0, array( $new ) ); $n++;
+				}
+				break;
+			case 'remove':
+				if ( isset( $s[ $i ] ) ) {
+					array_splice( $s, $i, 1 ); $n++;
+				}
+				break;
+			case 'move':
+				$to = (int) ( $o['to'] ?? -1 );
+				if ( isset( $s[ $i ] ) && $to >= 0 && $to < count( $s ) ) {
+					$m = array_splice( $s, $i, 1 ); array_splice( $s, $to, 0, $m ); $n++;
+				}
+				break;
+			case 'hide':
+			case 'show':
+				if ( isset( $s[ $i ] ) ) {
+					$s[ $i ]['off'] = 'hide' === $o['op'] ? 1 : 0; $n++;
+				}
+				break;
+			case 'colors':
+				foreach ( array( 'primary', 'dark', 'accent', 'soft' ) as $k ) {
+					if ( ! empty( $o[ $k ] ) && preg_match( '/^#[0-9a-f]{6}$/i', $o[ $k ] ) ) {
+						$tok[ $k ] = $o[ $k ]; $n++;
+					}
+				}
+				if ( isset( $o['gradient'] ) ) {
+					$tok['gradient'] = empty( $o['gradient'] ) ? 0 : 1;
+				}
+				break;
+			case 'style':
+				$st = csa_ps_style_in( $o );
+				if ( $st ) {
+					$tok = array_merge( $tok, $st ); $n++;
+				}
+				break;
+			case 'title':
+				if ( ! empty( $o['v'] ) ) {
+					wp_update_post( array( 'ID' => $id, 'post_title' => sanitize_text_field( $o['v'] ) ) ); $n++;
+				}
+				break;
+		}
+	}
+	$reply = sanitize_text_field( $r['reply'] ?? '' );
+	if ( $n ) {
+		$ps['tokens'] = $tok;
+		$sv           = csa_ps_save( $id, $ps, csa_t( 'Command' ) . ': ' . mb_substr( $text, 0, 40 ) );
+		if ( is_wp_error( $sv ) ) {
+			wp_send_json_error( $sv->get_error_message() );
+		}
+		csa_log( 'Page Studio: ' . mb_substr( $text, 0, 60 ) . ' #' . $id, $undo );
+	}
+	wp_send_json_success( array( 'reply' => $reply, 'changed' => $n, 'page' => csa_ps_public( $id ) ) );
+} );
+
 /* ------------------------------------------------------------------ */
 /* Screen                                                               */
 /* ------------------------------------------------------------------ */
@@ -570,10 +825,7 @@ add_action( 'wp_ajax_csa_ps_global', function () {
 function csa_screen_studio() {
 	csa_header( csa_t( 'Page Studio' ) );
 	?>
-	<div class="csa-card" id="csa-studio-app">
-		<p class="csa-muted"><?php echo esc_html( csa_t( 'Build a new page, rebuild an old one, or change a Studio page. Steps: 1) what to do, 2) template, 3) options and colours, 4) confirm, then look at the draft and correct it. Pages are plain HTML made of sections: nothing breaks when the text is edited, and phone, address and branches update everywhere.' ) ); ?></p>
-		<div id="ps-body"><p class="csa-muted"><?php echo esc_html( csa_t( 'Loading…' ) ); ?></p></div>
-	</div>
+	<div id="csa-studio-app"><div id="ps-body"><p class="csa-muted"><?php echo esc_html( csa_t( 'Loading…' ) ); ?></p></div></div>
 	<?php
 	csa_footer();
 }
