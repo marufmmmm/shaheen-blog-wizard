@@ -327,6 +327,15 @@ add_filter( 'the_content', function ( $c ) {
 	}
 }, 20 );
 
+// The site's own "notice" page (made with Elementor etc.) shows the list at its end, without editing it.
+add_filter( 'the_content', function ( $c ) {
+	$lp = (int) csa_sn_opt( 'list_page' );
+	if ( ! $lp || ! is_page( $lp ) || ! in_the_loop() || ! is_main_query() || ! empty( $GLOBALS['csa_sn_list_done'] ) ) {
+		return $c;
+	}
+	return $c . do_shortcode( '[shaheen_notice_list]' );
+}, 30 );
+
 /** Remember the last error of the notice tool, so it can be shown in Page Builder (a blank page leaves no other trace). */
 function csa_sn_note_error( $msg ) {
 	update_option( 'csa_sn_fatal', array( 't' => time(), 'm' => mb_substr( (string) $msg, 0, 600 ) ), false );
@@ -730,6 +739,7 @@ add_shortcode( 'shaheen_recent_notices', function ( $a ) {
 } );
 
 add_shortcode( 'shaheen_notice_list', function ( $a ) {
+	$GLOBALS['csa_sn_list_done'] = true;
 	$a   = shortcode_atts( array( 'type' => '', 'per_page' => 12 ), $a );
 	$t   = sanitize_key( $_GET['sn_t'] ?? $a['type'] );
 	$b   = sanitize_text_field( wp_unslash( $_GET['sn_b'] ?? '' ) );
@@ -814,7 +824,7 @@ add_action( 'admin_post_sn_save', function () {
 		'slug'       => sanitize_title( $in['slug'] ?? 'notice-board' ) ?: 'notice-board',
 		'css'        => wp_strip_all_tags( $in['css'] ?? '' ),
 		'model'      => sanitize_key( $in['model'] ?? '' ),
-		'list_page'  => (int) $o['list_page'],
+		'list_page'  => isset( $in['list_page'] ) ? absint( $in['list_page'] ) : (int) $o['list_page'],
 	);
 	foreach ( array( 'primary', 'dark', 'accent', 'soft' ) as $k ) {
 		$n[ $k ] = preg_match( '/^#[0-9a-f]{6}$/i', $in[ $k ] ?? '' ) ? $in[ $k ] : $o[ $k ];
@@ -880,6 +890,7 @@ function csa_sn_settings_screen() {
 		<div id="sn-acts"><?php foreach ( (array) $o['acts'] as $i => $x ) : ?><div class="sn-arow"><input type="text" class="sn-ic" name="sn[acts][<?php echo (int) $i; ?>][icon]" value="<?php echo esc_attr( $x['icon'] ); ?>" placeholder="আইকন"> <input type="text" name="sn[acts][<?php echo (int) $i; ?>][title]" value="<?php echo esc_attr( $x['title'] ); ?>" placeholder="নাম"> <input type="text" name="sn[acts][<?php echo (int) $i; ?>][text]" value="<?php echo esc_attr( $x['text'] ); ?>" placeholder="ছোট বিবরণ" style="min-width:260px"> <input type="url" name="sn[acts][<?php echo (int) $i; ?>][url]" value="<?php echo esc_attr( $x['url'] ); ?>" placeholder="লিংক"> <button type="button" class="button sn-del">মুছুন</button></div><?php endforeach; ?></div>
 		<p><button type="button" class="button" id="sn-addact">+ বক্স যোগ করুন</button> <span class="description">ওঠানো-নামানো: মুছে আবার ক্রমে যোগ করুন।</span></p></div>
 		<p><button class="button button-primary button-large">সংরক্ষণ করুন</button></p>
+		<div class="sn-set"><h2>নোটিশ-তালিকা পেজ</h2><p><b>নোটিশ-তালিকা কোন পেজে দেখাবে?</b> (আপনার আগের "নোটিশ" পেজ বাছুন; Elementor পেজ এডিট করতে হবে না, পেজের শেষে নতুন নোটিশগুলো নিজে যোগ হবে। নিচের "সংরক্ষণ" চাপুন) <?php wp_dropdown_pages( array( 'name' => 'sn[list_page]', 'selected' => (int) $o['list_page'], 'show_option_none' => '— বাছুন —', 'option_none_value' => '0', 'form' => '' ) ); ?></p><p><button class="button button-primary">সংরক্ষণ করুন</button></p></div>
 	</form>
 	<div class="sn-set"><h2>কোড (যেকোনো পেজে বসান)</h2>
 	<p><code>[shaheen_recent_notices]</code> সর্বশেষ নোটিশ (স্লাইডার) · <code>[shaheen_recent_notices type="niyog" branch="মাদারীপুর" limit="5"]</code> ছাঁকা · <code>[shaheen_activities]</code> কার্যক্রম · <code>[shaheen_home_notices]</code> দুটো একসাথে · <code>[shaheen_notice_list]</code> সব নোটিশের তালিকা (ফিল্টার সহ)। ধরনের কী (key) নিচের বক্সে দেখুন: <?php echo esc_html( implode( ', ', array_keys( $o['types'] ) ) ); ?></p>
