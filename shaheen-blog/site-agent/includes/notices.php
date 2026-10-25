@@ -23,6 +23,7 @@ function csa_sn_defaults() {
 		'list_page' => 0,
 		'old'       => '',
 		'gap'       => 12,
+		'replace'   => 0,
 		'primary'   => '#2e7d32',
 		'dark'      => '#0f3d1e',
 		'accent'    => '#d9961a',
@@ -199,6 +200,7 @@ function csa_sn_css() {
 		. ".sn-grid{display:grid;gap:12px;grid-template-columns:repeat(auto-fill,minmax(230px,1fr))}.sn-nc{background:#fff;border:1px solid #dfe6e0;border-radius:var(--r);padding:12px;text-decoration:none!important;color:inherit!important;display:block;position:relative}.sn-nc .th{aspect-ratio:16/9;border-radius:10px;margin:-2px 0 8px;display:grid;place-items:center;text-align:center;color:#fff;font-weight:700;line-height:1.3;padding:6px;background:linear-gradient(120deg,var(--k),var(--p) 60%,var(--a));overflow:hidden}.sn-nc .th img{width:100%;height:100%;object-fit:cover;display:block}"
 		. ".sn-nc small{color:var(--p);font-weight:700;display:block;font-size:.8em}.sn-nc b{font-weight:700;display:block;line-height:1.35;margin:3px 0 6px;font-size:1em;color:var(--k)}.sn-nc time{font-size:.75em;color:#889}.sn-nc .ex{position:absolute;top:18px;right:18px;background:#b3261e;color:#fff;border-radius:999px;padding:1px 10px;font-size:.7em;font-weight:700}"
 		. ".sn-rn{position:relative}.sn-trk{--pv:" . (int) ( 2 === (int) $o['per_view'] ? 2 : 1 ) . ";display:grid;gap:12px;grid-template-columns:repeat(auto-fill,minmax(230px,1fr))}.sn-dots{display:none;text-align:center;margin-top:6px}.sn-dots i{display:inline-block;width:8px;height:8px;border-radius:50%;background:#c4d2c8;margin:0 3px}.sn-dots i.on{background:var(--p);width:20px;border-radius:6px}"
+		. ".sn-board{background:linear-gradient(135deg,var(--k),var(--p));color:#fff;border-radius:var(--r);padding:22px 20px;margin:0 0 12px}.sn-board h2{margin:0 0 6px;color:#fff;font-size:1.6em}.sn-board p{margin:0 0 14px;opacity:.92}.sn-tiles{display:grid;grid-template-columns:repeat(auto-fit,minmax(130px,1fr));gap:10px}.sn-tiles div{background:#fff;color:var(--k);border-radius:12px;padding:10px 12px}.sn-tiles b{display:block;font-size:1.5em;line-height:1.2}.sn-tiles span{font-size:.85em;color:#52645a}.sn-tabs{display:flex;flex-wrap:wrap;gap:8px;margin:0 0 12px}.sn-tabs a{padding:8px 16px;border:1px solid #cfd8d1;border-radius:999px;text-decoration:none!important;color:var(--k)!important;background:#fff;font-weight:600}.sn-tabs a.on{background:var(--k);color:#fff!important;border-color:var(--k)}"
 		. ".sn-fl{display:flex;flex-wrap:wrap;gap:8px;margin:0 0 12px}.sn-fl input,.sn-fl select{padding:9px 12px;border:1px solid #cfd8d1;border-radius:10px;font:inherit;font-size:.9em;background:#fff}.sn-fl button{padding:9px 18px;border:0;border-radius:10px;background:var(--p);color:#fff;font:inherit;font-size:.9em;font-weight:700;cursor:pointer}.sn-pg{display:flex;gap:6px;flex-wrap:wrap;margin-top:12px}.sn-pg a,.sn-pg span{padding:7px 14px;border-radius:8px;border:1px solid #cfd8d1;text-decoration:none;color:var(--k)}.sn-pg span{background:var(--p);color:#fff;border-color:var(--p)}"
 		/* activities */
 		. ".sn-act{text-align:center}.sn-act small{display:block;color:var(--p);font-weight:700;font-size:.85em;line-height:1.3}.sn-act h2{margin:0;font-size:1.5em;color:var(--k);line-height:1.25}.sn-act .lead{margin:0 0 6px;color:#556;font-size:.9em;line-height:1.4}"
@@ -321,7 +323,7 @@ function csa_sn_render( $id ) {
 	$mk   = function ( $p ) use ( $types ) {
 		$pt = (string) get_post_meta( $p->ID, '_sn_type', true );
 		$pb = (string) get_post_meta( $p->ID, '_sn_branch', true );
-		return '<li><a href="' . esc_url( get_permalink( $p ) ) . '"><small>' . esc_html( ( $types[ $pt ]['label'] ?? '' ) . ( $pb ? ' · ' . $pb : '' ) ) . '</small>' . esc_html( get_the_title( $p ) ) . '<br><time>' . esc_html( csa_sn_date( get_post_time( 'U', true, $p ) ) ) . '</time></a></li>';
+		return '<li><a href="' . esc_url( csa_sn_url( $p ) ) . '"><small>' . esc_html( ( $types[ $pt ]['label'] ?? '' ) . ( $pb ? ' · ' . $pb : '' ) ) . '</small>' . esc_html( get_the_title( $p ) ) . '<br><time>' . esc_html( csa_sn_date( get_post_time( 'U', true, $p ) ) ) . '</time></a></li>';
 	};
 	// Same kind first, then the other kinds, so the side is never empty while the site has other notices.
 	foreach ( array( $d['type'] ?? '', '' ) as $tp ) {
@@ -376,7 +378,7 @@ add_filter( 'the_content', function ( $c ) {
 	if ( ! $lp || ! is_page( $lp ) || ! in_the_loop() || ! is_main_query() || ! empty( $GLOBALS['csa_sn_list_done'] ) ) {
 		return $c;
 	}
-	return $c . do_shortcode( '[shaheen_notice_list]' );
+	return csa_sn_opt( 'replace' ) ? do_shortcode( '[shaheen_notice_list header="1"]' ) : $c . do_shortcode( '[shaheen_notice_list]' );
 }, 30 );
 
 /** Remember the last error of the notice tool, so it can be shown in Page Builder (a blank page leaves no other trace). */
@@ -635,7 +637,7 @@ add_action( 'add_meta_boxes', function () {
 
 add_action( 'admin_enqueue_scripts', function ( $hook ) {
 	$scr = get_current_screen();
-	if ( false !== strpos( $hook, 'sn-settings' ) || false !== strpos( $hook, 'sef-builder' ) ) {
+	if ( false !== strpos( $hook, 'sn-settings' ) || false !== strpos( $hook, 'sn-import' ) || false !== strpos( $hook, 'sef-builder' ) ) {
 		wp_enqueue_style( 'sn-admin', CSA_URL . 'assets/notice.css', array(), CSA_VER );
 		return;
 	}
@@ -730,6 +732,22 @@ add_action( 'wp_ajax_csa_sn_sum', function () {
 /* Shortcodes                                                           */
 /* ------------------------------------------------------------------ */
 
+/** Where a notice card goes: an imported old page keeps its own address. */
+function csa_sn_url( $p ) {
+	$l = (string) get_post_meta( is_object( $p ) ? $p->ID : $p, '_sn_link', true );
+	return $l ? $l : get_permalink( $p );
+}
+
+add_action( 'template_redirect', function () {
+	if ( is_singular( 'sef_notice' ) ) {
+		$l = (string) get_post_meta( get_the_ID(), '_sn_link', true );
+		if ( $l && ! is_user_logged_in() ) {
+			wp_redirect( $l, 301 );
+			exit;
+		}
+	}
+} );
+
 function csa_sn_card( $p ) {
 	$id  = $p->ID;
 	$d   = csa_sn_get( $id );
@@ -737,7 +755,7 @@ function csa_sn_card( $p ) {
 	$br  = (string) ( $d['branch'] ?? '' );
 	$img = get_the_post_thumbnail_url( $id, 'medium_large' );
 	$th  = $img ? '<img loading="lazy" src="' . esc_url( $img ) . '" alt="">' : esc_html( ( $br ? $br . ' — ' : '' ) . ( ( $d['topic'] ?? '' ) ?: $ty ) );
-	return '<a class="sn-nc" href="' . esc_url( get_permalink( $id ) ) . '"><div class="th">' . $th . '</div><small>' . esc_html( $ty . ( $br ? ' · ' . $br : '' ) ) . '</small><b>' . esc_html( get_the_title( $id ) ) . '</b><time>' . esc_html( csa_sn_date( get_post_time( 'U', true, $p ) ) ) . '</time>' . ( csa_sn_expired( $id ) ? '<span class="ex">মেয়াদ শেষ</span>' : '' ) . '</a>';
+	return '<a class="sn-nc" href="' . esc_url( csa_sn_url( $p ) ) . '"><div class="th">' . $th . '</div><small>' . esc_html( $ty . ( $br ? ' · ' . $br : '' ) ) . '</small><b>' . esc_html( get_the_title( $id ) ) . '</b><time>' . esc_html( csa_sn_date( get_post_time( 'U', true, $p ) ) ) . '</time>' . ( csa_sn_expired( $id ) ? '<span class="ex">মেয়াদ শেষ</span>' : '' ) . '</a>';
 }
 
 function csa_sn_query( $a, $n, $paged = 1 ) {
@@ -783,7 +801,7 @@ add_shortcode( 'shaheen_recent_notices', function ( $a ) {
 
 add_shortcode( 'shaheen_notice_list', function ( $a ) {
 	$GLOBALS['csa_sn_list_done'] = true;
-	$a   = shortcode_atts( array( 'type' => '', 'per_page' => 12 ), $a );
+	$a   = shortcode_atts( array( 'type' => '', 'per_page' => 12, 'header' => 0 ), $a );
 	$t   = sanitize_key( $_GET['sn_t'] ?? $a['type'] );
 	$b   = sanitize_text_field( wp_unslash( $_GET['sn_b'] ?? '' ) );
 	$s   = sanitize_text_field( wp_unslash( $_GET['sn_q'] ?? '' ) );
@@ -805,7 +823,22 @@ add_shortcode( 'shaheen_notice_list', function ( $a ) {
 		}
 		$pgs = '<div class="sn-pg">' . $pgs . '</div>';
 	}
-	return csa_sn_css() . '<div class="sn">' . $f . ( $c ? '<div class="sn-grid">' . $c . '</div>' . $pgs : '<p>কোনো নোটিশ পাওয়া যায়নি।</p>' ) . '</div>';
+	$hd = '';
+	if ( $a['header'] ) {
+		$tabs = '<a class="' . ( $t ? '' : 'on' ) . '" href="' . esc_url( remove_query_arg( array( 'sn_t', 'sn_pg' ) ) ) . '">সব নোটিশ</a>';
+		$tiles = '';
+		$tot  = (int) wp_count_posts( 'sef_notice' )->publish;
+		$tiles .= '<div><b>' . csa_sn_bn( $tot ) . '</b><span>মোট নোটিশ</span></div>';
+		foreach ( csa_sn_opt( 'types' ) as $k => $ty ) {
+			$n = (int) ( new WP_Query( array( 'post_type' => 'sef_notice', 'post_status' => 'publish', 'posts_per_page' => 1, 'fields' => 'ids', 'meta_key' => '_sn_type', 'meta_value' => $k ) ) )->found_posts;
+			if ( $n ) {
+				$tiles .= '<div><b>' . csa_sn_bn( $n ) . '</b><span>' . esc_html( $ty['label'] ) . '</span></div>';
+				$tabs  .= '<a class="' . ( $t === $k ? 'on' : '' ) . '" href="' . esc_url( add_query_arg( 'sn_t', $k, remove_query_arg( 'sn_pg' ) ) ) . '">' . esc_html( $ty['label'] ) . '</a>';
+			}
+		}
+		$hd = '<div class="sn-board"><h2>🔔 নোটিশ বোর্ড</h2><p>নিয়োগ বিজ্ঞপ্তি, পরীক্ষার ফলাফল ও যাবতীয় প্রাতিষ্ঠানিক ঘোষণা এখানে যথাসময়ে প্রকাশ করা হয়।</p><div class="sn-tiles">' . $tiles . '</div></div><div class="sn-tabs">' . $tabs . '</div>';
+	}
+	return csa_sn_css() . '<div class="sn">' . $hd . $f . ( $c ? '<div class="sn-grid">' . $c . '</div>' . $pgs : '<p>কোনো নোটিশ পাওয়া যায়নি।</p>' ) . '</div>';
 } );
 
 add_shortcode( 'shaheen_activities', function ( $a ) {
@@ -831,8 +864,120 @@ add_shortcode( 'shaheen_home_notices', function ( $a ) {
 add_action( 'admin_menu', function () {
 	add_menu_page( 'Page Builder', 'Page Builder', 'edit_posts', 'sef-builder', 'csa_sn_overview', 'dashicons-layout', 29 );
 	add_submenu_page( 'sef-builder', 'Page Builder', 'ওভারভিউ', 'edit_posts', 'sef-builder', 'csa_sn_overview' );
+	add_submenu_page( 'sef-builder', 'পুরোনো নোটিশ আনুন', 'পুরোনো নোটিশ আনুন', 'manage_options', 'sn-import', 'csa_sn_import_screen' );
 	add_submenu_page( 'sef-builder', 'নোটিশ সেটিংস', 'নোটিশ সেটিংস', 'manage_options', 'sn-settings', 'csa_sn_settings_screen' );
 }, 5 );
+
+/* ------------------------------------------------------------------ */
+/* Bring the site's old notice pages into the list                      */
+/* ------------------------------------------------------------------ */
+
+function csa_sn_guess_type( $t ) {
+	$types = array_keys( csa_sn_opt( 'types' ) );
+	$has   = function ( $k ) use ( $types ) {
+		return in_array( $k, $types, true );
+	};
+	if ( preg_match( '/ফলাফল|result/iu', $t ) ) {
+		return preg_match( '/বৃত্তি/u', $t ) && $has( 'britti_result' ) ? 'britti_result' : ( $has( 'niyog_result' ) ? 'niyog_result' : reset( $types ) );
+	}
+	if ( preg_match( '/বৃত্তি|সিলেবাস/u', $t ) && $has( 'britti' ) ) {
+		return 'britti';
+	}
+	return $has( 'niyog' ) ? 'niyog' : reset( $types );
+}
+
+function csa_sn_candidates() {
+	$have = array();
+	foreach ( get_posts( array( 'post_type' => 'sef_notice', 'post_status' => 'any', 'numberposts' => -1, 'fields' => 'ids', 'meta_key' => '_sn_src' ) ) as $nid ) {
+		$have[ (int) get_post_meta( $nid, '_sn_src', true ) ] = 1;
+	}
+	$skip = array_filter( array( csa_sn_listpage_id(), (int) get_option( 'page_on_front' ), (int) get_option( 'page_for_posts' ) ) );
+	$out  = array();
+	foreach ( get_posts( array( 'post_type' => array( 'page', 'post' ), 'post_status' => 'publish', 'numberposts' => 600, 'orderby' => 'date', 'order' => 'DESC' ) ) as $p ) {
+		if ( isset( $have[ $p->ID ] ) || in_array( $p->ID, $skip, true ) ) {
+			continue;
+		}
+		if ( preg_match( '/নিয়োগ|ফলাফল|বৃত্তি|বিজ্ঞপ্তি|নোটিশ|সিলেবাস|প্রবেশপত্র|আবেদন|রেজাল্ট|result|notice|circular|admit|vacanc|recruit|scholarship/iu', $p->post_title . ' ' . $p->post_name ) ) {
+			$out[] = $p;
+		}
+	}
+	return $out;
+}
+
+function csa_sn_import_one( $title, $url, $date, $type, $src = 0, $thumb = 0 ) {
+	$d  = array( 'type' => $type, 'branch' => '', 'topic' => $title, 'year' => '', 'summary' => '', 'expiry' => '', 'slug' => '', 'blocks' => array() );
+	if ( preg_match( '/([^\s,–\-—|]+)\s*শাখা/u', $title, $m ) ) {
+		$d['branch'] = $m[1] . ' শাখা';
+	}
+	$arr = array( 'post_type' => 'sef_notice', 'post_status' => 'publish', 'post_title' => $title, 'post_name' => sanitize_title( 'old-' . ( $src ?: wp_generate_password( 6, false ) ) ) );
+	if ( $date ) {
+		$ts = strtotime( $date );
+		if ( $ts ) {
+			$arr['post_date']     = wp_date( 'Y-m-d H:i:s', $ts );
+			$arr['post_date_gmt'] = gmdate( 'Y-m-d H:i:s', $ts );
+		}
+	}
+	$id = wp_insert_post( $arr );
+	if ( ! $id || is_wp_error( $id ) ) {
+		return 0;
+	}
+	update_post_meta( $id, '_sn', wp_slash( $d ) );
+	update_post_meta( $id, '_sn_type', $type );
+	update_post_meta( $id, '_sn_branch', $d['branch'] );
+	update_post_meta( $id, '_sn_link', esc_url_raw( $url ) );
+	if ( $src ) {
+		update_post_meta( $id, '_sn_src', $src );
+	}
+	if ( $thumb ) {
+		set_post_thumbnail( $id, $thumb );
+	}
+	return $id;
+}
+
+add_action( 'admin_post_sn_import', function () {
+	if ( ! current_user_can( 'manage_options' ) || ! check_admin_referer( 'sn_import' ) ) {
+		wp_die( 'No.' );
+	}
+	$n   = 0;
+	$ty  = (array) ( $_POST['ty'] ?? array() );
+	foreach ( array_map( 'absint', (array) ( $_POST['pick'] ?? array() ) ) as $pid ) {
+		$p = get_post( $pid );
+		if ( $p && 'publish' === $p->post_status && ! get_posts( array( 'post_type' => 'sef_notice', 'post_status' => 'any', 'numberposts' => 1, 'fields' => 'ids', 'meta_key' => '_sn_src', 'meta_value' => $pid ) ) ) {
+			$type = sanitize_key( $ty[ $pid ] ?? '' ) ?: csa_sn_guess_type( $p->post_title );
+			if ( csa_sn_import_one( $p->post_title, get_permalink( $p ), $p->post_date, $type, $pid, (int) get_post_thumbnail_id( $pid ) ) ) {
+				$n++;
+			}
+		}
+	}
+	foreach ( preg_split( '/\r?\n/', wp_unslash( $_POST['extra'] ?? '' ) ) as $ln ) {
+		$pp = array_map( 'trim', explode( '|', $ln ) );
+		if ( count( $pp ) >= 2 && '' !== $pp[0] && preg_match( '#^https?://#i', $pp[1] ) && csa_sn_import_one( sanitize_text_field( $pp[0] ), $pp[1], $pp[2] ?? '', csa_sn_guess_type( $pp[0] ) ) ) {
+			$n++;
+		}
+	}
+	wp_safe_redirect( admin_url( 'admin.php?page=sn-import&done=' . $n ) );
+	exit;
+} );
+
+function csa_sn_import_screen() {
+	$rows = csa_sn_candidates();
+	$ty   = csa_sn_opt( 'types' );
+	?>
+	<div class="wrap" id="sn-settings"><h1>পুরোনো নোটিশ আনুন</h1>
+	<?php echo isset( $_GET['done'] ) ? '<div class="notice notice-success"><p>' . (int) $_GET['done'] . 'টা নোটিশ তালিকায় যোগ হয়েছে ✓ — এখন নোটিশ সেটিংসে "পুরোনো লেখা সরিয়ে শুধু নোটিশ বোর্ড" চালু করুন।</p></div>' : ''; ?>
+	<p>সাইটের যে পেজ/পোস্টের নামে নিয়োগ, ফলাফল, বৃত্তি, বিজ্ঞপ্তি ইত্যাদি আছে, সেগুলো নিচে এসেছে। টিক দেওয়াগুলো নোটিশ-তালিকায় যোগ হবে। কার্ডে চাপলে আগের পেজেই যাবে (পেজ বদলায় না), আর তারিখ আগের পেজের তারিখই থাকবে, তাই নতুনটা সবার আগে দেখাবে।</p>
+	<form method="post" action="<?php echo esc_url( admin_url( 'admin-post.php' ) ); ?>"><?php wp_nonce_field( 'sn_import' ); ?><input type="hidden" name="action" value="sn_import">
+	<table class="widefat striped"><thead><tr><td style="width:30px"><input type="checkbox" onclick="document.querySelectorAll('.sn-pk').forEach(function(c){c.checked=this.checked}.bind(this))" checked></td><th>পেজের নাম</th><th>তারিখ</th><th>ধরন</th></tr></thead><tbody>
+	<?php foreach ( $rows as $p ) : $g = csa_sn_guess_type( $p->post_title ); ?>
+		<tr><td><input class="sn-pk" type="checkbox" name="pick[]" value="<?php echo (int) $p->ID; ?>" checked></td><td><a href="<?php echo esc_url( get_permalink( $p ) ); ?>" target="_blank"><?php echo esc_html( $p->post_title ); ?></a> <small>/<?php echo esc_html( $p->post_name ); ?>/</small></td><td><?php echo esc_html( csa_sn_date( get_post_time( 'U', true, $p ) ) ); ?></td><td><select name="ty[<?php echo (int) $p->ID; ?>]"><?php foreach ( $ty as $k => $t ) { echo '<option value="' . esc_attr( $k ) . '"' . selected( $g, $k, false ) . '>' . esc_html( $t['label'] ) . '</option>'; } ?></select></td></tr>
+	<?php endforeach; if ( ! $rows ) { echo '<tr><td colspan="4">নতুন কিছু পাওয়া যায়নি।</td></tr>'; } ?>
+	</tbody></table>
+	<h2>অন্য লিংক (Drive, বা তালিকায় না আসা পেজ)</h2>
+	<p class="description">প্রতি লাইনে একটা: <code>নাম | লিংক | তারিখ (২০২৫-০৫-১০, ঐচ্ছিক)</code></p>
+	<textarea name="extra" rows="5" class="large-text"></textarea>
+	<p><button class="button button-primary button-large">তালিকায় যোগ করুন</button></p></form></div>
+	<?php
+}
 
 function csa_sn_overview() {
 	$o = csa_sn_opts();
@@ -868,6 +1013,7 @@ add_action( 'admin_post_sn_save', function () {
 		'css'        => wp_strip_all_tags( $in['css'] ?? '' ),
 		'model'      => sanitize_key( $in['model'] ?? '' ),
 		'gap'        => max( 0, min( 80, (int) ( $in['gap'] ?? 12 ) ) ),
+		'replace'    => empty( $in['replace'] ) ? 0 : 1,
 		'old'        => sanitize_textarea_field( $in['old'] ?? '' ),
 		'list_page'  => isset( $in['list_page'] ) ? absint( $in['list_page'] ) : (int) $o['list_page'],
 	);
@@ -937,7 +1083,7 @@ function csa_sn_settings_screen() {
 		<p><button type="button" class="button" id="sn-addact">+ বক্স যোগ করুন</button> <span class="description">ওঠানো-নামানো: মুছে আবার ক্রমে যোগ করুন।</span></p></div>
 		<p><button class="button button-primary button-large">সংরক্ষণ করুন</button></p>
 		<div class="sn-set"><h2>পুরোনো পেজের নোটিশ (ডানের "আগের নোটিশ" বক্সে দেখাবে)</h2><p class="description">প্রতি লাইনে একটা: <code>নাম | লিংক</code> — যেমন: <code>মাদারীপুর শিক্ষক নিয়োগ ২০২৬ | https://shaheen.edu.bd/madaripur-26/</code>। সর্বোচ্চ ১২টা।</p><textarea name="sn[old]" rows="6" class="large-text"><?php echo esc_textarea( $o['old'] ); ?></textarea></div>
-		<div class="sn-set"><h2>নোটিশ-তালিকা পেজ</h2><p><b>নোটিশ-তালিকা কোন পেজে দেখাবে?</b> (না বাছলে আপনার আগের /notice/ পেজই নিজে ধরবে; Elementor পেজ এডিট করতে হবে না, পেজের শেষে নতুন নোটিশগুলো নিজে যোগ হবে। নিচের "সংরক্ষণ" চাপুন) <?php wp_dropdown_pages( array( 'name' => 'sn[list_page]', 'selected' => (int) $o['list_page'], 'show_option_none' => '— বাছুন —', 'option_none_value' => '0', 'form' => '' ) ); ?></p><p><button class="button button-primary">সংরক্ষণ করুন</button></p></div>
+		<div class="sn-set"><h2>নোটিশ-তালিকা পেজ</h2><p><b>নোটিশ-তালিকা কোন পেজে দেখাবে?</b> (না বাছলে আপনার আগের /notice/ পেজই নিজে ধরবে; Elementor পেজ এডিট করতে হবে না, পেজের শেষে নতুন নোটিশগুলো নিজে যোগ হবে। নিচের "সংরক্ষণ" চাপুন) <?php wp_dropdown_pages( array( 'name' => 'sn[list_page]', 'selected' => (int) $o['list_page'], 'show_option_none' => '— বাছুন —', 'option_none_value' => '0', 'form' => '' ) ); ?></p><p><label><input type="checkbox" name="sn[replace]" value="1" <?php checked( $o['replace'] ); ?>> ওই পেজের পুরোনো লেখা সরিয়ে শুধু নোটিশ বোর্ড (সব নোটিশ, নতুনটা আগে) দেখান — পুরোনো নোটিশগুলো আনার পরে এটা চালু করুন</label></p><p><button class="button button-primary">সংরক্ষণ করুন</button></p></div>
 	</form>
 	<div class="sn-set"><h2>কোড (যেকোনো পেজে বসান)</h2>
 	<p><code>[shaheen_recent_notices]</code> সর্বশেষ নোটিশ (স্লাইডার) · <code>[shaheen_recent_notices type="niyog" branch="মাদারীপুর" limit="5"]</code> ছাঁকা · <code>[shaheen_activities]</code> কার্যক্রম · <code>[shaheen_home_notices]</code> দুটো একসাথে · <code>[shaheen_notice_list]</code> সব নোটিশের তালিকা (ফিল্টার সহ)। ধরনের কী (key) নিচের বক্সে দেখুন: <?php echo esc_html( implode( ', ', array_keys( $o['types'] ) ) ); ?></p>
