@@ -190,8 +190,8 @@ function csa_jobs_build( $id ) {
 /* One small AI call that returns JSON                                  */
 /* ------------------------------------------------------------------ */
 
-function csa_jobs_ai_json( $system, $user, $feature, $max = 900 ) {
-	$data = csa_claude( array( array( 'role' => 'user', 'content' => $user ) ), $system, array( 'max_tokens' => $max, 'task' => 'seo', 'feature' => $feature ) );
+function csa_jobs_ai_json( $system, $user, $feature, $max = 900, $extra = array() ) {
+	$data = csa_claude( array( array( 'role' => 'user', 'content' => $user ) ), $system, array_merge( array( 'max_tokens' => $max, 'task' => 'seo', 'feature' => $feature ), $extra ) );
 	if ( is_wp_error( $data ) ) {
 		return $data;
 	}
