@@ -29,6 +29,12 @@
 	function blank(t) {
 		return { cards: { t: 'cards', rows: [{ l: '', v: '' }] }, list: { t: 'list', h: '', lines: '' }, text: { t: 'text', h: '', body: '' }, note: { t: 'note', body: '' }, image: { t: 'image', ids: [], urls: [], cap: '' }, buttons: { t: 'buttons', items: [{ label: '', url: '', kind: 'oth' }] }, phones: { t: 'phones', h: '', nums: '' }, video: { t: 'video', h: '', url: '' }, html: { t: 'html', code: '' } }[t];
 	}
+	function cardHint(l) {
+		l = l || '';
+		if (/ভেন্যু|স্থান|ঠিকানা|কেন্দ্র/.test(l)) return { ph: 'পূর্ণ ঠিকানা লিখুন', tip: '💡 পূর্ণ ঠিকানা লিখুন: প্রতিষ্ঠানের নাম, এলাকা, উপজেলা, জেলা। যেমন: শাহীন স্কুল এন্ড ক্যাডেট কোচিং, ঝিলমিল, মাদারীপুর সদর, মাদারীপুর। (প্রার্থী যেন সহজে খুঁজে পায়)' };
+		if (/সময়|তারিখ|দিন/.test(l)) return { ph: 'যেমন: ১৮ নভেম্বর ২০২৬, রাত ১০টা', tip: '' };
+		return { ph: 'মান লিখুন', tip: '' };
+	}
 	function blankRow(t) { return t === 'cards' ? { l: '', v: '' } : { label: '', url: '', kind: 'oth' }; }
 	if (!D.type) D.type = TYPES[0] ? TYPES[0].key : '';
 	if (!D.year) D.year = SN.year;
@@ -40,7 +46,7 @@
 	function blockHTML(b, i) {
 		var h = '<div class="sn-b" data-i="' + i + '"><div class="sn-bh"><b>' + esc(KIND[b.t] || b.t) + '</b><span><button type="button" class="button button-small" data-m="up">↑</button> <button type="button" class="button button-small" data-m="down">↓</button> <button type="button" class="button button-small" data-m="del">🗑</button></span></div><div class="sn-bb">';
 		if (b.t === 'cards') {
-			h += b.rows.map(function (r, k) { return '<div class="sn-r"><input data-p="rows.' + k + '.l" value="' + esc(r.l) + '" placeholder="নাম (যেমন: আবেদনের শেষ সময়)"><input data-p="rows.' + k + '.v" value="' + esc(r.v) + '" placeholder="মান (যেমন: ১৮ নভেম্বর ২০২৬, রাত ১০টা)"><button type="button" class="button button-small" data-rd="rows.' + k + '">✕</button></div>'; }).join('') + '<button type="button" class="button button-small" data-ra="rows">+ কার্ড</button>';
+			h += b.rows.map(function (r, k) { return '<div class="sn-r"><input data-p="rows.' + k + '.l" value="' + esc(r.l) + '" placeholder="নাম (যেমন: আবেদনের শেষ সময়)"><input data-p="rows.' + k + '.v" value="' + esc(r.v) + '" placeholder="' + esc(cardHint(r.l).ph) + '"><button type="button" class="button button-small" data-rd="rows.' + k + '">✕</button></div>' + (cardHint(r.l).tip ? '<div class="sn-hint">' + esc(cardHint(r.l).tip) + '</div>' : ''); }).join('') + '<button type="button" class="button button-small" data-ra="rows">+ কার্ড</button>';
 		} else if (b.t === 'list') {
 			h += '<input data-p="h" value="' + esc(b.h) + '" placeholder="শিরোনাম (যেমন: শর্তসমূহ)"><textarea data-p="lines" rows="6" placeholder="প্রতি লাইনে একটা শর্ত। পুরো লেখা একসাথে পেস্ট করলেও প্রতি লাইন আলাদা শর্ত হবে।">' + esc(b.lines) + '</textarea>';
 		} else if (b.t === 'text') {
@@ -76,7 +82,12 @@
 			'</div>' +
 			'<h3>পেজের অংশ (ওপর থেকে নিচে এই ক্রমে দেখাবে)</h3><div id="sn-bl">' + D.blocks.map(blockHTML).join('') + '</div>' +
 			'<p class="sn-add">যোগ করুন: <select id="sn-addk">' + Object.keys(KIND).map(function (k) { return '<option value="' + k + '">' + KIND[k] + '</option>'; }).join('') + '</select> <button type="button" class="button" id="sn-addb">+ অংশ যোগ</button></p>' +
-			field('সারসংক্ষেপ (তালিকা ও Google-এর জন্য, ১-২ লাইন; AI পূরণ করে দেয়)', '<textarea id="sn-sum" rows="2">' + esc(D.summary || '') + '</textarea>') +
+			'<div class="sn-seo"><h3>সারসংক্ষেপ ও Google (SEO)</h3><p class="description">খালি রাখলে সেভ করার সময় নিজে পূরণ হবে। ভালো লেখা চাইলে বাটনে চাপুন, পরে নিজে বদলাতেও পারবেন। Yoast/Rank Math থাকলে সেখানেও বসে যাবে।</p>' +
+			'<p><button type="button" class="button button-primary" id="sn-sumgo">✨ AI দিয়ে সারসংক্ষেপ ও SEO লিখুন</button> <span id="sn-summsg"></span></p>' +
+			field('সারসংক্ষেপ (তালিকা ও Google-এর জন্য, ১-২ লাইন)', '<textarea id="sn-sum" rows="2">' + esc(D.summary || '') + '</textarea>') +
+			field('SEO শিরোনাম (Google-এ যা দেখাবে, ~৬০ অক্ষর)', '<input id="sn-st" value="' + esc(D.seo_t || '') + '">') +
+			field('SEO বিবরণ (~১২০-১৫৫ অক্ষর)', '<textarea id="sn-sd" rows="2">' + esc(D.seo_d || '') + '</textarea>') +
+			field('ফোকাস কিওয়ার্ড', '<input id="sn-sk" value="' + esc(D.seo_k || '') + '" placeholder="যেমন: মাদারীপুর সহকারী শিক্ষক নিয়োগ ২০২৬">') + '</div>' +
 			'<p class="sn-det"><label><input type="checkbox" id="sn-det"' + (D.detached ? ' checked' : '') + '> হাতে পুরো HTML এডিট করব (ফর্ম থেকে আলাদা হবে, এরপর শুধু WordPress এডিটরে বদলাবে)</label></p>';
 		var ed = document.getElementById('postdivrich'); if (ed) ed.style.display = D.detached ? '' : 'none';
 		bind();
@@ -101,10 +112,19 @@
 			f.on('select', function () { AIM = f.state().get('selection').map(function (a) { return a.toJSON().id; }).slice(0, 3); q('#sn-aipn').textContent = AIM.length + 'টা ছবি বাছা হয়েছে'; });
 			f.open();
 		};
-		[['#sn-topic', 'topic'], ['#sn-year', 'year'], ['#sn-exp', 'expiry'], ['#sn-slug', 'slug'], ['#sn-sum', 'summary']].forEach(function (x) { var e = q(x[0]); e.oninput = e.onchange = function () { D[x[1]] = this.value; save(); }; });
+		[['#sn-topic', 'topic'], ['#sn-year', 'year'], ['#sn-exp', 'expiry'], ['#sn-slug', 'slug'], ['#sn-sum', 'summary'], ['#sn-st', 'seo_t'], ['#sn-sd', 'seo_d'], ['#sn-sk', 'seo_k']].forEach(function (x) { var e = q(x[0]); e.oninput = e.onchange = function () { D[x[1]] = this.value; save(); }; });
 		q('#sn-det').onchange = function () { D.detached = this.checked ? 1 : 0; save(); };
 		q('#sn-addb').onclick = function () { D.blocks.push(blank(q('#sn-addk').value)); draw(); };
 		q('#sn-aigo').onclick = ai;
+		q('#sn-sumgo').onclick = async function () {
+			var m = q('#sn-summsg'), bt = this; bt.disabled = true; m.textContent = 'লিখছি…';
+			try {
+				var r = await fetch(SN.ajax, { method: 'POST', credentials: 'same-origin', body: new URLSearchParams({ action: 'csa_sn_sum', nonce: SN.nonce, data: JSON.stringify(D) }) }), j = await r.json();
+				if (!j.success) { m.textContent = '⚠ ' + j.data; bt.disabled = false; return; }
+				if (j.data.summary) D.summary = j.data.summary; if (j.data.seo_t) D.seo_t = j.data.seo_t; if (j.data.seo_d) D.seo_d = j.data.seo_d; if (j.data.seo_k) D.seo_k = j.data.seo_k;
+				draw(); app.querySelector('#sn-summsg').textContent = '✓ লেখা হয়েছে, দেখে নিন';
+			} catch (e) { m.textContent = '⚠ ' + e.message; bt.disabled = false; }
+		};
 		$$('.sn-b').forEach(function (el) {
 			var i = +el.dataset.i, b = D.blocks[i];
 			$$('[data-p]', el).forEach(function (n) { n.oninput = n.onchange = function () { setP(b, n.dataset.p, n.value); save(); }; });

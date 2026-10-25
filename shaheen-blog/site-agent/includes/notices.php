@@ -301,8 +301,46 @@ add_filter( 'the_content', function ( $c ) {
 	if ( ! empty( $d['detached'] ) ) {
 		return $c;
 	}
-	return csa_sn_render( get_the_ID() );
+	try {
+		return csa_sn_render( get_the_ID() );
+	} catch ( \Throwable $e ) {
+		csa_sn_note_error( $e->getMessage() . ' @' . basename( $e->getFile() ) . ':' . $e->getLine() );
+		return $c . ( current_user_can( 'edit_posts' ) ? '<p style="color:#b00">নোটিশ দেখাতে সমস্যা হয়েছে: ' . esc_html( $e->getMessage() ) . '</p>' : '' );
+	}
 }, 20 );
+
+/** Remember the last error of the notice tool, so it can be shown in Page Builder (a blank page leaves no other trace). */
+function csa_sn_note_error( $msg ) {
+	update_option( 'csa_sn_fatal', array( 't' => time(), 'm' => mb_substr( (string) $msg, 0, 600 ) ), false );
+}
+
+function csa_sn_watch() {
+	static $on = false;
+	if ( $on ) {
+		return;
+	}
+	$on = true;
+	register_shutdown_function( function () {
+		$e = error_get_last();
+		if ( $e && in_array( $e['type'], array( E_ERROR, E_PARSE, E_CORE_ERROR, E_COMPILE_ERROR, E_USER_ERROR, E_RECOVERABLE_ERROR ), true ) ) {
+			csa_sn_note_error( $e['message'] . ' @' . basename( $e['file'] ) . ':' . $e['line'] );
+		}
+	} );
+}
+add_action( 'load-post.php', 'csa_sn_watch' );
+add_action( 'load-post-new.php', 'csa_sn_watch' );
+add_action( 'template_redirect', function () {
+	if ( is_singular( 'sef_notice' ) ) {
+		csa_sn_watch();
+	}
+} );
+add_action( 'admin_post_sn_clearerr', function () {
+	if ( current_user_can( 'manage_options' ) && check_admin_referer( 'sn_clearerr' ) ) {
+		delete_option( 'csa_sn_fatal' );
+	}
+	wp_safe_redirect( admin_url( 'admin.php?page=sef-builder' ) );
+	exit;
+} );
 
 add_action( 'wp_head', function () {
 	if ( ! is_singular( 'sef_notice' ) ) {
@@ -392,6 +430,9 @@ function csa_sn_clean( $d ) {
 		'summary'  => sanitize_textarea_field( $d['summary'] ?? '' ),
 		'expiry'   => preg_match( '/^\d{4}-\d{2}-\d{2}$/', $d['expiry'] ?? '' ) ? $d['expiry'] : '',
 		'slug'     => sanitize_title( $d['slug'] ?? '' ),
+		'seo_t'    => sanitize_text_field( $d['seo_t'] ?? '' ),
+		'seo_d'    => sanitize_textarea_field( $d['seo_d'] ?? '' ),
+		'seo_k'    => sanitize_text_field( $d['seo_k'] ?? '' ),
 		'detached' => empty( $d['detached'] ) ? 0 : 1,
 		'blocks'   => csa_sn_clean_blocks( $d['blocks'] ?? array() ),
 	);
@@ -425,8 +466,13 @@ add_action( 'save_post_sef_notice', function ( $id, $post ) {
 	update_post_meta( $id, '_sn_type', $d['type'] );
 	update_post_meta( $id, '_sn_branch', $d['branch'] );
 	update_post_meta( $id, '_sn_expiry', $d['expiry'] );
+	$d = csa_sn_autoseo( $id, $d );
 	if ( $d['summary'] ) {
 		wp_update_post_excerpt_safe( $id, $d['summary'] );
+	}
+	update_post_meta( $id, '_sn', wp_slash( $d ) );
+	if ( function_exists( 'csa_seo_set' ) && function_exists( 'csa_seo_plugin' ) && csa_seo_plugin() ) {
+		csa_seo_set( $id, array( 'title' => $d['seo_t'], 'description' => $d['seo_d'], 'keyword' => $d['seo_k'] ), 'Notice SEO' );
 	}
 	// Switching to hand editing: keep what is shown now as the post's own content.
 	static $busy = false;
@@ -436,6 +482,38 @@ add_action( 'save_post_sef_notice', function ( $id, $post ) {
 		$busy = false;
 	}
 }, 10, 2 );
+
+/** Fills the summary and the Google/SEO fields from the form when they are empty (no AI cost). */
+function csa_sn_autoseo( $id, $d ) {
+	$ts    = csa_sn_opt( 'types' )[ $d['type'] ?? '' ] ?? array();
+	$topic = $d['topic'] ?: ( $ts['topic'] ?? 'নোটিশ' );
+	$brand = trim( (string) csa_sn_opt( 'brand' ) );
+	$who   = trim( $brand . ( $brand && $d['branch'] ? ', ' : '' ) . $d['branch'] );
+	$bits  = array();
+	foreach ( (array) $d['blocks'] as $b ) {
+		if ( 'cards' === ( $b['t'] ?? '' ) ) {
+			foreach ( array_slice( (array) $b['rows'], 0, 3 ) as $r ) {
+				if ( ! empty( $r['l'] ) && ! empty( $r['v'] ) ) {
+					$bits[] = $r['l'] . ': ' . $r['v'];
+				}
+			}
+			break;
+		}
+	}
+	if ( '' === $d['summary'] ) {
+		$d['summary'] = trim( $topic . ( $d['year'] ? ' ' . $d['year'] : '' ) . ( $who ? ' — ' . $who . '।' : '।' ) . ( $bits ? ' ' . implode( '; ', array_slice( $bits, 0, 2 ) ) . '।' : '' ) );
+	}
+	if ( '' === $d['seo_t'] ) {
+		$d['seo_t'] = trim( $topic . ( $d['year'] ? ' ' . $d['year'] : '' ) . ( $who ? ' | ' . $who : '' ) );
+	}
+	if ( '' === $d['seo_d'] ) {
+		$d['seo_d'] = mb_substr( $d['summary'], 0, 155 );
+	}
+	if ( '' === $d['seo_k'] ) {
+		$d['seo_k'] = trim( $topic . ( $d['year'] ? ' ' . $d['year'] : '' ) );
+	}
+	return $d;
+}
 
 function wp_update_post_excerpt_safe( $id, $text ) {
 	global $wpdb;
@@ -522,6 +600,28 @@ add_action( 'wp_ajax_csa_sn_ai', function () {
 	}
 	$r   = csa_jobs_ai_json( $sys, $txt, 'Notice: fill', 2200, $x );
 	is_wp_error( $r ) ? wp_send_json_error( $r->get_error_message() ) : wp_send_json_success( csa_sn_any_clean( $r ) );
+} );
+
+/** Claude writes the short summary and the Google/SEO fields from what is already in the form. */
+add_action( 'wp_ajax_csa_sn_sum', function () {
+	csa_guard( 'chat' );
+	$d = csa_sn_clean( json_decode( wp_unslash( $_POST['data'] ?? '' ), true ) );
+	$ts = csa_sn_opt( 'types' )[ $d['type'] ] ?? array();
+	$facts = array( 'Type: ' . ( $ts['label'] ?? '' ), 'Organisation: ' . csa_sn_opt( 'brand' ), 'Branch: ' . $d['branch'], 'Topic: ' . $d['topic'], 'Year: ' . $d['year'], 'Application deadline: ' . $d['expiry'] );
+	foreach ( $d['blocks'] as $b ) {
+		foreach ( array( 'rows' => 'cards', 'lines' => 'list', 'body' => 'text' ) as $k => $_ ) {
+			if ( isset( $b[ $k ] ) ) {
+				$facts[] = wp_strip_all_tags( is_array( $b[ $k ] ) ? wp_json_encode( $b[ $k ], CSA_JSON ) : (string) $b[ $k ] );
+			}
+		}
+	}
+	$sys = 'You write for a school notice page (Bangla). Return ONLY JSON: {"summary":"1-2 plain sentences for the notice list","seo_t":"Google title, max 60 characters, topic + year + organisation/branch","seo_d":"Google description, 120-155 characters, says what the notice is, who can apply and the key date","seo_k":"one focus keyword phrase people would search, e.g. মাদারীপুর সহকারী শিক্ষক নিয়োগ ২০২৬"}. Use ONLY the facts given; never invent dates, numbers or names. Plain, warm, no hype.';
+	$m   = csa_sn_opt( 'model' );
+	$r   = csa_jobs_ai_json( $sys, implode( "\n", $facts ), 'Notice: summary', 800, $m && csa_model( $m ) ? array( 'model_key' => $m ) : array() );
+	if ( is_wp_error( $r ) ) {
+		wp_send_json_error( $r->get_error_message() );
+	}
+	wp_send_json_success( array( 'summary' => sanitize_textarea_field( $r['summary'] ?? '' ), 'seo_t' => sanitize_text_field( $r['seo_t'] ?? '' ), 'seo_d' => sanitize_textarea_field( $r['seo_d'] ?? '' ), 'seo_k' => sanitize_text_field( $r['seo_k'] ?? '' ) ) );
 } );
 
 /* ------------------------------------------------------------------ */
@@ -635,6 +735,9 @@ function csa_sn_overview() {
 	$o = csa_sn_opts();
 	?>
 	<div class="wrap" id="sn-settings"><h1>Page Builder</h1>
+	<?php $fe = get_option( 'csa_sn_fatal' ); if ( is_array( $fe ) ) : ?>
+		<div class="notice notice-error"><p><b>নোটিশের শেষ ত্রুটি (<?php echo esc_html( wp_date( 'd-m-Y H:i', $fe['t'] ) ); ?>):</b> <code><?php echo esc_html( $fe['m'] ); ?></code> — এই লেখাটা কপি করে আমাকে পাঠান। <a href="<?php echo esc_url( wp_nonce_url( admin_url( 'admin-post.php?action=sn_clearerr' ), 'sn_clearerr' ) ); ?>">মুছে দিন</a></p></div>
+	<?php endif; ?>
 	<div class="sn-set"><h2>📢 নোটিশ</h2>
 	<p>নিয়োগ, নিয়োগ ফলাফল, বৃত্তি, বৃত্তি ফলাফল ও আপনার নিজের ধরনের নোটিশ। ফর্মে তথ্য লিখুন, পেজ নিজে তৈরি হবে।</p>
 	<p><a class="button button-primary button-large" href="<?php echo esc_url( admin_url( 'post-new.php?post_type=sef_notice' ) ); ?>">+ নতুন নোটিশ</a> <a class="button button-large" href="<?php echo esc_url( admin_url( 'edit.php?post_type=sef_notice' ) ); ?>">সব নোটিশ (<?php echo (int) wp_count_posts( 'sef_notice' )->publish; ?>)</a> <a class="button button-large" href="<?php echo esc_url( admin_url( 'admin.php?page=sn-settings' ) ); ?>">সেটিংস</a></p>
