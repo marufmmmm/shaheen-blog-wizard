@@ -17,7 +17,7 @@ function csa_sn_defaults() {
 		'recent'    => 10,
 		'hide_title' => 1,
 		'brand'     => 'শাহীন স্কুল এন্ড ক্যাডেট কোচিং',
-		'slug'      => 'notice',
+		'slug'      => 'notice-board',
 		'css'       => '',
 		'model'     => '',
 		'list_page' => 0,
@@ -106,6 +106,15 @@ function csa_sn_any_clean( $v ) {
 /* Post type                                                            */
 /* ------------------------------------------------------------------ */
 
+/** The address start of notices. A page that already uses it (e.g. the site's own "notice" page) would swallow every notice link, so then "-board" is added. */
+function csa_sn_base() {
+	$b = sanitize_title( csa_sn_opt( 'slug' ) ?: 'notice-board' );
+	if ( get_page_by_path( $b ) || get_page_by_path( $b, OBJECT, 'post' ) ) {
+		$b .= '-board';
+	}
+	return $b;
+}
+
 add_action( 'init', function () {
 	register_post_type( 'sef_notice', array(
 		'labels'       => array( 'name' => 'নোটিশ', 'singular_name' => 'নোটিশ', 'add_new' => 'নতুন নোটিশ', 'add_new_item' => 'নতুন নোটিশ', 'edit_item' => 'নোটিশ এডিট', 'all_items' => 'সব নোটিশ', 'menu_name' => 'নোটিশ' ),
@@ -113,11 +122,20 @@ add_action( 'init', function () {
 		'has_archive'  => false,
 		'show_in_menu' => 'sef-builder',
 		'supports'     => array( 'title', 'editor', 'thumbnail', 'revisions', 'author' ),
-		'rewrite'      => array( 'slug' => sanitize_title( csa_sn_opt( 'slug' ) ?: 'notice' ), 'with_front' => false ),
+		'rewrite'      => array( 'slug' => csa_sn_base(), 'with_front' => false ),
 		'show_in_rest' => false,
 		'capability_type' => 'post',
 	) );
 } );
+
+// Links must work right after an update or a change of the address start, without a visit to Settings > Permalinks.
+add_action( 'init', function () {
+	$sig = csa_sn_base() . '|' . SB_VERSION;
+	if ( get_option( 'csa_sn_rw' ) !== $sig ) {
+		flush_rewrite_rules( false );
+		update_option( 'csa_sn_rw', $sig, false );
+	}
+}, 99 );
 
 /* ------------------------------------------------------------------ */
 /* Drawing                                                              */
@@ -430,6 +448,7 @@ function csa_sn_clean( $d ) {
 		'summary'  => sanitize_textarea_field( $d['summary'] ?? '' ),
 		'expiry'   => preg_match( '/^\d{4}-\d{2}-\d{2}$/', $d['expiry'] ?? '' ) ? $d['expiry'] : '',
 		'slug'     => sanitize_title( $d['slug'] ?? '' ),
+		'title'    => sanitize_text_field( $d['title'] ?? '' ),
 		'seo_t'    => sanitize_text_field( $d['seo_t'] ?? '' ),
 		'seo_d'    => sanitize_textarea_field( $d['seo_d'] ?? '' ),
 		'seo_k'    => sanitize_text_field( $d['seo_k'] ?? '' ),
@@ -444,6 +463,9 @@ add_filter( 'wp_insert_post_data', function ( $data, $post ) {
 	}
 	$d  = csa_sn_clean( json_decode( wp_unslash( $_POST['sn_data'] ), true ) );
 	$ts = csa_sn_opt( 'types' )[ $d['type'] ] ?? array();
+	if ( '' !== $d['title'] ) {
+		$data['post_title'] = $d['title'];
+	}
 	if ( '' === trim( (string) $data['post_title'] ) || 'Auto Draft' === $data['post_title'] ) {
 		$brand = trim( (string) csa_sn_opt( 'brand' ) );
 		$who   = trim( $brand . ( $brand && $d['branch'] ? ', ' : '' ) . $d['branch'] );
@@ -471,9 +493,7 @@ add_action( 'save_post_sef_notice', function ( $id, $post ) {
 		wp_update_post_excerpt_safe( $id, $d['summary'] );
 	}
 	update_post_meta( $id, '_sn', wp_slash( $d ) );
-	if ( function_exists( 'csa_seo_set' ) && function_exists( 'csa_seo_plugin' ) && csa_seo_plugin() ) {
-		csa_seo_set( $id, array( 'title' => $d['seo_t'], 'description' => $d['seo_d'], 'keyword' => $d['seo_k'] ), 'Notice SEO' );
-	}
+
 	// Switching to hand editing: keep what is shown now as the post's own content.
 	static $busy = false;
 	if ( $d['detached'] && empty( $old['detached'] ) && ! $busy ) {
@@ -484,6 +504,36 @@ add_action( 'save_post_sef_notice', function ( $id, $post ) {
 }, 10, 2 );
 
 /** Fills the summary and the Google/SEO fields from the form when they are empty (no AI cost). */
+/** Written after Yoast / Rank Math have saved their own (empty) boxes, so the notice's values win. */
+add_action( 'wp_insert_post', function ( $id, $post ) {
+	if ( 'sef_notice' !== $post->post_type || wp_is_post_revision( $id ) || ! function_exists( 'csa_seo_set' ) || ! function_exists( 'csa_seo_plugin' ) || ! csa_seo_plugin() ) {
+		return;
+	}
+	$d = csa_sn_get( $id );
+	if ( ! empty( $d['seo_t'] ) || ! empty( $d['seo_d'] ) || ! empty( $d['seo_k'] ) ) {
+		csa_seo_set( $id, array( 'title' => $d['seo_t'] ?? '', 'description' => $d['seo_d'] ?? '', 'keyword' => $d['seo_k'] ?? '' ), 'Notice SEO' );
+	}
+}, 99, 2 );
+
+// The notice form has its own Google/SEO boxes, so the SEO plugins' boxes are not shown on notices.
+add_action( 'add_meta_boxes', function () {
+	foreach ( array( 'wpseo_meta', 'rank_math_metabox', 'aioseo-settings' ) as $m ) {
+		remove_meta_box( $m, 'sef_notice', 'normal' );
+		remove_meta_box( $m, 'sef_notice', 'advanced' );
+	}
+}, 999 );
+
+// No SEO plugin: print the description ourselves.
+add_action( 'wp_head', function () {
+	if ( ! is_singular( 'sef_notice' ) || ( function_exists( 'csa_seo_plugin' ) && csa_seo_plugin() ) ) {
+		return;
+	}
+	$d = csa_sn_get( get_the_ID() );
+	if ( ! empty( $d['seo_d'] ) ) {
+		echo '<meta name="description" content="' . esc_attr( $d['seo_d'] ) . '">' . "\n";
+	}
+}, 5 );
+
 function csa_sn_autoseo( $id, $d ) {
 	$ts    = csa_sn_opt( 'types' )[ $d['type'] ?? '' ] ?? array();
 	$topic = $d['topic'] ?: ( $ts['topic'] ?? 'নোটিশ' );
@@ -615,13 +665,13 @@ add_action( 'wp_ajax_csa_sn_sum', function () {
 			}
 		}
 	}
-	$sys = 'You write for a school notice page (Bangla). Return ONLY JSON: {"summary":"1-2 plain sentences for the notice list","seo_t":"Google title, max 60 characters, topic + year + organisation/branch","seo_d":"Google description, 120-155 characters, says what the notice is, who can apply and the key date","seo_k":"one focus keyword phrase people would search, e.g. মাদারীপুর সহকারী শিক্ষক নিয়োগ ২০২৬"}. Use ONLY the facts given; never invent dates, numbers or names. Plain, warm, no hype.';
+	$sys = 'You write for a school notice page (Bangla). Return ONLY JSON: {"title":"page title in Bangla, max 70 characters: topic + year + branch, no school name repeated","slug":"link in lowercase English letters and hyphens only, 3-6 words, branch place name transliterated, e.g. kumilla-assistant-teacher-2026","summary":"1-2 plain sentences for the notice list","seo_t":"Google title, max 60 characters, topic + year + organisation/branch","seo_d":"Google description, 120-155 characters, says what the notice is, who can apply and the key date","seo_k":"one focus keyword phrase people would search, e.g. মাদারীপুর সহকারী শিক্ষক নিয়োগ ২০২৬"}. Use ONLY the facts given; never invent dates, numbers or names. Plain, warm, no hype.';
 	$m   = csa_sn_opt( 'model' );
 	$r   = csa_jobs_ai_json( $sys, implode( "\n", $facts ), 'Notice: summary', 800, $m && csa_model( $m ) ? array( 'model_key' => $m ) : array() );
 	if ( is_wp_error( $r ) ) {
 		wp_send_json_error( $r->get_error_message() );
 	}
-	wp_send_json_success( array( 'summary' => sanitize_textarea_field( $r['summary'] ?? '' ), 'seo_t' => sanitize_text_field( $r['seo_t'] ?? '' ), 'seo_d' => sanitize_textarea_field( $r['seo_d'] ?? '' ), 'seo_k' => sanitize_text_field( $r['seo_k'] ?? '' ) ) );
+	wp_send_json_success( array( 'title' => sanitize_text_field( $r['title'] ?? '' ), 'slug' => sanitize_title( $r['slug'] ?? '' ), 'summary' => sanitize_textarea_field( $r['summary'] ?? '' ), 'seo_t' => sanitize_text_field( $r['seo_t'] ?? '' ), 'seo_d' => sanitize_textarea_field( $r['seo_d'] ?? '' ), 'seo_k' => sanitize_text_field( $r['seo_k'] ?? '' ) ) );
 } );
 
 /* ------------------------------------------------------------------ */
@@ -761,7 +811,7 @@ add_action( 'admin_post_sn_save', function () {
 		'recent'     => max( 1, min( 30, (int) ( $in['recent'] ?? 10 ) ) ),
 		'hide_title' => empty( $in['hide_title'] ) ? 0 : 1,
 		'brand'      => sanitize_text_field( $in['brand'] ?? '' ),
-		'slug'       => sanitize_title( $in['slug'] ?? 'notice' ) ?: 'notice',
+		'slug'       => sanitize_title( $in['slug'] ?? 'notice-board' ) ?: 'notice-board',
 		'css'        => wp_strip_all_tags( $in['css'] ?? '' ),
 		'model'      => sanitize_key( $in['model'] ?? '' ),
 		'list_page'  => (int) $o['list_page'],
