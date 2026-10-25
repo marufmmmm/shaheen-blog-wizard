@@ -1380,6 +1380,18 @@ function csa_sn_board() {
 		. '<div class="snb-board"><div class="snb-wrap"><div class="snb-filters">' . $chips . '</div><div class="snb-grid">' . ( $cards ?: '<p>কোনো নোটিশ নেই।</p>' ) . '</div><div class="snb-pager"></div></div></div><script>' . $js . '</script></div>';
 }
 
+/** Board mode: the plugin builds the whole page itself (the theme's header and footer stay), whatever the page was made with. */
+add_filter( 'template_include', function ( $tpl ) {
+	if ( ! csa_sn_opt( 'replace' ) || ! is_page() || ! empty( $_GET['snr'] ) ) {
+		return $tpl;
+	}
+	$lp = csa_sn_listpage_id();
+	if ( ! $lp || (int) get_queried_object_id() !== (int) $lp ) {
+		return $tpl;
+	}
+	return CSA_DIR . 'includes/board-template.php';
+}, 99 );
+
 add_shortcode( 'shaheen_notice_board', function () {
 	$GLOBALS['csa_sn_list_done'] = true;
 	return csa_sn_board();
@@ -1436,6 +1448,14 @@ function csa_sn_board_screen() {
 	<div class="sn-set"><h2>১) পেজ</h2>
 	<p><b>কোন পেজটা নোটিশ বোর্ড?</b> <?php wp_dropdown_pages( array( 'name' => 'page', 'selected' => $lp, 'show_option_none' => '— বাছুন —', 'option_none_value' => '0' ) ); ?> <?php echo $lp ? '<a href="' . esc_url( get_permalink( $lp ) ) . '" target="_blank">পেজ দেখুন ↗</a>' : ''; ?></p>
 	<p><label><input type="checkbox" name="on" value="1" <?php checked( $o['replace'] ); ?>> <b>এই পেজ plugin চালাক</b> — পেজের পুরোনো হাতের লেখা লুকিয়ে নোটিশ থেকে বোর্ড নিজে দেখাবে (টিক তুললে পুরোনোটা ফিরে আসে)</label></p>
+	<?php
+	if ( $lp && isset( $_GET['check'] ) ) {
+		$r  = wp_remote_get( add_query_arg( 'snt', time(), get_permalink( $lp ) ), array( 'timeout' => 25, 'sslverify' => false, 'headers' => array( 'Cache-Control' => 'no-cache' ) ) );
+		$ok = ! is_wp_error( $r ) && false !== strpos( (string) wp_remote_retrieve_body( $r ), 'class="snb"' );
+		echo $ok ? '<div class="notice notice-success inline"><p>✅ পেজটা এখন plugin চালাচ্ছে।</p></div>' : '<div class="notice notice-error inline"><p>❌ পেজে এখনো plugin-এর বোর্ড আসেনি' . ( is_wp_error( $r ) ? ' (' . esc_html( $r->get_error_message() ) . ')' : '' ) . '। কারণ হতে পারে: "plugin চালাক" টিক দেওয়া হয়নি/সংরক্ষণ হয়নি, ভুল পেজ বাছা, অথবা cache (LiteSpeed → Purge All)।</p></div>';
+	}
+	?>
+	<p><a class="button" href="<?php echo esc_url( admin_url( 'admin.php?page=sn-board&check=1' ) ); ?>">🔍 পেজ plugin চালাচ্ছে কি না যাচাই করুন</a></p>
 	<p class="description">পেজের জায়গায় আলাদাভাবে বসাতে চাইলে শর্টকোড: <code>[shaheen_notice_board]</code></p></div>
 	<div class="sn-set"><h2>২) পেজের লেখা</h2>
 	<p>শিরোনাম <input type="text" class="large-text" name="b[title]" value="<?php echo esc_attr( $b['title'] ); ?>"></p>
