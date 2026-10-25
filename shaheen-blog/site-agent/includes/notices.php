@@ -58,6 +58,49 @@ function csa_sn_date( $ts_or_str ) {
 	return $ts ? csa_sn_bn( wp_date( 'd-m-Y', $ts ) ) : '';
 }
 
+/** YouTube / Facebook / map addresses become safe embed addresses; anything else gives an empty string. */
+function csa_sn_embed_url( $kind, $url ) {
+	$url = trim( (string) $url );
+	$h   = strtolower( (string) wp_parse_url( $url, PHP_URL_HOST ) );
+	$h   = preg_replace( '/^(www\.|m\.)/', '', $h );
+	if ( 'youtube' === $kind ) {
+		$id = '';
+		if ( preg_match( '#(?:youtube\.com/(?:watch\?(?:.*&)?v=|embed/|shorts/|live/)|youtu\.be/)([\w-]{11})#', $url, $m ) ) {
+			$id = $m[1];
+		}
+		return $id ? 'https://www.youtube-nocookie.com/embed/' . $id : '';
+	}
+	if ( 'map' === $kind ) {
+		return ( 'google.com' === $h || 'maps.google.com' === $h ) && false !== strpos( $url, '/maps/embed' ) ? esc_url_raw( $url ) : '';
+	}
+	if ( ! in_array( $h, array( 'facebook.com', 'fb.watch', 'fb.com' ), true ) ) {
+		return '';
+	}
+	$q = rawurlencode( $url );
+	switch ( $kind ) {
+		case 'fb_video':
+			return 'https://www.facebook.com/plugins/video.php?href=' . $q . '&show_text=false&width=560';
+		case 'fb_post':
+			return 'https://www.facebook.com/plugins/post.php?href=' . $q . '&show_text=true&width=500';
+		case 'fb_page':
+			return 'https://www.facebook.com/plugins/page.php?href=' . $q . '&tabs=timeline&width=500&height=600&small_header=true&adapt_container_width=true&hide_cover=false&show_facepile=true';
+	}
+	return '';
+}
+
+
+/** Recursively clean a JSON answer from the AI. */
+function csa_sn_any_clean( $v ) {
+	if ( is_array( $v ) ) {
+		$o = array();
+		foreach ( $v as $k => $x ) {
+			$o[ is_int( $k ) ? $k : sanitize_key( $k ) ] = csa_sn_any_clean( $x );
+		}
+		return $o;
+	}
+	return is_scalar( $v ) ? sanitize_textarea_field( (string) $v ) : '';
+}
+
 /* ------------------------------------------------------------------ */
 /* Post type                                                            */
 /* ------------------------------------------------------------------ */
@@ -67,8 +110,7 @@ add_action( 'init', function () {
 		'labels'       => array( 'name' => 'নোটিশ', 'singular_name' => 'নোটিশ', 'add_new' => 'নতুন নোটিশ', 'add_new_item' => 'নতুন নোটিশ', 'edit_item' => 'নোটিশ এডিট', 'all_items' => 'সব নোটিশ', 'menu_name' => 'নোটিশ' ),
 		'public'       => true,
 		'has_archive'  => false,
-		'menu_icon'    => 'dashicons-megaphone',
-		'menu_position' => 29,
+		'show_in_menu' => 'sef-builder',
 		'supports'     => array( 'title', 'editor', 'thumbnail', 'revisions', 'author' ),
 		'rewrite'      => array( 'slug' => sanitize_title( csa_sn_opt( 'slug' ) ?: 'notice' ), 'with_front' => false ),
 		'show_in_rest' => false,
@@ -213,7 +255,7 @@ function csa_sn_block( $b ) {
 			}
 			return $o ? '<div class="sn-card"><b>📞 ' . esc_html( ( $b['h'] ?? '' ) ?: 'বিস্তারিত যোগাযোগ করুন:' ) . '</b><div class="sn-ph" style="margin-top:8px">' . $o . '</div></div>' : '';
 		case 'video':
-			$src = function_exists( 'csa_ps_embed_url' ) ? ( csa_ps_embed_url( 'youtube', $b['url'] ?? '' ) ?: csa_ps_embed_url( 'fb_video', $b['url'] ?? '' ) ) : '';
+			$src = csa_sn_embed_url( 'youtube', $b['url'] ?? '' ) ?: csa_sn_embed_url( 'fb_video', $b['url'] ?? '' );
 			return $src ? $h . '<div class="sn-emb"><iframe src="' . esc_url( $src ) . '" loading="lazy" allowfullscreen title="video"></iframe></div>' : '';
 		case 'html':
 			return ! empty( $b['code'] ) ? '<div class="sn-card">' . $b['code'] . '</div>' : '';
@@ -408,7 +450,11 @@ add_action( 'add_meta_boxes', function () {
 
 add_action( 'admin_enqueue_scripts', function ( $hook ) {
 	$scr = get_current_screen();
-	if ( ! $scr || 'sef_notice' !== $scr->post_type || ! in_array( $hook, array( 'post.php', 'post-new.php', 'sef_notice_page_sn-settings' ), true ) ) {
+	if ( false !== strpos( $hook, 'sn-settings' ) || false !== strpos( $hook, 'sef-builder' ) ) {
+		wp_enqueue_style( 'sn-admin', CSA_URL . 'assets/notice.css', array(), CSA_VER );
+		return;
+	}
+	if ( ! $scr || 'sef_notice' !== $scr->post_type || ! in_array( $hook, array( 'post.php', 'post-new.php' ), true ) ) {
 		return;
 	}
 	wp_enqueue_media();
@@ -440,7 +486,7 @@ add_action( 'wp_ajax_csa_sn_ai', function () {
 	$sys = 'You read a school notice (Bangla or English) and fill a form. Return ONLY JSON: {"type":"one of: ' . implode( ', ', $ty ) . '","branch":"branch name as written, e.g. শাহীন স্কুল, মাদারীপুর শাখা, or empty","topic":"short subject, e.g. সহকারী শিক্ষক নিয়োগ","year":"year in Bangla digits or empty","expiry":"application last date as YYYY-MM-DD or empty","summary":"1-2 plain sentences","cards":[{"l":"label such as আবেদনের শেষ সময়","v":"value exactly as written"}],"conditions":["each condition or rule as one short line"],"note":"one extra note or empty","phones":["numbers exactly as written"],"links":[{"kind":"apply|pdf|fb|oth","label":"button words","url":"only if the text contains it"}]}. Copy facts exactly; never invent dates, numbers, names or links; leave a field empty when the text does not say.';
 	$m   = csa_sn_opt( 'model' );
 	$r   = csa_jobs_ai_json( $sys, $txt, 'Notice: fill', 1800, $m && csa_model( $m ) ? array( 'model_key' => $m ) : array() );
-	is_wp_error( $r ) ? wp_send_json_error( $r->get_error_message() ) : wp_send_json_success( csa_ps_clean( $r ) );
+	is_wp_error( $r ) ? wp_send_json_error( $r->get_error_message() ) : wp_send_json_success( csa_sn_any_clean( $r ) );
 } );
 
 /* ------------------------------------------------------------------ */
@@ -481,7 +527,7 @@ function csa_sn_js() {
 		return '';
 	}
 	$done = true;
-	return '<script>(function(){function w(t){return t.children[0]?t.children[0].offsetWidth+12:0}document.querySelectorAll(".sn-rn").forEach(function(r){var t=r.querySelector(".sn-trk"),d=r.querySelector(".sn-dots"),pv=+getComputedStyle(t).getPropertyValue("--pv")||1,n=Math.ceil(t.children.length/pv),i=0;for(var k=0;k<n;k++)d.appendChild(document.createElement("i"));function m(x){[].forEach.call(d.children,function(c,j){c.className=j===x?"on":""})}m(0);t.addEventListener("scroll",function(){var x=Math.round(t.scrollLeft/(pv*w(t)||1));i=x;m(x)});function g(x){i=x;t.scrollTo({left:x*pv*w(t),behavior:"smooth"});m(x)}setInterval(function(){if(d.offsetParent!==null&&n>1)g((i+1)%n)},4500)});document.querySelectorAll(".sn-aw").forEach(function(a){var s=a.querySelector(".sn-as");a.querySelector(".sn-ar.l").onclick=function(){s.scrollBy({left:-s.clientWidth*.8})};a.querySelector(".sn-ar.r").onclick=function(){s.scrollBy({left:s.clientWidth*.8})}})})();</script>';
+	return '<script>(function(){function w(t){return t.children[0]?t.children[0].offsetWidth+12:0}document.querySelectorAll(".sn-rn").forEach(function(r){var t=r.querySelector(".sn-trk"),d=r.querySelector(".sn-dots"),pv=+getComputedStyle(t).getPropertyValue("--pv")||1,n=Math.ceil(t.children.length/pv),i=0;for(var k=0;k<n;k++)d.appendChild(document.createElement("i"));function m(x){[].forEach.call(d.children,function(c,j){c.className=j===x?"on":""})}m(0);t.addEventListener("scroll",function(){var x=Math.round(t.scrollLeft/(pv*w(t)||1));i=x;m(x)});function g(x){i=x;t.scrollTo({left:x*pv*w(t),behavior:"smooth"});m(x)}setInterval(function(){if(d.offsetParent!==null)if(n>1)g((i+1)%n)},4500)});document.querySelectorAll(".sn-aw").forEach(function(a){var s=a.querySelector(".sn-as");a.querySelector(".sn-ar.l").onclick=function(){s.scrollBy({left:-s.clientWidth*.8})};a.querySelector(".sn-ar.r").onclick=function(){s.scrollBy({left:s.clientWidth*.8})}})})();</script>';
 }
 
 add_shortcode( 'shaheen_recent_notices', function ( $a ) {
@@ -545,8 +591,23 @@ add_shortcode( 'shaheen_home_notices', function ( $a ) {
 /* ------------------------------------------------------------------ */
 
 add_action( 'admin_menu', function () {
-	add_submenu_page( 'edit.php?post_type=sef_notice', 'নোটিশ সেটিংস', 'সেটিংস', 'manage_options', 'sn-settings', 'csa_sn_settings_screen' );
-} );
+	add_menu_page( 'Page Builder', 'Page Builder', 'edit_posts', 'sef-builder', 'csa_sn_overview', 'dashicons-layout', 29 );
+	add_submenu_page( 'sef-builder', 'Page Builder', 'ওভারভিউ', 'edit_posts', 'sef-builder', 'csa_sn_overview' );
+	add_submenu_page( 'sef-builder', 'নোটিশ সেটিংস', 'নোটিশ সেটিংস', 'manage_options', 'sn-settings', 'csa_sn_settings_screen' );
+}, 5 );
+
+function csa_sn_overview() {
+	$o = csa_sn_opts();
+	?>
+	<div class="wrap" id="sn-settings"><h1>Page Builder</h1>
+	<div class="sn-set"><h2>📢 নোটিশ</h2>
+	<p>নিয়োগ, নিয়োগ ফলাফল, বৃত্তি, বৃত্তি ফলাফল ও আপনার নিজের ধরনের নোটিশ। ফর্মে তথ্য লিখুন, পেজ নিজে তৈরি হবে।</p>
+	<p><a class="button button-primary button-large" href="<?php echo esc_url( admin_url( 'post-new.php?post_type=sef_notice' ) ); ?>">+ নতুন নোটিশ</a> <a class="button button-large" href="<?php echo esc_url( admin_url( 'edit.php?post_type=sef_notice' ) ); ?>">সব নোটিশ (<?php echo (int) wp_count_posts( 'sef_notice' )->publish; ?>)</a> <a class="button button-large" href="<?php echo esc_url( admin_url( 'admin.php?page=sn-settings' ) ); ?>">সেটিংস</a></p>
+	<p class="description">যেকোনো পেজে বসানোর কোড: <code>[shaheen_recent_notices]</code> · <code>[shaheen_activities]</code> · <code>[shaheen_home_notices]</code> · <code>[shaheen_notice_list]</code></p></div>
+	<div class="sn-set"><h2>আরও পেজ ধরন</h2><p class="description">ভর্তি, ইভেন্ট, গ্যালারি ইত্যাদি পেজ বিল্ডার এখানে যোগ হবে।</p></div>
+	</div>
+	<?php
+}
 
 add_action( 'admin_post_sn_save', function () {
 	if ( ! current_user_can( 'manage_options' ) || ! check_admin_referer( 'sn_settings' ) ) {
@@ -587,7 +648,7 @@ add_action( 'admin_post_sn_save', function () {
 	}
 	update_option( CSA_SN_OPT, array_merge( $o, $n ), false );
 	flush_rewrite_rules( false );
-	wp_safe_redirect( admin_url( 'edit.php?post_type=sef_notice&page=sn-settings&saved=1' ) );
+	wp_safe_redirect( admin_url( 'admin.php?page=sn-settings&saved=1' ) );
 	exit;
 } );
 
@@ -601,7 +662,7 @@ add_action( 'admin_post_sn_listpage', function () {
 		$o['list_page'] = $id;
 		update_option( CSA_SN_OPT, $o, false );
 	}
-	wp_safe_redirect( admin_url( 'edit.php?post_type=sef_notice&page=sn-settings&saved=2' ) );
+	wp_safe_redirect( admin_url( 'admin.php?page=sn-settings&saved=2' ) );
 	exit;
 } );
 
