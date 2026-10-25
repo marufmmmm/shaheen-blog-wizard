@@ -166,7 +166,7 @@ function csa_sn_css() {
 		. ".sn-bt{position:relative;font-size:clamp(28px,7vw,52px);font-weight:700;line-height:1.2;margin:0 0 6px;text-shadow:0 2px 8px rgba(0,0,0,.25);animation:snin 1s ease both}"
 		. ".sn-sub{position:relative;display:inline-block;background:#fff;color:var(--k);font-weight:700;border-radius:999px;padding:3px 16px;font-size:clamp(18px,4.4vw,28px);animation:snin 1s .2s ease both}.sn-yr{position:relative;display:inline-block;margin-left:8px;background:var(--a);border-radius:999px;padding:3px 14px;font-weight:700;font-size:clamp(16px,3.6vw,22px)}"
 		. ".sn-st{display:inline-block;margin-top:10px;position:relative;border-radius:999px;padding:2px 14px;font-size:.8em;font-weight:700;background:rgba(255,255,255,.2)}.sn-st.x{background:#b3261e}"
-		. ".sn-lay{display:grid;grid-template-columns:minmax(0,1fr) 320px;gap:14px;margin:12px 0;align-items:start}.sn-side{position:sticky;top:12px}"
+		. ".sn-lay{display:grid;grid-template-columns:minmax(0,1fr) 320px;gap:14px;margin:12px 0;align-items:start}.sn-side{position:sticky;top:12px}.sn-lay.sn-1{grid-template-columns:minmax(0,1fr)}"
 		. ".sn-card{background:#fff;border:1px solid #dfe6e0;border-radius:var(--r);padding:14px 12px;margin:0 0 12px}.sn-card h2,.sn-h{margin:0 0 8px;font-size:1.4em;color:var(--k);line-height:1.3}"
 		. ".sn-info{display:grid;gap:10px;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));margin:0 0 12px}.sn-info>div{background:var(--s);border:1px solid #cfe1d2;border-radius:var(--r);padding:12px}.sn-info b{display:block;color:var(--p);font-size:.95em}.sn-info span{display:block;font-weight:700;font-size:1.1em;line-height:1.5}"
 		. ".sn-ck{list-style:none;margin:0;padding:0}.sn-ck li{padding:10px 0 10px 36px;border-bottom:1px dashed #cfd8d1;position:relative}.sn-ck li:last-child{border-bottom:0}.sn-ck li:before{content:'✓';position:absolute;left:0;top:12px;width:25px;height:25px;border-radius:50%;background:var(--p);color:#fff;font-size:15px;display:grid;place-items:center;line-height:1}"
@@ -308,7 +308,7 @@ function csa_sn_render( $id ) {
 	$side = $prev ? '<aside class="sn-card sn-side"><h3>আগের নোটিশ</h3><ul>' . $prev . '</ul>' . ( $all ? '<a class="sn-all" href="' . esc_url( $all ) . '">সব নোটিশ দেখুন →</a>' : '' ) . '</aside>' : '';
 	$url  = rawurlencode( get_permalink( $id ) );
 	$share = '<p class="sn-share">শেয়ার: <a target="_blank" rel="noopener" href="https://wa.me/?text=' . $url . '">WhatsApp</a> · <a target="_blank" rel="noopener" href="https://www.facebook.com/sharer/sharer.php?u=' . $url . '">Facebook</a></p>';
-	return csa_sn_css() . '<div class="sn">' . $bn . '<div class="sn-lay"><div>' . $main . $share . '</div>' . $side . '</div></div>';
+	return csa_sn_css() . '<div class="sn">' . $bn . '<div class="sn-lay' . ( $side ? '' : ' sn-1' ) . '"><div>' . $main . $share . '</div>' . $side . '</div></div>';
 }
 
 add_filter( 'the_content', function ( $c ) {
