@@ -24,6 +24,7 @@ function csa_sn_defaults() {
 		'old'       => '',
 		'gap'       => 12,
 		'replace'   => 0,
+		'board'     => array(),
 		'hl'        => array(),
 		'primary'   => '#2e7d32',
 		'dark'      => '#0f3d1e',
@@ -44,9 +45,34 @@ function csa_sn_defaults() {
 	);
 }
 
+/** Colour group of a notice type on the board: job (blue), result (green), form (purple), admission (orange). */
+function csa_sn_style_of( $k, $t ) {
+	if ( ! empty( $t['style'] ) && in_array( $t['style'], array( 'job', 'result', 'form', 'admission' ), true ) ) {
+		return $t['style'];
+	}
+	$x = $k . ' ' . ( $t['label'] ?? '' );
+	if ( preg_match( '/result|ফলাফল/iu', $x ) ) {
+		return 'result';
+	}
+	if ( preg_match( '/form|ফরম/iu', $x ) ) {
+		return 'form';
+	}
+	return 'job';
+}
+
 function csa_sn_opts() {
 	$o = get_option( CSA_SN_OPT, array() );
-	return wp_parse_args( is_array( $o ) ? $o : array(), csa_sn_defaults() );
+	$o = wp_parse_args( is_array( $o ) ? $o : array(), csa_sn_defaults() );
+	$has = false;
+	foreach ( $o['types'] as $k => $t ) {
+		if ( 'form' === csa_sn_style_of( $k, $t ) ) {
+			$has = true;
+		}
+	}
+	if ( ! $has ) {
+		$o['types']['form'] = array( 'label' => 'আবেদন ফরম', 'topic' => 'আবেদন ফরম', 'cards' => "আবেদনের শেষ সময়", 'job' => 0, 'style' => 'form' );
+	}
+	return $o;
 }
 
 function csa_sn_opt( $k ) {
@@ -468,7 +494,7 @@ add_filter( 'the_content', function ( $c ) {
 	if ( ! empty( $_GET['snr'] ) && csa_sn_read_ok( sanitize_text_field( wp_unslash( $_GET['snr'] ) ) ) ) {
 		return $c; // The plugin is reading the page's own content.
 	}
-	return csa_sn_opt( 'replace' ) ? do_shortcode( '[shaheen_notice_list header="1"]' ) : $c . do_shortcode( '[shaheen_notice_list]' );
+	return csa_sn_opt( 'replace' ) ? csa_sn_board() : $c . do_shortcode( '[shaheen_notice_list]' );
 }, 30 );
 
 /** Remember the last error of the notice tool, so it can be shown in Page Builder (a blank page leaves no other trace). */
@@ -754,7 +780,7 @@ add_action( 'add_meta_boxes', function ( $pt, $post ) {
 
 add_action( 'admin_enqueue_scripts', function ( $hook ) {
 	$scr = get_current_screen();
-	if ( false !== strpos( $hook, 'sn-settings' ) || false !== strpos( $hook, 'sn-import' ) || false !== strpos( $hook, 'sef-builder' ) ) {
+	if ( false !== strpos( $hook, 'sn-settings' ) || false !== strpos( $hook, 'sn-import' ) || false !== strpos( $hook, 'sn-board' ) || false !== strpos( $hook, 'sef-builder' ) ) {
 		wp_enqueue_style( 'sn-admin', CSA_URL . 'assets/notice.css', array(), CSA_VER );
 		return;
 	}
@@ -983,6 +1009,7 @@ add_shortcode( 'shaheen_home_notices', function ( $a ) {
 add_action( 'admin_menu', function () {
 	add_menu_page( 'Page Builder', 'Page Builder', 'edit_posts', 'sef-builder', 'csa_sn_overview', 'dashicons-layout', 29 );
 	add_submenu_page( 'sef-builder', 'Page Builder', 'ওভারভিউ', 'edit_posts', 'sef-builder', 'csa_sn_overview' );
+	add_submenu_page( 'sef-builder', 'নোটিশ বোর্ড', 'নোটিশ বোর্ড', 'manage_options', 'sn-board', 'csa_sn_board_screen' );
 	add_submenu_page( 'sef-builder', 'সব নোটিশ', 'সব নোটিশ', 'edit_posts', 'edit.php?sn=1' );
 	add_submenu_page( 'sef-builder', 'নতুন নোটিশ', 'নতুন নোটিশ', 'edit_posts', 'post-new.php?sn=1' );
 	add_submenu_page( 'sef-builder', 'পুরোনো নোটিশ আনুন', 'পুরোনো নোটিশ আনুন', 'manage_options', 'sn-import', 'csa_sn_import_screen' );
@@ -1270,6 +1297,173 @@ function csa_sn_import_screen() {
 	<?php
 }
 
+
+/* ------------------------------------------------------------------ */
+/* The notice board page (design of the site's old /notice/ page)       */
+/* ------------------------------------------------------------------ */
+
+function csa_sn_board_opts() {
+	return wp_parse_args( (array) csa_sn_opt( 'board' ), array(
+		'title'    => '🔔 নোটিশ বোর্ড',
+		'lead'     => 'নিয়োগ বিজ্ঞপ্তি, পরীক্ষার ফলাফল ও যাবতীয় প্রাতিষ্ঠানিক ঘোষণা এখানে যথাসময়ে প্রকাশ করা হয়।',
+		'l_total'  => 'মোট নোটিশ',
+		'l_job'    => 'নিয়োগ বিজ্ঞপ্তি',
+		'l_result' => 'পরীক্ষার ফলাফল',
+		'l_form'   => 'আবেদন ফরম',
+		'per'      => 12,
+		'new_days' => 7,
+	) );
+}
+
+function csa_sn_bn_date_long( $ts ) {
+	$m = array( 1 => 'জানুয়ারি', 'ফেব্রুয়ারি', 'মার্চ', 'এপ্রিল', 'মে', 'জুন', 'জুলাই', 'আগস্ট', 'সেপ্টেম্বর', 'অক্টোবর', 'নভেম্বর', 'ডিসেম্বর' );
+	return csa_sn_bn( wp_date( 'j', $ts ) ) . ' ' . $m[ (int) wp_date( 'n', $ts ) ] . ' ' . csa_sn_bn( wp_date( 'Y', $ts ) );
+}
+
+function csa_sn_board_css() {
+	return '.snb{--ink:#1c2333;--bg:#f4f7fb;--blue:#1e5fbf;--blue-dark:#123f85;--blue-light:#e7f0ff;--orange:#f5821f;--orange-light:#fff1e2;--teal:#0fa98c;--teal-light:#e2f8f2;--purple:#7c4dff;--purple-light:#f0eaff;--yellow:#ffc94d;--pink:#ef5da8;--line:rgba(28,35,51,.10);--shadow:0 16px 34px -18px rgba(30,60,120,.28);--shadow-sm:0 6px 16px -10px rgba(30,60,120,.25);font-family:"Hind Siliguri",sans-serif;color:var(--ink);line-height:1.6}'
+	. '.snb,.snb *{box-sizing:border-box}.snb a{text-decoration:none!important}.snb h1,.snb h2,.snb h3,.snb .num{font-family:"Baloo Da 2","Hind Siliguri",sans-serif}'
+	. '.snb-wrap{max-width:1180px;margin:0 auto;padding:0 20px}'
+	. '.snb-hero{background:linear-gradient(120deg,#0e3320 0%,#123a22 55%,#1a4a2c 100%);padding:40px 0 34px;position:relative;overflow:hidden}.snb-hero:before{content:"🔔";position:absolute;font-size:170px;opacity:.12;right:-20px;top:-40px;transform:rotate(-12deg)}'
+	. '.snb-hi{position:relative;z-index:1;display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:20px}.snb-hero h1{color:#fff;font-size:30px;margin:0 0 6px;font-weight:700;line-height:1.3}.snb-hero p{color:#e2f0ff;margin:0;font-size:14.5px;max-width:50ch}.snb-badge{background:rgba(255,255,255,.18);color:#fff;padding:8px 18px;border-radius:20px;font-size:13px;font-weight:700;white-space:nowrap}'
+	. '.snb-stats{margin-top:-26px;position:relative;z-index:3}.snb-sg{display:grid;grid-template-columns:repeat(4,1fr);gap:16px}.snb-sc{background:#fff;border-radius:16px;padding:18px 20px;box-shadow:var(--shadow);display:flex;flex-direction:row;align-items:center;gap:14px;text-align:left}'
+	. '.snb-ic{width:44px;height:44px;min-width:44px;border-radius:12px;display:flex;align-items:center;justify-content:center;font-size:20px}.snb-sc .num{font-weight:800;font-size:22px;line-height:1;color:var(--ink)}.snb-sc .lbl{font-size:12.5px;color:#758099;margin-top:3px}'
+	. '.snb-c1 .snb-ic{background:var(--blue-light)}.snb-c2 .snb-ic{background:var(--orange-light)}.snb-c3 .snb-ic{background:var(--teal-light)}.snb-c4 .snb-ic{background:var(--purple-light)}'
+	. '.snb-filters{display:flex;gap:10px;flex-wrap:wrap;margin:40px 0 26px}.snb-chip{padding:9px 18px;border-radius:20px;font-size:13.5px;font-weight:700;border:1.5px solid var(--line);color:#516079;background:#fff;display:inline-flex;align-items:center;gap:7px;cursor:pointer;font-family:inherit}.snb-chip i{width:8px;height:8px;border-radius:50%;display:inline-block}.snb-chip.on{background:var(--ink);color:#fff;border-color:var(--ink)}.snb-chip.on i{background:var(--yellow)!important}.snb-chip:hover:not(.on){border-color:var(--blue);color:var(--blue)}'
+	. '.snb-board{padding-bottom:60px}.snb-grid{display:grid;grid-template-columns:1fr 1fr;gap:16px}'
+	. '.snb-card{background:#fff;border-radius:16px;padding:20px 22px;box-shadow:var(--shadow-sm);border-top:4px solid var(--blue);display:flex;flex-direction:column;gap:10px;text-align:left}.snb-card[hidden]{display:none}'
+	. '.snb-job{border-color:var(--blue)}.snb-result{border-color:var(--teal)}.snb-admission{border-color:var(--orange)}.snb-form{border-color:var(--purple)}'
+	. '.snb-top{display:flex;align-items:flex-start;justify-content:space-between;gap:10px}.snb-tag{font-size:11px;font-weight:700;padding:5px 11px;border-radius:14px;white-space:nowrap}'
+	. '.snb-job .snb-tag{background:var(--blue-light);color:var(--blue-dark)}.snb-result .snb-tag{background:var(--teal-light);color:#0b7a65}.snb-admission .snb-tag{background:var(--orange-light);color:#b2590f}.snb-form .snb-tag{background:var(--purple-light);color:#5a34c9}'
+	. '.snb-new{background:var(--pink);color:#fff;font-size:10.5px;font-weight:800;padding:3px 10px;border-radius:10px}'
+	. '.snb-title{font-size:15.5px;font-weight:600;line-height:1.65;color:var(--ink)!important}.snb-title:hover{color:var(--blue)!important}'
+	. '.snb-bot{display:flex;align-items:center;justify-content:space-between;margin-top:auto;padding-top:8px;border-top:1px dashed var(--line);gap:10px}.snb-date{font-family:"JetBrains Mono",monospace;font-size:12px;color:#123a22;font-weight:700}'
+	. '.snb-btn{display:inline-flex;align-items:center;gap:6px;font-size:12.5px;font-weight:700;color:#fff!important;background:var(--ink);padding:8px 16px;border-radius:14px}.snb-job .snb-btn{background:var(--blue)}.snb-result .snb-btn{background:var(--teal)}.snb-admission .snb-btn{background:var(--orange)}.snb-form .snb-btn{background:var(--purple)}.snb-btn:hover{opacity:.88}'
+	. '.snb-pager{display:flex;justify-content:center;gap:8px;margin-top:36px;flex-wrap:wrap}.snb-pager button{width:36px;height:36px;display:flex;align-items:center;justify-content:center;border-radius:12px;font-family:"Baloo Da 2",sans-serif;font-weight:700;font-size:14px;background:#fff;color:#758099;box-shadow:var(--shadow-sm);border:0;cursor:pointer}.snb-pager button.on{background:var(--blue);color:#fff}'
+	. '@media(max-width:900px){.snb-sg{grid-template-columns:1fr 1fr}.snb-grid{grid-template-columns:1fr}}@media(max-width:560px){.snb-hero h1{font-size:24px}}';
+}
+
+/** The whole notice board page, built from the notices. */
+function csa_sn_board() {
+	$o     = csa_sn_board_opts();
+	$types = csa_sn_opt( 'types' );
+	$q     = new WP_Query( array( 'post_type' => 'post', 'post_status' => 'publish', 'posts_per_page' => 400, 'orderby' => 'date', 'order' => 'DESC', 'meta_query' => array( array( 'key' => '_sn_is', 'value' => '1' ) ), 'no_found_rows' => true ) );
+	$cards = '';
+	$cnt   = array( 'job' => 0, 'result' => 0, 'form' => 0, 'admission' => 0 );
+	$last  = 0;
+	$i     = 0;
+	foreach ( $q->posts as $p ) {
+		$k  = (string) get_post_meta( $p->ID, '_sn_type', true );
+		$t  = $types[ $k ] ?? array( 'label' => '' );
+		$st = csa_sn_style_of( $k, $t );
+		$cnt[ $st ]++;
+		$ts = (int) get_post_time( 'U', true, $p );
+		$last = max( $last, $ts );
+		$new  = ( time() - $ts ) < (int) $o['new_days'] * DAY_IN_SECONDS;
+		$cards .= '<div class="snb-card snb-' . $st . '" data-c="' . $st . '"><div class="snb-top"><span class="snb-tag">' . esc_html( $t['label'] ) . '</span>' . ( $new ? '<span class="snb-new">নতুন</span>' : '' ) . '</div><a class="snb-title" href="' . esc_url( csa_sn_url( $p ) ) . '">' . esc_html( get_the_title( $p ) ) . '</a><div class="snb-bot"><span class="snb-date">📅 ' . esc_html( csa_sn_date( $ts ) ) . '</span><a class="snb-btn" href="' . esc_url( csa_sn_url( $p ) ) . '">⬇ বিস্তারিত দেখুন</a></div></div>';
+		$i++;
+	}
+	$chips = '<button type="button" class="snb-chip on" data-f=""><i style="background:#fff"></i> সব নোটিশ</button>';
+	foreach ( array( 'job' => array( 'l_job', 'var(--blue)' ), 'result' => array( 'l_result', 'var(--teal)' ), 'form' => array( 'l_form', 'var(--purple)' ) ) as $k => $v ) {
+		if ( $cnt[ $k ] ) {
+			$chips .= '<button type="button" class="snb-chip" data-f="' . $k . '"><i style="background:' . $v[1] . '"></i> ' . esc_html( $o[ $v[0] ] ) . '</button>';
+		}
+	}
+	$tile = function ( $cls, $ic, $n, $l ) {
+		return '<div class="snb-sc snb-' . $cls . '"><div class="snb-ic">' . $ic . '</div><div><div class="num">' . esc_html( csa_sn_bn( str_pad( (string) $n, 2, '0', STR_PAD_LEFT ) ) ) . '</div><div class="lbl">' . esc_html( $l ) . '</div></div></div>';
+	};
+	$total = count( $q->posts );
+	$js    = '(function(){var r=document.currentScript.parentNode,cs=[].slice.call(r.querySelectorAll(".snb-card")),per=+r.getAttribute("data-per")||12,f="",pg=1,pgr=r.querySelector(".snb-pager");function bn(n){return String(n).replace(/[0-9]/g,function(d){return "০১২৩৪৫৬৭৮৯".charAt(d)})}function draw(){var vis=cs.filter(function(c){return f===""||c.getAttribute("data-c")===f}),pages=Math.max(1,Math.ceil(vis.length/per));if(pg>pages)pg=1;cs.forEach(function(c){c.hidden=true});vis.forEach(function(c,i){var st=(pg-1)*per;c.hidden=(i<st)||(i>=st+per)});pgr.innerHTML="";if(pages>1){for(var i=1;i<=pages;i++){var b=document.createElement("button");b.type="button";b.textContent=bn(i);if(i===pg)b.className="on";b.onclick=(function(n){return function(){pg=n;draw();r.scrollIntoView({behavior:"smooth",block:"start"})}})(i);pgr.appendChild(b)}}}[].forEach.call(r.querySelectorAll(".snb-chip"),function(b){b.onclick=function(){f=b.getAttribute("data-f");pg=1;[].forEach.call(r.querySelectorAll(".snb-chip"),function(x){x.className="snb-chip"+(x===b?" on":"")});draw()}});draw()})();';
+	return '<link rel="preconnect" href="https://fonts.googleapis.com"><link href="https://fonts.googleapis.com/css2?family=Baloo+Da+2:wght@500;600;700;800&family=Hind+Siliguri:wght@400;500;600;700&family=JetBrains+Mono:wght@500;600&display=swap" rel="stylesheet"><style>' . csa_sn_board_css() . '</style>'
+		. '<div class="snb" data-per="' . (int) $o['per'] . '"><div class="snb-hero"><div class="snb-wrap snb-hi"><div><h1>' . esc_html( $o['title'] ) . '</h1><p>' . esc_html( $o['lead'] ) . '</p></div>' . ( $last ? '<div class="snb-badge">সর্বশেষ হালনাগাদ · ' . esc_html( csa_sn_bn_date_long( $last ) ) . '</div>' : '' ) . '</div></div>'
+		. '<div class="snb-wrap snb-stats"><div class="snb-sg">' . $tile( 'c1', '📋', $total, $o['l_total'] ) . $tile( 'c2', '👩‍🏫', $cnt['job'], $o['l_job'] ) . $tile( 'c3', '🏆', $cnt['result'], $o['l_result'] ) . $tile( 'c4', '📝', $cnt['form'], $o['l_form'] ) . '</div></div>'
+		. '<div class="snb-board"><div class="snb-wrap"><div class="snb-filters">' . $chips . '</div><div class="snb-grid">' . ( $cards ?: '<p>কোনো নোটিশ নেই।</p>' ) . '</div><div class="snb-pager"></div></div></div><script>' . $js . '</script></div>';
+}
+
+add_shortcode( 'shaheen_notice_board', function () {
+	$GLOBALS['csa_sn_list_done'] = true;
+	return csa_sn_board();
+} );
+
+/* Page Builder > নোটিশ বোর্ড: the page and all its notices in one place */
+add_action( 'admin_post_sn_board_save', function () {
+	if ( ! current_user_can( 'manage_options' ) || ! check_admin_referer( 'sn_board' ) ) {
+		wp_die( 'No.' );
+	}
+	$in = wp_unslash( $_POST['b'] ?? array() );
+	$o  = csa_sn_opts();
+	$o['board']     = array(
+		'title'    => sanitize_text_field( $in['title'] ?? '' ),
+		'lead'     => sanitize_textarea_field( $in['lead'] ?? '' ),
+		'l_total'  => sanitize_text_field( $in['l_total'] ?? '' ),
+		'l_job'    => sanitize_text_field( $in['l_job'] ?? '' ),
+		'l_result' => sanitize_text_field( $in['l_result'] ?? '' ),
+		'l_form'   => sanitize_text_field( $in['l_form'] ?? '' ),
+		'per'      => max( 3, min( 60, (int) ( $in['per'] ?? 12 ) ) ),
+		'new_days' => max( 0, min( 60, (int) ( $in['new_days'] ?? 7 ) ) ),
+	);
+	$o['list_page'] = absint( $_POST['page'] ?? 0 );
+	$o['replace']   = empty( $_POST['on'] ) ? 0 : 1;
+	update_option( CSA_SN_OPT, $o, false );
+	wp_safe_redirect( admin_url( 'admin.php?page=sn-board&saved=1' ) );
+	exit;
+} );
+
+add_action( 'wp_ajax_sn_settype', function () {
+	check_ajax_referer( 'sn_board', 'n' );
+	$id = absint( $_POST['id'] ?? 0 );
+	$t  = sanitize_key( $_POST['t'] ?? '' );
+	if ( ! $id || ! current_user_can( 'edit_post', $id ) || ! csa_sn_is( $id ) || ! isset( csa_sn_opt( 'types' )[ $t ] ) ) {
+		wp_send_json_error( 'no' );
+	}
+	update_post_meta( $id, '_sn_type', $t );
+	$d         = csa_sn_get( $id );
+	$d['type'] = $t;
+	update_post_meta( $id, '_sn', wp_slash( $d ) );
+	wp_send_json_success();
+} );
+
+function csa_sn_board_screen() {
+	$o   = csa_sn_opts();
+	$b   = csa_sn_board_opts();
+	$lp  = csa_sn_listpage_id();
+	$pgn = max( 1, (int) ( $_GET['paged'] ?? 1 ) );
+	$q   = new WP_Query( array( 'post_type' => 'post', 'post_status' => array( 'publish', 'draft', 'pending', 'future' ), 'posts_per_page' => 30, 'paged' => $pgn, 'orderby' => 'date', 'order' => 'DESC', 'meta_query' => array( array( 'key' => '_sn_is', 'value' => '1' ) ) ) );
+	?>
+	<div class="wrap" id="sn-settings"><h1>নোটিশ বোর্ড</h1>
+	<?php echo ! empty( $_GET['saved'] ) ? '<div class="notice notice-success"><p>সংরক্ষিত ✓ — LiteSpeed cache থাকলে Purge All করুন।</p></div>' : ''; ?>
+	<form method="post" action="<?php echo esc_url( admin_url( 'admin-post.php' ) ); ?>"><?php wp_nonce_field( 'sn_board' ); ?><input type="hidden" name="action" value="sn_board_save">
+	<div class="sn-set"><h2>১) পেজ</h2>
+	<p><b>কোন পেজটা নোটিশ বোর্ড?</b> <?php wp_dropdown_pages( array( 'name' => 'page', 'selected' => $lp, 'show_option_none' => '— বাছুন —', 'option_none_value' => '0' ) ); ?> <?php echo $lp ? '<a href="' . esc_url( get_permalink( $lp ) ) . '" target="_blank">পেজ দেখুন ↗</a>' : ''; ?></p>
+	<p><label><input type="checkbox" name="on" value="1" <?php checked( $o['replace'] ); ?>> <b>এই পেজ plugin চালাক</b> — পেজের পুরোনো হাতের লেখা লুকিয়ে নোটিশ থেকে বোর্ড নিজে দেখাবে (টিক তুললে পুরোনোটা ফিরে আসে)</label></p>
+	<p class="description">পেজের জায়গায় আলাদাভাবে বসাতে চাইলে শর্টকোড: <code>[shaheen_notice_board]</code></p></div>
+	<div class="sn-set"><h2>২) পেজের লেখা</h2>
+	<p>শিরোনাম <input type="text" class="large-text" name="b[title]" value="<?php echo esc_attr( $b['title'] ); ?>"></p>
+	<p>ছোট বিবরণ <textarea class="large-text" rows="2" name="b[lead]"><?php echo esc_textarea( $b['lead'] ); ?></textarea></p>
+	<p>সংখ্যা-কার্ডের নাম: মোট <input type="text" name="b[l_total]" value="<?php echo esc_attr( $b['l_total'] ); ?>"> নীল গ্রুপ <input type="text" name="b[l_job]" value="<?php echo esc_attr( $b['l_job'] ); ?>"> সবুজ গ্রুপ <input type="text" name="b[l_result]" value="<?php echo esc_attr( $b['l_result'] ); ?>"> বেগুনি গ্রুপ <input type="text" name="b[l_form]" value="<?php echo esc_attr( $b['l_form'] ); ?>"></p>
+	<p>এক পেজে কতগুলো কার্ড <input type="number" min="3" max="60" name="b[per]" value="<?php echo (int) $b['per']; ?>" style="width:70px"> · "নতুন" ট্যাগ কত দিন <input type="number" min="0" max="60" name="b[new_days]" value="<?php echo (int) $b['new_days']; ?>" style="width:70px"> দিন। <span class="description">সংখ্যা, তারিখ, ট্যাব, কার্ড সব নোটিশ থেকে নিজে তৈরি হয়। ধরনের রং বদলাতে "নোটিশ সেটিংস → নোটিশের ধরন"।</span></p>
+	<p><button class="button button-primary button-large">সংরক্ষণ করুন</button></p></div></form>
+	<div class="sn-set"><h2>৩) এই পেজের সব নোটিশ (<?php echo (int) $q->found_posts; ?>)</h2>
+	<p><a class="button button-primary" href="<?php echo esc_url( admin_url( 'post-new.php?sn=1' ) ); ?>">+ নতুন নোটিশ</a> <a class="button" href="<?php echo esc_url( admin_url( 'admin.php?page=sn-import&read=1' ) ); ?>">📖 পুরোনো পেজ থেকে নোটিশ আনুন</a> <a class="button" href="<?php echo esc_url( admin_url( 'edit.php?sn=1' ) ); ?>">Posts-এ দেখুন</a></p>
+	<table class="widefat striped"><thead><tr><th>নাম</th><th>ধরন</th><th>ক্যাটাগরি</th><th>তারিখ</th><th>অবস্থা</th><th></th></tr></thead><tbody>
+	<?php foreach ( $q->posts as $p ) : $k = (string) get_post_meta( $p->ID, '_sn_type', true ); ?>
+		<tr><td><a href="<?php echo esc_url( get_edit_post_link( $p->ID ) ); ?>"><?php echo esc_html( get_the_title( $p ) ); ?></a><?php echo get_post_meta( $p->ID, '_sn_link', true ) ? ' <small>(পুরোনো পেজের লিংক)</small>' : ''; ?></td>
+		<td><select class="sn-st" data-id="<?php echo (int) $p->ID; ?>"><?php foreach ( $o['types'] as $tk => $t ) { echo '<option value="' . esc_attr( $tk ) . '"' . selected( $k, $tk, false ) . '>' . esc_html( $t['label'] ) . '</option>'; } ?></select></td>
+		<td><?php echo esc_html( implode( ', ', wp_get_post_categories( $p->ID, array( 'fields' => 'names' ) ) ) ); ?></td>
+		<td><?php echo esc_html( csa_sn_date( get_post_time( 'U', true, $p ) ) ); ?></td>
+		<td><?php echo 'publish' === $p->post_status ? '✅ প্রকাশিত' : '📝 ' . esc_html( $p->post_status ); ?></td>
+		<td><a href="<?php echo esc_url( get_edit_post_link( $p->ID ) ); ?>">সম্পাদনা</a> · <a href="<?php echo esc_url( csa_sn_url( $p ) ); ?>" target="_blank">দেখুন</a> · <a href="<?php echo esc_url( get_delete_post_link( $p->ID ) ); ?>" onclick="return confirm('ট্র্যাশে পাঠাবেন?')">ট্র্যাশ</a></td></tr>
+	<?php endforeach; if ( ! $q->posts ) { echo '<tr><td colspan="6">এখনো নোটিশ নেই।</td></tr>'; } ?>
+	</tbody></table>
+	<?php echo $q->max_num_pages > 1 ? '<p>' . wp_kses_post( paginate_links( array( 'total' => $q->max_num_pages, 'current' => $pgn, 'base' => add_query_arg( 'paged', '%#%' ) ) ) ) . '</p>' : ''; ?>
+	</div>
+	<script>
+	document.querySelectorAll('.sn-st').forEach(function(s){s.onchange=function(){var u=new URLSearchParams({action:'sn_settype',n:'<?php echo esc_js( wp_create_nonce( 'sn_board' ) ); ?>',id:s.dataset.id,t:s.value});s.disabled=true;fetch(ajaxurl,{method:'POST',credentials:'same-origin',body:u}).then(function(r){return r.json()}).then(function(j){s.disabled=false;s.style.outline=j.success?'2px solid #2e7d32':'2px solid #c00'})}});
+	</script>
+	</div>
+	<?php
+}
+
 function csa_sn_overview() {
 	$o = csa_sn_opts();
 	?>
@@ -1305,6 +1499,7 @@ add_action( 'admin_post_sn_save', function () {
 		'model'      => sanitize_key( $in['model'] ?? '' ),
 		'gap'        => max( 0, min( 80, (int) ( $in['gap'] ?? 12 ) ) ),
 		'replace'    => empty( $in['replace'] ) ? 0 : 1,
+		'board'      => (array) csa_sn_opt( 'board' ),
 		'hl'         => array(
 			'pages' => array_values( array_filter( array_map( 'absint', (array) ( $in['hl']['pages'] ?? array() ) ) ) ),
 			'pos'   => 'bottom' === ( $in['hl']['pos'] ?? '' ) ? 'bottom' : 'top',
@@ -1327,7 +1522,7 @@ add_action( 'admin_post_sn_save', function () {
 			continue;
 		}
 		$key = sanitize_key( $t['key'] ?? '' ) ?: 't' . substr( md5( $label ), 0, 6 );
-		$n['types'][ $key ] = array( 'label' => $label, 'topic' => sanitize_text_field( $t['topic'] ?? '' ), 'cards' => sanitize_textarea_field( $t['cards'] ?? '' ), 'job' => empty( $t['job'] ) ? 0 : 1 );
+		$n['types'][ $key ] = array( 'label' => $label, 'topic' => sanitize_text_field( $t['topic'] ?? '' ), 'cards' => sanitize_textarea_field( $t['cards'] ?? '' ), 'job' => empty( $t['job'] ) ? 0 : 1, 'style' => in_array( $t['style'] ?? '', array( 'job', 'result', 'form', 'admission' ), true ) ? $t['style'] : csa_sn_style_of( $key, array( 'label' => $label ) ) );
 	}
 	$n['types'] = $n['types'] ?: csa_sn_defaults()['types'];
 	$n['acts']  = array();
@@ -1375,7 +1570,7 @@ function csa_sn_settings_screen() {
 		<p>Claude দিয়ে ঘর পূরণে কোন মডেল <select name="sn[model]"><option value="">স্বয়ংক্রিয় (SEO-র মডেল)</option><?php foreach ( csa_models() as $k => $m ) : ?><option value="<?php echo esc_attr( $k ); ?>" <?php selected( $o['model'], $k ); ?>><?php echo esc_html( $m['label'] ); ?></option><?php endforeach; ?></select></p>
 		</div>
 		<div class="sn-set"><h2>নোটিশের ধরন</h2><p class="description">প্রতিটি ধরনে নামের পাশে তথ্য-কার্ডের নাম লাইন ধরে লিখুন। নতুন ধরন: নিচের "ধরন যোগ করুন"।</p>
-		<div id="sn-types"><?php foreach ( $o['types'] as $k => $t ) : ?><div class="sn-trow"><input type="hidden" name="sn[types][<?php echo esc_attr( $k ); ?>][key]" value="<?php echo esc_attr( $k ); ?>"><input type="text" name="sn[types][<?php echo esc_attr( $k ); ?>][label]" value="<?php echo esc_attr( $t['label'] ); ?>" placeholder="ধরনের নাম"> <input type="text" name="sn[types][<?php echo esc_attr( $k ); ?>][topic]" value="<?php echo esc_attr( $t['topic'] ); ?>" placeholder="ডিফল্ট বিষয়"> <textarea name="sn[types][<?php echo esc_attr( $k ); ?>][cards]" rows="3" placeholder="তথ্য-কার্ড (প্রতি লাইনে একটা)"><?php echo esc_textarea( $t['cards'] ); ?></textarea> <label><input type="checkbox" name="sn[types][<?php echo esc_attr( $k ); ?>][job]" value="1" <?php checked( ! empty( $t['job'] ) ); ?>> চাকরির বিজ্ঞপ্তি (Google-এ)</label> <button type="button" class="button sn-del">মুছুন</button></div><?php endforeach; ?></div>
+		<div id="sn-types"><?php foreach ( $o['types'] as $k => $t ) : ?><div class="sn-trow"><input type="hidden" name="sn[types][<?php echo esc_attr( $k ); ?>][key]" value="<?php echo esc_attr( $k ); ?>"><input type="text" name="sn[types][<?php echo esc_attr( $k ); ?>][label]" value="<?php echo esc_attr( $t['label'] ); ?>" placeholder="ধরনের নাম"> <input type="text" name="sn[types][<?php echo esc_attr( $k ); ?>][topic]" value="<?php echo esc_attr( $t['topic'] ); ?>" placeholder="ডিফল্ট বিষয়"> <textarea name="sn[types][<?php echo esc_attr( $k ); ?>][cards]" rows="3" placeholder="তথ্য-কার্ড (প্রতি লাইনে একটা)"><?php echo esc_textarea( $t['cards'] ); ?></textarea> <label><input type="checkbox" name="sn[types][<?php echo esc_attr( $k ); ?>][job]" value="1" <?php checked( ! empty( $t['job'] ) ); ?>> চাকরির বিজ্ঞপ্তি (Google-এ)</label> <select name="sn[types][<?php echo esc_attr( $k ); ?>][style]"><?php foreach ( array( 'job' => 'নীল (নিয়োগ)', 'result' => 'সবুজ (ফলাফল)', 'form' => 'বেগুনি (ফরম)', 'admission' => 'কমলা (ভর্তি)' ) as $sv => $sl ) { echo '<option value="' . esc_attr( $sv ) . '"' . selected( csa_sn_style_of( $k, $t ), $sv, false ) . '>' . esc_html( $sl ) . '</option>'; } ?></select> <button type="button" class="button sn-del">মুছুন</button></div><?php endforeach; ?></div>
 		<p><button type="button" class="button" id="sn-addtype">+ ধরন যোগ করুন</button></p></div>
 		<div class="sn-set"><h2>সকল কার্যক্রম একনজরে</h2>
 		<div id="sn-acts"><?php foreach ( (array) $o['acts'] as $i => $x ) : ?><div class="sn-arow"><input type="text" class="sn-ic" name="sn[acts][<?php echo (int) $i; ?>][icon]" value="<?php echo esc_attr( $x['icon'] ); ?>" placeholder="আইকন"> <input type="text" name="sn[acts][<?php echo (int) $i; ?>][title]" value="<?php echo esc_attr( $x['title'] ); ?>" placeholder="নাম"> <input type="text" name="sn[acts][<?php echo (int) $i; ?>][text]" value="<?php echo esc_attr( $x['text'] ); ?>" placeholder="ছোট বিবরণ" style="min-width:260px"> <input type="url" name="sn[acts][<?php echo (int) $i; ?>][url]" value="<?php echo esc_attr( $x['url'] ); ?>" placeholder="লিংক"> <button type="button" class="button sn-del">মুছুন</button></div><?php endforeach; ?></div>
@@ -1400,7 +1595,7 @@ function csa_sn_settings_screen() {
 	<script>
 	(function(){var c=0,T=document.getElementById('sn-types'),A=document.getElementById('sn-acts');
 	document.addEventListener('click',function(e){if(e.target.classList.contains('sn-del'))e.target.parentNode.remove()});
-	document.getElementById('sn-addtype').onclick=function(){var k='n'+Date.now();var d=document.createElement('div');d.className='sn-trow';d.innerHTML='<input type="hidden" name="sn[types]['+k+'][key]" value="'+k+'"><input type="text" name="sn[types]['+k+'][label]" placeholder="ধরনের নাম"> <input type="text" name="sn[types]['+k+'][topic]" placeholder="ডিফল্ট বিষয়"> <textarea name="sn[types]['+k+'][cards]" rows="3" placeholder="তথ্য-কার্ড (প্রতি লাইনে একটা)"></textarea> <label><input type="checkbox" name="sn[types]['+k+'][job]" value="1"> চাকরির বিজ্ঞপ্তি (Google-এ)</label> <button type="button" class="button sn-del">মুছুন</button>';T.appendChild(d)};
+	document.getElementById('sn-addtype').onclick=function(){var k='n'+Date.now();var d=document.createElement('div');d.className='sn-trow';d.innerHTML='<input type="hidden" name="sn[types]['+k+'][key]" value="'+k+'"><input type="text" name="sn[types]['+k+'][label]" placeholder="ধরনের নাম"> <input type="text" name="sn[types]['+k+'][topic]" placeholder="ডিফল্ট বিষয়"> <textarea name="sn[types]['+k+'][cards]" rows="3" placeholder="তথ্য-কার্ড (প্রতি লাইনে একটা)"></textarea> <label><input type="checkbox" name="sn[types]['+k+'][job]" value="1"> চাকরির বিজ্ঞপ্তি (Google-এ)</label> <select name="sn[types]['+k+'][style]"><option value="job">নীল (নিয়োগ)</option><option value="result">সবুজ (ফলাফল)</option><option value="form">বেগুনি (ফরম)</option><option value="admission">কমলা (ভর্তি)</option></select> <button type="button" class="button sn-del">মুছুন</button>';T.appendChild(d)};
 	document.getElementById('sn-addact').onclick=function(){var k=Date.now();var d=document.createElement('div');d.className='sn-arow';d.innerHTML='<input type="text" class="sn-ic" name="sn[acts]['+k+'][icon]" placeholder="আইকন"> <input type="text" name="sn[acts]['+k+'][title]" placeholder="নাম"> <input type="text" name="sn[acts]['+k+'][text]" placeholder="ছোট বিবরণ" style="min-width:260px"> <input type="url" name="sn[acts]['+k+'][url]" placeholder="লিংক"> <button type="button" class="button sn-del">মুছুন</button>';A.appendChild(d)};})();
 	</script>
 	<?php
