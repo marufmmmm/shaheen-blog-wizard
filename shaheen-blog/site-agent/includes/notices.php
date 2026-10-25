@@ -16,6 +16,7 @@ function csa_sn_defaults() {
 		'per_view'  => 1,
 		'recent'    => 10,
 		'hide_title' => 1,
+		'brand'     => 'শাহীন স্কুল এন্ড ক্যাডেট কোচিং',
 		'slug'      => 'notice',
 		'css'       => '',
 		'model'     => '',
@@ -143,6 +144,7 @@ function csa_sn_css() {
 		. ".sn-bn{position:relative;overflow:hidden;border-radius:var(--r);color:#fff;text-align:center;padding:clamp(20px,4vw,34px) clamp(14px,4vw,34px);background:linear-gradient(120deg,var(--k),var(--p),var(--a),var(--p),var(--k));background-size:300% 300%;animation:snflow 10s ease infinite}"
 		. ".sn-bn:before{content:'';position:absolute;inset:0;background:radial-gradient(circle at 85% 20%,rgba(255,255,255,.18),transparent 45%);animation:snpulse 5s ease-in-out infinite}"
 		. "@keyframes snflow{0%{background-position:0 50%}50%{background-position:100% 50%}100%{background-position:0 50%}}@keyframes snpulse{50%{opacity:.4}}@keyframes snin{from{opacity:0;transform:translateY(12px)}to{opacity:1;transform:none}}"
+		. ".sn-brand{position:relative;font-size:.9em;font-weight:600;opacity:.92;margin:0 0 6px;letter-spacing:.2px}"
 		. ".sn-bt{position:relative;font-size:clamp(28px,7vw,52px);font-weight:700;line-height:1.2;margin:0 0 6px;text-shadow:0 2px 8px rgba(0,0,0,.25);animation:snin 1s ease both}"
 		. ".sn-sub{position:relative;display:inline-block;background:#fff;color:var(--k);font-weight:700;border-radius:999px;padding:3px 16px;font-size:clamp(18px,4.4vw,28px);animation:snin 1s .2s ease both}.sn-yr{position:relative;display:inline-block;margin-left:8px;background:var(--a);border-radius:999px;padding:3px 14px;font-weight:700;font-size:clamp(16px,3.6vw,22px)}"
 		. ".sn-st{display:inline-block;margin-top:10px;position:relative;border-radius:999px;padding:2px 14px;font-size:.8em;font-weight:700;background:rgba(255,255,255,.2)}.sn-st.x{background:#b3261e}"
@@ -272,7 +274,8 @@ function csa_sn_render( $id ) {
 	$topic  = ( $d['topic'] ?? '' ) ?: ( $types[ $d['type'] ?? '' ]['topic'] ?? get_the_title( $id ) );
 	$branch = trim( (string) ( $d['branch'] ?? '' ) );
 	$exp    = csa_sn_expired( $id );
-	$bn     = '<div class="sn-bn">' . ( $branch ? '<div class="sn-bt">' . esc_html( $branch ) . '</div>' : '' ) . '<span class="sn-sub">' . esc_html( $topic ) . '</span>' . ( ! empty( $d['year'] ) ? '<span class="sn-yr">' . esc_html( $d['year'] ) . '</span>' : '' ) . ( get_post_meta( $id, '_sn_expiry', true ) ? '<div><span class="sn-st' . ( $exp ? ' x' : '' ) . '">' . ( $exp ? 'আবেদনের মেয়াদ শেষ' : 'চলমান' ) . '</span></div>' : '' ) . '</div>';
+	$brand  = trim( (string) $o['brand'] );
+	$bn     = '<div class="sn-bn">' . ( $brand ? '<div class="sn-brand">' . esc_html( $brand ) . '</div>' : '' ) . ( $branch ? '<div class="sn-bt">' . esc_html( $branch ) . '</div>' : '' ) . '<span class="sn-sub">' . esc_html( $topic ) . '</span>' . ( ! empty( $d['year'] ) ? '<span class="sn-yr">' . esc_html( $d['year'] ) . '</span>' : '' ) . ( get_post_meta( $id, '_sn_expiry', true ) ? '<div><span class="sn-st' . ( $exp ? ' x' : '' ) . '">' . ( $exp ? 'আবেদনের মেয়াদ শেষ' : 'চলমান' ) . '</span></div>' : '' ) . '</div>';
 	$main   = '';
 	foreach ( (array) ( $d['blocks'] ?? array() ) as $b ) {
 		$main .= csa_sn_block( $b );
@@ -401,7 +404,9 @@ add_filter( 'wp_insert_post_data', function ( $data, $post ) {
 	$d  = csa_sn_clean( json_decode( wp_unslash( $_POST['sn_data'] ), true ) );
 	$ts = csa_sn_opt( 'types' )[ $d['type'] ] ?? array();
 	if ( '' === trim( (string) $data['post_title'] ) || 'Auto Draft' === $data['post_title'] ) {
-		$t = trim( ( $d['topic'] ?: ( $ts['topic'] ?? 'নোটিশ' ) ) . ( $d['branch'] ? ' — ' . $d['branch'] : '' ) . ( $d['year'] ? ' ' . $d['year'] : '' ) );
+		$brand = trim( (string) csa_sn_opt( 'brand' ) );
+		$who   = trim( $brand . ( $brand && $d['branch'] ? ', ' : '' ) . $d['branch'] );
+		$t     = trim( ( $d['topic'] ?: ( $ts['topic'] ?? 'নোটিশ' ) ) . ( $d['year'] ? ' ' . $d['year'] : '' ) . ( $who ? ' — ' . $who : '' ) );
 		$data['post_title'] = $t;
 	}
 	if ( $d['slug'] ) {
@@ -469,23 +474,53 @@ add_action( 'admin_enqueue_scripts', function ( $hook ) {
 	foreach ( function_exists( 'csa_branches' ) ? csa_branches() : array() as $b ) {
 		$br[] = $b['title'];
 	}
-	wp_localize_script( 'sn-admin', 'SN', array( 'ajax' => admin_url( 'admin-ajax.php' ), 'nonce' => wp_create_nonce( 'csa' ), 'types' => $ty, 'branches' => $br, 'year' => csa_sn_bn( wp_date( 'Y' ) ) ) );
+	global $wpdb;
+	foreach ( (array) $wpdb->get_col( "SELECT DISTINCT meta_value FROM {$wpdb->postmeta} WHERE meta_key='_sn_branch' AND meta_value<>'' LIMIT 60" ) as $b ) {
+		$br[] = $b;
+	}
+	$br = array_values( array_unique( $br ) );
+	wp_localize_script( 'sn-admin', 'SN', array( 'ajax' => admin_url( 'admin-ajax.php' ), 'nonce' => wp_create_nonce( 'csa' ), 'types' => $ty, 'branches' => $br, 'settings' => admin_url( 'admin.php?page=sn-settings' ), 'year' => csa_sn_bn( wp_date( 'Y' ) ) ) );
 } );
 
 /** Claude fills the form from pasted text (e.g. a Facebook post). */
 add_action( 'wp_ajax_csa_sn_ai', function () {
 	csa_guard( 'chat' );
-	$txt = sanitize_textarea_field( wp_unslash( $_POST['text'] ?? '' ) );
-	if ( mb_strlen( $txt ) < 15 ) {
-		wp_send_json_error( 'আগে নোটিশের লেখা পেস্ট করুন।' );
+	$txt  = sanitize_textarea_field( wp_unslash( $_POST['text'] ?? '' ) );
+	$imgs = array();
+	foreach ( array_slice( array_map( 'absint', (array) ( $_POST['imgs'] ?? array() ) ), 0, 3 ) as $aid ) {
+		$f = $aid && current_user_can( 'edit_post', $aid ) ? get_attached_file( $aid ) : '';
+		if ( ! $f || ! file_exists( $f ) ) {
+			continue;
+		}
+		$ed = wp_get_image_editor( $f );
+		if ( is_wp_error( $ed ) ) {
+			continue;
+		}
+		$ed->resize( 1600, 1600, false );
+		$tmp = wp_tempnam( 'snai' );
+		$sv  = $ed->save( $tmp, 'image/jpeg' );
+		if ( ! is_wp_error( $sv ) && ! empty( $sv['path'] ) ) {
+			$imgs[] = array( 'type' => 'image', 'source' => array( 'type' => 'base64', 'media_type' => 'image/jpeg', 'data' => base64_encode( (string) file_get_contents( $sv['path'] ) ) ) );
+			wp_delete_file( $sv['path'] );
+		}
+		wp_delete_file( $tmp );
+	}
+	if ( ! $imgs && mb_strlen( $txt ) < 15 ) {
+		wp_send_json_error( 'লেখা পেস্ট করুন অথবা পোস্টারের ছবি বাছুন।' );
 	}
 	$ty = array();
 	foreach ( csa_sn_opt( 'types' ) as $k => $t ) {
 		$ty[] = $k . ' = ' . $t['label'];
 	}
-	$sys = 'You read a school notice (Bangla or English) and fill a form. Return ONLY JSON: {"type":"one of: ' . implode( ', ', $ty ) . '","branch":"branch name as written, e.g. শাহীন স্কুল, মাদারীপুর শাখা, or empty","topic":"short subject, e.g. সহকারী শিক্ষক নিয়োগ","year":"year in Bangla digits or empty","expiry":"application last date as YYYY-MM-DD or empty","summary":"1-2 plain sentences","cards":[{"l":"label such as আবেদনের শেষ সময়","v":"value exactly as written"}],"conditions":["each condition or rule as one short line"],"note":"one extra note or empty","phones":["numbers exactly as written"],"links":[{"kind":"apply|pdf|fb|oth","label":"button words","url":"only if the text contains it"}]}. Copy facts exactly; never invent dates, numbers, names or links; leave a field empty when the text does not say.';
+	$sys = 'You read a school notice (Bangla or English) and fill a form. Return ONLY JSON: {"type":"one of: ' . implode( ', ', $ty ) . '","branch":"only the branch or place name, e.g. মাদারীপুর শাখা, WITHOUT the school group name (শাহীন স্কুল এন্ড ক্যাডেট কোচিং), or empty","topic":"short subject, e.g. সহকারী শিক্ষক নিয়োগ","year":"year in Bangla digits or empty","expiry":"application last date as YYYY-MM-DD or empty","summary":"1-2 plain sentences","cards":[{"l":"label such as আবেদনের শেষ সময়","v":"value exactly as written"}],"conditions":["each condition or rule as one short line"],"note":"one extra note or empty","phones":["numbers exactly as written"],"links":[{"kind":"apply|pdf|fb|oth","label":"button words","url":"only if the text contains it"}]}. Copy facts exactly; never invent dates, numbers, names or links; leave a field empty when the text does not say.';
 	$m   = csa_sn_opt( 'model' );
-	$r   = csa_jobs_ai_json( $sys, $txt, 'Notice: fill', 1800, $m && csa_model( $m ) ? array( 'model_key' => $m ) : array() );
+	$x   = $m && csa_model( $m ) ? array( 'model_key' => $m ) : array();
+	if ( $imgs ) {
+		$x['needs_vision'] = true;
+		$sys              .= ' The notice may be given as a poster image: read ALL the text in it carefully (Bangla and English), including small print and phone numbers.';
+		$txt               = array_merge( $imgs, array( array( 'type' => 'text', 'text' => '' !== $txt ? $txt : 'Read the poster image above and fill the form.' ) ) );
+	}
+	$r   = csa_jobs_ai_json( $sys, $txt, 'Notice: fill', 2200, $x );
 	is_wp_error( $r ) ? wp_send_json_error( $r->get_error_message() ) : wp_send_json_success( csa_sn_any_clean( $r ) );
 } );
 
@@ -622,6 +657,7 @@ add_action( 'admin_post_sn_save', function () {
 		'per_view'   => 2 === (int) ( $in['per_view'] ?? 1 ) ? 2 : 1,
 		'recent'     => max( 1, min( 30, (int) ( $in['recent'] ?? 10 ) ) ),
 		'hide_title' => empty( $in['hide_title'] ) ? 0 : 1,
+		'brand'      => sanitize_text_field( $in['brand'] ?? '' ),
 		'slug'       => sanitize_title( $in['slug'] ?? 'notice' ) ?: 'notice',
 		'css'        => wp_strip_all_tags( $in['css'] ?? '' ),
 		'model'      => sanitize_key( $in['model'] ?? '' ),
@@ -678,6 +714,7 @@ function csa_sn_settings_screen() {
 		<p>লেখার মাপ (কম্পিউটার) <input type="number" min="14" max="30" name="sn[fs]" value="<?php echo (int) $o['fs']; ?>"> মোবাইল <input type="number" min="14" max="30" name="sn[fs_m]" value="<?php echo (int) $o['fs_m']; ?>"> পিক্সেল · পেজের প্রস্থ <input type="number" min="700" max="1600" step="10" name="sn[width]" value="<?php echo (int) $o['width']; ?>"></p>
 		<p>রং: মূল <input type="color" name="sn[primary]" value="<?php echo esc_attr( $o['primary'] ); ?>"> গাঢ় <input type="color" name="sn[dark]" value="<?php echo esc_attr( $o['dark'] ); ?>"> কাঠালি <input type="color" name="sn[accent]" value="<?php echo esc_attr( $o['accent'] ); ?>"> হালকা <input type="color" name="sn[soft]" value="<?php echo esc_attr( $o['soft'] ); ?>"></p>
 		<p>মোবাইলে সর্বশেষ নোটিশ একসাথে <select name="sn[per_view]"><option value="1" <?php selected( $o['per_view'], 1 ); ?>>১টা</option><option value="2" <?php selected( $o['per_view'], 2 ); ?>>২টা</option></select> · কতগুলো দেখাবে <input type="number" min="1" max="30" name="sn[recent]" value="<?php echo (int) $o['recent']; ?>"></p>
+		<p>সব নোটিশে শাখার নামের ওপরে যে নাম বসবে (সব শাখার জন্য একই; খালি রাখলে বসবে না) <input type="text" class="large-text" name="sn[brand]" value="<?php echo esc_attr( $o['brand'] ); ?>"></p>
 		<p><label><input type="checkbox" name="sn[hide_title]" value="1" <?php checked( $o['hide_title'] ); ?>> থিমের নিজের শিরোনাম ও অতিরিক্ত ফাঁকা লুকান (নোটিশ পেজে)</label></p>
 		<p>লিংকের শুরু (পরিবর্তন করলে পুরনো লিংক বদলে যাবে) <input type="text" name="sn[slug]" value="<?php echo esc_attr( $o['slug'] ); ?>"></p>
 		<p>অতিরিক্ত CSS (ফাঁকা বা থিমের সাথে মিলানোর জন্য, ঐচ্ছিক)<br><textarea name="sn[css]" rows="3" style="width:100%;max-width:640px"><?php echo esc_textarea( $o['css'] ); ?></textarea></p>

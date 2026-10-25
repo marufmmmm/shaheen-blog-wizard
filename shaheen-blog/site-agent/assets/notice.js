@@ -61,20 +61,22 @@
 		return h + '</div></div>';
 	}
 
+	var AIM = [];
 	function draw() {
-		var t = typ(), known = SN.branches.indexOf(D.branch) > -1, other = !!D.branch && !known;
-		var brOpts = '<option value="">— শাখা ছাড়া / সাধারণ —</option>' + SN.branches.map(function (b) { return '<option' + (D.branch === b ? ' selected' : '') + '>' + esc(b) + '</option>'; }).join('') + '<option value="__o"' + (other ? ' selected' : '') + '>অন্য নাম লিখুন…</option>';
-		app.innerHTML = '<div class="sn-ai"><b>✨ Claude দিয়ে ঘর পূরণ (ঐচ্ছিক)</b><textarea id="sn-aitx" rows="3" placeholder="ফেসবুক পোস্ট বা নোটিশের লেখা এখানে পেস্ট করুন, Claude নিচের ঘরগুলো পূরণ করে দেবে। আপনি মিলিয়ে নেবেন।"></textarea><button type="button" class="button" id="sn-aigo">পূরণ করুন</button> <span id="sn-aimsg"></span></div>' +
+		var t = typ();
+		var brList = '<datalist id="sn-brl">' + SN.branches.map(function (b) { return '<option value="' + esc(b) + '">'; }).join('') + '</datalist>';
+		app.innerHTML = '<div class="sn-ai"><b>✨ Claude দিয়ে ঘর পূরণ (ঐচ্ছিক)</b><textarea id="sn-aitx" rows="3" placeholder="ফেসবুক পোস্ট বা নোটিশের লেখা এখানে পেস্ট করুন, অথবা নিচে পোস্টারের ছবি বাছুন। Claude ঘরগুলো পূরণ করে দেবে, আপনি মিলিয়ে নেবেন।"></textarea><button type="button" class="button" id="sn-aipic">🖼 পোস্টারের ছবি বাছুন</button> <span id="sn-aipn">' + (AIM.length ? AIM.length + 'টা ছবি বাছা হয়েছে' : '') + '</span> <button type="button" class="button button-primary" id="sn-aigo">পূরণ করুন</button> <span id="sn-aimsg"></span></div>' +
 			'<div class="sn-top">' +
-			field('ধরন', '<select id="sn-type">' + TYPES.map(function (x) { return opt(x.key, D.type, esc(x.label)); }).join('') + '</select>') +
-			field('শাখা', '<select id="sn-br">' + brOpts + '</select><input id="sn-bro" value="' + esc(other ? D.branch : '') + '" placeholder="শাখার নাম লিখুন"' + (other || D.branch === ' ' ? '' : ' style="display:none"') + '>') +
+			field('ধরন (<a href="' + esc(SN.settings) + '" target="_blank">নতুন ধরন যোগ / বদল</a>)', '<select id="sn-type">' + TYPES.map(function (x) { return opt(x.key, D.type, esc(x.label)); }).join('') + '</select>') +
+			field('শাখার নাম (লিখুন, বা তালিকা থেকে বাছুন; শাখা না থাকলে খালি রাখুন)', '<input id="sn-br" list="sn-brl" value="' + esc(D.branch || '') + '" placeholder="যেমন: টাঙ্গাইল শাখা" autocomplete="off">' + brList) +
 			field('বিষয়', '<input id="sn-topic" value="' + esc(D.topic || '') + '" placeholder="' + esc(t.topic) + '">') +
 			field('সাল', '<input id="sn-year" value="' + esc(D.year || '') + '">') +
 			field('আবেদনের শেষ তারিখ (মেয়াদ শেষ ব্যাজের জন্য)', '<input type="date" id="sn-exp" value="' + esc(D.expiry || '') + '">') +
 			field('লিংকের নাম (ইংরেজি, ঐচ্ছিক)', '<input id="sn-slug" value="' + esc(D.slug || '') + '" placeholder="madaripur-teacher-2026">') +
-			'</div>' + field('সারসংক্ষেপ (তালিকা ও Google-এর জন্য, ১-২ লাইন)', '<textarea id="sn-sum" rows="2">' + esc(D.summary || '') + '</textarea>') +
+			'</div>' +
 			'<h3>পেজের অংশ (ওপর থেকে নিচে এই ক্রমে দেখাবে)</h3><div id="sn-bl">' + D.blocks.map(blockHTML).join('') + '</div>' +
 			'<p class="sn-add">যোগ করুন: <select id="sn-addk">' + Object.keys(KIND).map(function (k) { return '<option value="' + k + '">' + KIND[k] + '</option>'; }).join('') + '</select> <button type="button" class="button" id="sn-addb">+ অংশ যোগ</button></p>' +
+			field('সারসংক্ষেপ (তালিকা ও Google-এর জন্য, ১-২ লাইন; AI পূরণ করে দেয়)', '<textarea id="sn-sum" rows="2">' + esc(D.summary || '') + '</textarea>') +
 			'<p class="sn-det"><label><input type="checkbox" id="sn-det"' + (D.detached ? ' checked' : '') + '> হাতে পুরো HTML এডিট করব (ফর্ম থেকে আলাদা হবে, এরপর শুধু WordPress এডিটরে বদলাবে)</label></p>';
 		var ed = document.getElementById('postdivrich'); if (ed) ed.style.display = D.detached ? '' : 'none';
 		bind();
@@ -92,8 +94,13 @@
 			if (cb && cb.rows.every(function (r) { return !r.v; })) cb.rows = typ().cards.map(function (l) { return { l: l, v: '' }; });
 			draw();
 		};
-		q('#sn-br').onchange = function () { D.branch = this.value === '__o' ? ' ' : this.value; draw(); if (this.value === '__o') { var o = app.querySelector('#sn-bro'); o.style.display = ''; o.focus(); } };
-		q('#sn-bro').oninput = function () { D.branch = this.value; save(); };
+		q('#sn-br').oninput = q('#sn-br').onchange = function () { D.branch = this.value; save(); };
+		q('#sn-aipic').onclick = function () {
+			if (!window.wp || !wp.media) return;
+			var f = wp.media({ title: 'পোস্টারের ছবি (সর্বোচ্চ ৩টা)', multiple: true, library: { type: 'image' } });
+			f.on('select', function () { AIM = f.state().get('selection').map(function (a) { return a.toJSON().id; }).slice(0, 3); q('#sn-aipn').textContent = AIM.length + 'টা ছবি বাছা হয়েছে'; });
+			f.open();
+		};
 		[['#sn-topic', 'topic'], ['#sn-year', 'year'], ['#sn-exp', 'expiry'], ['#sn-slug', 'slug'], ['#sn-sum', 'summary']].forEach(function (x) { var e = q(x[0]); e.oninput = e.onchange = function () { D[x[1]] = this.value; save(); }; });
 		q('#sn-det').onchange = function () { D.detached = this.checked ? 1 : 0; save(); };
 		q('#sn-addb').onclick = function () { D.blocks.push(blank(q('#sn-addk').value)); draw(); };
@@ -132,10 +139,10 @@
 
 	async function ai() {
 		var tx = app.querySelector('#sn-aitx').value.trim(), msg = app.querySelector('#sn-aimsg'), btn = app.querySelector('#sn-aigo');
-		if (!tx) { msg.textContent = 'আগে লেখা পেস্ট করুন'; return; }
+		if (!tx && !AIM.length) { msg.textContent = 'লেখা পেস্ট করুন অথবা পোস্টারের ছবি বাছুন'; return; }
 		btn.disabled = true; msg.textContent = 'পড়ছি…';
 		try {
-			var r = await fetch(SN.ajax, { method: 'POST', credentials: 'same-origin', body: new URLSearchParams({ action: 'csa_sn_ai', nonce: SN.nonce, text: tx }) }), j = await r.json();
+			var r = await fetch(SN.ajax, { method: 'POST', credentials: 'same-origin', body: (function () { var u = new URLSearchParams({ action: 'csa_sn_ai', nonce: SN.nonce, text: tx }); AIM.forEach(function (i) { u.append('imgs[]', i); }); return u; })() }), j = await r.json();
 			if (!j.success) { msg.textContent = '⚠ ' + j.data; btn.disabled = false; return; }
 			var d = j.data;
 			if (d.type && TYPES.some(function (t) { return t.key === d.type; })) D.type = d.type;
