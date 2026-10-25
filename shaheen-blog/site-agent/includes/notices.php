@@ -1382,7 +1382,7 @@ function csa_sn_board() {
 
 /** Board mode: the plugin builds the whole page itself (the theme's header and footer stay), whatever the page was made with. */
 add_filter( 'template_include', function ( $tpl ) {
-	if ( ! csa_sn_opt( 'replace' ) || ! is_page() || ! empty( $_GET['snr'] ) ) {
+	if ( ! csa_sn_opt( 'replace' ) || ! is_page() || ! empty( $_GET['snr'] ) || wp_is_block_theme() ) { // block themes show the board through the page content instead
 		return $tpl;
 	}
 	$lp = csa_sn_listpage_id();
