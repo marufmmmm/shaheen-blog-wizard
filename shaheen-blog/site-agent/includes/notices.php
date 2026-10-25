@@ -378,6 +378,9 @@ add_filter( 'the_content', function ( $c ) {
 	if ( ! $lp || ! is_page( $lp ) || ! in_the_loop() || ! is_main_query() || ! empty( $GLOBALS['csa_sn_list_done'] ) ) {
 		return $c;
 	}
+	if ( ! empty( $_GET['snr'] ) && csa_sn_read_ok( sanitize_text_field( wp_unslash( $_GET['snr'] ) ) ) ) {
+		return $c; // The plugin is reading the page's own content.
+	}
 	return csa_sn_opt( 'replace' ) ? do_shortcode( '[shaheen_notice_list header="1"]' ) : $c . do_shortcode( '[shaheen_notice_list]' );
 }, 30 );
 
@@ -872,6 +875,134 @@ add_action( 'admin_menu', function () {
 /* Bring the site's old notice pages into the list                      */
 /* ------------------------------------------------------------------ */
 
+function csa_sn_read_token( $back = 0 ) {
+	return wp_hash( 'snr' . ( floor( time() / 900 ) - $back ) );
+}
+
+function csa_sn_read_ok( $t ) {
+	return hash_equals( csa_sn_read_token(), $t ) || hash_equals( csa_sn_read_token( 1 ), $t );
+}
+
+/** Reads the notice cards (title, date, address, kind) out of an existing page's own content. Returns array( items, how ). */
+function csa_sn_read_page( $pid ) {
+	$html = '';
+	$how  = '';
+	$r    = wp_remote_get( add_query_arg( 'snr', csa_sn_read_token(), get_permalink( $pid ) ), array( 'timeout' => 25, 'sslverify' => false, 'headers' => array( 'Cache-Control' => 'no-cache' ) ) );
+	if ( ! is_wp_error( $r ) && 200 === (int) wp_remote_retrieve_response_code( $r ) ) {
+		$html = (string) wp_remote_retrieve_body( $r );
+		$how  = 'পেজ যেভাবে দেখা যায় সেভাবে';
+	}
+	if ( strlen( $html ) < 500 ) { // Could not load the page: use what is stored in it.
+		$p    = get_post( $pid );
+		$html = (string) $p->post_content;
+		$ed   = (string) get_post_meta( $pid, '_elementor_data', true );
+		if ( $ed ) {
+			$j = json_decode( $ed, true );
+			array_walk_recursive( $j, function ( $v, $k ) use ( &$html ) {
+				if ( is_string( $v ) && false !== strpos( $v, '<' ) ) {
+					$html .= "\n" . $v;
+				}
+			} );
+		}
+		$how = 'পেজের সংরক্ষিত লেখা থেকে';
+	}
+	if ( ! class_exists( 'DOMDocument' ) || '' === trim( $html ) ) {
+		return array( array(), $how );
+	}
+	$dom = new DOMDocument();
+	libxml_use_internal_errors( true );
+	$dom->loadHTML( '<?xml encoding="utf-8" ?>' . $html );
+	libxml_clear_errors();
+	$self  = trim( get_permalink( $pid ), '/' );
+	$base  = trim( (string) wp_parse_url( home_url(), PHP_URL_HOST ), '/' );
+	$bn    = array( '০' => '0', '১' => '1', '২' => '2', '৩' => '3', '৪' => '4', '৫' => '5', '৬' => '6', '৭' => '7', '৮' => '8', '৯' => '9' );
+	$items = array();
+	$seen  = array();
+	foreach ( $dom->getElementsByTagName( 'a' ) as $a ) {
+		$href = trim( (string) $a->getAttribute( 'href' ) );
+		if ( '' === $href || '#' === $href[0] || 0 === stripos( $href, 'javascript' ) || 0 === stripos( $href, 'mailto' ) || 0 === stripos( $href, 'tel' ) ) {
+			continue;
+		}
+		if ( 0 === strpos( $href, '/' ) ) {
+			$href = home_url( $href );
+		}
+		$tk = trim( strtok( $href, '#' ), '/' );
+		if ( $tk === $self || isset( $seen[ $tk ] ) || false !== strpos( $tk, '/notice-board/' ) || false !== strpos( $tk, '?sn_' ) ) {
+			continue;
+		}
+		$card = null;
+		$node = $a;
+		for ( $i = 0; $i < 8 && $node; $i++, $node = $node->parentNode ) {
+			if ( XML_ELEMENT_NODE !== $node->nodeType ) {
+				break;
+			}
+			$n = preg_match_all( '/\d{1,2}[-\/.]\d{1,2}[-\/.]\d{4}/', strtr( $node->textContent, $bn ) );
+			if ( 1 === $n ) {
+				$card = $node; // keep climbing: the whole card is the largest part that still holds one date
+				continue;
+			}
+			if ( $n > 1 || $card ) {
+				break;
+			}
+		}
+		if ( ! $card ) {
+			continue;
+		}
+		$tx = strtr( $card->textContent, $bn );
+		preg_match( '/(\d{1,2})[-\/.](\d{1,2})[-\/.](\d{4})/', $tx, $m );
+		$date = sprintf( '%04d-%02d-%02d', $m[3], $m[2], $m[1] );
+		$strs = array();
+		$walk = function ( $el ) use ( &$walk, &$strs ) {
+			$has = false;
+			foreach ( $el->childNodes as $c ) {
+				if ( XML_ELEMENT_NODE === $c->nodeType ) {
+					$has = true;
+					$walk( $c );
+				}
+			}
+			if ( ! $has ) {
+				$t = trim( preg_replace( '/\s+/u', ' ', $el->textContent ) );
+				if ( '' !== $t ) {
+					$strs[] = $t;
+				}
+			}
+		};
+		$walk( $card );
+		$title = '';
+		$badge = '';
+		foreach ( $strs as $t ) {
+			if ( preg_match( '/\d{1,2}[-\/.]\d{1,2}[-\/.]\d{4}/', strtr( $t, $bn ) ) || preg_match( '/বিস্তারিত|ডাউনলোড|দেখুন|Read more|^নতুন$|^New$/iu', $t ) ) {
+				continue;
+			}
+			if ( mb_strlen( $t ) > mb_strlen( $title ) ) {
+				if ( $title && mb_strlen( $title ) <= 28 && ! $badge ) {
+					$badge = $title;
+				}
+				$title = $t;
+			} elseif ( ! $badge && mb_strlen( $t ) <= 28 ) {
+				$badge = $t;
+			}
+		}
+		if ( '' === $title ) {
+			$title = trim( preg_replace( '/\s+/u', ' ', $a->textContent ) );
+		}
+		if ( mb_strlen( $title ) < 6 ) {
+			continue;
+		}
+		$seen[ $tk ] = 1;
+		$items[]     = array( 't' => $title, 'u' => $href, 'd' => $date, 'b' => $badge );
+	}
+	return array( $items, $how );
+}
+
+function csa_sn_lk( $u ) {
+	return strtolower( trim( preg_replace( '#^https?://(www\.)?#i', '', strtok( trim( (string) $u ), '#' ) ), '/' ) );
+}
+
+function csa_sn_exists_link( $u ) {
+	return (bool) get_posts( array( 'post_type' => 'sef_notice', 'post_status' => 'any', 'numberposts' => 1, 'fields' => 'ids', 'meta_key' => '_sn_lk', 'meta_value' => csa_sn_lk( $u ) ) );
+}
+
 function csa_sn_guess_type( $t ) {
 	$types = array_keys( csa_sn_opt( 'types' ) );
 	$has   = function ( $k ) use ( $types ) {
@@ -894,7 +1025,7 @@ function csa_sn_candidates() {
 	$skip = array_filter( array( csa_sn_listpage_id(), (int) get_option( 'page_on_front' ), (int) get_option( 'page_for_posts' ) ) );
 	$out  = array();
 	foreach ( get_posts( array( 'post_type' => array( 'page', 'post' ), 'post_status' => 'publish', 'numberposts' => 600, 'orderby' => 'date', 'order' => 'DESC' ) ) as $p ) {
-		if ( isset( $have[ $p->ID ] ) || in_array( $p->ID, $skip, true ) ) {
+		if ( isset( $have[ $p->ID ] ) || in_array( $p->ID, $skip, true ) || csa_sn_exists_link( get_permalink( $p ) ) ) {
 			continue;
 		}
 		if ( preg_match( '/নিয়োগ|ফলাফল|বৃত্তি|বিজ্ঞপ্তি|নোটিশ|সিলেবাস|প্রবেশপত্র|আবেদন|রেজাল্ট|result|notice|circular|admit|vacanc|recruit|scholarship/iu', $p->post_title . ' ' . $p->post_name ) ) {
@@ -925,6 +1056,7 @@ function csa_sn_import_one( $title, $url, $date, $type, $src = 0, $thumb = 0 ) {
 	update_post_meta( $id, '_sn_type', $type );
 	update_post_meta( $id, '_sn_branch', $d['branch'] );
 	update_post_meta( $id, '_sn_link', esc_url_raw( $url ) );
+	update_post_meta( $id, '_sn_lk', csa_sn_lk( $url ) );
 	if ( $src ) {
 		update_post_meta( $id, '_sn_src', $src );
 	}
@@ -949,6 +1081,16 @@ add_action( 'admin_post_sn_import', function () {
 			}
 		}
 	}
+	foreach ( (array) wp_unslash( $_POST['rd'] ?? array() ) as $r ) {
+		if ( empty( $r['on'] ) || empty( $r['u'] ) || csa_sn_exists_link( $r['u'] ) ) {
+			continue;
+		}
+		$type = sanitize_key( $r['y'] ?? '' ) ?: csa_sn_guess_type( $r['t'] ?? '' );
+		$sid  = (int) url_to_postid( $r['u'] );
+		if ( csa_sn_import_one( sanitize_text_field( $r['t'] ?? '' ), $r['u'], sanitize_text_field( $r['d'] ?? '' ), $type, $sid, $sid ? (int) get_post_thumbnail_id( $sid ) : 0 ) ) {
+			$n++;
+		}
+	}
 	foreach ( preg_split( '/\r?\n/', wp_unslash( $_POST['extra'] ?? '' ) ) as $ln ) {
 		$pp = array_map( 'trim', explode( '|', $ln ) );
 		if ( count( $pp ) >= 2 && '' !== $pp[0] && preg_match( '#^https?://#i', $pp[1] ) && csa_sn_import_one( sanitize_text_field( $pp[0] ), $pp[1], $pp[2] ?? '', csa_sn_guess_type( $pp[0] ) ) ) {
@@ -965,8 +1107,37 @@ function csa_sn_import_screen() {
 	?>
 	<div class="wrap" id="sn-settings"><h1>পুরোনো নোটিশ আনুন</h1>
 	<?php echo isset( $_GET['done'] ) ? '<div class="notice notice-success"><p>' . (int) $_GET['done'] . 'টা নোটিশ তালিকায় যোগ হয়েছে ✓ — এখন নোটিশ সেটিংসে "পুরোনো লেখা সরিয়ে শুধু নোটিশ বোর্ড" চালু করুন।</p></div>' : ''; ?>
-	<p>সাইটের যে পেজ/পোস্টের নামে নিয়োগ, ফলাফল, বৃত্তি, বিজ্ঞপ্তি ইত্যাদি আছে, সেগুলো নিচে এসেছে। টিক দেওয়াগুলো নোটিশ-তালিকায় যোগ হবে। কার্ডে চাপলে আগের পেজেই যাবে (পেজ বদলায় না), আর তারিখ আগের পেজের তারিখই থাকবে, তাই নতুনটা সবার আগে দেখাবে।</p>
+	<?php
+	$lpid = csa_sn_listpage_id();
+	$rd   = array();
+	$how  = '';
+	if ( $lpid && isset( $_GET['read'] ) ) {
+		list( $rd, $how ) = csa_sn_read_page( $lpid );
+	}
+	?>
+	<div class="sn-set"><h2>১) আপনার নোটিশ পেজ পড়ে আনুন</h2>
+	<?php if ( $lpid ) : ?>
+		<p>নোটিশ পেজ: <a href="<?php echo esc_url( get_permalink( $lpid ) ); ?>" target="_blank"><?php echo esc_html( get_the_title( $lpid ) ); ?></a> <small>(<?php echo esc_html( get_permalink( $lpid ) ); ?>)</small> — এই পেজের কার্ডগুলো (নাম, তারিখ, লিংক) plugin নিজে পড়ে নেবে।</p>
+		<p><a class="button button-primary" href="<?php echo esc_url( admin_url( 'admin.php?page=sn-import&read=1' ) ); ?>">📖 পেজটা পড়ুন</a></p>
+	<?php else : ?>
+		<p>নোটিশ পেজ পাওয়া যায়নি। নোটিশ সেটিংসে "নোটিশ-তালিকা পেজ" বেছে নিন।</p>
+	<?php endif; ?>
+	</div>
 	<form method="post" action="<?php echo esc_url( admin_url( 'admin-post.php' ) ); ?>"><?php wp_nonce_field( 'sn_import' ); ?><input type="hidden" name="action" value="sn_import">
+	<?php if ( isset( $_GET['read'] ) ) : ?>
+		<h2>পেজে পাওয়া নোটিশ (<?php echo esc_html( $how ); ?> পড়া হয়েছে): <?php echo count( $rd ); ?>টা</h2>
+		<table class="widefat striped"><thead><tr><td style="width:30px"></td><th>নাম</th><th>তারিখ</th><th>ধরন</th><th>লিংক</th></tr></thead><tbody>
+		<?php foreach ( $rd as $i => $r ) : $ex = csa_sn_exists_link( $r['u'] ); $g = csa_sn_guess_type( $r['b'] . ' ' . $r['t'] ); ?>
+			<tr><td><input type="checkbox" name="rd[<?php echo (int) $i; ?>][on]" value="1" <?php echo $ex ? 'disabled' : 'checked'; ?>><input type="hidden" name="rd[<?php echo (int) $i; ?>][u]" value="<?php echo esc_attr( $r['u'] ); ?>"></td>
+			<td><input type="text" class="large-text" name="rd[<?php echo (int) $i; ?>][t]" value="<?php echo esc_attr( $r['t'] ); ?>"></td>
+			<td><input type="text" size="10" name="rd[<?php echo (int) $i; ?>][d]" value="<?php echo esc_attr( $r['d'] ); ?>"></td>
+			<td><select name="rd[<?php echo (int) $i; ?>][y]"><?php foreach ( $ty as $k => $t ) { echo '<option value="' . esc_attr( $k ) . '"' . selected( $g, $k, false ) . '>' . esc_html( $t['label'] ) . '</option>'; } ?></select><?php echo $r['b'] ? '<br><small>পেজে: ' . esc_html( $r['b'] ) . '</small>' : ''; ?></td>
+			<td><a href="<?php echo esc_url( $r['u'] ); ?>" target="_blank">খুলুন</a><?php echo $ex ? ' <small>(আগেই আনা)</small>' : ''; ?></td></tr>
+		<?php endforeach; if ( ! $rd ) { echo '<tr><td colspan="5">কার্ড পাওয়া যায়নি। (নিচের "অন্য লিংক" বা ২নং তালিকা ব্যবহার করুন।)</td></tr>'; } ?>
+		</tbody></table>
+	<?php endif; ?>
+	<h2>২) সাইটের অন্য পেজ থেকে</h2>
+	<p>সাইটের যে পেজ/পোস্টের নামে নিয়োগ, ফলাফল, বৃত্তি, বিজ্ঞপ্তি ইত্যাদি আছে, সেগুলো নিচে এসেছে। টিক দেওয়াগুলো নোটিশ-তালিকায় যোগ হবে। কার্ডে চাপলে আগের পেজেই যাবে (পেজ বদলায় না), আর তারিখ আগের পেজের তারিখই থাকবে, তাই নতুনটা সবার আগে দেখাবে।</p>
 	<table class="widefat striped"><thead><tr><td style="width:30px"><input type="checkbox" onclick="document.querySelectorAll('.sn-pk').forEach(function(c){c.checked=this.checked}.bind(this))" checked></td><th>পেজের নাম</th><th>তারিখ</th><th>ধরন</th></tr></thead><tbody>
 	<?php foreach ( $rows as $p ) : $g = csa_sn_guess_type( $p->post_title ); ?>
 		<tr><td><input class="sn-pk" type="checkbox" name="pick[]" value="<?php echo (int) $p->ID; ?>" checked></td><td><a href="<?php echo esc_url( get_permalink( $p ) ); ?>" target="_blank"><?php echo esc_html( $p->post_title ); ?></a> <small>/<?php echo esc_html( $p->post_name ); ?>/</small></td><td><?php echo esc_html( csa_sn_date( get_post_time( 'U', true, $p ) ) ); ?></td><td><select name="ty[<?php echo (int) $p->ID; ?>]"><?php foreach ( $ty as $k => $t ) { echo '<option value="' . esc_attr( $k ) . '"' . selected( $g, $k, false ) . '>' . esc_html( $t['label'] ) . '</option>'; } ?></select></td></tr>
