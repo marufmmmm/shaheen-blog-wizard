@@ -21,6 +21,7 @@ function csa_sn_defaults() {
 		'css'       => '',
 		'model'     => '',
 		'list_page' => 0,
+		'old'       => '',
 		'primary'   => '#2e7d32',
 		'dark'      => '#0f3d1e',
 		'accent'    => '#d9961a',
@@ -175,7 +176,7 @@ function csa_sn_css() {
 		. ".sn-btns{display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:10px;margin:0 0 12px}.sn-btn{display:flex;align-items:center;justify-content:center;gap:6px;padding:14px 18px;border-radius:12px;font-weight:700;text-decoration:none!important;color:#fff!important;background:var(--p);text-align:center}.sn-btn.pdf{background:var(--a)}.sn-btn.fb{background:#1877f2}.sn-btn.oth{background:var(--k)}"
 		. ".sn-ph{display:flex;flex-wrap:wrap;gap:10px}.sn-ph a{background:var(--p);color:#fff!important;border-radius:10px;padding:8px 16px;font-weight:700;text-decoration:none!important;font-size:1.05em}"
 		. ".sn-emb{position:relative;aspect-ratio:16/9;border-radius:var(--r);overflow:hidden;background:#000;margin:0 0 12px}.sn-emb iframe{position:absolute;inset:0;width:100%;height:100%;border:0}"
-		. ".sn-side h3{margin:0 0 6px;font-size:1.15em;color:var(--k);border-bottom:2px solid var(--p);padding-bottom:6px}.sn-side ul{margin:0;padding:0;list-style:none}.sn-side li{padding:10px 0;border-bottom:1px solid #edf1ee;line-height:1.5}.sn-side li small{display:block;color:var(--p);font-weight:700;font-size:.85em}.sn-side li time{color:#889;font-size:.8em}.sn-side a{color:inherit;text-decoration:none}"
+		. ".sn-side h3.sn-h2{margin-top:16px}.sn-side h3{margin:0 0 6px;font-size:1.15em;color:var(--k);border-bottom:2px solid var(--p);padding-bottom:6px}.sn-side ul{margin:0;padding:0;list-style:none}.sn-side li{padding:10px 0;border-bottom:1px solid #edf1ee;line-height:1.5}.sn-side li small{display:block;color:var(--p);font-weight:700;font-size:.85em}.sn-side li time{color:#889;font-size:.8em}.sn-side a{color:inherit;text-decoration:none}"
 		. ".sn-all{display:block;text-align:center;background:var(--p);color:#fff!important;border-radius:12px;padding:12px;font-weight:700;text-decoration:none!important;margin-top:10px}.sn-share{font-size:.8em;color:#778}.sn-share a{color:var(--p)}"
 		/* cards used in lists and sliders */
 		. ".sn-grid{display:grid;gap:12px;grid-template-columns:repeat(auto-fill,minmax(230px,1fr))}.sn-nc{background:#fff;border:1px solid #dfe6e0;border-radius:var(--r);padding:12px;text-decoration:none!important;color:inherit!important;display:block;position:relative}.sn-nc .th{aspect-ratio:16/9;border-radius:10px;margin:-2px 0 8px;display:grid;place-items:center;text-align:center;color:#fff;font-weight:700;line-height:1.3;padding:6px;background:linear-gradient(120deg,var(--k),var(--p) 60%,var(--a));overflow:hidden}.sn-nc .th img{width:100%;height:100%;object-fit:cover;display:block}"
@@ -299,13 +300,38 @@ function csa_sn_render( $id ) {
 		$main .= csa_sn_block( $b );
 	}
 	$prev = '';
-	foreach ( get_posts( array( 'post_type' => 'sef_notice', 'post_status' => 'publish', 'numberposts' => 4, 'exclude' => array( $id ), 'meta_key' => '_sn_type', 'meta_value' => $d['type'] ?? '' ) ) as $p ) {
-		$pb    = (string) get_post_meta( $p->ID, '_sn_branch', true );
-		$prev .= '<li><a href="' . esc_url( get_permalink( $p ) ) . '"><small>' . esc_html( $tl . ( $pb ? ' · ' . $pb : '' ) ) . '</small>' . esc_html( get_the_title( $p ) ) . '<br><time>' . esc_html( csa_sn_date( get_post_time( 'U', true, $p ) ) ) . '</time></a></li>';
+	$seen = array( $id );
+	$mk   = function ( $p ) use ( $types ) {
+		$pt = (string) get_post_meta( $p->ID, '_sn_type', true );
+		$pb = (string) get_post_meta( $p->ID, '_sn_branch', true );
+		return '<li><a href="' . esc_url( get_permalink( $p ) ) . '"><small>' . esc_html( ( $types[ $pt ]['label'] ?? '' ) . ( $pb ? ' · ' . $pb : '' ) ) . '</small>' . esc_html( get_the_title( $p ) ) . '<br><time>' . esc_html( csa_sn_date( get_post_time( 'U', true, $p ) ) ) . '</time></a></li>';
+	};
+	// Same kind first, then the other kinds, so the side is never empty while the site has other notices.
+	foreach ( array( $d['type'] ?? '', '' ) as $tp ) {
+		$args = array( 'post_type' => 'sef_notice', 'post_status' => 'publish', 'numberposts' => 6, 'post__not_in' => $seen );
+		if ( $tp ) {
+			$args['meta_key']   = '_sn_type';
+			$args['meta_value'] = $tp;
+		}
+		foreach ( get_posts( $args ) as $p ) {
+			if ( count( $seen ) > 6 ) {
+				break;
+			}
+			$seen[] = $p->ID;
+			$prev  .= $mk( $p );
+		}
+	}
+	// Older notices that live on the site's old pages: "title | link" per line in the settings.
+	$old = '';
+	foreach ( array_slice( preg_split( '/\r?\n/', (string) $o['old'] ), 0, 12 ) as $ln ) {
+		$pp = array_map( 'trim', explode( '|', $ln, 2 ) );
+		if ( 2 === count( $pp ) && '' !== $pp[0] && preg_match( '#^https?://#i', $pp[1] ) && trim( $pp[1], '/' ) !== trim( get_permalink( $id ), '/' ) ) {
+			$old .= '<li><a href="' . esc_url( $pp[1] ) . '">' . esc_html( $pp[0] ) . '</a></li>';
+		}
 	}
 	$lp   = (int) $o['list_page'];
 	$all  = $lp && get_post_status( $lp ) ? get_permalink( $lp ) : get_post_type_archive_link( 'sef_notice' );
-	$side = $prev ? '<aside class="sn-card sn-side"><h3>আগের নোটিশ</h3><ul>' . $prev . '</ul>' . ( $all ? '<a class="sn-all" href="' . esc_url( $all ) . '">সব নোটিশ দেখুন →</a>' : '' ) . '</aside>' : '';
+	$side = ( $prev || $old ) ? '<aside class="sn-card sn-side"><h3>আগের নোটিশ</h3>' . ( $prev ? '<ul>' . $prev . '</ul>' : '' ) . ( $old ? '<h3 class="sn-h2">পুরোনো পেজের নোটিশ</h3><ul class="sn-olds">' . $old . '</ul>' : '' ) . ( $all ? '<a class="sn-all" href="' . esc_url( $all ) . '">সব নোটিশ দেখুন →</a>' : '' ) . '</aside>' : '';
 	$url  = rawurlencode( get_permalink( $id ) );
 	$share = '<p class="sn-share">শেয়ার: <a target="_blank" rel="noopener" href="https://wa.me/?text=' . $url . '">WhatsApp</a> · <a target="_blank" rel="noopener" href="https://www.facebook.com/sharer/sharer.php?u=' . $url . '">Facebook</a></p>';
 	return csa_sn_css() . '<div class="sn">' . $bn . '<div class="sn-lay' . ( $side ? '' : ' sn-1' ) . '"><div>' . $main . $share . '</div>' . $side . '</div></div>';
@@ -824,6 +850,7 @@ add_action( 'admin_post_sn_save', function () {
 		'slug'       => sanitize_title( $in['slug'] ?? 'notice-board' ) ?: 'notice-board',
 		'css'        => wp_strip_all_tags( $in['css'] ?? '' ),
 		'model'      => sanitize_key( $in['model'] ?? '' ),
+		'old'        => sanitize_textarea_field( $in['old'] ?? '' ),
 		'list_page'  => isset( $in['list_page'] ) ? absint( $in['list_page'] ) : (int) $o['list_page'],
 	);
 	foreach ( array( 'primary', 'dark', 'accent', 'soft' ) as $k ) {
@@ -890,6 +917,7 @@ function csa_sn_settings_screen() {
 		<div id="sn-acts"><?php foreach ( (array) $o['acts'] as $i => $x ) : ?><div class="sn-arow"><input type="text" class="sn-ic" name="sn[acts][<?php echo (int) $i; ?>][icon]" value="<?php echo esc_attr( $x['icon'] ); ?>" placeholder="আইকন"> <input type="text" name="sn[acts][<?php echo (int) $i; ?>][title]" value="<?php echo esc_attr( $x['title'] ); ?>" placeholder="নাম"> <input type="text" name="sn[acts][<?php echo (int) $i; ?>][text]" value="<?php echo esc_attr( $x['text'] ); ?>" placeholder="ছোট বিবরণ" style="min-width:260px"> <input type="url" name="sn[acts][<?php echo (int) $i; ?>][url]" value="<?php echo esc_attr( $x['url'] ); ?>" placeholder="লিংক"> <button type="button" class="button sn-del">মুছুন</button></div><?php endforeach; ?></div>
 		<p><button type="button" class="button" id="sn-addact">+ বক্স যোগ করুন</button> <span class="description">ওঠানো-নামানো: মুছে আবার ক্রমে যোগ করুন।</span></p></div>
 		<p><button class="button button-primary button-large">সংরক্ষণ করুন</button></p>
+		<div class="sn-set"><h2>পুরোনো পেজের নোটিশ (ডানের "আগের নোটিশ" বক্সে দেখাবে)</h2><p class="description">প্রতি লাইনে একটা: <code>নাম | লিংক</code> — যেমন: <code>মাদারীপুর শিক্ষক নিয়োগ ২০২৬ | https://shaheen.edu.bd/madaripur-26/</code>। সর্বোচ্চ ১২টা।</p><textarea name="sn[old]" rows="6" class="large-text"><?php echo esc_textarea( $o['old'] ); ?></textarea></div>
 		<div class="sn-set"><h2>নোটিশ-তালিকা পেজ</h2><p><b>নোটিশ-তালিকা কোন পেজে দেখাবে?</b> (আপনার আগের "নোটিশ" পেজ বাছুন; Elementor পেজ এডিট করতে হবে না, পেজের শেষে নতুন নোটিশগুলো নিজে যোগ হবে। নিচের "সংরক্ষণ" চাপুন) <?php wp_dropdown_pages( array( 'name' => 'sn[list_page]', 'selected' => (int) $o['list_page'], 'show_option_none' => '— বাছুন —', 'option_none_value' => '0', 'form' => '' ) ); ?></p><p><button class="button button-primary">সংরক্ষণ করুন</button></p></div>
 	</form>
 	<div class="sn-set"><h2>কোড (যেকোনো পেজে বসান)</h2>
