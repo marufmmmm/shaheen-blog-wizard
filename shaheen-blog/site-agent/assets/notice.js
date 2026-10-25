@@ -80,6 +80,7 @@
 			field('সাল', '<input id="sn-year" value="' + esc(D.year || '') + '">') +
 			field('আবেদনের শেষ তারিখ (মেয়াদ শেষ ব্যাজের জন্য)', '<input type="date" id="sn-exp" value="' + esc(D.expiry || '') + '">') +
 			'</div>' +
+			'<div class="sn-cat"><b>ক্যাটাগরি (WordPress-এর ক্যাটাগরি; একাধিক বাছা যায়)</b><div class="sn-cl">' + (SN.cats || []).map(function (c) { return '<label><input type="checkbox" data-cat="' + c.id + '"' + ((D.cats || []).indexOf(c.id) > -1 ? ' checked' : '') + '> ' + esc(c.name) + '</label>'; }).join('') + '</div><input id="sn-newcat" value="' + esc(D.newcat || '') + '" placeholder="নতুন ক্যাটাগরি লিখুন (একাধিক হলে কমা দিয়ে)"><p class="description">এই ক্যাটাগরি দিয়ে অন্য পেজ/ল্যান্ডিং পেজের নোটিশ-হেডলাইনের সাথে যুক্ত হবে।</p></div>' +
 			'<h3>পেজের অংশ (ওপর থেকে নিচে এই ক্রমে দেখাবে)</h3><div id="sn-bl">' + D.blocks.map(blockHTML).join('') + '</div>' +
 			'<p class="sn-add">যোগ করুন: <select id="sn-addk">' + Object.keys(KIND).map(function (k) { return '<option value="' + k + '">' + KIND[k] + '</option>'; }).join('') + '</select> <button type="button" class="button" id="sn-addb">+ অংশ যোগ</button></p>' +
 			'<div class="sn-seo"><h3>✨ শিরোনাম, লিংক ও Google (SEO) — AI দিয়ে লিখুন</h3><p class="description">সব ঘরের পাশে আলাদা ✨AI বাটন আছে, চাইলে একটা একটা করে লেখান, বা নিচের বড় বাটনে সব একসাথে। প্রতিবার চাপলে নতুন করে লেখে। সব ঘর নিজে বদলানোও যায়। খালি রাখলে সেভের সময় নিজে পূরণ হবে।</p>' +
@@ -114,6 +115,8 @@
 			f.on('select', function () { AIM = f.state().get('selection').map(function (a) { return a.toJSON().id; }).slice(0, 3); q('#sn-aipn').textContent = AIM.length + 'টা ছবি বাছা হয়েছে'; });
 			f.open();
 		};
+		$$('[data-cat]').forEach(function (cb) { cb.onchange = function () { var id = +cb.dataset.cat; D.cats = (D.cats || []).filter(function (x) { return x !== id; }); if (cb.checked) D.cats.push(id); save(); }; });
+		q('#sn-newcat').oninput = function () { D.newcat = this.value; save(); };
 		[['#sn-topic', 'topic'], ['#sn-title', 'title'], ['#sn-year', 'year'], ['#sn-exp', 'expiry'], ['#sn-slug', 'slug'], ['#sn-sum', 'summary'], ['#sn-st', 'seo_t'], ['#sn-sd', 'seo_d'], ['#sn-sk', 'seo_k']].forEach(function (x) { var e = q(x[0]); e.oninput = e.onchange = function () { D[x[1]] = this.value; save(); }; });
 		q('#sn-det').onchange = function () { D.detached = this.checked ? 1 : 0; save(); };
 		q('#sn-addb').onclick = function () { D.blocks.push(blank(q('#sn-addk').value)); draw(); };

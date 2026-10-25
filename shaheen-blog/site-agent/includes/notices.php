@@ -24,6 +24,7 @@ function csa_sn_defaults() {
 		'old'       => '',
 		'gap'       => 12,
 		'replace'   => 0,
+		'hl'        => array(),
 		'primary'   => '#2e7d32',
 		'dark'      => '#0f3d1e',
 		'accent'    => '#d9961a',
@@ -127,6 +128,7 @@ add_action( 'init', function () {
 		'supports'     => array( 'title', 'editor', 'thumbnail', 'revisions', 'author' ),
 		'rewrite'      => array( 'slug' => csa_sn_base(), 'with_front' => false ),
 		'show_in_rest' => false,
+		'taxonomies'   => array( 'category' ),
 		'capability_type' => 'post',
 	) );
 } );
@@ -200,7 +202,7 @@ function csa_sn_css() {
 		. ".sn-grid{display:grid;gap:12px;grid-template-columns:repeat(auto-fill,minmax(230px,1fr))}.sn-nc{background:#fff;border:1px solid #dfe6e0;border-radius:var(--r);padding:12px;text-decoration:none!important;color:inherit!important;display:block;position:relative}.sn-nc .th{aspect-ratio:16/9;border-radius:10px;margin:-2px 0 8px;display:grid;place-items:center;text-align:center;color:#fff;font-weight:700;line-height:1.3;padding:6px;background:linear-gradient(120deg,var(--k),var(--p) 60%,var(--a));overflow:hidden}.sn-nc .th img{width:100%;height:100%;object-fit:cover;display:block}"
 		. ".sn-nc small{color:var(--p);font-weight:700;display:block;font-size:.8em}.sn-nc b{font-weight:700;display:block;line-height:1.35;margin:3px 0 6px;font-size:1em;color:var(--k)}.sn-nc time{font-size:.75em;color:#889}.sn-nc .ex{position:absolute;top:18px;right:18px;background:#b3261e;color:#fff;border-radius:999px;padding:1px 10px;font-size:.7em;font-weight:700}"
 		. ".sn-rn{position:relative}.sn-trk{--pv:" . (int) ( 2 === (int) $o['per_view'] ? 2 : 1 ) . ";display:grid;gap:12px;grid-template-columns:repeat(auto-fill,minmax(230px,1fr))}.sn-dots{display:none;text-align:center;margin-top:6px}.sn-dots i{display:inline-block;width:8px;height:8px;border-radius:50%;background:#c4d2c8;margin:0 3px}.sn-dots i.on{background:var(--p);width:20px;border-radius:6px}"
-		. ".sn-board{background:linear-gradient(135deg,var(--k),var(--p));color:#fff;border-radius:var(--r);padding:22px 20px;margin:0 0 12px}.sn-board h2{margin:0 0 6px;color:#fff;font-size:1.6em}.sn-board p{margin:0 0 14px;opacity:.92}.sn-tiles{display:grid;grid-template-columns:repeat(auto-fit,minmax(130px,1fr));gap:10px}.sn-tiles div{background:#fff;color:var(--k);border-radius:12px;padding:10px 12px}.sn-tiles b{display:block;font-size:1.5em;line-height:1.2}.sn-tiles span{font-size:.85em;color:#52645a}.sn-tabs{display:flex;flex-wrap:wrap;gap:8px;margin:0 0 12px}.sn-tabs a{padding:8px 16px;border:1px solid #cfd8d1;border-radius:999px;text-decoration:none!important;color:var(--k)!important;background:#fff;font-weight:600}.sn-tabs a.on{background:var(--k);color:#fff!important;border-color:var(--k)}"
+		. ".sn-hl h3{margin:0 0 6px;font-size:1.2em;color:var(--k)}.sn-hl ul{margin:0;padding:0;list-style:none}.sn-hl li a{display:flex;align-items:baseline;gap:8px;padding:9px 4px;border-bottom:1px dashed #cfd8d1;text-decoration:none!important;color:#1d2b22!important;line-height:1.5}.sn-hl li a:hover .t{color:var(--p)}.sn-hl .t{flex:1;font-weight:600}.sn-hl time{font-size:.8em;color:#6a7d71;white-space:nowrap}.sn-hl .n{background:#e0457b;color:#fff;border-radius:999px;font-size:.7em;padding:1px 8px}.sn-tk{display:flex;align-items:center;gap:12px;background:var(--s);border-radius:12px;padding:8px 12px;overflow:hidden}.sn-tk .h{background:var(--k);color:#fff;padding:4px 12px;border-radius:999px;white-space:nowrap;font-size:.9em}.sn-tk .w{overflow:hidden;flex:1}.sn-tk ul{display:flex;gap:36px;width:max-content;animation:sntk linear infinite}.sn-tk .w:hover ul{animation-play-state:paused}.sn-tk li a{border:0;padding:0;white-space:nowrap}@keyframes sntk{to{transform:translateX(-50%)}}.sn-board{background:linear-gradient(135deg,var(--k),var(--p));color:#fff;border-radius:var(--r);padding:22px 20px;margin:0 0 12px}.sn-board h2{margin:0 0 6px;color:#fff;font-size:1.6em}.sn-board p{margin:0 0 14px;opacity:.92}.sn-tiles{display:grid;grid-template-columns:repeat(auto-fit,minmax(130px,1fr));gap:10px}.sn-tiles div{background:#fff;color:var(--k);border-radius:12px;padding:10px 12px}.sn-tiles b{display:block;font-size:1.5em;line-height:1.2}.sn-tiles span{font-size:.85em;color:#52645a}.sn-tabs{display:flex;flex-wrap:wrap;gap:8px;margin:0 0 12px}.sn-tabs a{padding:8px 16px;border:1px solid #cfd8d1;border-radius:999px;text-decoration:none!important;color:var(--k)!important;background:#fff;font-weight:600}.sn-tabs a.on{background:var(--k);color:#fff!important;border-color:var(--k)}"
 		. ".sn-fl{display:flex;flex-wrap:wrap;gap:8px;margin:0 0 12px}.sn-fl input,.sn-fl select{padding:9px 12px;border:1px solid #cfd8d1;border-radius:10px;font:inherit;font-size:.9em;background:#fff}.sn-fl button{padding:9px 18px;border:0;border-radius:10px;background:var(--p);color:#fff;font:inherit;font-size:.9em;font-weight:700;cursor:pointer}.sn-pg{display:flex;gap:6px;flex-wrap:wrap;margin-top:12px}.sn-pg a,.sn-pg span{padding:7px 14px;border-radius:8px;border:1px solid #cfd8d1;text-decoration:none;color:var(--k)}.sn-pg span{background:var(--p);color:#fff;border-color:var(--p)}"
 		/* activities */
 		. ".sn-act{text-align:center}.sn-act small{display:block;color:var(--p);font-weight:700;font-size:.85em;line-height:1.3}.sn-act h2{margin:0;font-size:1.5em;color:var(--k);line-height:1.25}.sn-act .lead{margin:0 0 6px;color:#556;font-size:.9em;line-height:1.4}"
@@ -372,9 +374,69 @@ add_filter( 'the_content', function ( $c ) {
 	}
 }, 20 );
 
+/** Headline-style list of the latest notices; can be limited to WordPress categories and can include normal posts of those categories. */
+function csa_sn_hl_opts() {
+	return wp_parse_args( (array) csa_sn_opt( 'hl' ), array( 'pages' => array(), 'pos' => 'top', 'cats' => array(), 'limit' => 8, 'style' => 'list', 'posts' => 1, 'title' => 'সর্বশেষ নোটিশ' ) );
+}
+
+function csa_sn_headlines( $a ) {
+	$a    = wp_parse_args( $a, csa_sn_hl_opts() );
+	$cats = array_values( array_filter( array_map( 'absint', (array) $a['cats'] ) ) );
+	$args = array( 'post_status' => 'publish', 'posts_per_page' => max( 1, min( 30, (int) $a['limit'] ) ), 'orderby' => 'date', 'order' => 'DESC', 'post_type' => array( 'sef_notice' ), 'ignore_sticky_posts' => true );
+	if ( $cats ) {
+		$args['category__in'] = $cats;
+		if ( $a['posts'] ) {
+			$args['post_type'] = array( 'sef_notice', 'post' );
+		}
+	}
+	$li = '';
+	foreach ( ( new WP_Query( $args ) )->posts as $p ) {
+		$url = 'sef_notice' === $p->post_type ? csa_sn_url( $p ) : get_permalink( $p );
+		$new = ( time() - get_post_time( 'U', true, $p ) ) < 7 * DAY_IN_SECONDS;
+		$li .= '<li><a href="' . esc_url( $url ) . '"><span class="b">🔔</span><span class="t">' . esc_html( get_the_title( $p ) ) . '</span>' . ( $new ? '<span class="n">নতুন</span>' : '' ) . '<time>' . esc_html( csa_sn_date( get_post_time( 'U', true, $p ) ) ) . '</time></a></li>';
+	}
+	if ( '' === $li ) {
+		return '';
+	}
+	if ( 'ticker' === $a['style'] ) {
+		return csa_sn_css() . '<div class="sn sn-hl sn-tk"><b class="h">' . esc_html( $a['title'] ) . '</b><div class="w"><ul style="animation-duration:' . max( 12, 7 * substr_count( $li, '<li>' ) ) . 's">' . $li . $li . '</ul></div></div>';
+	}
+	return csa_sn_css() . '<div class="sn sn-hl"><h3>' . esc_html( $a['title'] ) . '</h3><ul>' . $li . '</ul></div>';
+}
+
+add_shortcode( 'shaheen_notice_headlines', function ( $a ) {
+	$a = shortcode_atts( array( 'category' => '', 'limit' => '', 'style' => '', 'title' => '', 'posts' => '' ), $a );
+	$o = array();
+	if ( '' !== $a['category'] ) {
+		$o['cats'] = array();
+		foreach ( array_filter( array_map( 'trim', explode( ',', $a['category'] ) ) ) as $c ) {
+			$t = is_numeric( $c ) ? get_category( (int) $c ) : get_category_by_slug( $c );
+			if ( $t && ! is_wp_error( $t ) ) {
+				$o['cats'][] = (int) $t->term_id;
+			}
+		}
+	}
+	foreach ( array( 'limit', 'style', 'title', 'posts' ) as $k ) {
+		if ( '' !== $a[ $k ] ) {
+			$o[ $k ] = $a[ $k ];
+		}
+	}
+	return csa_sn_headlines( $o );
+} );
+
+// Pages chosen in settings get the headline block on top or at the bottom; their own content is not touched.
+add_filter( 'the_content', function ( $c ) {
+	$h = csa_sn_hl_opts();
+	if ( ! $h['pages'] || ! is_page( array_map( 'intval', (array) $h['pages'] ) ) || ! in_the_loop() || ! is_main_query() || ! empty( $_GET['snr'] ) ) {
+		return $c;
+	}
+	$b = csa_sn_headlines( array() );
+	return 'bottom' === $h['pos'] ? $c . $b : $b . $c;
+}, 31 );
+
 // The site's own "notice" page (made with Elementor etc.) shows the list at its end, without editing it.
 add_filter( 'the_content', function ( $c ) {
-	$lp = csa_sn_listpage_id();
+	$lp = csa_sn_opt( 'replace' ) ? csa_sn_listpage_id() : (int) csa_sn_opt( 'list_page' ); // the old page stays as it is unless chosen / the board mode is on
 	if ( ! $lp || ! is_page( $lp ) || ! in_the_loop() || ! is_main_query() || ! empty( $GLOBALS['csa_sn_list_done'] ) ) {
 		return $c;
 	}
@@ -504,6 +566,8 @@ function csa_sn_clean( $d ) {
 		'year'     => sanitize_text_field( $d['year'] ?? '' ),
 		'summary'  => sanitize_textarea_field( $d['summary'] ?? '' ),
 		'expiry'   => preg_match( '/^\d{4}-\d{2}-\d{2}$/', $d['expiry'] ?? '' ) ? $d['expiry'] : '',
+		'cats'     => array_values( array_filter( array_map( 'absint', (array) ( $d['cats'] ?? array() ) ) ) ),
+		'newcat'   => sanitize_text_field( $d['newcat'] ?? '' ),
 		'slug'     => sanitize_title( $d['slug'] ?? '' ),
 		'title'    => sanitize_text_field( $d['title'] ?? '' ),
 		'seo_t'    => sanitize_text_field( $d['seo_t'] ?? '' ),
@@ -546,6 +610,20 @@ add_action( 'save_post_sef_notice', function ( $id, $post ) {
 	update_post_meta( $id, '_sn_branch', $d['branch'] );
 	update_post_meta( $id, '_sn_expiry', $d['expiry'] );
 	$d = csa_sn_autoseo( $id, $d );
+	$ids = $d['cats'];
+	foreach ( array_filter( array_map( 'trim', explode( ',', $d['newcat'] ) ) ) as $nm ) {
+		$tm = term_exists( $nm, 'category' );
+		if ( ! $tm ) {
+			$tm = wp_insert_term( $nm, 'category' );
+		}
+		if ( ! is_wp_error( $tm ) ) {
+			$ids[] = (int) ( is_array( $tm ) ? $tm['term_id'] : $tm );
+		}
+	}
+	$ids = array_values( array_unique( array_map( 'intval', $ids ) ) );
+	wp_set_object_terms( $id, $ids, 'category' );
+	$d['cats']   = $ids;
+	$d['newcat'] = '';
 	if ( $d['summary'] ) {
 		wp_update_post_excerpt_safe( $id, $d['summary'] );
 	}
@@ -574,6 +652,7 @@ add_action( 'wp_insert_post', function ( $id, $post ) {
 
 // The notice form has its own Google/SEO boxes, so the SEO plugins' boxes are not shown on notices.
 add_action( 'add_meta_boxes', function () {
+	remove_meta_box( 'categorydiv', 'sef_notice', 'side' ); // categories are chosen inside the notice form
 	foreach ( array( 'wpseo_meta', 'rank_math_metabox', 'aioseo-settings' ) as $m ) {
 		remove_meta_box( $m, 'sef_notice', 'normal' );
 		remove_meta_box( $m, 'sef_notice', 'advanced' );
@@ -664,7 +743,9 @@ add_action( 'admin_enqueue_scripts', function ( $hook ) {
 		$br[] = $b;
 	}
 	$br = array_values( array_unique( $br ) );
-	wp_localize_script( 'sn-admin', 'SN', array( 'ajax' => admin_url( 'admin-ajax.php' ), 'nonce' => wp_create_nonce( 'csa' ), 'types' => $ty, 'branches' => $br, 'settings' => admin_url( 'admin.php?page=sn-settings' ), 'year' => csa_sn_bn( wp_date( 'Y' ) ) ) );
+	wp_localize_script( 'sn-admin', 'SN', array( 'ajax' => admin_url( 'admin-ajax.php' ), 'nonce' => wp_create_nonce( 'csa' ), 'types' => $ty, 'cats' => array_map( function ( $c ) {
+		return array( 'id' => (int) $c->term_id, 'name' => $c->name );
+	}, get_categories( array( 'hide_empty' => false ) ) ), 'branches' => $br, 'settings' => admin_url( 'admin.php?page=sn-settings' ), 'year' => csa_sn_bn( wp_date( 'Y' ) ) ) );
 } );
 
 /** Claude fills the form from pasted text (e.g. a Facebook post). */
@@ -1185,6 +1266,15 @@ add_action( 'admin_post_sn_save', function () {
 		'model'      => sanitize_key( $in['model'] ?? '' ),
 		'gap'        => max( 0, min( 80, (int) ( $in['gap'] ?? 12 ) ) ),
 		'replace'    => empty( $in['replace'] ) ? 0 : 1,
+		'hl'         => array(
+			'pages' => array_values( array_filter( array_map( 'absint', (array) ( $in['hl']['pages'] ?? array() ) ) ) ),
+			'pos'   => 'bottom' === ( $in['hl']['pos'] ?? '' ) ? 'bottom' : 'top',
+			'cats'  => array_values( array_filter( array_map( 'absint', (array) ( $in['hl']['cats'] ?? array() ) ) ) ),
+			'limit' => max( 1, min( 30, (int) ( $in['hl']['limit'] ?? 8 ) ) ),
+			'style' => 'ticker' === ( $in['hl']['style'] ?? '' ) ? 'ticker' : 'list',
+			'posts' => empty( $in['hl']['posts'] ) ? 0 : 1,
+			'title' => sanitize_text_field( $in['hl']['title'] ?? 'সর্বশেষ নোটিশ' ) ?: 'সর্বশেষ নোটিশ',
+		),
 		'old'        => sanitize_textarea_field( $in['old'] ?? '' ),
 		'list_page'  => isset( $in['list_page'] ) ? absint( $in['list_page'] ) : (int) $o['list_page'],
 	);
@@ -1254,6 +1344,15 @@ function csa_sn_settings_screen() {
 		<p><button type="button" class="button" id="sn-addact">+ বক্স যোগ করুন</button> <span class="description">ওঠানো-নামানো: মুছে আবার ক্রমে যোগ করুন।</span></p></div>
 		<p><button class="button button-primary button-large">সংরক্ষণ করুন</button></p>
 		<div class="sn-set"><h2>পুরোনো পেজের নোটিশ (ডানের "আগের নোটিশ" বক্সে দেখাবে)</h2><p class="description">প্রতি লাইনে একটা: <code>নাম | লিংক</code> — যেমন: <code>মাদারীপুর শিক্ষক নিয়োগ ২০২৬ | https://shaheen.edu.bd/madaripur-26/</code>। সর্বোচ্চ ১২টা।</p><textarea name="sn[old]" rows="6" class="large-text"><?php echo esc_textarea( $o['old'] ); ?></textarea></div>
+		<?php $hl = csa_sn_hl_opts(); ?>
+		<div class="sn-set"><h2>নোটিশ হেডলাইন (আগের পেজ/ল্যান্ডিং পেজে, পেজ না বদলে)</h2>
+		<p class="description">যে পেজগুলো বাছবেন সেগুলোর নিজের লেখা যেমন আছে তেমনই থাকবে, শুধু ওপরে বা নিচে "সর্বশেষ নোটিশ" হেডলাইন যোগ হবে। নতুন নোটিশ প্রকাশ করলে এখানে নিজে আসবে।</p>
+		<p><b>কোন কোন পেজে?</b> (একাধিক বাছা যায়: Ctrl চেপে ধরে ক্লিক)<br><select name="sn[hl][pages][]" multiple size="8" style="min-width:320px"><?php foreach ( get_pages( array( 'number' => 300 ) ) as $pg ) { echo '<option value="' . (int) $pg->ID . '"' . selected( in_array( $pg->ID, array_map( 'intval', (array) $hl['pages'] ), true ), true, false ) . '>' . esc_html( $pg->post_title ) . ' (/' . esc_html( $pg->post_name ) . '/)</option>'; } ?></select></p>
+		<p><b>কোন ক্যাটাগরির নোটিশ?</b> (কিছু না বাছলে সব নোটিশ। একাধিক হলে যেকোনো একটাতে থাকলেই আসবে)<br><?php foreach ( get_categories( array( 'hide_empty' => false ) ) as $ct ) { echo '<label style="display:inline-block;margin:2px 14px 2px 0"><input type="checkbox" name="sn[hl][cats][]" value="' . (int) $ct->term_id . '"' . checked( in_array( $ct->term_id, array_map( 'intval', (array) $hl['cats'] ), true ), true, false ) . '> ' . esc_html( $ct->name ) . '</label>'; } ?></p>
+		<p><label><input type="checkbox" name="sn[hl][posts]" value="1" <?php checked( $hl['posts'] ); ?>> ওই ক্যাটাগরির সাধারণ WordPress পোস্টও একসাথে দেখান (আগের নোটিশ পোস্ট থাকলে)</label></p>
+		<p>অবস্থান <select name="sn[hl][pos]"><option value="top" <?php selected( $hl['pos'], 'top' ); ?>>পেজের ওপরে</option><option value="bottom" <?php selected( $hl['pos'], 'bottom' ); ?>>পেজের নিচে</option></select> · ধরন <select name="sn[hl][style]"><option value="list" <?php selected( $hl['style'], 'list' ); ?>>হেডলাইন তালিকা</option><option value="ticker" <?php selected( $hl['style'], 'ticker' ); ?>>চলমান লাইন (টিকার)</option></select> · কতগুলো <input type="number" min="1" max="30" name="sn[hl][limit]" value="<?php echo (int) $hl['limit']; ?>" style="width:70px"> · শিরোনাম <input type="text" name="sn[hl][title]" value="<?php echo esc_attr( $hl['title'] ); ?>"></p>
+		<p class="description">Elementor-এর ভেতরে নিজে বসাতে চাইলে Shortcode widget-এ লিখুন: <code>[shaheen_notice_headlines category="niyog,result" limit="8"]</code> (ক্যাটাগরির slug বা id; style="ticker" দিলে চলমান লাইন)।</p>
+		<p><button class="button button-primary">সংরক্ষণ করুন</button></p></div>
 		<div class="sn-set"><h2>নোটিশ-তালিকা পেজ</h2><p><b>নোটিশ-তালিকা কোন পেজে দেখাবে?</b> (না বাছলে আপনার আগের /notice/ পেজই নিজে ধরবে; Elementor পেজ এডিট করতে হবে না, পেজের শেষে নতুন নোটিশগুলো নিজে যোগ হবে। নিচের "সংরক্ষণ" চাপুন) <?php wp_dropdown_pages( array( 'name' => 'sn[list_page]', 'selected' => (int) $o['list_page'], 'show_option_none' => '— বাছুন —', 'option_none_value' => '0', 'form' => '' ) ); ?></p><p><label><input type="checkbox" name="sn[replace]" value="1" <?php checked( $o['replace'] ); ?>> ওই পেজের পুরোনো লেখা সরিয়ে শুধু নোটিশ বোর্ড (সব নোটিশ, নতুনটা আগে) দেখান — পুরোনো নোটিশগুলো আনার পরে এটা চালু করুন</label></p><p><button class="button button-primary">সংরক্ষণ করুন</button></p></div>
 	</form>
 	<div class="sn-set"><h2>কোড (যেকোনো পেজে বসান)</h2>
