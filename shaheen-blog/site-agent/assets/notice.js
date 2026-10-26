@@ -8,7 +8,7 @@
 	if (Array.isArray(D)) D = {};
 	D.blocks = D.blocks || [];
 	var TYPES = SN.types;
-	var KIND = { cards: 'তথ্য-কার্ড', list: 'তালিকা (শর্ত ইত্যাদি)', text: 'লেখা', note: 'বিশেষ নোট', image: 'ছবি', buttons: 'বোতাম (আবেদন, PDF, ফেসবুক)', phones: 'ফোন নম্বর', video: 'ভিডিও (YouTube/Facebook)', html: 'নিজের কোড' };
+	var KIND = { cards: 'তথ্য-কার্ড', list: 'তালিকা (শর্ত ইত্যাদি)', text: 'লেখা', note: 'বিশেষ নোট', image: 'ছবি', buttons: 'বোতাম (আবেদন, PDF, ফেসবুক)', phones: 'ফোন নম্বর', video: 'ভিডিও (YouTube/Facebook)', html: 'নিজের কোড', gform: 'অনলাইন আবেদন ফরম (Google Form)' };
 	var ESC = { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' };
 	function esc(s) { return String(s == null ? '' : s).replace(/[&<>"']/g, function (c) { return ESC[c]; }); }
 	function save() { inp.value = JSON.stringify(D); }
@@ -27,7 +27,7 @@
 		];
 	}
 	function blank(t) {
-		return { cards: { t: 'cards', rows: [{ l: '', v: '' }] }, list: { t: 'list', h: '', lines: '' }, text: { t: 'text', h: '', body: '' }, note: { t: 'note', body: '' }, image: { t: 'image', ids: [], urls: [], cap: '' }, buttons: { t: 'buttons', items: [{ label: '', url: '', kind: 'oth' }] }, phones: { t: 'phones', h: '', nums: '' }, video: { t: 'video', h: '', url: '' }, html: { t: 'html', code: '' } }[t];
+		return { cards: { t: 'cards', rows: [{ l: '', v: '' }] }, list: { t: 'list', h: '', lines: '' }, text: { t: 'text', h: '', body: '' }, note: { t: 'note', body: '' }, image: { t: 'image', ids: [], urls: [], cap: '' }, buttons: { t: 'buttons', items: [{ label: '', url: '', kind: 'oth' }] }, phones: { t: 'phones', h: '', nums: '' }, video: { t: 'video', h: '', url: '' }, html: { t: 'html', code: '' }, gform: { t: 'gform', h: 'অনলাইনে আবেদন করুন', url: '', height: 900 } }[t];
 	}
 	function cardHint(l) {
 		l = l || '';
@@ -62,6 +62,8 @@
 			h += '<input data-p="h" value="' + esc(b.h) + '" placeholder="শিরোনাম"><textarea data-p="nums" rows="3" placeholder="প্রতি লাইনে একটা নম্বর">' + esc(b.nums) + '</textarea>';
 		} else if (b.t === 'video') {
 			h += '<input data-p="h" value="' + esc(b.h) + '" placeholder="শিরোনাম (ঐচ্ছিক)"><input data-p="url" value="' + esc(b.url) + '" placeholder="YouTube বা Facebook ভিডিও/রিল লিংক">';
+		} else if (b.t === 'gform') {
+			h += '<input data-p="h" value="' + esc(b.h) + '" placeholder="শিরোনাম (যেমন: অনলাইনে আবেদন করুন)"><input data-p="url" value="' + esc(b.url) + '" placeholder="Google Form-এর লিংক (Send বাটন থেকে কপি করা)"><input data-p="height" type="number" min="400" max="3000" value="' + esc(b.height || 900) + '" placeholder="ফরমের উচ্চতা (px)"><div class="sn-hint">💡 Google Form → Send → লিংক কপি করে এখানে বসান। পেজের ভেতরেই ফরম খুলবে; নিচে "নতুন ট্যাবে খুলুন" বোতামও থাকবে। ফরমে ফাইল আপলোড থাকলে বা সাইন-ইন দরকার হলে ভেতরে নাও চলতে পারে, তখন ওই বোতাম ব্যবহার করুন।</div>';
 		} else if (b.t === 'html') {
 			h += '<textarea data-p="code" rows="5" placeholder="এমবেড বা HTML কোড">' + esc(b.code) + '</textarea>';
 		}

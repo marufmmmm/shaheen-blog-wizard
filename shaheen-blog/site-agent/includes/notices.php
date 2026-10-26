@@ -262,7 +262,7 @@ function csa_sn_css() {
 		. ".sn-im{display:grid;gap:10px;margin:0 0 12px}.sn-im img{width:100%;height:auto;border-radius:var(--r);display:block}.sn-im.g2{grid-template-columns:1fr 1fr}.sn-cap{text-align:center;font-size:.85em;color:#556;margin:-6px 0 12px}"
 		. ".sn-btns{display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:10px;margin:0 0 12px}.sn-btn{display:flex;align-items:center;justify-content:center;gap:6px;padding:14px 18px;border-radius:12px;font-weight:700;text-decoration:none!important;color:#fff!important;background:var(--p);text-align:center}.sn-btn.pdf{background:var(--a)}.sn-btn.fb{background:#1877f2}.sn-btn.oth{background:var(--k)}"
 		. ".sn-ph{display:flex;flex-wrap:wrap;gap:10px}.sn-ph a{background:var(--p);color:#fff!important;border-radius:10px;padding:8px 16px;font-weight:700;text-decoration:none!important;font-size:1.05em}"
-		. ".sn-emb{position:relative;aspect-ratio:16/9;border-radius:var(--r);overflow:hidden;background:#000;margin:0 0 12px}.sn-emb iframe{position:absolute;inset:0;width:100%;height:100%;border:0}"
+		. ".sn-gf{background:#fff;border:1px solid #dfe6e0;border-radius:var(--r);padding:14px 12px;margin:0 0 12px}.sn-gf iframe{display:block;width:100%;border:0;border-radius:10px;background:#fff}.sn-gf p{margin:10px 0 0;text-align:center}.sn-gfb{display:inline-block;background:var(--p);color:#fff!important;border-radius:999px;padding:8px 20px;text-decoration:none;font-weight:600}.sn-emb{position:relative;aspect-ratio:16/9;border-radius:var(--r);overflow:hidden;background:#000;margin:0 0 12px}.sn-emb iframe{position:absolute;inset:0;width:100%;height:100%;border:0}"
 		. ".sn-side h3.sn-h2{margin-top:16px}.sn-side h3{margin:0 0 6px;font-size:1.15em;color:var(--k);border-bottom:2px solid var(--p);padding-bottom:6px}.sn-side ul{margin:0;padding:0;list-style:none}.sn-side li{padding:10px 0;border-bottom:1px solid #edf1ee;line-height:1.5}.sn-side li small{display:block;color:var(--p);font-weight:700;font-size:.85em}.sn-side li time{color:#889;font-size:.8em}.sn-side a{color:inherit;text-decoration:none}"
 		. ".sn-all{display:block;text-align:center;background:var(--p);color:#fff!important;border-radius:12px;padding:12px;font-weight:700;text-decoration:none!important;margin-top:10px}.sn-share{font-size:.8em;color:#778}.sn-share a{color:var(--p)}"
 		/* cards used in lists and sliders */
@@ -370,6 +370,21 @@ function csa_sn_block( $b ) {
 				$o .= '<a href="tel:' . esc_attr( preg_replace( '/[^\d+]/', '', strtr( $n, array_flip( array( '0' => '০', '1' => '১', '2' => '২', '3' => '৩', '4' => '৪', '5' => '৫', '6' => '৬', '7' => '৭', '8' => '৮', '9' => '৯' ) ) ) ) ) . '">' . esc_html( $n ) . '</a>';
 			}
 			return $o ? '<div class="sn-card"><b>📞 ' . esc_html( ( $b['h'] ?? '' ) ?: 'বিস্তারিত যোগাযোগ করুন:' ) . '</b><div class="sn-ph" style="margin-top:8px">' . $o . '</div></div>' : '';
+		case 'gform':
+			$u = trim( (string) ( $b['url'] ?? '' ) );
+			if ( ! preg_match( '#^https://(docs\.google\.com/forms/|forms\.gle/)#i', $u ) ) {
+				return '';
+			}
+			$em = $u;
+			if ( preg_match( '#docs\.google\.com/forms/(?:u/\d+/)?d/e/([\w-]+)#i', $u, $mm ) ) {
+				$em = 'https://docs.google.com/forms/d/e/' . $mm[1] . '/viewform?embedded=true';
+			}
+			$hh = max( 400, min( 3000, (int) ( $b['height'] ?? 900 ) ) );
+			$io = '<div class="sn-gf">' . ( ! empty( $b['h'] ) ? '<h2>📝 ' . esc_html( $b['h'] ) . '</h2>' : '' );
+			if ( false !== strpos( $em, 'embedded=true' ) ) {
+				$io .= '<iframe src="' . esc_url( $em ) . '" loading="lazy" style="height:' . $hh . 'px" title="আবেদন ফরম">ফরম লোড হচ্ছে…</iframe>';
+			}
+			return $io . '<p><a class="sn-gfb" href="' . esc_url( $u ) . '" target="_blank" rel="noopener">↗ নতুন ট্যাবে ফরম খুলুন</a></p></div>';
 		case 'video':
 			$src = csa_sn_embed_url( 'youtube', $b['url'] ?? '' ) ?: csa_sn_embed_url( 'fb_video', $b['url'] ?? '' );
 			return $src ? $h . '<div class="sn-emb"><iframe src="' . esc_url( $src ) . '" loading="lazy" allowfullscreen title="video"></iframe></div>' : '';
@@ -629,6 +644,9 @@ function csa_sn_clean_blocks( $in ) {
 				break;
 			case 'phones':
 				$out[] = array( 't' => $t, 'h' => sanitize_text_field( $b['h'] ?? '' ), 'nums' => sanitize_textarea_field( $b['nums'] ?? '' ) );
+				break;
+			case 'gform':
+				$out[] = array( 't' => $t, 'h' => sanitize_text_field( $b['h'] ?? '' ), 'url' => esc_url_raw( $b['url'] ?? '' ), 'height' => max( 400, min( 3000, (int) ( $b['height'] ?? 900 ) ) ) );
 				break;
 			case 'video':
 				$out[] = array( 't' => $t, 'h' => sanitize_text_field( $b['h'] ?? '' ), 'url' => esc_url_raw( $b['url'] ?? '' ) );
