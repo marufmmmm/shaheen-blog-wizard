@@ -249,7 +249,7 @@ function csa_sn_css() {
 		. ".sn-brand{position:relative;font-size:.9em;font-weight:600;opacity:.92;margin:0 0 6px;letter-spacing:.2px}"
 		. ".sn-bt{position:relative;font-size:clamp(28px,7vw,52px);font-weight:700;line-height:1.2;margin:0 0 6px;text-shadow:0 2px 8px rgba(0,0,0,.25);animation:snin 1s ease both}"
 		. ".sn-sub{position:relative;display:inline-block;background:#fff;color:var(--k);font-weight:700;border-radius:999px;padding:3px 16px;font-size:clamp(18px,4.4vw,28px);animation:snin 1s .2s ease both}.sn-yr{position:relative;display:inline-block;margin-left:8px;background:var(--a);border-radius:999px;padding:3px 14px;font-weight:700;font-size:clamp(16px,3.6vw,22px)}"
-		. ".sn-st{display:inline-block;margin-top:10px;position:relative;border-radius:999px;padding:2px 14px;font-size:.8em;font-weight:700;background:rgba(255,255,255,.2)}.sn-st.x{background:#b3261e}"
+		. ".sn-pub{position:relative;margin-top:8px;font-size:.82em;opacity:.9}.sn-vn{display:flex;align-items:center;gap:12px;flex-wrap:wrap;background:var(--s);border:1px solid #cfe1d2;border-radius:var(--r);padding:12px 14px;margin:0 0 12px}.sn-vn .ic{font-size:1.5em}.sn-vn .tx{flex:1;min-width:200px}.sn-vn b{display:block;color:var(--p);font-size:.95em}.sn-vn span{display:block;font-weight:600;text-align:left;line-height:1.5}.sn-vn a{background:var(--p);color:#fff!important;text-decoration:none;border-radius:999px;padding:6px 16px;font-weight:600;font-size:.9em;white-space:nowrap}.sn-st{display:inline-block;margin-top:10px;position:relative;border-radius:999px;padding:2px 14px;font-size:.8em;font-weight:700;background:rgba(255,255,255,.2)}.sn-st.x{background:#b3261e}"
 		. ".sn-lay{display:grid;grid-template-columns:minmax(0,1fr) 320px;gap:14px;margin:12px 0;align-items:start}.sn-side{position:sticky;top:12px}.sn-lay.sn-1{grid-template-columns:minmax(0,1fr)}"
 		. ".sn-card{background:#fff;border:1px solid #dfe6e0;border-radius:var(--r);padding:14px 12px;margin:0 0 12px}.sn-card h2,.sn-h{margin:0 0 8px;font-size:1.4em;color:var(--k);line-height:1.3}"
 		. ".sn-info{display:grid;gap:10px;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));margin:0 0 12px}.sn-info>div{background:var(--s);border:1px solid #cfe1d2;border-radius:var(--r);padding:12px}.sn-info b{display:block;color:var(--p);font-size:.95em}.sn-info span{display:block;font-weight:700;font-size:1.1em;line-height:1.5}"
@@ -308,12 +308,19 @@ function csa_sn_block( $b ) {
 	switch ( $t ) {
 		case 'cards':
 			$o = '';
+			$vn = '';
 			foreach ( (array) ( $b['rows'] ?? array() ) as $r ) {
-				if ( '' !== trim( (string) ( $r['v'] ?? '' ) ) ) {
+				if ( '' === trim( (string) ( $r['v'] ?? '' ) ) ) {
+					continue;
+				}
+				if ( preg_match( '/ভেন্যু|স্থান|ঠিকানা|কেন্দ্র|venue/iu', (string) ( $r['l'] ?? '' ) ) ) {
+					$m   = ! empty( $r['m'] ) ? $r['m'] : 'https://www.google.com/maps/search/?api=1&query=' . rawurlencode( $r['v'] );
+					$vn .= '<div class="sn-vn"><div class="ic">📍</div><div class="tx"><b>' . esc_html( $r['l'] ) . '</b><span>' . esc_html( $r['v'] ) . '</span></div><a href="' . esc_url( $m ) . '" target="_blank" rel="noopener">🗺 ম্যাপে দেখুন</a></div>';
+				} else {
 					$o .= '<div><b>' . esc_html( $r['l'] ?? '' ) . '</b><span>' . esc_html( $r['v'] ) . '</span></div>';
 				}
 			}
-			return $o ? '<div class="sn-info">' . $o . '</div>' : '';
+			return ( $o ? '<div class="sn-info">' . $o . '</div>' : '' ) . $vn;
 		case 'list':
 			$o = '';
 			foreach ( csa_sn_lines( $b['lines'] ?? '' ) as $l ) {
@@ -378,7 +385,8 @@ function csa_sn_render( $id ) {
 	$branch = trim( (string) ( $d['branch'] ?? '' ) );
 	$exp    = csa_sn_expired( $id );
 	$brand  = trim( (string) $o['brand'] );
-	$bn     = '<div class="sn-bn">' . ( $brand ? '<div class="sn-brand">' . esc_html( $brand ) . '</div>' : '' ) . ( $branch ? '<div class="sn-bt">' . esc_html( $branch ) . '</div>' : '' ) . '<span class="sn-sub">' . esc_html( $topic ) . '</span>' . ( ! empty( $d['year'] ) ? '<span class="sn-yr">' . esc_html( $d['year'] ) . '</span>' : '' ) . ( get_post_meta( $id, '_sn_expiry', true ) ? '<div><span class="sn-st' . ( $exp ? ' x' : '' ) . '">' . ( $exp ? 'আবেদনের মেয়াদ শেষ' : 'চলমান' ) . '</span></div>' : '' ) . '</div>';
+	$pub    = '<div class="sn-pub">প্রকাশ: ' . esc_html( csa_sn_date( (int) get_post_time( 'U', true, $id ) ) ) . '</div>';
+	$bn     = '<div class="sn-bn">' . ( $brand ? '<div class="sn-brand">' . esc_html( $brand ) . '</div>' : '' ) . ( $branch ? '<div class="sn-bt">' . esc_html( $branch ) . '</div>' : '' ) . '<span class="sn-sub">' . esc_html( $topic ) . '</span>' . ( ! empty( $d['year'] ) ? '<span class="sn-yr">' . esc_html( $d['year'] ) . '</span>' : '' ) . ( get_post_meta( $id, '_sn_expiry', true ) ? '<div><span class="sn-st' . ( $exp ? ' x' : '' ) . '">' . ( $exp ? 'আবেদনের মেয়াদ শেষ' : 'চলমান' ) . '</span></div>' : '' ) . $pub . '</div>';
 	$main   = '';
 	foreach ( (array) ( $d['blocks'] ?? array() ) as $b ) {
 		$main .= csa_sn_block( $b );
@@ -390,19 +398,9 @@ function csa_sn_render( $id ) {
 		$pb = (string) get_post_meta( $p->ID, '_sn_branch', true );
 		return '<li><a href="' . esc_url( csa_sn_url( $p ) ) . '"><small>' . esc_html( ( $types[ $pt ]['label'] ?? '' ) . ( $pb ? ' · ' . $pb : '' ) ) . '</small>' . esc_html( get_the_title( $p ) ) . '<br><time>' . esc_html( csa_sn_date( get_post_time( 'U', true, $p ) ) ) . '</time></a></li>';
 	};
-	// Same kind first, then the other kinds, so the side is never empty while the site has other notices.
-	foreach ( array( $d['type'] ?? '', '' ) as $tp ) {
-		$args = array( 'post_type' => 'post', 'post_status' => 'publish', 'numberposts' => 6, 'post__not_in' => $seen, 'meta_query' => array( array( 'key' => '_sn_is', 'value' => '1' ) ) );
-		if ( $tp ) {
-			$args['meta_query'][] = array( 'key' => '_sn_type', 'value' => $tp );
-		}
-		foreach ( get_posts( $args ) as $p ) {
-			if ( count( $seen ) > 6 ) {
-				break;
-			}
-			$seen[] = $p->ID;
-			$prev  .= $mk( $p );
-		}
+	// Newest first, every kind mixed; each item shows its own kind as a small tag.
+	foreach ( get_posts( array( 'post_type' => 'post', 'post_status' => 'publish', 'numberposts' => 6, 'orderby' => 'date', 'order' => 'DESC', 'post__not_in' => $seen, 'meta_query' => array( array( 'key' => '_sn_is', 'value' => '1' ) ) ) ) as $p ) {
+		$prev .= $mk( $p );
 	}
 	// Older notices that live on the site's old pages: "title | link" per line in the settings.
 	$old = '';
@@ -547,7 +545,7 @@ add_action( 'wp_head', function () {
 		return;
 	}
 	if ( csa_sn_opt( 'hide_title' ) ) {
-		echo '<style>body.sn-notice .entry-header,body.sn-notice .entry-title,body.sn-notice .page-title,body.sn-notice .post-title,body.sn-notice .entry-meta,body.sn-notice .post-meta,body.sn-notice .post-thumbnail,body.sn-notice .elementor-widget-theme-post-title,body.sn-notice .wp-block-post-title,body.sn-notice .wp-block-post-author,body.sn-notice .wp-block-post-date,body.sn-notice .wp-block-post-terms,body.sn-notice .wp-block-post-featured-image,body.sn-notice .elementor-widget-theme-post-featured-image{display:none!important}body.sn-notice .entry-content,body.sn-notice .site-main,body.sn-notice article{margin:0!important;padding:0!important;background:transparent!important;box-shadow:none!important;border:0!important}body.sn-notice #primary,body.sn-notice .content-area,body.sn-notice #main,body.sn-notice .ast-article-single,body.sn-notice .ast-article-post{margin:0!important;padding:0!important;background:transparent!important}body.sn-notice .site-content,body.sn-notice #content,body.sn-notice .site-content>.ast-container,body.sn-notice #content>.ast-container{padding-top:0!important;padding-bottom:0!important;margin-top:0!important;margin-bottom:0!important}body.sn-notice .ast-separate-container .ast-article-single:not(.ast-related-post){padding:0!important}</style>';
+		echo '<style>body.sn-notice .entry-header,body.sn-notice .entry-title,body.sn-notice .page-title,body.sn-notice .post-title,body.sn-notice .entry-meta,body.sn-notice .post-meta,body.sn-notice .ast-blog-single-element,body.sn-notice .ast-blog-meta-container,body.sn-notice .ast-single-post-order,body.sn-notice .elementor-widget-post-info,body.sn-notice .elementor-widget-author-box,body.sn-notice .post-navigation,body.sn-notice .comments-area,body.sn-notice .ast-single-related-posts-container,body.sn-notice .ast-author-box,body.sn-notice .ast-single-author-box,body.sn-notice .entry-footer,body.sn-notice .post-thumbnail,body.sn-notice .elementor-widget-theme-post-title,body.sn-notice .wp-block-post-title,body.sn-notice .wp-block-post-author,body.sn-notice .wp-block-post-date,body.sn-notice .wp-block-post-terms,body.sn-notice .wp-block-post-featured-image,body.sn-notice .elementor-widget-theme-post-featured-image{display:none!important}body.sn-notice .entry-content,body.sn-notice .site-main,body.sn-notice article{margin:0!important;padding:0!important;background:transparent!important;box-shadow:none!important;border:0!important}body.sn-notice #primary,body.sn-notice .content-area,body.sn-notice #main,body.sn-notice .ast-article-single,body.sn-notice .ast-article-post{margin:0!important;padding:0!important;background:transparent!important}body.sn-notice .site-content,body.sn-notice #content,body.sn-notice .site-content>.ast-container,body.sn-notice #content>.ast-container{padding-top:0!important;padding-bottom:0!important;margin-top:0!important;margin-bottom:0!important}body.sn-notice .ast-separate-container .ast-article-single:not(.ast-related-post){padding:0!important}body.sn-notice #secondary,body.sn-notice .widget-area{display:none!important}body.sn-notice .site-main>article:last-child,body.sn-notice .entry-content>*:last-child{margin-bottom:0!important}body.sn-notice .ast-container{padding-bottom:0!important}body.sn-notice .site-footer,body.sn-notice footer{margin-top:0!important}</style><script>document.addEventListener("DOMContentLoaded",function(){if(!document.body.classList.contains("sn-notice"))return;var n=document.querySelectorAll("a[href*=\\"/author/\\"]");for(var i=0;i<n.length;i++){var e=n[i].closest("[class*=meta],[class*=post-info],[class*=elementor-widget],header,div");if(e&&!e.querySelector(".sn")&&!e.closest(".sn")&&e.textContent.length<120)e.style.display="none"}});</script>';
 	}
 	// Google JobPosting for recruitment notices.
 	$id = get_the_ID();
@@ -583,7 +581,7 @@ function csa_sn_clean_blocks( $in ) {
 			case 'cards':
 				$rows = array();
 				foreach ( (array) ( $b['rows'] ?? array() ) as $r ) {
-					$rows[] = array( 'l' => sanitize_text_field( $r['l'] ?? '' ), 'v' => sanitize_text_field( $r['v'] ?? '' ) );
+					$rows[] = array( 'l' => sanitize_text_field( $r['l'] ?? '' ), 'v' => sanitize_text_field( $r['v'] ?? '' ), 'm' => esc_url_raw( (string) ( $r['m'] ?? '' ) ) );
 				}
 				$out[] = array( 't' => $t, 'rows' => $rows );
 				break;

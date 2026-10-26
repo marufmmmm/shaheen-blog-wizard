@@ -47,7 +47,7 @@
 	function blockHTML(b, i) {
 		var h = '<div class="sn-b" data-i="' + i + '"><div class="sn-bh"><b>' + esc(KIND[b.t] || b.t) + '</b><span><button type="button" class="button button-small" data-m="up">↑</button> <button type="button" class="button button-small" data-m="down">↓</button> <button type="button" class="button button-small" data-m="del">🗑</button></span></div><div class="sn-bb">';
 		if (b.t === 'cards') {
-			h += b.rows.map(function (r, k) { return '<div class="sn-r"><input data-p="rows.' + k + '.l" value="' + esc(r.l) + '" placeholder="নাম (যেমন: আবেদনের শেষ সময়)"><input data-p="rows.' + k + '.v" value="' + esc(r.v) + '" placeholder="' + esc(cardHint(r.l).ph) + '"><button type="button" class="button button-small" data-rd="rows.' + k + '">✕</button></div>' + (cardHint(r.l).tip ? '<div class="sn-hint">' + esc(cardHint(r.l).tip) + '</div>' : ''); }).join('') + '<button type="button" class="button button-small" data-ra="rows">+ কার্ড</button>';
+			h += b.rows.map(function (r, k) { return '<div class="sn-r"><input data-p="rows.' + k + '.l" value="' + esc(r.l) + '" placeholder="নাম (যেমন: আবেদনের শেষ সময়)"><input data-p="rows.' + k + '.v" value="' + esc(r.v) + '" placeholder="' + esc(cardHint(r.l).ph) + '">' + (/ভেন্যু|স্থান|ঠিকানা|কেন্দ্র/.test(r.l) ? '<input data-p="rows.' + k + '.m" value="' + esc(r.m || '') + '" placeholder="ম্যাপ লিংক (Google Maps, ঐচ্ছিক — খালি রাখলে ঠিকানা দিয়ে নিজে খুঁজবে)">' : '') + '<button type="button" class="button button-small" data-rd="rows.' + k + '">✕</button></div>' + (cardHint(r.l).tip ? '<div class="sn-hint">' + esc(cardHint(r.l).tip) + '</div>' : ''); }).join('') + '<button type="button" class="button button-small" data-ra="rows">+ কার্ড</button>';
 		} else if (b.t === 'list') {
 			h += '<input data-p="h" value="' + esc(b.h) + '" placeholder="শিরোনাম (যেমন: শর্তসমূহ)"><textarea data-p="lines" rows="6" placeholder="প্রতি লাইনে একটা শর্ত। পুরো লেখা একসাথে পেস্ট করলেও প্রতি লাইন আলাদা শর্ত হবে।">' + esc(b.lines) + '</textarea>';
 		} else if (b.t === 'text') {
@@ -124,7 +124,7 @@
 		if (tt && D.title && tt.value !== D.title) { tt.value = D.title; var lb = document.getElementById('title-prompt-text'); if (lb) lb.className += ' screen-reader-text'; }
 		$$('.sn-b').forEach(function (el) {
 			var i = +el.dataset.i, b = D.blocks[i];
-			$$('[data-p]', el).forEach(function (n) { n.oninput = n.onchange = function () { setP(b, n.dataset.p, n.value); save(); }; });
+			$$('[data-p]', el).forEach(function (n) { n.oninput = n.onchange = function () { setP(b, n.dataset.p, n.value); save(); }; if (/^rows\.\d+\.l$/.test(n.dataset.p)) { var wasV = /ভেন্যু|স্থান|ঠিকানা|কেন্দ্র/.test(n.value); n.addEventListener('change', function () { if (/ভেন্যু|স্থান|ঠিকানা|কেন্দ্র/.test(n.value) !== wasV) draw(); }); } });
 			$$('[data-m]', el).forEach(function (n) {
 				n.onclick = function () {
 					var m = n.dataset.m;
