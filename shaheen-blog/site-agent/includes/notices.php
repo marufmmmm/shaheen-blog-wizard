@@ -1213,6 +1213,27 @@ function csa_sn_import_one( $title, $url, $date, $type, $src = 0, $thumb = 0 ) {
 	return $id;
 }
 
+add_action( 'admin_post_sn_import_all', function () {
+	if ( ! current_user_can( 'manage_options' ) || ! check_admin_referer( 'sn_import_all' ) ) {
+		wp_die( 'No.' );
+	}
+	$lp = csa_sn_listpage_id();
+	$n  = 0;
+	if ( $lp ) {
+		list( $rows ) = csa_sn_read_page( $lp );
+		foreach ( $rows as $r ) {
+			if ( ! csa_sn_exists_link( $r['u'] ) ) {
+				$sid = (int) url_to_postid( $r['u'] );
+				if ( csa_sn_import_one( $r['t'], $r['u'], $r['d'], csa_sn_guess_type( $r['b'] . ' ' . $r['t'] ), $sid, $sid ? (int) get_post_thumbnail_id( $sid ) : 0 ) ) {
+					$n++;
+				}
+			}
+		}
+	}
+	wp_safe_redirect( admin_url( 'admin.php?page=sn-board&imported=' . $n ) );
+	exit;
+} );
+
 add_action( 'admin_post_sn_import', function () {
 	if ( ! current_user_can( 'manage_options' ) || ! check_admin_referer( 'sn_import' ) ) {
 		wp_die( 'No.' );
@@ -1323,7 +1344,7 @@ function csa_sn_bn_date_long( $ts ) {
 function csa_sn_board_css() {
 	return '.snb{--ink:#1c2333;--bg:#f4f7fb;--blue:#1e5fbf;--blue-dark:#123f85;--blue-light:#e7f0ff;--orange:#f5821f;--orange-light:#fff1e2;--teal:#0fa98c;--teal-light:#e2f8f2;--purple:#7c4dff;--purple-light:#f0eaff;--yellow:#ffc94d;--pink:#ef5da8;--line:rgba(28,35,51,.10);--shadow:0 16px 34px -18px rgba(30,60,120,.28);--shadow-sm:0 6px 16px -10px rgba(30,60,120,.25);font-family:"Hind Siliguri",sans-serif;color:var(--ink);line-height:1.6}'
 	. '.snb,.snb *{box-sizing:border-box}.snb a{text-decoration:none!important}.snb h1,.snb h2,.snb h3,.snb .num{font-family:"Baloo Da 2","Hind Siliguri",sans-serif}'
-	. '.snb-wrap{max-width:1180px;margin:0 auto;padding:0 20px}'
+	. '.sn-boardpage{display:block;flex:1 1 100%;width:100%;max-width:1140px;margin:0 auto!important;padding:0!important;align-self:center;float:none!important}.snb{width:100%}.snb-wrap{max-width:1180px;margin:0 auto;padding:0 20px}'
 	. '.snb-hero{background:linear-gradient(120deg,#0e3320 0%,#123a22 55%,#1a4a2c 100%);padding:40px 0 34px;position:relative;overflow:hidden}.snb-hero:before{content:"🔔";position:absolute;font-size:170px;opacity:.12;right:-20px;top:-40px;transform:rotate(-12deg)}'
 	. '.snb-hi{position:relative;z-index:1;display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:20px}.snb-hero h1{color:#fff;font-size:30px;margin:0 0 6px;font-weight:700;line-height:1.3}.snb-hero p{color:#e2f0ff;margin:0;font-size:14.5px;max-width:50ch}.snb-badge{background:rgba(255,255,255,.18);color:#fff;padding:8px 18px;border-radius:20px;font-size:13px;font-weight:700;white-space:nowrap}'
 	. '.snb-stats{margin-top:-26px;position:relative;z-index:3}.snb-sg{display:grid;grid-template-columns:repeat(4,1fr);gap:16px}.snb-sc{background:#fff;border-radius:16px;padding:18px 20px;box-shadow:var(--shadow);display:flex;flex-direction:row;align-items:center;gap:14px;text-align:left}'
@@ -1444,6 +1465,9 @@ function csa_sn_board_screen() {
 	?>
 	<div class="wrap" id="sn-settings"><h1>নোটিশ বোর্ড</h1>
 	<?php echo ! empty( $_GET['saved'] ) ? '<div class="notice notice-success"><p>সংরক্ষিত ✓ — LiteSpeed cache থাকলে Purge All করুন।</p></div>' : ''; ?>
+	<?php echo isset( $_GET['imported'] ) ? '<div class="notice notice-success"><p>পেজ থেকে ' . (int) $_GET['imported'] . 'টা নোটিশ আনা হয়েছে ✓ (ধরন ভুল হলে নিচের তালিকায় বদলে নিন)।</p></div>' : ''; ?>
+	<div class="sn-set"><h2>⚡ পুরোনো নোটিশ এক ক্লিকে আনুন</h2><p>আপনার নোটিশ পেজে হাতে বসানো কার্ডগুলো (নাম, তারিখ, লিংক) পড়ে সব একসাথে এই বোর্ডে আনবে। আগে আনা থাকলে আবার আনবে না।</p>
+	<form method="post" action="<?php echo esc_url( admin_url( 'admin-post.php' ) ); ?>"><?php wp_nonce_field( 'sn_import_all' ); ?><input type="hidden" name="action" value="sn_import_all"><button class="button button-primary button-large">📥 পেজের সব পুরোনো নোটিশ আনুন</button> <a class="button button-large" href="<?php echo esc_url( admin_url( 'admin.php?page=sn-import&read=1' ) ); ?>">দেখে বেছে আনতে চাইলে</a></form></div>
 	<form method="post" action="<?php echo esc_url( admin_url( 'admin-post.php' ) ); ?>"><?php wp_nonce_field( 'sn_board' ); ?><input type="hidden" name="action" value="sn_board_save">
 	<div class="sn-set"><h2>১) পেজ</h2>
 	<p><b>কোন পেজটা নোটিশ বোর্ড?</b> <?php wp_dropdown_pages( array( 'name' => 'page', 'selected' => $lp, 'show_option_none' => '— বাছুন —', 'option_none_value' => '0' ) ); ?> <?php echo $lp ? '<a href="' . esc_url( get_permalink( $lp ) ) . '" target="_blank">পেজ দেখুন ↗</a>' : ''; ?></p>
@@ -1519,7 +1543,7 @@ function csa_sn_overview() {
 		<form method="post" action="<?php echo esc_url( admin_url( 'admin-post.php' ) ); ?>" style="display:inline"><?php wp_nonce_field( 'sn_connect' ); ?><input type="hidden" name="action" value="sn_connect"><input type="hidden" name="page" value="<?php echo (int) $lp0; ?>">
 		<?php echo $on ? '<input type="hidden" name="off" value="1"><button class="button">পুরোনো অবস্থায় ফেরান</button>' : '<button class="button button-primary button-large">এই পেজ plugin-এর হাতে দিন</button>'; ?></form>
 		<a class="button button-large" href="<?php echo esc_url( admin_url( 'admin.php?page=sn-board' ) ); ?>">পেজ ও সব নোটিশ ম্যানেজ করুন</a>
-		<a class="button button-large" href="<?php echo esc_url( admin_url( 'admin.php?page=sn-import&read=1' ) ); ?>">পুরোনো নোটিশ আনুন</a>
+		<a class="button button-large" href="<?php echo esc_url( admin_url( 'admin.php?page=sn-board' ) ); ?>">📥 পুরোনো নোটিশ আনুন</a>
 	<?php else : ?>
 		<p>"নোটিশ" নামের পেজ পাওয়া যায়নি। <a href="<?php echo esc_url( admin_url( 'admin.php?page=sn-board' ) ); ?>">নোটিশ বোর্ড স্ক্রিনে</a> পেজ বেছে নিন।</p>
 	<?php endif; ?></div>
