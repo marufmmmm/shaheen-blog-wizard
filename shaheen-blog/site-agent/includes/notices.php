@@ -364,7 +364,8 @@ function csa_sn_block( $b ) {
 			}
 			return '<div class="sn-im' . ( count( (array) $b['ids'] ) > 1 ? ' g2' : '' ) . '">' . $o . '</div>' . ( ! empty( $b['cap'] ) ? '<p class="sn-cap">' . esc_html( $b['cap'] ) . '</p>' : '' );
 		case 'buttons':
-			$o = '';
+			$o  = '';
+			$gf = '';
 			$ic = array( 'apply' => '✍️', 'pdf' => '📄', 'fb' => '👍', 'oth' => '🔗' );
 			foreach ( (array) ( $b['items'] ?? array() ) as $it ) {
 				$k = isset( $ic[ $it['kind'] ?? '' ] ) ? $it['kind'] : 'oth';
@@ -372,9 +373,12 @@ function csa_sn_block( $b ) {
 				if ( '' === $u ) {
 					continue;
 				}
+				if ( 'apply' === $k && '' === $gf && preg_match( '#^https://docs\.google\.com/forms/#i', $u ) ) { // an "apply" button that points to a Google Form also shows the form right on the page
+					$gf = csa_sn_block( array( 't' => 'gform', 'h' => ( $it['label'] ?? '' ) ?: 'অনলাইনে আবেদন করুন', 'url' => $u, 'height' => 900, 'nolink' => 1 ) );
+				}
 				$o .= '<a class="sn-btn ' . ( 'apply' === $k ? '' : $k ) . '" target="_blank" rel="noopener" href="' . esc_url( $u ) . '">' . $ic[ $k ] . ' ' . esc_html( ( $it['label'] ?? '' ) ?: 'লিংক' ) . '</a>';
 			}
-			return $o ? '<div class="sn-btns">' . $o . '</div>' : '';
+			return ( $o ? '<div class="sn-btns">' . $o . '</div>' : '' ) . $gf;
 		case 'phones':
 			$o = '';
 			foreach ( csa_sn_lines( $b['nums'] ?? '' ) as $n ) {
@@ -395,7 +399,7 @@ function csa_sn_block( $b ) {
 			if ( false !== strpos( $em, 'embedded=true' ) ) {
 				$io .= '<iframe src="' . esc_url( $em ) . '" loading="lazy" style="height:' . $hh . 'px" title="আবেদন ফরম">ফরম লোড হচ্ছে…</iframe>';
 			}
-			return $io . '<p><a class="sn-gfb" href="' . esc_url( $u ) . '" target="_blank" rel="noopener">↗ নতুন ট্যাবে ফরম খুলুন</a></p></div>';
+			return $io . ( empty( $b['nolink'] ) ? '<p><a class="sn-gfb" href="' . esc_url( $u ) . '" target="_blank" rel="noopener">↗ নতুন ট্যাবে ফরম খুলুন</a></p>' : '' ) . '</div>';
 		case 'video':
 			$src = csa_sn_embed_url( 'youtube', $b['url'] ?? '' ) ?: csa_sn_embed_url( 'fb_video', $b['url'] ?? '' );
 			return $src ? $h . '<div class="sn-emb"><iframe src="' . esc_url( $src ) . '" loading="lazy" allowfullscreen title="video"></iframe></div>' : '';
