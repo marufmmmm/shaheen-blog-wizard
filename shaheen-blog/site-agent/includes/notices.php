@@ -60,6 +60,18 @@ function csa_sn_style_of( $k, $t ) {
 	return 'job';
 }
 
+/** Board sections a notice belongs to (one or more). Chosen in the notice screen; falls back to the notice type. */
+function csa_sn_secs( $id ) {
+	$m = get_post_meta( $id, '_sn_sec', true );
+	$m = is_array( $m ) ? array_values( array_intersect( $m, array( 'job', 'result', 'form', 'admission' ) ) ) : array();
+	if ( $m ) {
+		return $m;
+	}
+	$k = (string) get_post_meta( $id, '_sn_type', true );
+	$t = csa_sn_opt( 'types' )[ $k ] ?? array();
+	return array( csa_sn_style_of( $k, $t ) );
+}
+
 function csa_sn_opts() {
 	$o = get_option( CSA_SN_OPT, array() );
 	$o = wp_parse_args( is_array( $o ) ? $o : array(), csa_sn_defaults() );
@@ -666,6 +678,14 @@ add_action( 'save_post_post', function ( $id, $post ) {
 	$old  = csa_sn_get( $id );
 	$first = ! csa_sn_is( $id );
 	update_post_meta( $id, '_sn_is', 1 );
+	if ( ! empty( $_POST['sn_sec_nonce'] ) && wp_verify_nonce( $_POST['sn_sec_nonce'], 'sn_sec' ) ) {
+		$sec = array_values( array_intersect( (array) ( $_POST['sn_sec'] ?? array() ), array( 'job', 'result', 'form', 'admission' ) ) );
+		if ( $sec ) {
+			update_post_meta( $id, '_sn_sec', $sec );
+		} else {
+			delete_post_meta( $id, '_sn_sec' );
+		}
+	}
 	update_post_meta( $id, '_sn', wp_slash( $d ) );
 	update_post_meta( $id, '_sn_type', $d['type'] );
 	update_post_meta( $id, '_sn_branch', $d['branch'] );
@@ -776,6 +796,16 @@ add_action( 'add_meta_boxes', function ( $pt, $post ) {
 		wp_nonce_field( 'sn_save', 'sn_nonce' );
 		echo '<input type="hidden" name="sn_data" id="sn_data" value="' . esc_attr( wp_json_encode( csa_sn_get( $post->ID ), CSA_JSON ) ) . '"><div id="sn-app"><p>লোড হচ্ছে…</p></div>';
 	}, 'post', 'normal', 'high' );
+	add_meta_box( 'sn_sec', 'নোটিশ বোর্ডে কোন বিভাগে দেখাবে', function ( $post ) {
+		wp_nonce_field( 'sn_sec', 'sn_sec_nonce' );
+		$o   = csa_sn_board_opts();
+		$has = (array) get_post_meta( $post->ID, '_sn_sec', true );
+		$cur = $has ? $has : ( csa_sn_is( $post->ID ) ? csa_sn_secs( $post->ID ) : array() );
+		echo '<p class="description">একাধিক টিক দিতে পারেন — নোটিশটি প্রতিটি বিভাগের তালিকা ও গণনায় আসবে। কিছু না দিলে নোটিশের ধরন অনুযায়ী বসবে।</p>';
+		foreach ( array( 'job' => $o['l_job'], 'result' => $o['l_result'], 'form' => $o['l_form'], 'admission' => 'ভর্তি' ) as $k => $l ) {
+			echo '<label style="display:block;margin:4px 0"><input type="checkbox" name="sn_sec[]" value="' . esc_attr( $k ) . '"' . checked( in_array( $k, $cur, true ), true, false ) . '> ' . esc_html( $l ) . '</label>';
+		}
+	}, 'post', 'side', 'high' );
 }, 10, 2 );
 
 add_action( 'admin_enqueue_scripts', function ( $hook ) {
@@ -1374,27 +1404,30 @@ function csa_sn_board() {
 	$last  = 0;
 	$i     = 0;
 	foreach ( $q->posts as $p ) {
-		$k  = (string) get_post_meta( $p->ID, '_sn_type', true );
-		$t  = $types[ $k ] ?? array( 'label' => '' );
-		$st = csa_sn_style_of( $k, $t );
-		$cnt[ $st ]++;
+		$k    = (string) get_post_meta( $p->ID, '_sn_type', true );
+		$t    = $types[ $k ] ?? array( 'label' => '' );
+		$secs = csa_sn_secs( $p->ID );
+		$st   = $secs[0];
+		foreach ( $secs as $sc ) {
+			$cnt[ $sc ]++;
+		}
 		$ts = (int) get_post_time( 'U', true, $p );
 		$last = max( $last, $ts );
 		$new  = ( time() - $ts ) < (int) $o['new_days'] * DAY_IN_SECONDS;
-		$cards .= '<div class="snb-card snb-' . $st . '" data-c="' . $st . '"><div class="snb-top"><span class="snb-tag">' . esc_html( $t['label'] ) . '</span>' . ( $new ? '<span class="snb-new">নতুন</span>' : '' ) . '</div><a class="snb-title" href="' . esc_url( csa_sn_url( $p ) ) . '">' . esc_html( get_the_title( $p ) ) . '</a><div class="snb-bot"><span class="snb-date">📅 ' . esc_html( csa_sn_date( $ts ) ) . '</span><a class="snb-btn" href="' . esc_url( csa_sn_url( $p ) ) . '">⬇ বিস্তারিত দেখুন</a></div></div>';
+		$cards .= '<div class="snb-card snb-' . $st . '" data-c="' . esc_attr( implode( ' ', $secs ) ) . '"><div class="snb-top"><span class="snb-tag">' . esc_html( $t['label'] ) . '</span>' . ( $new ? '<span class="snb-new">নতুন</span>' : '' ) . '</div><a class="snb-title" href="' . esc_url( csa_sn_url( $p ) ) . '">' . esc_html( get_the_title( $p ) ) . '</a><div class="snb-bot"><span class="snb-date">📅 ' . esc_html( csa_sn_date( $ts ) ) . '</span><a class="snb-btn" href="' . esc_url( csa_sn_url( $p ) ) . '">⬇ বিস্তারিত দেখুন</a></div></div>';
 		$i++;
 	}
 	$chips = '<button type="button" class="snb-chip on" data-f=""><i style="background:#fff"></i> সব নোটিশ</button>';
-	foreach ( array( 'job' => array( 'l_job', 'var(--blue)' ), 'result' => array( 'l_result', 'var(--teal)' ), 'form' => array( 'l_form', 'var(--purple)' ) ) as $k => $v ) {
+	foreach ( array( 'job' => array( 'l_job', 'var(--blue)' ), 'result' => array( 'l_result', 'var(--teal)' ), 'form' => array( 'l_form', 'var(--purple)' ), 'admission' => array( '', '#ea8a1f' ) ) as $k => $v ) {
 		if ( $cnt[ $k ] ) {
-			$chips .= '<button type="button" class="snb-chip" data-f="' . $k . '"><i style="background:' . $v[1] . '"></i> ' . esc_html( $o[ $v[0] ] ) . '</button>';
+			$chips .= '<button type="button" class="snb-chip" data-f="' . $k . '"><i style="background:' . $v[1] . '"></i> ' . esc_html( $v[0] ? $o[ $v[0] ] : 'ভর্তি' ) . '</button>';
 		}
 	}
 	$tile = function ( $cls, $ic, $n, $l ) {
 		return '<div class="snb-sc snb-' . $cls . '"><div class="snb-ic">' . $ic . '</div><div><div class="num">' . esc_html( csa_sn_bn( str_pad( (string) $n, 2, '0', STR_PAD_LEFT ) ) ) . '</div><div class="lbl">' . esc_html( $l ) . '</div></div></div>';
 	};
 	$total = count( $q->posts );
-	$js    = '(function(){var r=document.currentScript.parentNode,cs=[].slice.call(r.querySelectorAll(".snb-card")),per=+r.getAttribute("data-per")||12,f="",pg=1,pgr=r.querySelector(".snb-pager");function bn(n){return String(n).replace(/[0-9]/g,function(d){return "০১২৩৪৫৬৭৮৯".charAt(d)})}function draw(){var vis=cs.filter(function(c){return f===""||c.getAttribute("data-c")===f}),pages=Math.max(1,Math.ceil(vis.length/per));if(pg>pages)pg=1;cs.forEach(function(c){c.hidden=true});vis.forEach(function(c,i){var st=(pg-1)*per;c.hidden=(i<st)||(i>=st+per)});pgr.innerHTML="";if(pages>1){for(var i=1;i<=pages;i++){var b=document.createElement("button");b.type="button";b.textContent=bn(i);if(i===pg)b.className="on";b.onclick=(function(n){return function(){pg=n;draw();r.scrollIntoView({behavior:"smooth",block:"start"})}})(i);pgr.appendChild(b)}}}[].forEach.call(r.querySelectorAll(".snb-chip"),function(b){b.onclick=function(){f=b.getAttribute("data-f");pg=1;[].forEach.call(r.querySelectorAll(".snb-chip"),function(x){x.className="snb-chip"+(x===b?" on":"")});draw()}});draw()})();';
+	$js    = '(function(){var r=document.currentScript.parentNode,cs=[].slice.call(r.querySelectorAll(".snb-card")),per=+r.getAttribute("data-per")||12,f="",pg=1,pgr=r.querySelector(".snb-pager");function bn(n){return String(n).replace(/[0-9]/g,function(d){return "০১২৩৪৫৬৭৮৯".charAt(d)})}function draw(){var vis=cs.filter(function(c){return f===""||(" "+c.getAttribute("data-c")+" ").indexOf(" "+f+" ")>-1}),pages=Math.max(1,Math.ceil(vis.length/per));if(pg>pages)pg=1;cs.forEach(function(c){c.hidden=true});vis.forEach(function(c,i){var st=(pg-1)*per;c.hidden=(i<st)||(i>=st+per)});pgr.innerHTML="";if(pages>1){for(var i=1;i<=pages;i++){var b=document.createElement("button");b.type="button";b.textContent=bn(i);if(i===pg)b.className="on";b.onclick=(function(n){return function(){pg=n;draw();r.scrollIntoView({behavior:"smooth",block:"start"})}})(i);pgr.appendChild(b)}}}[].forEach.call(r.querySelectorAll(".snb-chip"),function(b){b.onclick=function(){f=b.getAttribute("data-f");pg=1;[].forEach.call(r.querySelectorAll(".snb-chip"),function(x){x.className="snb-chip"+(x===b?" on":"")});draw()}});draw()})();';
 	return '<link rel="preconnect" href="https://fonts.googleapis.com"><link href="https://fonts.googleapis.com/css2?family=Baloo+Da+2:wght@500;600;700;800&family=Hind+Siliguri:wght@400;500;600;700&family=JetBrains+Mono:wght@500;600&display=swap" rel="stylesheet"><style>' . csa_sn_board_css() . '</style>'
 		. '<div class="snb" data-per="' . (int) $o['per'] . '"><div class="snb-hero"><div class="snb-wrap snb-hi"><div><h1>' . esc_html( $o['title'] ) . '</h1><p>' . esc_html( $o['lead'] ) . '</p></div>' . ( $last ? '<div class="snb-badge">সর্বশেষ হালনাগাদ · ' . esc_html( csa_sn_bn_date_long( $last ) ) . '</div>' : '' ) . '</div></div>'
 		. '<div class="snb-wrap snb-stats"><div class="snb-sg">' . $tile( 'c1', '📋', $total, $o['l_total'] ) . $tile( 'c2', '👩‍🏫', $cnt['job'], $o['l_job'] ) . $tile( 'c3', '🏆', $cnt['result'], $o['l_result'] ) . $tile( 'c4', '📝', $cnt['form'], $o['l_form'] ) . '</div></div>'
@@ -1450,6 +1483,7 @@ add_action( 'wp_ajax_sn_settype', function () {
 		wp_send_json_error( 'no' );
 	}
 	update_post_meta( $id, '_sn_type', $t );
+	delete_post_meta( $id, '_sn_sec' );
 	$d         = csa_sn_get( $id );
 	$d['type'] = $t;
 	update_post_meta( $id, '_sn', wp_slash( $d ) );
