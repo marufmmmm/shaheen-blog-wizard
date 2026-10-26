@@ -16,6 +16,7 @@ function csa_sn_defaults() {
 		'per_view'  => 1,
 		'recent'    => 10,
 		'hide_title' => 1,
+		'match'      => 1,
 		'brand'     => 'শাহীন স্কুল এন্ড ক্যাডেট কোচিং',
 		'slug'      => 'notice-board',
 		'css'       => '',
@@ -1604,6 +1605,7 @@ add_action( 'admin_post_sn_save', function () {
 		'per_view'   => 2 === (int) ( $in['per_view'] ?? 1 ) ? 2 : 1,
 		'recent'     => max( 1, min( 30, (int) ( $in['recent'] ?? 10 ) ) ),
 		'hide_title' => empty( $in['hide_title'] ) ? 0 : 1,
+		'match'      => empty( $in['match'] ) ? 0 : 1,
 		'brand'      => sanitize_text_field( $in['brand'] ?? '' ),
 		'slug'       => sanitize_title( $in['slug'] ?? 'notice-board' ) ?: 'notice-board',
 		'css'        => wp_strip_all_tags( $in['css'] ?? '' ),
@@ -1676,6 +1678,7 @@ function csa_sn_settings_screen() {
 		<p>হেডারের নিচে ও ফুটারের ওপরে ফাঁক (পিক্সেল; ০ দিলে একদম লেগে থাকবে) <input type="number" min="0" max="80" name="sn[gap]" value="<?php echo (int) $o['gap']; ?>"></p>
 		<p>মোবাইলে সর্বশেষ নোটিশ একসাথে <select name="sn[per_view]"><option value="1" <?php selected( $o['per_view'], 1 ); ?>>১টা</option><option value="2" <?php selected( $o['per_view'], 2 ); ?>>২টা</option></select> · কতগুলো দেখাবে <input type="number" min="1" max="30" name="sn[recent]" value="<?php echo (int) $o['recent']; ?>"></p>
 		<p>সব নোটিশে শাখার নামের ওপরে যে নাম বসবে (সব শাখার জন্য একই; খালি রাখলে বসবে না) <input type="text" class="large-text" name="sn[brand]" value="<?php echo esc_attr( $o['brand'] ); ?>"></p>
+		<p><label><input type="checkbox" name="sn[match]" value="1" <?php checked( $o['match'] ); ?>> নোটিশের চওড়া ও দুই পাশ সাইটের header/footer-এর সাথে নিজে থেকে মেলান</label></p>
 		<p><label><input type="checkbox" name="sn[hide_title]" value="1" <?php checked( $o['hide_title'] ); ?>> থিমের নিজের শিরোনাম ও অতিরিক্ত ফাঁকা লুকান (নোটিশ পেজে)</label></p>
 		<p>অতিরিক্ত CSS (ফাঁকা বা থিমের সাথে মিলানোর জন্য, ঐচ্ছিক)<br><textarea name="sn[css]" rows="3" style="width:100%;max-width:640px"><?php echo esc_textarea( $o['css'] ); ?></textarea></p>
 		<p>Claude দিয়ে ঘর পূরণে কোন মডেল <select name="sn[model]"><option value="">স্বয়ংক্রিয় (SEO-র মডেল)</option><?php foreach ( csa_models() as $k => $m ) : ?><option value="<?php echo esc_attr( $k ); ?>" <?php selected( $o['model'], $k ); ?>><?php echo esc_html( $m['label'] ); ?></option><?php endforeach; ?></select></p>
@@ -1711,3 +1714,13 @@ function csa_sn_settings_screen() {
 	</script>
 	<?php
 }
+
+
+/** Make the notice / board exactly as wide as the site header, whatever the theme's content box does. */
+add_action( 'wp_footer', function () {
+	$lp = function_exists( 'csa_sn_listpage_id' ) ? csa_sn_listpage_id() : 0;
+	if ( ! csa_sn_opt( 'match' ) || ( ! csa_sn_single() && ! ( $lp && is_page( $lp ) ) ) ) {
+		return;
+	}
+	echo '<script>(function(){function f(){var t=document.querySelector(".sn")||document.querySelector(".sn-boardpage");if(!t)return;t.style.cssText+=";position:relative;left:0;margin-left:0;margin-right:0";if(window.innerWidth<800){t.style.width="";t.style.maxWidth="";t.style.left="0";return}var h=null,c=["#masthead",".site-header","header[role=banner]","header",".ast-primary-header-bar",".main-header-bar"];for(var i=0;i<c.length&&!h;i++){var e=document.querySelector(c[i]);if(e&&e.getBoundingClientRect().width>600)h=e}if(!h)return;var r=h.getBoundingClientRect(),W=document.documentElement.clientWidth;if(r.width>W-24){var best=null,bw=0,all=h.querySelectorAll("*");for(var j=0;j<all.length;j++){var q=all[j].getBoundingClientRect();if(q.width>600&&q.width<W-24&&q.width>bw){bw=q.width;best=q}}if(!best)return;r=best}t.style.width=r.width+"px";t.style.maxWidth="none";t.style.left="0";var s=t.getBoundingClientRect();t.style.left=(r.left-s.left)+"px"}window.addEventListener("load",f);window.addEventListener("resize",f);f();setTimeout(f,600)})();</script>';
+}, 99 );
