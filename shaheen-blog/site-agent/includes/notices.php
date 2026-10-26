@@ -272,7 +272,7 @@ function csa_sn_css() {
 		. ".sn-note{background:#fff7e0;border-left:4px solid var(--a);padding:10px 14px;border-radius:8px;margin:0 0 12px}.sn-txt p{margin:0 0 .6em}"
 		. ".sn-im{display:grid;gap:10px;margin:0 0 12px}.sn-im img{width:100%;height:auto;border-radius:var(--r);display:block}.sn-im.g2{grid-template-columns:1fr 1fr}.sn-cap{text-align:center;font-size:.85em;color:#556;margin:-6px 0 12px}"
 		. ".sn-btns{display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:10px;margin:0 0 12px}.sn-btn{display:flex;align-items:center;justify-content:center;gap:6px;padding:14px 18px;border-radius:12px;font-weight:700;text-decoration:none!important;color:#fff!important;background:var(--p);text-align:center}.sn-btn.pdf{background:var(--a)}.sn-btn.fb{background:#1877f2}.sn-btn.oth{background:var(--k)}"
-		. ".sn-ph{display:flex;flex-wrap:wrap;gap:10px}.sn-ph a{background:var(--p);color:#fff!important;border-radius:10px;padding:8px 16px;font-weight:700;text-decoration:none!important;font-size:1.05em}"
+		. ".sn-note{width:auto;max-width:100%;box-sizing:border-box;margin-left:0!important;margin-right:0!important;text-indent:0}.sn-ph{display:flex;flex-wrap:wrap;gap:10px}.sn-ph a.sn-em{background:#fff;color:var(--p)!important;border:2px solid var(--p);text-transform:none}.sn-ph a{display:inline-block;max-width:100%;overflow-wrap:anywhere}.sn-ph a{background:var(--p);color:#fff!important;border-radius:10px;padding:8px 16px;font-weight:700;text-decoration:none!important;font-size:1.05em}"
 		. ".sn-gf{background:#fff;border:1px solid #dfe6e0;border-radius:var(--r);padding:14px 12px;margin:0 0 12px}.sn-gf iframe{display:block;width:100%;border:0;border-radius:10px;background:#fff}.sn-gf p{margin:10px 0 0;text-align:center}.sn-gfb{display:inline-block;background:var(--p);color:#fff!important;border-radius:999px;padding:8px 20px;text-decoration:none;font-weight:600}.sn-emb{position:relative;aspect-ratio:16/9;border-radius:var(--r);overflow:hidden;background:#000;margin:0 0 12px}.sn-emb iframe{position:absolute;inset:0;width:100%;height:100%;border:0}"
 		. ".sn-side h3.sn-h2{margin-top:16px}.sn-side h3{margin:0 0 6px;font-size:1.15em;color:var(--k);border-bottom:2px solid var(--p);padding-bottom:6px}.sn-side ul{margin:0;padding:0;list-style:none}.sn-side li{padding:10px 0;border-bottom:1px solid #edf1ee;line-height:1.5}.sn-side li small{display:block;color:var(--p);font-weight:700;font-size:.85em}.sn-side li time{color:#889;font-size:.8em}.sn-side a{color:inherit;text-decoration:none}"
 		. ".sn-all{display:block;text-align:center;background:var(--p);color:#fff!important;border-radius:12px;padding:12px;font-weight:700;text-decoration:none!important;margin-top:10px}.sn-share{font-size:.8em;color:#778}.sn-share a{color:var(--p)}"
@@ -381,10 +381,22 @@ function csa_sn_block( $b ) {
 			return ( $o ? '<div class="sn-btns">' . $o . '</div>' : '' ) . $gf;
 		case 'phones':
 			$o = '';
-			foreach ( csa_sn_lines( $b['nums'] ?? '' ) as $n ) {
-				$o .= '<a href="tel:' . esc_attr( preg_replace( '/[^\d+]/', '', strtr( $n, array_flip( array( '0' => '০', '1' => '১', '2' => '২', '3' => '৩', '4' => '৪', '5' => '৫', '6' => '৬', '7' => '৭', '8' => '৮', '9' => '৯' ) ) ) ) ) . '">' . esc_html( $n ) . '</a>';
+			// One box per number or e-mail address; separate them with a comma or a new line.
+			$items = preg_split( '/[\r\n,;،、]+/u', (string) ( $b['nums'] ?? '' ) );
+			foreach ( array_unique( array_filter( array_map( 'trim', $items ) ) ) as $n ) {
+				if ( false !== strpos( $n, '@' ) ) {
+					if ( is_email( $n ) ) {
+						$o .= '<a class="sn-em" href="mailto:' . esc_attr( $n ) . '">✉ ' . esc_html( $n ) . '</a>';
+					}
+					continue;
+				}
+				$dg = preg_replace( '/[^\d+]/', '', strtr( $n, array( '০' => '0', '১' => '1', '২' => '2', '৩' => '3', '৪' => '4', '৫' => '5', '৬' => '6', '৭' => '7', '৮' => '8', '৯' => '9' ) ) );
+				if ( strlen( $dg ) < 5 ) {
+					continue;
+				}
+				$o .= '<a href="tel:' . esc_attr( $dg ) . '">📞 ' . esc_html( $n ) . '</a>';
 			}
-			return $o ? '<div class="sn-card"><b>📞 ' . esc_html( ( $b['h'] ?? '' ) ?: 'বিস্তারিত যোগাযোগ করুন:' ) . '</b><div class="sn-ph" style="margin-top:8px">' . $o . '</div></div>' : '';
+			return $o ? '<div class="sn-card"><b>' . esc_html( ( $b['h'] ?? '' ) ?: 'বিস্তারিত যোগাযোগ করুন:' ) . '</b><div class="sn-ph" style="margin-top:8px">' . $o . '</div></div>' : '';
 		case 'gform':
 			$u = trim( (string) ( $b['url'] ?? '' ) );
 			if ( ! preg_match( '#^https://(docs\.google\.com/forms/|forms\.gle/)#i', $u ) ) {
@@ -1724,6 +1736,15 @@ function csa_sn_settings_screen() {
 	<?php echo ! empty( $_GET['saved'] ) ? '<div class="notice notice-success"><p>সংরক্ষিত ✓</p></div>' : ''; ?>
 	<form method="post" action="<?php echo esc_url( admin_url( 'admin-post.php' ) ); ?>">
 		<?php wp_nonce_field( 'sn_settings' ); ?><input type="hidden" name="action" value="sn_save">
+		<div class="sn-set"><h2>📖 নির্দেশনা — "ফোন নম্বর" ঘর</h2>
+		<p class="description">নোটিশ লেখার সময় "যোগ করুন" তালিকা থেকে <b>ফোন নম্বর</b> বেছে নিলে <b>বিস্তারিত যোগাযোগ</b> বক্স আসে।</p>
+		<ul style="list-style:disc;margin-left:20px">
+			<li>একাধিক নম্বর বা ইমেইল লিখতে <b>কমা (,)</b> দিন, অথবা প্রতি লাইনে একটা করে লিখুন। দুটোই চলবে।</li>
+			<li>প্রতিটা নম্বর/ইমেইল পেজে <b>আলাদা আলাদা বক্সে</b> দেখাবে। নম্বরে চাপলে ফোন কল খুলবে, ইমেইলে চাপলে মেইল অ্যাপ খুলবে।</li>
+			<li>উদাহরণ: <code>01712-558311, 01800-000000, hr@shaheen.edu.bd</code></li>
+			<li>বাংলা ও ইংরেজি দুই ধরনের অঙ্কই চলবে। নম্বরের মাঝে হাইফেন বা ফাঁক থাকলে সমস্যা নেই।</li>
+			<li>ইমেইলে <code>@</code> থাকতে হবে। ভুল ইমেইল বা অতি ছোট সংখ্যা পেজে দেখাবে না।</li>
+		</ul></div>
 		<div class="sn-set"><h2>দেখতে কেমন</h2>
 		<p>লেখার মাপ (কম্পিউটার) <input type="number" min="14" max="30" name="sn[fs]" value="<?php echo (int) $o['fs']; ?>"> মোবাইল <input type="number" min="14" max="30" name="sn[fs_m]" value="<?php echo (int) $o['fs_m']; ?>"> পিক্সেল · পেজের প্রস্থ <input type="number" min="700" max="1600" step="10" name="sn[width]" value="<?php echo (int) $o['width']; ?>"></p>
 		<p>রং: মূল <input type="color" name="sn[primary]" value="<?php echo esc_attr( $o['primary'] ); ?>"> গাঢ় <input type="color" name="sn[dark]" value="<?php echo esc_attr( $o['dark'] ); ?>"> কাঠালি <input type="color" name="sn[accent]" value="<?php echo esc_attr( $o['accent'] ); ?>"> হালকা <input type="color" name="sn[soft]" value="<?php echo esc_attr( $o['soft'] ); ?>"></p>

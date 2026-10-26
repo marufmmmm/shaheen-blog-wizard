@@ -59,7 +59,7 @@
 		} else if (b.t === 'buttons') {
 			h += b.items.map(function (x, k) { return '<div class="sn-r"><select data-p="items.' + k + '.kind">' + opt('apply', x.kind, 'আবেদন') + opt('pdf', x.kind, 'PDF (Drive লিংক চলবে)') + opt('fb', x.kind, 'ফেসবুক') + opt('oth', x.kind, 'অন্য') + '</select><input data-p="items.' + k + '.label" value="' + esc(x.label) + '" placeholder="বোতামের লেখা"><input data-p="items.' + k + '.url" value="' + esc(x.url) + '" placeholder="লিংক পেস্ট করুন (খালি রাখলে বোতাম দেখাবে না)"><button type="button" class="button button-small" data-rd="items.' + k + '">✕</button></div>'; }).join('') + '<button type="button" class="button button-small" data-ra="items">+ বোতাম</button>';
 		} else if (b.t === 'phones') {
-			h += '<input data-p="h" value="' + esc(b.h) + '" placeholder="শিরোনাম"><textarea data-p="nums" rows="3" placeholder="প্রতি লাইনে একটা নম্বর">' + esc(b.nums) + '</textarea>';
+			h += '<input data-p="h" value="' + esc(b.h) + '" placeholder="শিরোনাম"><textarea data-p="nums" rows="3" placeholder="মোবাইল নম্বর বা ইমেইল — কমা (,) দিয়ে আলাদা করুন অথবা প্রতি লাইনে একটা। যেমন: 01712-558311, 01800-000000, hr@shaheen.edu.bd">' + esc(b.nums) + '</textarea>';
 		} else if (b.t === 'video') {
 			h += '<input data-p="h" value="' + esc(b.h) + '" placeholder="শিরোনাম (ঐচ্ছিক)"><input data-p="url" value="' + esc(b.url) + '" placeholder="YouTube বা Facebook ভিডিও/রিল লিংক">';
 		} else if (b.t === 'gform') {
