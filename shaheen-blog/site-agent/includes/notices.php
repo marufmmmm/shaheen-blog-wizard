@@ -73,6 +73,17 @@ function csa_sn_secs( $id ) {
 	return array( csa_sn_style_of( $k, $t ) );
 }
 
+/** Model chosen on the notice screen; remembered as the default for next time. */
+function csa_sn_pick_model() {
+	$m = isset( $_POST['model'] ) ? sanitize_key( wp_unslash( $_POST['model'] ) ) : (string) csa_sn_opt( 'model' );
+	if ( isset( $_POST['model'] ) && $m !== (string) csa_sn_opt( 'model' ) && ( '' === $m || csa_model( $m ) ) ) {
+		$o          = csa_sn_opts();
+		$o['model'] = $m;
+		update_option( CSA_SN_OPT, $o, false );
+	}
+	return $m && csa_model( $m ) ? $m : '';
+}
+
 function csa_sn_opts() {
 	$o = get_option( CSA_SN_OPT, array() );
 	$o = wp_parse_args( is_array( $o ) ? $o : array(), csa_sn_defaults() );
@@ -875,7 +886,7 @@ add_action( 'admin_enqueue_scripts', function ( $hook ) {
 	$br = array_values( array_unique( $br ) );
 	wp_localize_script( 'sn-admin', 'SN', array( 'ajax' => admin_url( 'admin-ajax.php' ), 'nonce' => wp_create_nonce( 'csa' ), 'types' => $ty, 'cats' => array_map( function ( $c ) {
 		return array( 'id' => (int) $c->term_id, 'name' => $c->name );
-	}, get_categories( array( 'hide_empty' => false ) ) ), 'branches' => $br, 'settings' => admin_url( 'admin.php?page=sn-settings' ), 'year' => csa_sn_bn( wp_date( 'Y' ) ) ) );
+	}, get_categories( array( 'hide_empty' => false ) ) ), 'branches' => $br, 'model' => (string) csa_sn_opt( 'model' ), 'models' => array_values( array_map( function ( $k, $m ) { return array( 'k' => $k, 'l' => $m['label'] ); }, array_keys( csa_models() ), csa_models() ) ), 'settings' => admin_url( 'admin.php?page=sn-settings' ), 'year' => csa_sn_bn( wp_date( 'Y' ) ) ) );
 } );
 
 /** Claude fills the form from pasted text (e.g. a Facebook post). */
@@ -909,7 +920,7 @@ add_action( 'wp_ajax_csa_sn_ai', function () {
 		$ty[] = $k . ' = ' . $t['label'];
 	}
 	$sys = 'You read a school notice (Bangla or English) and fill a form. Return ONLY JSON: {"type":"one of: ' . implode( ', ', $ty ) . '","branch":"only the branch or place name, e.g. মাদারীপুর শাখা, WITHOUT the school group name (শাহীন স্কুল এন্ড ক্যাডেট কোচিং), or empty","topic":"short subject, e.g. সহকারী শিক্ষক নিয়োগ","year":"year in Bangla digits or empty","expiry":"application last date as YYYY-MM-DD or empty","summary":"1-2 plain sentences","cards":[{"l":"label such as আবেদনের শেষ সময়","v":"value exactly as written"}],"conditions":["each condition or rule as one short line"],"note":"one extra note or empty","phones":["numbers exactly as written"],"links":[{"kind":"apply|pdf|fb|oth","label":"button words","url":"only if the text contains it"}]}. Copy facts exactly; never invent dates, numbers, names or links; leave a field empty when the text does not say.';
-	$m   = csa_sn_opt( 'model' );
+	$m   = csa_sn_pick_model();
 	$x   = $m && csa_model( $m ) ? array( 'model_key' => $m ) : array();
 	if ( $imgs ) {
 		$x['needs_vision'] = true;
@@ -934,7 +945,7 @@ add_action( 'wp_ajax_csa_sn_sum', function () {
 		}
 	}
 	$sys = 'You write for a school notice page (Bangla). Return ONLY JSON: {"title":"page title in Bangla, max 70 characters: topic + year + branch, no school name repeated","slug":"link in lowercase English letters and hyphens only, 3-6 words, branch place name transliterated, e.g. kumilla-assistant-teacher-2026","summary":"1-2 plain sentences for the notice list","seo_t":"Google title, max 60 characters, topic + year + organisation/branch","seo_d":"Google description, 120-155 characters, says what the notice is, who can apply and the key date","seo_k":"one focus keyword phrase people would search, e.g. মাদারীপুর সহকারী শিক্ষক নিয়োগ ২০২৬"}. Use ONLY the facts given; never invent dates, numbers or names. Plain, warm, no hype.';
-	$m   = csa_sn_opt( 'model' );
+	$m   = csa_sn_pick_model();
 	$r   = csa_jobs_ai_json( $sys, implode( "\n", $facts ), 'Notice: summary', 800, $m && csa_model( $m ) ? array( 'model_key' => $m ) : array() );
 	if ( is_wp_error( $r ) ) {
 		wp_send_json_error( $r->get_error_message() );

@@ -11,3 +11,5 @@
 
 .sn-hint{margin:-4px 0 8px;padding:6px 10px;background:#fff8e1;border-left:3px solid #d9961a;font-size:13px;color:#5d4a00}.sn-seo{margin:18px 0;padding:12px 16px;background:#f3f8f4;border:1px solid #cfe3d3;border-radius:8px}.sn-seo h3{margin-top:0}
 .sn-cat{margin:14px 0;padding:10px 14px;background:#f6f8f6;border:1px solid #dfe6e0;border-radius:8px}.sn-cl label{display:inline-block;margin:3px 16px 3px 0}.sn-cat input#sn-newcat{width:100%;max-width:420px}
+
+.sn-mdl{background:#f0f6ff;border:1px solid #cfe0ff;border-radius:8px;padding:8px 12px;margin:0 0 10px}.sn-mdl select{max-width:100%}

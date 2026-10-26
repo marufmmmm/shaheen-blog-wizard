@@ -71,10 +71,11 @@
 	}
 
 	var AIM = [];
+	function curModel() { var s = document.getElementById('sn-model'); return s ? s.value : (SN.model || ''); }
 	function draw() {
 		var t = typ();
 		var brList = '<datalist id="sn-brl">' + SN.branches.map(function (b) { return '<option value="' + esc(b) + '">'; }).join('') + '</datalist>';
-		app.innerHTML = '<div class="sn-ai"><b>✨ Claude দিয়ে ঘর পূরণ (ঐচ্ছিক)</b><textarea id="sn-aitx" rows="3" placeholder="ফেসবুক পোস্ট বা নোটিশের লেখা এখানে পেস্ট করুন, অথবা নিচে পোস্টারের ছবি বাছুন। Claude ঘরগুলো পূরণ করে দেবে, আপনি মিলিয়ে নেবেন।"></textarea><button type="button" class="button" id="sn-aipic">🖼 পোস্টারের ছবি বাছুন</button> <span id="sn-aipn">' + (AIM.length ? AIM.length + 'টা ছবি বাছা হয়েছে' : '') + '</span> <button type="button" class="button button-primary" id="sn-aigo">পূরণ করুন</button> <span id="sn-aimsg"></span></div>' +
+		app.innerHTML = '<div class="sn-mdl"><label><b>🤖 AI মডেল (সব AI কাজ এটা দিয়ে হবে):</b> <select id="sn-model"><option value="">স্বয়ংক্রিয় (SEO-র মডেল)</option>' + (SN.models || []).map(function (m) { return '<option value="' + esc(m.k) + '"' + (m.k === SN.model ? ' selected' : '') + '>' + esc(m.l) + '</option>'; }).join('') + '</select></label></div><div class="sn-ai"><b>✨ Claude দিয়ে ঘর পূরণ (ঐচ্ছিক)</b><textarea id="sn-aitx" rows="3" placeholder="ফেসবুক পোস্ট বা নোটিশের লেখা এখানে পেস্ট করুন, অথবা নিচে পোস্টারের ছবি বাছুন। Claude ঘরগুলো পূরণ করে দেবে, আপনি মিলিয়ে নেবেন।"></textarea><button type="button" class="button" id="sn-aipic">🖼 পোস্টারের ছবি বাছুন</button> <span id="sn-aipn">' + (AIM.length ? AIM.length + 'টা ছবি বাছা হয়েছে' : '') + '</span> <button type="button" class="button button-primary" id="sn-aigo">পূরণ করুন</button> <span id="sn-aimsg"></span></div>' +
 			'<div class="sn-top">' +
 			field('ধরন (<a href="' + esc(SN.settings) + '" target="_blank">নতুন ধরন যোগ / বদল</a>)', '<select id="sn-type">' + TYPES.map(function (x) { return opt(x.key, D.type, esc(x.label)); }).join('') + '</select>') +
 			field('শাখার নাম (লিখুন, বা তালিকা থেকে বাছুন; শাখা না থাকলে খালি রাখুন)', '<input id="sn-br" list="sn-brl" value="' + esc(D.branch || '') + '" placeholder="যেমন: টাঙ্গাইল শাখা" autocomplete="off">' + brList) +
@@ -160,7 +161,7 @@
 		var m = app.querySelector('#sn-summsg'); m.textContent = 'লিখছি…';
 		$$('[data-aif]').forEach(function (b) { b.disabled = true; });
 		try {
-			var r = await fetch(SN.ajax, { method: 'POST', credentials: 'same-origin', body: new URLSearchParams({ action: 'csa_sn_sum', nonce: SN.nonce, data: JSON.stringify(D) }) }), j = await r.json();
+			var r = await fetch(SN.ajax, { method: 'POST', credentials: 'same-origin', body: new URLSearchParams({ action: 'csa_sn_sum', model: curModel(), nonce: SN.nonce, data: JSON.stringify(D) }) }), j = await r.json();
 			if (!j.success) { m.textContent = '⚠ ' + j.data; $$('[data-aif]').forEach(function (b) { b.disabled = false; }); return; }
 			['title', 'slug', 'summary', 'seo_t', 'seo_d', 'seo_k'].forEach(function (k) { if (j.data[k] && (only === 'all' || only === k)) D[k] = j.data[k]; });
 			draw(); app.querySelector('#sn-summsg').textContent = '✓ লেখা হয়েছে, দেখে নিন';
@@ -172,7 +173,7 @@
 		if (!tx && !AIM.length) { msg.textContent = 'লেখা পেস্ট করুন অথবা পোস্টারের ছবি বাছুন'; return; }
 		btn.disabled = true; msg.textContent = 'পড়ছি…';
 		try {
-			var r = await fetch(SN.ajax, { method: 'POST', credentials: 'same-origin', body: (function () { var u = new URLSearchParams({ action: 'csa_sn_ai', nonce: SN.nonce, text: tx }); AIM.forEach(function (i) { u.append('imgs[]', i); }); return u; })() }), j = await r.json();
+			var r = await fetch(SN.ajax, { method: 'POST', credentials: 'same-origin', body: (function () { var u = new URLSearchParams({ action: 'csa_sn_ai', model: curModel(), nonce: SN.nonce, text: tx }); AIM.forEach(function (i) { u.append('imgs[]', i); }); return u; })() }), j = await r.json();
 			if (!j.success) { msg.textContent = '⚠ ' + j.data; btn.disabled = false; return; }
 			var d = j.data;
 			if (d.type && TYPES.some(function (t) { return t.key === d.type; })) D.type = d.type;
