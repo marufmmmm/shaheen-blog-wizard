@@ -437,7 +437,7 @@ function csa_sn_render( $id ) {
 		return $q ? '<a class="sn-pn ' . $dir . '" href="' . esc_url( csa_sn_url( $q[0] ) ) . '"><small>' . ( 'older' === $dir ? '← আগের নোটিশ' : 'পরের নোটিশ →' ) . '</small><b>' . esc_html( get_the_title( $q[0] ) ) . '</b></a>' : '';
 	};
 	$pn    = $adj( 'older' ) . $adj( 'newer' );
-	$share .= $pn ? '<div class="sn-pns">' . $pn . '</div>' : '';
+	// The side list already shows the other notices, so no separate previous/next cards.
 	return csa_sn_css() . '<div class="sn">' . $bn . '<div class="sn-lay' . ( $side ? '' : ' sn-1' ) . '"><div>' . $main . $share . '</div>' . $side . '</div></div>';
 }
 
