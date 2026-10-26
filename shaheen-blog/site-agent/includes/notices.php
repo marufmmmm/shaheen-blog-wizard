@@ -1484,6 +1484,21 @@ function csa_sn_board_screen() {
 	<?php
 }
 
+add_action( 'admin_post_sn_connect', function () {
+	if ( ! current_user_can( 'manage_options' ) || ! check_admin_referer( 'sn_connect' ) ) {
+		wp_die( 'No.' );
+	}
+	$o = csa_sn_opts();
+	$lp = absint( $_POST['page'] ?? 0 ) ?: csa_sn_listpage_id();
+	if ( $lp ) {
+		$o['list_page'] = $lp;
+		$o['replace']   = empty( $_POST['off'] ) ? 1 : 0;
+		update_option( CSA_SN_OPT, $o, false );
+	}
+	wp_safe_redirect( admin_url( 'admin.php?page=sef-builder&conn=' . ( $lp ? ( empty( $_POST['off'] ) ? 1 : 2 ) : 0 ) ) );
+	exit;
+} );
+
 function csa_sn_overview() {
 	$o = csa_sn_opts();
 	?>
@@ -1491,6 +1506,23 @@ function csa_sn_overview() {
 	<?php $fe = get_option( 'csa_sn_fatal' ); if ( is_array( $fe ) ) : ?>
 		<div class="notice notice-error"><p><b>নোটিশের শেষ ত্রুটি (<?php echo esc_html( wp_date( 'd-m-Y H:i', $fe['t'] ) ); ?>):</b> <code><?php echo esc_html( $fe['m'] ); ?></code> — এই লেখাটা কপি করে আমাকে পাঠান। <a href="<?php echo esc_url( wp_nonce_url( admin_url( 'admin-post.php?action=sn_clearerr' ), 'sn_clearerr' ) ); ?>">মুছে দিন</a></p></div>
 	<?php endif; ?>
+	<?php
+	$lp0 = csa_sn_listpage_id();
+	$on  = (bool) csa_sn_opt( 'replace' ) && $lp0;
+	if ( isset( $_GET['conn'] ) ) {
+		echo '<div class="notice notice-' . ( '0' === $_GET['conn'] ? 'error' : 'success' ) . '"><p>' . ( '0' === $_GET['conn'] ? 'নোটিশ পেজ পাওয়া যায়নি। "নোটিশ বোর্ড" স্ক্রিনে পেজ বেছে নিন।' : ( '1' === $_GET['conn'] ? 'পেজটা এখন plugin-এর হাতে ✓ — LiteSpeed Purge All করুন।' : 'পেজ আগের অবস্থায় ফিরেছে।' ) ) . '</p></div>';
+	}
+	?>
+	<div class="sn-set"><h2>🔔 নোটিশ ল্যান্ডিং পেজ</h2>
+	<?php if ( $lp0 ) : ?>
+		<p>পেজ: <a href="<?php echo esc_url( get_permalink( $lp0 ) ); ?>" target="_blank"><b><?php echo esc_html( get_the_title( $lp0 ) ); ?></b> <small><?php echo esc_html( get_permalink( $lp0 ) ); ?></small></a> — অবস্থা: <?php echo $on ? '<b style="color:#2e7d32">✅ plugin চালাচ্ছে। নতুন নোটিশ Publish করলেই এখানে সবার ওপরে আসবে।</b>' : '<b style="color:#b26a00">⚠ এখনো হাতে চলছে (নতুন নোটিশ নিজে আসবে না)</b>'; ?></p>
+		<form method="post" action="<?php echo esc_url( admin_url( 'admin-post.php' ) ); ?>" style="display:inline"><?php wp_nonce_field( 'sn_connect' ); ?><input type="hidden" name="action" value="sn_connect"><input type="hidden" name="page" value="<?php echo (int) $lp0; ?>">
+		<?php echo $on ? '<input type="hidden" name="off" value="1"><button class="button">পুরোনো অবস্থায় ফেরান</button>' : '<button class="button button-primary button-large">এই পেজ plugin-এর হাতে দিন</button>'; ?></form>
+		<a class="button button-large" href="<?php echo esc_url( admin_url( 'admin.php?page=sn-board' ) ); ?>">পেজ ও সব নোটিশ ম্যানেজ করুন</a>
+		<a class="button button-large" href="<?php echo esc_url( admin_url( 'admin.php?page=sn-import&read=1' ) ); ?>">পুরোনো নোটিশ আনুন</a>
+	<?php else : ?>
+		<p>"নোটিশ" নামের পেজ পাওয়া যায়নি। <a href="<?php echo esc_url( admin_url( 'admin.php?page=sn-board' ) ); ?>">নোটিশ বোর্ড স্ক্রিনে</a> পেজ বেছে নিন।</p>
+	<?php endif; ?></div>
 	<div class="sn-set"><h2>📢 নোটিশ</h2>
 	<p>নিয়োগ, নিয়োগ ফলাফল, বৃত্তি, বৃত্তি ফলাফল ও আপনার নিজের ধরনের নোটিশ। ফর্মে তথ্য লিখুন, পেজ নিজে তৈরি হবে।</p>
 	<p><a class="button button-primary button-large" href="<?php echo esc_url( admin_url( 'post-new.php?sn=1' ) ); ?>">+ নতুন নোটিশ</a> <a class="button button-large" href="<?php echo esc_url( admin_url( 'edit.php?sn=1' ) ); ?>">সব নোটিশ (<?php echo (int) csa_sn_query( array(), 1 )->found_posts; ?>)</a> <a class="button button-large" href="<?php echo esc_url( admin_url( 'admin.php?page=sn-settings' ) ); ?>">সেটিংস</a></p>
