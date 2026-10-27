@@ -70,6 +70,31 @@
 		return h + '</div></div>';
 	}
 
+
+	function brName(id) { var r = (SN.brlist || []).filter(function (b) { return b.i === id; })[0]; return r ? r.n : ''; }
+	function brSync() {
+		var n = (D.br || []).map(brName).filter(Boolean);
+		if (n.length) { D.branch = n.join(', '); var i = app.querySelector('#sn-br'); if (i) i.value = D.branch; }
+	}
+	function brUI() {
+		var chips = app.querySelector('#sn-brchips'), inp = app.querySelector('#sn-brq'), res = app.querySelector('#sn-brres');
+		if (!chips) return;
+		D.br = D.br || [];
+		function paint() {
+			chips.innerHTML = D.br.length ? D.br.map(function (id) { return '<span class="sn-bchip">' + esc(brName(id) || ('#' + id)) + ' <b data-x="' + id + '">×</b></span>'; }).join('') : '<small>কোনো শাখা বাছা হয়নি' + ((SN.brlist || []).length ? '' : ' — শাখা-পেজে এখনো শাখা নেই' + (SN.brpage ? ' (<a href="' + esc(SN.brpage) + '" target="_blank">শাখা আনুন</a>)' : '')) + '</small>';
+			[].forEach.call(chips.querySelectorAll('[data-x]'), function (x) { x.onclick = function () { var id = +x.getAttribute('data-x'); D.br = D.br.filter(function (v) { return v !== id; }); brSync(); paint(); save(); }; });
+		}
+		function find() {
+			var t = inp.value.trim().toLowerCase();
+			if (!t) { res.hidden = true; return; }
+			var hit = (SN.brlist || []).filter(function (b) { return D.br.indexOf(b.i) < 0 && (b.n + ' ' + b.s).toLowerCase().indexOf(t) > -1; }).slice(0, 12);
+			res.innerHTML = hit.length ? hit.map(function (b) { return '<div class="sn-bopt" data-i="' + b.i + '">' + esc(b.n) + ' <small>' + esc(b.s) + '</small></div>'; }).join('') : '<div class="sn-bopt"><small>পাওয়া যায়নি</small></div>';
+			res.hidden = false;
+			[].forEach.call(res.querySelectorAll('[data-i]'), function (o) { o.onclick = function () { D.br.push(+o.getAttribute('data-i')); inp.value = ''; res.hidden = true; brSync(); paint(); save(); }; });
+		}
+		inp.oninput = find;
+		paint();
+	}
 	var AIM = [];
 	function curModel() { var s = document.getElementById('sn-model'); return s ? s.value : (SN.model || ''); }
 	function draw() {
@@ -78,7 +103,8 @@
 		app.innerHTML = '<div class="sn-mdl"><label><b>🤖 AI মডেল (সব AI কাজ এটা দিয়ে হবে):</b> <select id="sn-model"><option value="">স্বয়ংক্রিয় (SEO-র মডেল)</option>' + (SN.models || []).map(function (m) { return '<option value="' + esc(m.k) + '"' + (m.k === SN.model ? ' selected' : '') + '>' + esc(m.l) + '</option>'; }).join('') + '</select></label></div><div class="sn-ai"><b>✨ Claude দিয়ে ঘর পূরণ (ঐচ্ছিক)</b><textarea id="sn-aitx" rows="3" placeholder="ফেসবুক পোস্ট বা নোটিশের লেখা এখানে পেস্ট করুন, অথবা নিচে পোস্টারের ছবি বাছুন। Claude ঘরগুলো পূরণ করে দেবে, আপনি মিলিয়ে নেবেন।"></textarea><button type="button" class="button" id="sn-aipic">🖼 পোস্টারের ছবি বাছুন</button> <span id="sn-aipn">' + (AIM.length ? AIM.length + 'টা ছবি বাছা হয়েছে' : '') + '</span> <button type="button" class="button button-primary" id="sn-aigo">পূরণ করুন</button> <span id="sn-aimsg"></span></div>' +
 			'<div class="sn-top">' +
 			field('ধরন (<a href="' + esc(SN.settings) + '" target="_blank">নতুন ধরন যোগ / বদল</a>)', '<select id="sn-type">' + TYPES.map(function (x) { return opt(x.key, D.type, esc(x.label)); }).join('') + '</select>') +
-			field('শাখার নাম (লিখুন, বা তালিকা থেকে বাছুন; শাখা না থাকলে খালি রাখুন)', '<input id="sn-br" list="sn-brl" value="' + esc(D.branch || '') + '" placeholder="যেমন: টাঙ্গাইল শাখা" autocomplete="off">' + brList) +
+			'<div class="sn-f sn-brbox"><span>🏫 শাখা বাছুন (একটা বা একাধিক — শাখা-পেজের তালিকা থেকে)</span><div id="sn-brchips"></div><input id="sn-brq" type="search" placeholder="🔍 শাখার নাম লিখে খুঁজুন, ক্লিক করে যোগ করুন…" autocomplete="off"><div id="sn-brres" hidden></div></div>' +
+			field('শাখার নাম (পেজে যে লেখা দেখাবে — বাছাই করলে নিজে বসে যায়; চাইলে বদলান)', '<input id="sn-br" list="sn-brl" value="' + esc(D.branch || '') + '" placeholder="যেমন: টাঙ্গাইল শাখা" autocomplete="off">' + brList) +
 			field('বিষয়', '<input id="sn-topic" value="' + esc(D.topic || '') + '" placeholder="' + esc(t.topic) + '">') +
 			field('সাল', '<input id="sn-year" value="' + esc(D.year || '') + '">') +
 			field('আবেদনের শেষ তারিখ (মেয়াদ শেষ ব্যাজের জন্য)', '<input type="date" id="sn-exp" value="' + esc(D.expiry || '') + '">') +
@@ -111,6 +137,7 @@
 			draw();
 		};
 		q('#sn-br').oninput = q('#sn-br').onchange = function () { D.branch = this.value; save(); };
+		brUI();
 		q('#sn-aipic').onclick = function () {
 			if (!window.wp || !wp.media) return;
 			var f = wp.media({ title: 'পোস্টারের ছবি (সর্বোচ্চ ৩টা)', multiple: true, library: { type: 'image' } });
@@ -178,6 +205,7 @@
 			var d = j.data;
 			if (d.type && TYPES.some(function (t) { return t.key === d.type; })) D.type = d.type;
 			['branch', 'topic', 'year', 'expiry', 'summary'].forEach(function (k) { if (d[k]) D[k] = d[k]; });
+			if (d.branch && !(D.br || []).length) { var bm = (SN.brlist || []).filter(function (b) { return b.n === d.branch || b.n === d.branch.trim(); }); if (bm.length === 1) { D.br = [bm[0].i]; } }
 			var blk = function (t) { var b = D.blocks.filter(function (x) { return x.t === t; })[0]; if (!b) { b = blank(t); D.blocks.push(b); } return b; };
 			if (d.cards && d.cards.length) blk('cards').rows = d.cards.map(function (x) { return { l: x.l || '', v: x.v || '' }; });
 			if (d.conditions && d.conditions.length) { var l = blk('list'); l.h = l.h || 'শর্তসমূহ'; l.lines = d.conditions.join('\n'); }

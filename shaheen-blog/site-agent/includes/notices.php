@@ -691,6 +691,7 @@ function csa_sn_clean( $d ) {
 	return array(
 		'type'     => sanitize_key( $d['type'] ?? '' ),
 		'branch'   => sanitize_text_field( $d['branch'] ?? '' ),
+		'br'       => array_values( array_unique( array_filter( array_map( 'absint', (array) ( $d['br'] ?? array() ) ) ) ) ),
 		'topic'    => sanitize_text_field( $d['topic'] ?? '' ),
 		'year'     => sanitize_text_field( $d['year'] ?? '' ),
 		'summary'  => sanitize_textarea_field( $d['summary'] ?? '' ),
@@ -755,6 +756,10 @@ add_action( 'save_post_post', function ( $id, $post ) {
 	update_post_meta( $id, '_sn', wp_slash( $d ) );
 	update_post_meta( $id, '_sn_type', $d['type'] );
 	update_post_meta( $id, '_sn_branch', $d['branch'] );
+	delete_post_meta( $id, '_sn_br' ); // one row per selected branch id, so a branch page can ask "notices for me"
+	foreach ( (array) ( $d['br'] ?? array() ) as $bid ) {
+		add_post_meta( $id, '_sn_br', (int) $bid );
+	}
 	update_post_meta( $id, '_sn_expiry', $d['expiry'] );
 	$d = csa_sn_autoseo( $id, $d );
 	if ( $first ) { // a new notice starts in the "নোটিশ" category; change it in Posts at any time
@@ -902,7 +907,7 @@ add_action( 'admin_enqueue_scripts', function ( $hook ) {
 	$br = array_values( array_unique( $br ) );
 	wp_localize_script( 'sn-admin', 'SN', array( 'ajax' => admin_url( 'admin-ajax.php' ), 'nonce' => wp_create_nonce( 'csa' ), 'types' => $ty, 'cats' => array_map( function ( $c ) {
 		return array( 'id' => (int) $c->term_id, 'name' => $c->name );
-	}, get_categories( array( 'hide_empty' => false ) ) ), 'branches' => $br, 'model' => (string) csa_sn_opt( 'model' ), 'models' => array_values( array_map( function ( $k, $m ) { return array( 'k' => $k, 'l' => $m['label'] ); }, array_keys( csa_models() ), csa_models() ) ), 'settings' => admin_url( 'admin.php?page=sn-settings' ), 'year' => csa_sn_bn( wp_date( 'Y' ) ) ) );
+	}, get_categories( array( 'hide_empty' => false ) ) ), 'branches' => $br, 'brlist' => function_exists( 'csa_br_for_notice' ) ? csa_br_for_notice() : array(), 'brpage' => function_exists( 'csa_br_pageid' ) && csa_br_pageid() ? admin_url( 'admin.php?page=sef-branches' ) : '', 'model' => (string) csa_sn_opt( 'model' ), 'models' => array_values( array_map( function ( $k, $m ) { return array( 'k' => $k, 'l' => $m['label'] ); }, array_keys( csa_models() ), csa_models() ) ), 'settings' => admin_url( 'admin.php?page=sn-settings' ), 'year' => csa_sn_bn( wp_date( 'Y' ) ) ) );
 } );
 
 /** Claude fills the form from pasted text (e.g. a Facebook post). */
@@ -1651,6 +1656,7 @@ function csa_sn_overview() {
 	<p>নিয়োগ, নিয়োগ ফলাফল, বৃত্তি, বৃত্তি ফলাফল ও আপনার নিজের ধরনের নোটিশ। ফর্মে তথ্য লিখুন, পেজ নিজে তৈরি হবে।</p>
 	<p><a class="button button-primary button-large" href="<?php echo esc_url( admin_url( 'post-new.php?sn=1' ) ); ?>">+ নতুন নোটিশ</a> <a class="button button-large" href="<?php echo esc_url( admin_url( 'edit.php?sn=1' ) ); ?>">সব নোটিশ (<?php echo (int) csa_sn_query( array(), 1 )->found_posts; ?>)</a> <a class="button button-large" href="<?php echo esc_url( admin_url( 'admin.php?page=sn-settings' ) ); ?>">সেটিংস</a></p>
 	<p class="description">যেকোনো পেজে বসানোর কোড: <code>[shaheen_recent_notices]</code> · <code>[shaheen_activities]</code> · <code>[shaheen_home_notices]</code> · <code>[shaheen_notice_list]</code></p></div>
+	<?php do_action( 'csa_sn_overview_cards' ); ?>
 	<div class="sn-set"><h2>আরও পেজ ধরন</h2><p class="description">ভর্তি, ইভেন্ট, গ্যালারি ইত্যাদি পেজ বিল্ডার এখানে যোগ হবে।</p></div>
 	</div>
 	<?php

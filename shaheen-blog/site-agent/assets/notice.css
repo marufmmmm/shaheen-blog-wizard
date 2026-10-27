@@ -13,3 +13,12 @@
 .sn-cat{margin:14px 0;padding:10px 14px;background:#f6f8f6;border:1px solid #dfe6e0;border-radius:8px}.sn-cl label{display:inline-block;margin:3px 16px 3px 0}.sn-cat input#sn-newcat{width:100%;max-width:420px}
 
 .sn-mdl{background:#f0f6ff;border:1px solid #cfe0ff;border-radius:8px;padding:8px 12px;margin:0 0 10px}.sn-mdl select{max-width:100%}
+
+#sn-app .sn-brbox{grid-column:1/-1}
+#sn-app #sn-brchips{display:flex;flex-wrap:wrap;gap:6px;margin-bottom:6px}
+#sn-app .sn-bchip{background:#e8f5e9;border:1px solid #1a6b3e;color:#14532d;border-radius:18px;padding:3px 6px 3px 12px;font-weight:600;font-size:13px}
+#sn-app .sn-bchip b{cursor:pointer;margin-left:4px;padding:0 5px;background:#1a6b3e;color:#fff;border-radius:50%}
+#sn-app #sn-brres{border:1px solid #c3c4c7;border-radius:6px;background:#fff;max-height:220px;overflow:auto;margin-top:2px}
+#sn-app .sn-bopt{padding:7px 12px;cursor:pointer;border-bottom:1px solid #f0f0f0}
+#sn-app .sn-bopt:hover{background:#f0f7f2}
+#sn-app .sn-bopt small{color:#777}
