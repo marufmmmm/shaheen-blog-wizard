@@ -296,6 +296,63 @@ add_action('wp_ajax_sb_img_make', function () {
     wp_send_json_success($out);
 });
 
+/** AI writes alt / title / caption / details by LOOKING at the chosen image (and the article). */
+add_action('wp_ajax_sb_img_describe', function () {
+    sb_ajax_guard();
+    $key = trim((string) sb_get('api_key'));
+    $id  = (int) sb_req('id');
+    if ($key === '') {
+        wp_send_json_error(array('message' => 'OpenAI API কী দেওয়া নেই।'));
+    }
+    if (!$id || get_post_type($id) !== 'attachment' || !current_user_can('edit_post', $id)) {
+        wp_send_json_error(array('message' => 'আগে একটি ফিচার্ড ছবি বেছে নিন বা বানান।'));
+    }
+    $path = get_attached_file($id);
+    if (!$path || !is_readable($path)) {
+        wp_send_json_error(array('message' => 'ছবির ফাইল পাওয়া যায়নি।'));
+    }
+    $data = null;
+    $mime = 'image/jpeg';
+    $ed   = wp_get_image_editor($path);
+    if (!is_wp_error($ed)) {   // a small copy is enough to see the picture, and cheaper
+        $ed->resize(768, 768, false);
+        $ed->set_quality(75);
+        $tmp = wp_tempnam('sbimg') . '.jpg';
+        $sv  = $ed->save($tmp, 'image/jpeg');
+        if (!is_wp_error($sv) && is_readable($tmp)) {
+            $data = file_get_contents($tmp); // phpcs:ignore
+            @unlink($tmp); // phpcs:ignore
+        }
+    }
+    if ($data === null) {
+        $ft   = wp_check_filetype($path);
+        $mime = $ft['type'] ? $ft['type'] : 'image/jpeg';
+        $data = filesize($path) < 3000000 ? file_get_contents($path) : null; // phpcs:ignore
+    }
+    if (!$data) {
+        wp_send_json_error(array('message' => 'ছবিটা পড়া যায়নি।'));
+    }
+    list($title, $text, $cat) = sb_img_context();
+    $sys = "You write SEO metadata in Bangla for a blog image of a school network in Bangladesh. Look at the picture and describe only what is really visible. Reply with JSON only: {\"alt\":\"...\",\"title\":\"...\",\"caption\":\"...\",\"details\":\"...\"}. "
+        . "alt: one natural sentence, what is shown, no keyword stuffing. title: short. caption: one short line. details: 1-2 sentences on what the image shows and why it fits the article. Do not invent names, places or school names that are not visible.";
+    $usr = array(array('type' => 'text', 'text' => "Article title: {$title}\nCategory: {$cat}\nArticle text:\n{$text}"),
+        array('type' => 'image_url', 'image_url' => array('url' => 'data:' . $mime . ';base64,' . base64_encode($data))));
+    $r = wp_remote_post('https://api.openai.com/v1/chat/completions', array('timeout' => 90, 'headers' => array('Authorization' => 'Bearer ' . $key, 'Content-Type' => 'application/json'),
+        'body' => wp_json_encode(array('model' => sb_model_for('meta'), 'response_format' => array('type' => 'json_object'), 'messages' => array(array('role' => 'system', 'content' => $sys), array('role' => 'user', 'content' => $usr))))));
+    $d = is_wp_error($r) ? null : json_decode((string) wp_remote_retrieve_body($r), true);
+    $j = is_array($d) && !empty($d['choices'][0]['message']['content']) ? json_decode((string) $d['choices'][0]['message']['content'], true) : null;
+    if (!is_array($j) || empty($j['alt'])) {
+        sb_meter_take();
+        wp_send_json_error(array('message' => 'AI লিখতে পারেনি, তাই কোনো বিল যোগ হয়নি। আবার চেষ্টা করুন।'));
+    }
+    $real = sb_meter_take();
+    $GLOBALS['sb_real_charge'] = $real;
+    SB_Credits::charge(get_current_user_id(), 'imgmeta', max(1, (int) ceil($real / SB_RAW_USD_PER_CREDIT)), 0);
+    unset($GLOBALS['sb_real_charge']);
+    wp_send_json_success(array('alt' => sanitize_text_field($j['alt']), 'title' => sanitize_text_field(isset($j['title']) ? $j['title'] : ''),
+        'caption' => sanitize_text_field(isset($j['caption']) ? $j['caption'] : ''), 'details' => sanitize_textarea_field(isset($j['details']) ? $j['details'] : '')));
+});
+
 /** SEO fields of the chosen featured image (works for images picked by hand too). */
 add_action('wp_ajax_sb_img_meta', function () {
     sb_ajax_guard();

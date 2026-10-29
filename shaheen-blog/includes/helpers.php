@@ -311,6 +311,7 @@ function sb_feature_labels() {
         'caption'   => 'Facebook ক্যাপশন',
         'image'     => 'AI ছবি',
         'imgprompt' => 'ছবির প্রম্পট',
+        'imgmeta'   => 'ছবির alt/শিরোনাম/ক্যাপশন (AI)',
         'legacy'    => 'আগের ব্যবহার (খাতা চালুর আগের)',
         'agent_chat'  => 'Site Agent — চ্যাট ও পেজ এডিট',
         'agent_seo'   => 'Site Agent — SEO',

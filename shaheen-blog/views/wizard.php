@@ -318,6 +318,7 @@ $costs['research'] = max(0, (int) sb_get('cost_research'));
                     <label>ছবির শিরোনাম<input type="text" id="img-title"></label>
                     <label>ক্যাপশন<input type="text" id="img-caption"></label>
                 </div>
+                <p style="margin:0 0 6px"><button type="button" class="button" id="img-describe">🤖 ছবি দেখে AI দিয়ে alt, শিরোনাম, ক্যাপশন ও বিবরণ লিখুন</button> <small class="sba-muted">(ওপরের ছবিটা AI দেখে লেখে; ছোট খরচ)</small></p>
                 <label>ছবির বিবরণ <small>(এই ছবি কী এবং লেখার সাথে কেন মেলে)</small><textarea id="img-details" rows="2"></textarea></label>
                 <hr>
                 <div class="sba-row">
