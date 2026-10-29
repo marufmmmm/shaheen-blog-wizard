@@ -286,11 +286,11 @@ function csa_gd_recommended() {
 		return '';
 	};
 	return array(
-		'chat'   => array( 'key' => $pick( array( 'sonnet55', 'sonnet', 'kimi', 'haiku55', 'haiku' ) ), 'why' => csa_t( 'Page design, guided jobs, Elementor and CSS fixes: needs the most reliable tool use. Claude Sonnet 5.5 is best; Kimi K2.6 is the cheap alternative.' ) ),
-		'blog'   => array( 'key' => $pick( array( 'sonnet55', 'sonnet', 'haiku55', 'haiku', 'kimi' ) ), 'why' => csa_t( 'Bangla writing and humanising text: Claude writes the most natural Bangla.' ) ),
-		'seo'    => array( 'key' => $pick( array( 'haiku55', 'haiku', 'kimi', 'sonnet55' ) ), 'why' => csa_t( 'One SEO audit is a short, structured answer: cheap and fast is enough.' ) ),
-		'bulk'   => array( 'key' => $pick( array( 'kimi', 'haiku55', 'haiku' ) ), 'why' => csa_t( 'Bulk audits, keywords, weekly audit: many pages, short answers. Put your Kimi balance to work here.' ) ),
-		'vision' => array( 'key' => $pick( array( 'kimi', 'haiku55', 'sonnet55', 'haiku' ) ), 'why' => csa_t( 'Alt text and screenshots: any model that can see images; Kimi K2.6 is cheap.' ) ),
+		'chat'   => array( 'key' => $pick( array( 'sonnet55', 'sonnet', 'kimi-k31', 'haiku55', 'haiku' ) ), 'why' => csa_t( 'Page design, guided jobs, Elementor and CSS fixes: needs the most reliable tool use. Claude Sonnet 5.5 is best; Kimi K2.6 is the cheap alternative.' ) ),
+		'blog'   => array( 'key' => $pick( array( 'sonnet55', 'sonnet', 'haiku55', 'haiku', 'kimi-k31' ) ), 'why' => csa_t( 'Bangla writing and humanising text: Claude writes the most natural Bangla.' ) ),
+		'seo'    => array( 'key' => $pick( array( 'gpt-terra', 'kimi-k31', 'haiku55', 'sonnet55' ) ), 'why' => csa_t( 'One SEO audit is a short, structured answer: cheap and fast is enough.' ) ),
+		'bulk'   => array( 'key' => $pick( array( 'gpt-terra', 'haiku55', 'haiku' ) ), 'why' => csa_t( 'Bulk audits, keywords, weekly audit: many pages, short answers. Put your Kimi balance to work here.' ) ),
+		'vision' => array( 'key' => $pick( array( 'gpt-terra', 'haiku55', 'sonnet55', 'haiku' ) ), 'why' => csa_t( 'Alt text and screenshots: any model that can see images; Kimi K2.6 is cheap.' ) ),
 	);
 }
 

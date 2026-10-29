@@ -36,8 +36,6 @@ function csa_builtin_models() {
 		'opus'           => array( 'provider' => 'anthropic', 'id' => 'claude-opus-5-5', 'label' => 'Claude Opus 5.5', 'in' => 4, 'out' => 20, 'cache' => 0.2, 'vision' => true, 'code' => 5, 'bn' => 5, 'tier' => 'premium', 'best' => 'Very hard redesigns only; twice the Sonnet price, rarely needed here' ),
 		'fable'          => array( 'provider' => 'anthropic', 'id' => 'claude-fable-5-1', 'label' => 'Claude Fable 5.1', 'in' => 10, 'out' => 50, 'cache' => 0.25, 'vision' => true, 'code' => 5, 'bn' => 5, 'tier' => 'premium', 'best' => 'Most capable and most expensive; not recommended for website work' ),
 		// Moonshot (Kimi)
-		'kimi'           => array( 'provider' => 'moonshot', 'id' => 'kimi-k2.6', 'label' => 'Kimi K2.6', 'in' => 0.95, 'out' => 4, 'cache' => 0.16, 'vision' => true, 'code' => 4, 'bn' => 3, 'tier' => 'save', 'best' => 'Page editing, HTML/CSS and mobile fixes at low cost; can see screenshots' ),
-		'kimi-code'      => array( 'provider' => 'moonshot', 'id' => 'kimi-k2.7-code', 'label' => 'Kimi K2.7 Code', 'in' => 0.95, 'out' => 4, 'cache' => 0.19, 'vision' => true, 'code' => 4, 'bn' => 3, 'tier' => 'save', 'best' => 'Code-focused: HTML, CSS and JavaScript fixes on custom pages' ),
 		'kimi-k3'        => array( 'provider' => 'moonshot', 'id' => 'kimi-k3', 'label' => 'Kimi K3', 'in' => 3, 'out' => 15, 'cache' => 0.3, 'vision' => true, 'code' => 5, 'bn' => 3, 'tier' => 'premium', 'best' => 'Kimi\'s strongest model; priced above Sonnet, so rarely worth it here' ),
 		'kimi-k31'       => array( 'provider' => 'moonshot', 'id' => 'kimi-k3.1-pro', 'label' => 'Kimi K3.1 Pro', 'in' => 2, 'out' => 10, 'cache' => 0.2, 'vision' => true, 'code' => 5, 'bn' => 3, 'tier' => 'good', 'best' => 'Newer, cheaper than K3 (1M context)' ),
 		'kimi-k31-fast'  => array( 'provider' => 'moonshot', 'id' => 'kimi-k3.1-pro-highspeed', 'label' => 'Kimi K3.1 Pro Highspeed', 'in' => 4, 'out' => 20, 'cache' => 0.2, 'vision' => true, 'code' => 5, 'bn' => 3, 'tier' => 'premium', 'best' => 'Same as K3.1 Pro but faster; double the price' ),
@@ -61,11 +59,11 @@ function csa_builtin_models() {
 /** Cheapest sensible order to try for each task, used when the chosen model has no API key. */
 function csa_task_priority() {
 	return array(
-		'chat'   => array( 'haiku', 'kimi', 'deepseek-pro', 'kimi-code', 'gemini-flash', 'sonnet', 'gemini-lite35' ),
-		'blog'   => array( 'haiku', 'gpt-sol', 'gemini-lite35', 'gemini-lite', 'gemini-flash', 'kimi', 'deepseek-flash', 'sonnet' ),
-		'seo'    => array( 'haiku55', 'haiku', 'gemini-lite', 'deepseek-flash', 'kimi', 'gemini-flash', 'sonnet' ),
-		'bulk'   => array( 'haiku55', 'deepseek-flash', 'gpt-luna', 'gemini-lite', 'gemini-lite25', 'haiku', 'kimi' ),
-		'vision' => array( 'gemini-lite', 'haiku', 'kimi', 'gemini-flash', 'sonnet' ),
+		'chat'   => array( 'haiku', 'kimi-k31', 'deepseek-pro', 'gemini-flash', 'sonnet', 'gemini-lite35' ),
+		'blog'   => array( 'haiku', 'gpt-sol', 'gemini-lite35', 'gemini-lite', 'gemini-flash', 'kimi-k31', 'deepseek-flash', 'sonnet' ),
+		'seo'    => array( 'gpt-terra', 'kimi-k31', 'haiku55', 'haiku', 'gemini-lite', 'deepseek-flash', 'gemini-flash', 'sonnet' ),
+		'bulk'   => array( 'haiku55', 'deepseek-flash', 'gpt-luna', 'gemini-lite', 'gemini-lite25', 'haiku', 'kimi-k31' ),
+		'vision' => array( 'gemini-lite', 'haiku', 'kimi-k31', 'gemini-flash', 'sonnet' ),
 	);
 }
 
@@ -111,7 +109,7 @@ function csa_tasks() {
 	return array(
 		'chat'   => array( 'label' => csa_t( 'Chat: page design & editing' ), 'default' => 'haiku' ),
 		'blog'   => array( 'label' => csa_t( 'Blog Studio: plans & writing' ), 'default' => 'haiku' ),
-		'seo'    => array( 'label' => csa_t( 'Single SEO audit' ), 'default' => 'haiku' ),
+		'seo'    => array( 'label' => csa_t( 'Single SEO audit' ), 'default' => 'gpt-terra' ),
 		'bulk'   => array( 'label' => csa_t( 'Bulk work: bulk audits, keywords, ideas, weekly audit' ), 'default' => 'haiku' ),
 		'vision' => array( 'label' => csa_t( 'Images: alt text, screenshots' ), 'default' => 'haiku' ),
 	);
@@ -119,10 +117,10 @@ function csa_tasks() {
 
 function csa_presets() {
 	return array(
-		'smart'    => array( 'label' => '⭐ ' . csa_t( 'Smart mix (recommended)' ), 'chat' => 'kimi', 'blog' => 'gpt-sol', 'seo' => 'haiku', 'bulk' => 'gpt-luna', 'vision' => 'haiku' ),
+		'smart'    => array( 'label' => '⭐ ' . csa_t( 'Smart mix (recommended)' ), 'chat' => 'kimi-k31', 'blog' => 'gpt-sol', 'seo' => 'haiku', 'bulk' => 'gpt-luna', 'vision' => 'haiku' ),
 		'terra-astra' => array( 'label' => 'GPT Terra + Astra', 'chat' => 'gpt-terra', 'blog' => 'gpt-terra', 'seo' => 'gpt-astra', 'bulk' => 'gpt-terra', 'vision' => 'gpt-terra' ),
 		'quality'  => array( 'label' => csa_t( 'Best quality' ), 'chat' => 'sonnet', 'blog' => 'sonnet', 'seo' => 'sonnet', 'bulk' => 'haiku', 'vision' => 'haiku' ),
-		'balanced' => array( 'label' => csa_t( 'Balanced' ), 'chat' => 'kimi', 'blog' => 'haiku', 'seo' => 'haiku', 'bulk' => 'deepseek-flash', 'vision' => 'gemini-lite' ),
+		'balanced' => array( 'label' => csa_t( 'Balanced' ), 'chat' => 'kimi-k31', 'blog' => 'haiku', 'seo' => 'haiku', 'bulk' => 'deepseek-flash', 'vision' => 'gemini-lite' ),
 		'cheapest' => array( 'label' => csa_t( 'Lowest cost' ), 'chat' => 'deepseek-pro', 'blog' => 'gemini-lite', 'seo' => 'deepseek-flash', 'bulk' => 'deepseek-flash', 'vision' => 'gemini-lite' ),
 	);
 }
@@ -426,3 +424,21 @@ function csa_from_openai( $raw ) {
 		'usage'       => array( 'input_tokens' => max( 0, (int) ( $u['prompt_tokens'] ?? 0 ) - $cached ), 'cache_read_input_tokens' => $cached, 'output_tokens' => (int) ( $u['completion_tokens'] ?? 0 ) ),
 	);
 }
+
+
+/** One-time: the Kimi K2 models were removed; move saved choices to Kimi K3.1 Pro. */
+add_action( 'init', function () {
+	if ( '1' === get_option( 'csa_k2_gone' ) ) {
+		return;
+	}
+	$o = get_option( CSA_OPT, array() );
+	if ( is_array( $o ) ) {
+		foreach ( $o as $k => $v ) {
+			if ( 0 === strpos( (string) $k, 'm_' ) && in_array( $v, array( 'kimi', 'kimi-code' ), true ) ) {
+				$o[ $k ] = 'kimi-k31';
+			}
+		}
+		update_option( CSA_OPT, $o );
+	}
+	update_option( 'csa_k2_gone', '1', false );
+}, 7 );
