@@ -16,11 +16,11 @@ $blog_page = (int) get_option('sb_blog_page_id');
 
     <div class="sba-grid">
         <div class="sba-card sba-card--credit">
-            <h2>💳 AI Credits</h2>
-            <p class="sba-big"><span data-sb="remaining"><?php echo esc_html(sb_bn_digits(number_format_i18n($st['remaining']))); ?></span>
-                <small>/ <?php echo esc_html(sb_bn_digits(number_format_i18n($st['limit']))); ?></small></p>
+            <h2>💵 AI Balance (USD)</h2>
+            <p class="sba-big"><span data-sb="remaining"><?php echo esc_html($st['remaining_usd']); ?></span>
+                <small>/ <?php echo esc_html($st['limit_usd']); ?></small></p>
             <div class="sba-bar"><div class="sba-bar-fill" style="width:<?php echo esc_attr($st['percent']); ?>%"></div></div>
-            <p class="sba-muted">Used: <?php echo esc_html(sb_bn_digits(number_format_i18n($st['used']))); ?> · Next reset: <strong><?php echo esc_html($st['next_reset_bn']); ?></strong></p>
+            <p class="sba-muted">Used: <?php echo esc_html($st['used_usd']); ?> · Next reset: <strong><?php echo esc_html($st['next_reset_bn']); ?></strong></p>
         </div>
         <div class="sba-card">
             <h2>📰 Posts</h2>
@@ -56,7 +56,7 @@ $blog_page = (int) get_option('sb_blog_page_id');
             <?php endif; ?>
         </div>
         <div class="sba-card">
-            <h2>Recent Credit Use</h2>
+            <h2>Recent AI Use</h2>
             <?php if (!$log) : ?>
                 <p class="sba-muted">এখনো কোনো AI ব্যবহার হয়নি।</p>
             <?php else : ?>
@@ -65,7 +65,7 @@ $blog_page = (int) get_option('sb_blog_page_id');
                         <li>
                             <?php echo esc_html(isset($labels[$row['feature']]) ? $labels[$row['feature']] : $row['feature']); ?>
                             <span class="sba-muted"><?php echo esc_html(sb_bn_date($row['t'], false)); ?></span>
-                            <strong class="sba-minus">−<?php echo esc_html(sb_bn_digits($row['cost'])); ?></strong>
+                            <strong class="sba-minus">−<?php echo esc_html(sb_money($row['cost'])); ?></strong>
                         </li>
                     <?php endforeach; ?>
                 </ul>

@@ -26,7 +26,7 @@ class SB_Credits {
 
     public static function limit($user_id) {
         $v = get_user_meta($user_id, self::META_LIMIT, true);
-        $limit = ($v !== '' && $v !== false) ? (int) $v : (int) sb_get('default_limit');
+        $limit = ($v !== '' && $v !== false) ? (int) $v : sb_limit_credits_from_usd(sb_get('limit_usd'));
         return max(0, (int) apply_filters('shaheen_blog_credit_limit', $limit, $user_id));
     }
 
@@ -83,6 +83,10 @@ class SB_Credits {
             'limit'       => $limit,
             'used'        => $used,
             'remaining'   => $remaining,
+            'unit'        => sb_unit_billed(),
+            'limit_usd'   => sb_fmt_usd(sb_usd($limit)),
+            'used_usd'    => sb_fmt_usd(sb_usd($used)),
+            'remaining_usd' => sb_fmt_usd(sb_usd($remaining)),
             'percent'     => $limit > 0 ? min(100, round($used * 100 / $limit, 1)) : 100,
             'cycle_start' => $start,
             'next_reset'  => $next,
@@ -95,9 +99,10 @@ class SB_Credits {
         $cost = max(0, (int) $cost);
         $st = self::state($user_id);
         if ($st['remaining'] < $cost) {
-            return new WP_Error('sb_no_credits', 'ক্রেডিট যথেষ্ট নয়। প্রয়োজন ' . sb_bn_digits($cost) . ', আছে ' . sb_bn_digits($st['remaining']) . '।');
+            return new WP_Error('sb_no_credits', 'ব্যালেন্স যথেষ্ট নয়। প্রয়োজন ' . sb_money($cost) . ', আছে ' . sb_money($st['remaining']) . '।');
         }
         update_user_meta($user_id, self::META_USED, $st['used'] + $cost);
+        sb_ledger_add($user_id, $feature, $cost, $post_id);
 
         $log = get_user_meta($user_id, self::META_LOG, true);
         if (!is_array($log)) {

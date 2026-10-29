@@ -261,7 +261,7 @@ add_action('wp_ajax_sb_mem_learn', function () {
     $cost = sb_feature_cost('learn');
     $state = SB_Credits::state($uid);
     if ($state['remaining'] < $cost) {
-        wp_send_json_error(array('message' => 'শেখার জন্য ক্রেডিট যথেষ্ট নয়।', 'balance' => $state));
+        wp_send_json_error(array('message' => 'শেখার জন্য ব্যালেন্স যথেষ্ট নয়।', 'balance' => $state));
     }
     $r = SB_AI::generate('learn', array('draft' => $draft, 'final' => $final, 'ins' => $ins, 'title' => sanitize_text_field(sb_req('title')), 'keywords' => array()));
     if (is_wp_error($r)) {

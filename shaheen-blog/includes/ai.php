@@ -472,13 +472,13 @@ class SB_AI {
         if ($feature === 'edit' || $feature === 'edit_new') {
             $fin = isset($data['choices'][0]['finish_reason']) ? (string) $data['choices'][0]['finish_reason'] : '';
             if ($fin === 'length') {
-                return new WP_Error('sb_cut', 'লেখা বড় হওয়ায় AI মাঝপথে থেমে গেছে, তাই আপনার লেখা বদলানো হয়নি এবং ক্রেডিট কাটা হয়নি। কম পরিবর্তন লিখুন, বা লেখাটি দুই ভাগে ভাগ করে করুন।');
+                return new WP_Error('sb_cut', 'লেখা বড় হওয়ায় AI মাঝপথে থেমে গেছে, তাই আপনার লেখা বদলানো হয়নি এবং বিল যোগ হয়নি। কম পরিবর্তন লিখুন, বা লেখাটি দুই ভাগে ভাগ করে করুন।');
             }
             if ($feature === 'edit') {
                 $in_len  = mb_strlen(wp_strip_all_tags($cur));
                 $out_len = mb_strlen(wp_strip_all_tags($text));
                 if ($in_len > 400 && $out_len < $in_len * 0.6 && !preg_match('/ছোট|সংক্ষিপ্ত|কমিয়ে|মুছ|বাদ|বাদ দিন|সরান|short|remove|delete|trim/iu', isset($c['instruction']) ? $c['instruction'] : '')) {
-                    return new WP_Error('sb_shrunk', 'AI লেখার অনেকটা অংশ বাদ দিয়ে ফেলেছিল, তাই বদলানো হয়নি এবং ক্রেডিট কাটা হয়নি। নির্দেশ আরও নির্দিষ্ট করে (কোন অনুচ্ছেদ/বাক্য) আবার চেষ্টা করুন।');
+                    return new WP_Error('sb_shrunk', 'AI লেখার অনেকটা অংশ বাদ দিয়ে ফেলেছিল, তাই বদলানো হয়নি এবং বিল যোগ হয়নি। নির্দেশ আরও নির্দিষ্ট করে (কোন অনুচ্ছেদ/বাক্য) আবার চেষ্টা করুন।');
                 }
             }
         }
@@ -736,7 +736,7 @@ class SB_AI {
         }
         if ($st !== 'completed') {
             $why = isset($data['error']['message']) ? $data['error']['message'] : (isset($data['incomplete_details']['reason']) ? $data['incomplete_details']['reason'] : $st);
-            return array('state' => 'error', 'message' => 'AI লেখা শেষ করতে পারেনি (' . $why . ')। ক্রেডিট কাটা হয়নি।');
+            return array('state' => 'error', 'message' => 'AI লেখা শেষ করতে পারেনি (' . $why . ')। বিল যোগ হয়নি।');
         }
         $text = '';
         $sources = array();
@@ -760,7 +760,7 @@ class SB_AI {
         }
         $text = trim(preg_replace('/^```[a-z]*\s*|\s*```$/i', '', trim($text)));
         if ($text === '') {
-            return array('state' => 'error', 'message' => 'AI কোনো লেখা দেয়নি। ক্রেডিট কাটা হয়নি।');
+            return array('state' => 'error', 'message' => 'AI কোনো লেখা দেয়নি। বিল যোগ হয়নি।');
         }
         $list = array();
         foreach ($sources as $u => $t) {

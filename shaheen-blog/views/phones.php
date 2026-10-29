@@ -32,9 +32,9 @@ $label = array('brand' => 'ব্র্যান্ড *', 'model' => 'মডে
             <label>বাজার/ফোকাস<input type="text" id="c-market" value="<?php echo esc_attr($cfg['market']); ?>"></label>
             <label class="sba-inline-check"><input type="checkbox" id="c-review" <?php checked($cfg['review']); ?>> AI-এর যোগ করা মডেল আগে ড্রাফটে রাখো, আমি দেখে প্রকাশ করব</label>
             <p><button type="button" class="button button-primary" id="ph-cfg-save">💾 সেটিংস সেভ</button>
-               <button type="button" class="button" id="ph-run">🔍 এখনই নতুন মডেল খুঁজুন (<?php echo esc_html(sb_bn_digits(sb_feature_cost('phones'))); ?> ক্রেডিট)</button>
+               <button type="button" class="button" id="ph-run">🔍 এখনই নতুন মডেল খুঁজুন (<?php echo esc_html(sb_money(sb_feature_cost('phones'))); ?>)</button>
                <button type="button" class="button" id="ph-page">📄 মোবাইল পেজ তৈরি/দেখুন</button></p>
-            <p class="sba-muted">পরবর্তী অটো-রান: <?php echo $next ? esc_html(wp_date('j M Y, g:i a', $next)) : 'বন্ধ'; ?> (সাইটে ভিজিটর এলে চলে — ওয়ার্ডপ্রেসের নিয়ম)। অটো-রানে ইউজারের ক্রেডিট কাটে না, শুধু আপনার OpenAI API ব্যালেন্স খরচ হয়। AI নিশ্চিত না হলে মাপ ফাঁকা রাখে, অনুমান করে না — তবু ভুল দেখলে এডিট করুন।</p>
+            <p class="sba-muted">পরবর্তী অটো-রান: <?php echo $next ? esc_html(wp_date('j M Y, g:i a', $next)) : 'বন্ধ'; ?> (সাইটে ভিজিটর এলে চলে — ওয়ার্ডপ্রেসের নিয়ম)। অটো-রানে ইউজারের বিল যোগ হয় না, শুধু আপনার OpenAI API ব্যালেন্স খরচ হয়। AI নিশ্চিত না হলে মাপ ফাঁকা রাখে, অনুমান করে না — তবু ভুল দেখলে এডিট করুন।</p>
             <?php if (is_array($logs) && $logs) : ?>
                 <details><summary>সাম্প্রতিক রান</summary><ul>
                 <?php foreach ($logs as $l) : ?>

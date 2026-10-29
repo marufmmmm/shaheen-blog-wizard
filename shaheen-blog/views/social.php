@@ -9,7 +9,7 @@ $s = sb_social_get();
     <?php if (!empty($_GET['saved'])) : // phpcs:ignore WordPress.Security.NonceVerification ?>
         <div class="notice notice-success is-dismissible"><p>সেভ হয়েছে।</p></div>
     <?php endif; ?>
-    <p class="sba-muted">ফেসবুক, ইউটিউব ও ইনস্টাগ্রাম পেজের লিংক দিন। পোস্টের মাঝখানে একটি বক্স আসবে: নিচে লাইক/ফলো/সাবস্ক্রাইব বাটন, ওপরে একটি একটি করে বদলে যাওয়া সর্বশেষ পোস্ট বা ভিডিও (নিজে নিজে ঘোরে, প্রতিবার একটি)। কোনো ক্রেডিট লাগে না।</p>
+    <p class="sba-muted">ফেসবুক, ইউটিউব ও ইনস্টাগ্রাম পেজের লিংক দিন। পোস্টের মাঝখানে একটি বক্স আসবে: নিচে লাইক/ফলো/সাবস্ক্রাইব বাটন, ওপরে একটি একটি করে বদলে যাওয়া সর্বশেষ পোস্ট বা ভিডিও (নিজে নিজে ঘোরে, প্রতিবার একটি)। কোনো খরচ লাগে না।</p>
 
     <form method="post" action="<?php echo esc_url(admin_url('admin-post.php')); ?>" class="sba-form">
         <input type="hidden" name="action" value="sb_save_social">

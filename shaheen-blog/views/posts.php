@@ -42,10 +42,10 @@ $base = admin_url('admin.php?page=sb-posts');
 
     <div class="sba-rp sba-card">
         <strong>পুরনো পোস্টে নতুন অংশ যোগ করুন</strong> <small class="sba-muted">— আর্টিকেল একদম বদলাবে না, শুধু টিক দেওয়া অংশ AI আগের আর্টিকেল থেকে বানাবে।</small><br>
-        <label class="sba-inline-check"><input type="checkbox" class="rp-part" value="faq"> FAQ (<?php echo esc_html(sb_bn_digits(sb_feature_cost('faq'))); ?>)</label>
-        <label class="sba-inline-check"><input type="checkbox" class="rp-part" value="summary"> সামারি (<?php echo esc_html(sb_bn_digits(sb_feature_cost('summary'))); ?>)</label>
-        <label class="sba-inline-check"><input type="checkbox" class="rp-part" value="related"> স্মার্ট সম্পর্কিত (<?php echo esc_html(sb_bn_digits(sb_feature_cost('related'))); ?>)</label>
-        <span class="sba-muted">ক্রেডিট প্রতিটি পোস্টে।</span><br>
+        <label class="sba-inline-check"><input type="checkbox" class="rp-part" value="faq"> FAQ (<?php echo esc_html(sb_money(sb_feature_cost('faq'))); ?>)</label>
+        <label class="sba-inline-check"><input type="checkbox" class="rp-part" value="summary"> সামারি (<?php echo esc_html(sb_money(sb_feature_cost('summary'))); ?>)</label>
+        <label class="sba-inline-check"><input type="checkbox" class="rp-part" value="related"> স্মার্ট সম্পর্কিত (<?php echo esc_html(sb_money(sb_feature_cost('related'))); ?>)</label>
+        <span class="sba-muted">খরচ প্রতিটি পোস্টে।</span><br>
         <button type="button" class="button button-primary" id="rp-run">🤖 টিক দেওয়া পোস্টে যোগ করুন</button>
         <label class="sba-inline-check"><input type="checkbox" id="rp-over"> আগে থেকে থাকলেও নতুন করে বানিয়ে বদলে দিন</label>
         <span id="rp-msg" class="sba-msg"></span>

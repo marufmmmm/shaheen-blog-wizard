@@ -7,6 +7,12 @@
   var BN = '০১২৩৪৫৬৭৮৯';
   function bn(n) { return String(n).replace(/\d/g, function (d) { return BN[d]; }); }
   function fmt(n) { return bn(Number(n).toLocaleString('en-US')); }
+  /* credits -> shown USD price (unit = billed USD per credit, set by the margin in Settings) */
+  function money(c) {
+    var u = (window.SB && SB.balance && SB.balance.unit) ? SB.balance.unit : 0.0004, v = Number(c) * u;
+    if (!v) { return '$0.00'; }
+    return '$' + (v < 0.1 ? v.toFixed(3) : v.toFixed(2));
+  }
 
   function post(action, data, retried) {
     var fd = new FormData();
@@ -71,7 +77,7 @@
 
   function updateBalance(b) {
     SB.balance = b;
-    $$('[data-sb="remaining"]').forEach(function (e) { e.textContent = fmt(b.remaining); });
+    $$('[data-sb="remaining"]').forEach(function (e) { e.textContent = b.remaining_usd; });
     $$('[data-sb="bar"]').forEach(function (e) { e.style.width = b.percent + '%'; });
     $$('[data-sb="reset"]').forEach(function (e) { e.textContent = b.next_reset_bn; });
   }
@@ -122,7 +128,7 @@
       (function next() {
         if (!ids.length) {
           run.disabled = false;
-          m.textContent = '✓ শেষ: ' + fmt(done) + 'টি অংশ যোগ হয়েছে, ' + fmt(none) + 'টি মেলেনি, ' + fmt(skipped) + 'টি আগে থেকেই ছিল (বাদ)। ক্রেডিট কেটেছে ' + fmt(spent) + '।';
+          m.textContent = '✓ শেষ: ' + fmt(done) + 'টি অংশ যোগ হয়েছে, ' + fmt(none) + 'টি মেলেনি, ' + fmt(skipped) + 'টি আগে থেকেই ছিল (বাদ)। বিল যোগ হয়েছে ' + money(spent) + '।';
           setTimeout(function () { location.reload(); }, 2500); return;
         }
         var id = ids.shift(); m.textContent = '⏳ চলছে… বাকি ' + fmt(ids.length + 1) + 'টি';
@@ -174,7 +180,7 @@
   if (subSave) {
     subSave.addEventListener('click', function () {
       post('sb_set_subscription', {
-        user_id: $('#sub-user').value, start_date: $('#sub-date').value, limit: $('#sub-limit').value
+        user_id: $('#sub-user').value, start_date: $('#sub-date').value, limit_usd: $('#sub-limit').value
       }).then(function (d) {
         say($('#sub-msg'), '✓ সেট হয়েছে। পরবর্তী রিসেট: ' + d.balance.next_reset_bn, 'ok');
       }).catch(function (e) { say($('#sub-msg'), e.message, 'err'); });
@@ -184,8 +190,8 @@
   if (crGo) {
     crGo.addEventListener('click', function () {
       crGo.disabled = true;
-      post('sb_credit_refresh', { limit: $('#cr-limit').value, scope: $('#cr-scope').value }).then(function (d) {
-        say($('#cr-msg'), '✓ রিফ্রেশ হয়েছে (' + d.users + ' জন)। এখন আছে ' + fmt(d.balance.remaining) + '; পরবর্তী রিসেট ' + d.balance.next_reset_bn, 'ok');
+      post('sb_credit_refresh', { limit_usd: $('#cr-limit').value, scope: $('#cr-scope').value }).then(function (d) {
+        say($('#cr-msg'), '✓ রিফ্রেশ হয়েছে (' + d.users + ' জন)। এখন আছে ' + d.balance.remaining_usd + '; পরবর্তী রিসেট ' + d.balance.next_reset_bn, 'ok');
         setTimeout(function () { location.reload(); }, 1200);
       }).catch(function (e) { say($('#cr-msg'), e.message, 'err'); }).then(function () { crGo.disabled = false; });
     });
@@ -254,12 +260,12 @@
       var m = $('input[name="' + p + '-mode"]:checked'), mode = m ? m.value : 'edit', cost = SB.costs[mode];
       if (mode === 'edit' && list.length > 5) { cost = SB.costs.edit_many; }
       if (!list.length) { toast('কী বদলাতে চান তা অন্তত একটি ঘরে লিখুন।', 'err'); return; }
-      if (SB.balance.remaining < cost) { toast('ক্রেডিট যথেষ্ট নয়। প্রয়োজন ' + fmt(cost) + ', আছে ' + fmt(SB.balance.remaining) + '।', 'err'); return; }
+      if (SB.balance.remaining < cost) { toast('ব্যালেন্স যথেষ্ট নয়। প্রয়োজন ' + money(cost) + ', আছে ' + money(SB.balance.remaining) + '।', 'err'); return; }
       var ctx = ctxFn(), old = go.innerHTML; go.disabled = true; go.textContent = '⏳ হচ্ছে… (১ মিনিট পর্যন্ত লাগতে পারে)';
       post('sb_ai', { feature: mode, post_id: 0, instruction: ins, ins_count: list.length, content: getFn(), title: ctx.title, keywords: ctx.keywords }).then(function (d) {
         prev = getFn(); setFn(d.result.text); undo.hidden = false;
         (window.__sbIns = window.__sbIns || []).push(ins);
-        toast('✓ হয়েছে। ' + fmt(d.cost) + ' ক্রেডিট কেটেছে। পছন্দ না হলে "আগের লেখা ফিরিয়ে আনুন" চাপুন।', 'ok');
+        toast('✓ হয়েছে। ' + money(d.cost) + ' কেটেছে। পছন্দ না হলে "আগের লেখা ফিরিয়ে আনুন" চাপুন।', 'ok');
         if (d.result.missing && d.result.missing.length) { toast('লেখায় ' + bn(d.result.missing.length) + 'টি জায়গায় আপনার তথ্য দরকার ([তথ্য দরকার: …] খুঁজুন)।', 'err'); }
       }).catch(function (e) { toast(e.message, 'err'); })
         .then(function () { go.disabled = false; go.innerHTML = old; });
@@ -371,7 +377,7 @@
       var btn = this, src = val('#rw-source').trim(), cost = Number(btn.dataset.cost);
       var refs = val('#rw-refs').trim();
       if (src.length < 200 && !refs) { toastR('কমপক্ষে ২০০ অক্ষরের মূল লেখা পেস্ট করুন, অথবা নিচে সাইটের লিংক দিন।', 'err'); return; }
-      if (SB.balance.remaining < cost) { toastR('ক্রেডিট যথেষ্ট নয়। প্রয়োজন ' + fmt(cost) + ', আছে ' + fmt(SB.balance.remaining) + '।', 'err'); return; }
+      if (SB.balance.remaining < cost) { toastR('ব্যালেন্স যথেষ্ট নয়। প্রয়োজন ' + money(cost) + ', আছে ' + money(SB.balance.remaining) + '।', 'err'); return; }
       var old = btn.innerHTML; btn.disabled = true; btn.textContent = '⏳ লেখা হচ্ছে… (১ মিনিট পর্যন্ত লাগতে পারে)'; say(rwMsg, '');
       runJob({ feature: 'rewrite_post', post_id: 0, title: val('#rw-title'), source: src, keywords: rwKw(), urls: refs, model: val('#rw-model') }, btn).then(function (d) {
         var r = d.result;
@@ -390,7 +396,7 @@
           var ch = document.createElement('div'); ch.style.marginTop = '6px'; ch.innerHTML = '<strong>⚖️ সাইটগুলোর মধ্যে যে তথ্য মেলেনি (প্রকাশের আগে নিজে যাচাই করুন):</strong>';
           var cl = document.createElement('ul'); r.conflicts.forEach(function (x) { var li = document.createElement('li'); li.textContent = x; cl.appendChild(li); }); ch.appendChild(cl); fb.appendChild(ch); fb.hidden = false;
         }
-        toastR('✓ হয়েছে। ' + fmt(d.cost) + ' ক্রেডিট কেটেছে। প্রকাশের আগে তথ্য মিলিয়ে নিন।', 'ok');
+        toastR('✓ হয়েছে। ' + money(d.cost) + ' কেটেছে। প্রকাশের আগে তথ্য মিলিয়ে নিন।', 'ok');
         $('#rw-result').scrollIntoView({ behavior: 'smooth' });
       }).catch(function (e) { toastR(e.message, 'err'); })
         .then(function () { btn.disabled = false; btn.innerHTML = old; });
@@ -682,7 +688,7 @@
   function per100(m) { var p1 = (SB.modelPrices && SB.modelPrices[m]) ? SB.modelPrices[m][0] : SB.costs.custom; return Math.max(1, Math.ceil(p1 / 9)); }
   function refreshWordsCost() {
     var el = $('#words-cost'), w = parseInt(val('#f-words'), 10) || 0; if (!el) { return; }
-    el.textContent = (w >= 300 ? 'আনুমানিক ' + fmt(customPrice()) + ' ক্রেডিট (' + fmt(per100(val('#f-cmodel'))) + '/১০০ শব্দ)' : fmt(per100(val('#f-cmodel'))) + ' ক্রেডিট/১০০ শব্দ') + ' — লেখা শেষে আসল শব্দ অনুযায়ী কাটবে';
+    el.textContent = (w >= 300 ? 'আনুমানিক ' + money(customPrice()) + ' (' + fmt(per100(val('#f-cmodel'))) + '/১০০ শব্দ)' : money(per100(val('#f-cmodel'))) + '/১০০ শব্দ') + ' — লেখা শেষে আসল শব্দ অনুযায়ী কাটবে';
   }
   function customPrice() {
     var m = val('#f-cmodel'), t = (parseInt(val('#f-clen'), 10) || 1) - 1, w = parseInt(val('#f-words'), 10) || 0;
@@ -694,7 +700,7 @@
     var names = ['৮০০–১০০০ শব্দ', '১০০০–১৫০০ শব্দ', '১৫০০+ শব্দ'];
     [].forEach.call(sel.options, function (o, i) {
       var p = (SB.modelPrices && SB.modelPrices[m]) ? SB.modelPrices[m][i] : SB.costs[['custom', 'custom2', 'custom3'][i]];
-      o.textContent = names[i] + ' — ' + fmt(p) + ' ক্রেডিট';
+      o.textContent = names[i] + ' — ' + money(p);
     });
   }
   if ($('#f-cmodel')) { $('#f-cmodel').addEventListener('change', function () { refreshCustomPrices(); refreshWordsCost(); }); refreshCustomPrices(); }
@@ -891,14 +897,14 @@
       return L.join('\n\n');
     }
     function briefPrice() { var m = val('#f-cmodel'), p = (SB.modelPrices && SB.modelPrices[m]) ? Math.round(SB.modelPrices[m][0] * 0.2) : 0; return Math.max(SB.costs.brief, p); }
-    function label() { go.innerHTML = '🧭 আগে বুঝে নিন (' + fmt(briefPrice()) + ' ক্রেডিট)'; }
+    function label() { go.innerHTML = '🧭 আগে বুঝে নিন (' + money(briefPrice()) + ')'; }
     if ($('#f-cmodel')) { $('#f-cmodel').addEventListener('change', label); label(); }
     function run() {
       if (val('#f-custom').trim().length < 30) { toast('আগে প্রম্পট বক্সে বিষয়ের বিবরণ লিখুন (কমপক্ষে ৩০ অক্ষর)।', 'err'); return; }
       var cost = briefPrice() + ($('#f-research') && $('#f-research').checked ? SB.costs.research : 0);
-      if (SB.balance.remaining < cost) { toast('ক্রেডিট যথেষ্ট নয়। প্রয়োজন ' + fmt(cost) + '।', 'err'); return; }
+      if (SB.balance.remaining < cost) { toast('ব্যালেন্স যথেষ্ট নয়। প্রয়োজন ' + money(cost) + '।', 'err'); return; }
       var old = go.innerHTML; go.disabled = true; go.textContent = '⏳ AI পড়ছে ও গবেষণা করছে…';
-      runCustom(go, 'brief').then(function (d) { render(d.result || d); toast('✓ বোঝাপড়া তৈরি। ' + fmt(d.cost || cost) + ' ক্রেডিট কেটেছে।', 'ok'); })
+      runCustom(go, 'brief').then(function (d) { render(d.result || d); toast('✓ বোঝাপড়া তৈরি। ' + money(d.cost || cost) + ' কেটেছে।', 'ok'); })
         .catch(function (e) { toast(e.message, 'err'); })
         .then(function () { go.disabled = false; go.innerHTML = old; });
     }
@@ -1023,14 +1029,14 @@
       if (!list.length) { toast('আগে ওপরে টিক দিন কী কী বানাবেন।', 'err'); return; }
       if (editorContent().replace(/<[^>]+>/g, '').trim().length < 80) { toast('আগে আর্টিকেল থাকতে হবে।', 'err'); return; }
       var cost = list.reduce(function (a, c) { return a + SB.costs[c]; }, 0);
-      if (SB.balance.remaining < cost) { toast('ক্রেডিট যথেষ্ট নয়। প্রয়োজন ' + fmt(cost) + '।', 'err'); return; }
+      if (SB.balance.remaining < cost) { toast('ব্যালেন্স যথেষ্ট নয়। প্রয়োজন ' + money(cost) + '।', 'err'); return; }
       var old = onlyBtn.innerHTML; onlyBtn.disabled = true; var spent = 0;
       list.reduce(function (pr, c) {
         return pr.then(function () {
           onlyBtn.textContent = '⏳ তৈরি হচ্ছে…';
           return post('sb_ai', aiPayload(c)).then(function (d) { spent += d.cost; applyAI(c, d.result); });
         });
-      }, Promise.resolve()).then(function () { toast('✓ হয়েছে (আর্টিকেল অপরিবর্তিত)। ' + fmt(spent) + ' ক্রেডিট কেটেছে। এখন সেভ করুন।', 'ok'); })
+      }, Promise.resolve()).then(function () { toast('✓ হয়েছে (আর্টিকেল অপরিবর্তিত)। ' + money(spent) + ' কেটেছে। এখন সেভ করুন।', 'ok'); })
         .catch(function (e) { toast(e.message, 'err'); })
         .then(function () { onlyBtn.disabled = false; onlyBtn.innerHTML = old; });
     });
@@ -1053,7 +1059,7 @@
       if (f === 'article' || f === 'custom' || f === 'rewrite') { if ($('#inc-summary').checked) { chain.push('summary'); } if ($('#inc-faq').checked) { chain.push('faq'); } if ($('#inc-related').checked) { chain.push('related'); } }
       var cost = (f === 'custom' ? customPrice() : SB.costs[f]) + ((f === 'article' || f === 'custom') && $('#f-research') && $('#f-research').checked ? SB.costs.research : 0);
       chain.forEach(function (c) { cost += SB.costs[c]; });
-      if (SB.balance.remaining < cost) { toast('ক্রেডিট যথেষ্ট নয়। প্রয়োজন ' + fmt(cost) + ', আছে ' + fmt(SB.balance.remaining) + '।', 'err'); return; }
+      if (SB.balance.remaining < cost) { toast('ব্যালেন্স যথেষ্ট নয়। প্রয়োজন ' + money(cost) + ', আছে ' + money(SB.balance.remaining) + '।', 'err'); return; }
       var old = btn.innerHTML; btn.disabled = true; btn.textContent = '⏳ তৈরি হচ্ছে… (আর্টিকেলে ১ মিনিট লাগতে পারে)';
       say(msg, '');
       var spent = 0;
@@ -1066,7 +1072,7 @@
           });
         }, Promise.resolve());
       }).then(function () {
-        say(msg, '✓ হয়েছে। মোট ' + fmt(spent) + ' ক্রেডিট কেটেছে।', 'ok'); toast('✓ হয়েছে। মোট ' + fmt(spent) + ' ক্রেডিট কেটেছে।', 'ok');
+        say(msg, '✓ হয়েছে। মোট ' + money(spent) + ' কেটেছে।', 'ok'); toast('✓ হয়েছে। মোট ' + money(spent) + ' কেটেছে।', 'ok');
       }).catch(function (e) { say(msg, e.message, 'err'); toast(e.message, 'err'); })
         .then(function () { btn.disabled = false; btn.innerHTML = old; });
     });
@@ -1246,7 +1252,7 @@
       var t = retry && retry.t ? retry.t : txt.value.trim(), again = false;
       if (!t) { return; }
       var cost = SB.costs.chat;
-      if (SB.balance.remaining < cost) { toast('Not enough credits. Need ' + fmt(cost) + ', have ' + fmt(SB.balance.remaining) + '.', 'err'); return; }
+      if (SB.balance.remaining < cost) { toast('Not enough balance. Need ' + money(cost) + ', have ' + money(SB.balance.remaining) + '.', 'err'); return; }
       ensureDraft();
       if (!retry) { add('me', t); txt.value = ''; }
       send.disabled = true;
@@ -1275,7 +1281,7 @@
           undo.hidden = false;
           (window.__sbIns = window.__sbIns || []).push(t);
         }
-        var note = c.applied ? '✓ Changed: ' + done.join(', ') + ' — total ' + fmt(d.cost) + ' credits' + (c.cost_note ? ' (' + c.cost_note + ')' : '') : 'Nothing changed · free';
+        var note = c.applied ? '✓ Changed: ' + done.join(', ') + ' — total ' + money(d.cost) + (c.cost_note ? ' (' + c.cost_note + ')' : '') : 'Nothing changed · free';
         if (c.failed && c.failed.length) { note += '\n⚠️ Not changed: "' + c.failed.join('", "') + '"'; }
         if (c.missing && c.missing.length) { note += '\n⚠️ Information needed from you: ' + c.missing.join(' '); }
         add('ai', c.reply || (c.applied ? 'Done.' : 'I did not understand, please rephrase.'), note);
@@ -1326,7 +1332,7 @@
     if (!(facts && facts.length) && !(missing && missing.length)) { box.hidden = true; return; }
     var h = document.createElement('h4'); h.textContent = '✏️ তথ্য মিলিয়ে নিন ও ঠিক করুন'; box.appendChild(h);
     var hint = document.createElement('div'); hint.className = 'sba-muted';
-    hint.textContent = 'লেখায় AI যে তথ্যগুলো ব্যবহার করেছে নিচে দেওয়া আছে। ভুল হলে এখানে ঠিক করে "লেখায় প্রয়োগ করুন" চাপুন — লেখার সব জায়গায় বদলে যাবে। "🧠 মনে রাখো" টিক দিলে পরের সব লেখায় এই তথ্যই ব্যবহার হবে। ক্রেডিট লাগে না।';
+    hint.textContent = 'লেখায় AI যে তথ্যগুলো ব্যবহার করেছে নিচে দেওয়া আছে। ভুল হলে এখানে ঠিক করে "লেখায় প্রয়োগ করুন" চাপুন — লেখার সব জায়গায় বদলে যাবে। "🧠 মনে রাখো" টিক দিলে পরের সব লেখায় এই তথ্যই ব্যবহার হবে। খরচ লাগে না।';
     box.appendChild(hint);
     var rows = [];
     function addRow(label, value, isMissing, marker) {
@@ -1369,7 +1375,7 @@
     if (!SB.memAuto || (!aiDraft && !insList.length) || !finalHtml) { return; }
     var draft = aiDraft || ''; aiDraft = finalHtml; window.__sbIns = [];
     post('sb_mem_learn', { draft: draft, final: finalHtml, ins: insList.join('\n---\n'), title: val('#f-title'), post_id: postId }).then(function (d) {
-      if (d && d.added) { toast('🧠 মেমোরিতে ' + bn(d.added) + 'টি নতুন শিক্ষা জমা হয়েছে (' + fmt(d.cost) + ' ক্রেডিট)। দেখুন/বদলান: মেমোরি মেনু।', 'ok'); }
+      if (d && d.added) { toast('🧠 মেমোরিতে ' + bn(d.added) + 'টি নতুন শিক্ষা জমা হয়েছে (' + money(d.cost) + ')। দেখুন/বদলান: মেমোরি মেনু।', 'ok'); }
     }).catch(function () {});
   }
 

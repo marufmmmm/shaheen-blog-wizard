@@ -95,8 +95,8 @@ function sb_edit_box($p) {
         <div class="sba-insrows" id="<?php echo esc_attr($p); ?>-rows"></div>
         <button type="button" class="button" id="<?php echo esc_attr($p); ?>-addrow">＋ আরেকটি পরিবর্তন যোগ করুন</button>
         <div class="sba-edit-modes">
-            <label class="sba-inline-check"><input type="radio" name="<?php echo esc_attr($p); ?>-mode" value="edit" checked> শুধু সংশোধন <em>(১–৫টি পরিবর্তন <?php echo esc_html(sb_bn_digits(sb_feature_cost('edit'))); ?> ক্রেডিট, ৬–১০টি <?php echo esc_html(sb_bn_digits(sb_feature_cost('edit_many'))); ?>)</em> — বাকি লেখা যেমন আছে তেমন থাকবে, শুধু আপনার নির্দেশের অংশ বদলাবে</label>
-            <label class="sba-inline-check"><input type="radio" name="<?php echo esc_attr($p); ?>-mode" value="edit_new"> নতুন করে লেখা <em>(<?php echo esc_html(sb_bn_digits(sb_feature_cost('edit_new'))); ?> ক্রেডিট)</em> — নির্দেশ মেনে পুরো লেখা নতুন করে তৈরি হবে</label>
+            <label class="sba-inline-check"><input type="radio" name="<?php echo esc_attr($p); ?>-mode" value="edit" checked> শুধু সংশোধন <em>(১–৫টি পরিবর্তন <?php echo esc_html(sb_money(sb_feature_cost('edit'))); ?>, ৬–১০টি <?php echo esc_html(sb_bn_digits(sb_feature_cost('edit_many'))); ?>)</em> — বাকি লেখা যেমন আছে তেমন থাকবে, শুধু আপনার নির্দেশের অংশ বদলাবে</label>
+            <label class="sba-inline-check"><input type="radio" name="<?php echo esc_attr($p); ?>-mode" value="edit_new"> নতুন করে লেখা <em>(<?php echo esc_html(sb_money(sb_feature_cost('edit_new'))); ?>)</em> — নির্দেশ মেনে পুরো লেখা নতুন করে তৈরি হবে</label>
         </div>
         <p><button type="button" class="button button-primary" id="<?php echo esc_attr($p); ?>-go">🤖 নির্দেশ অনুযায়ী করুন</button>
            <button type="button" class="button" id="<?php echo esc_attr($p); ?>-undo" hidden>↩️ আগের লেখা ফিরিয়ে আনুন</button></p>
@@ -110,8 +110,8 @@ function sb_credit_pill() {
     ?>
     <div class="sba-credit" id="sb-credit">
         <div class="sba-credit-top">
-            <span>💳 ক্রেডিট</span>
-            <strong><span data-sb="remaining"><?php echo esc_html(sb_bn_digits(number_format_i18n($st['remaining']))); ?></span> / <?php echo esc_html(sb_bn_digits(number_format_i18n($st['limit']))); ?></strong>
+            <span>💵 ব্যালেন্স</span>
+            <strong><span data-sb="remaining"><?php echo esc_html($st['remaining_usd']); ?></span> / <?php echo esc_html($st['limit_usd']); ?></strong>
         </div>
         <div class="sba-bar"><div class="sba-bar-fill" data-sb="bar" style="width:<?php echo esc_attr($st['percent']); ?>%"></div></div>
         <small>রিসেট: <span data-sb="reset"><?php echo esc_html($st['next_reset_bn']); ?></span></small>
@@ -148,7 +148,12 @@ function sb_handle_save_settings() {
 
     $new = array(
         'model'         => sb_pick_model($in, 'model') ?: 'gpt-4o-mini',
-        'default_limit' => max(0, (int) $in('default_limit', 80000)),
+        'usd_margin'    => max(0, min(90, (float) $in('usd_margin', 50))),
+        'limit_usd'     => max(0, (float) $in('limit_usd', 32)),
+        'report_email'  => is_email($in('report_email')) ? sanitize_email($in('report_email')) : '',
+        'report_auto'   => $in('report_auto') ? 1 : 0,
+        'bill_from'     => sanitize_text_field($in('bill_from')),
+        'bill_to'       => sanitize_text_field($in('bill_to')),
         'hero_title'    => sanitize_text_field($in('hero_title')),
         'hero_subtitle' => sanitize_text_field($in('hero_subtitle')),
         'intro'         => sanitize_textarea_field($in('intro')),

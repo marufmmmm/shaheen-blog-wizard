@@ -316,7 +316,7 @@ add_action('wp_ajax_sb_phones_run', function () {
     $cost = sb_feature_cost('phones');
     $st = SB_Credits::state($uid);
     if ($st['remaining'] < $cost) {
-        wp_send_json_error(array('message' => 'ক্রেডিট যথেষ্ট নয়। প্রয়োজন ' . sb_bn_digits($cost) . ', আছে ' . sb_bn_digits($st['remaining']) . '।', 'balance' => $st));
+        wp_send_json_error(array('message' => 'ব্যালেন্স যথেষ্ট নয়। প্রয়োজন ' . sb_money($cost) . ', আছে ' . sb_money($st['remaining']) . '।', 'balance' => $st));
     }
     $r = sb_phones_run($uid);
     if (is_wp_error($r)) {

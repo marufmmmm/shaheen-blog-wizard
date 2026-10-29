@@ -128,7 +128,7 @@ function sb_ajax_ai() {
     $need = $cost + ($research ? max(0, (int) sb_get('cost_research')) : 0);
     if ($state['remaining'] < $need) {
         wp_send_json_error(array(
-            'message' => 'ক্রেডিট যথেষ্ট নয়। প্রয়োজন ' . sb_bn_digits($need) . ', আছে ' . sb_bn_digits($state['remaining']) . '। রিসেট: ' . $state['next_reset_bn'],
+            'message' => 'ব্যালেন্স যথেষ্ট নয়। প্রয়োজন ' . sb_money($need) . ', আছে ' . sb_money($state['remaining']) . '। রিসেট: ' . $state['next_reset_bn'],
             'balance' => $state,
         ));
     }
@@ -400,7 +400,7 @@ function sb_ai_finish($uid, $feature, $ctx, $cost, $research, $result, &$notes) 
     }
     if ($feature === 'custom' && (isset($result['no_article']) || mb_strlen(wp_strip_all_tags((string) $result['text'])) < 200)) {
         $why = !empty($result['no_article']) ? ' AI বলছে: "' . $result['no_article'] . '"' : '';
-        return array('ok' => false, 'message' => 'AI আর্টিকেল লেখেনি, তাই ক্রেডিট কাটা হয়নি।' . $why . ' আবার "লিখুন" চাপুন; বারবার হলে প্রম্পট বক্সে "আগে অনুমোদন নাও/প্রশ্ন করো" ধরনের কথা থাকলে মুছে দিন।');
+        return array('ok' => false, 'message' => 'AI আর্টিকেল লেখেনি, তাই বিল যোগ হয়নি।' . $why . ' আবার "লিখুন" চাপুন; বারবার হলে প্রম্পট বক্সে "আগে অনুমোদন নাও/প্রশ্ন করো" ধরনের কথা থাকলে মুছে দিন।');
     }
     $result = sb_words_apply_result($feature, $result);
     $bh = sb_beat_hosts(isset($ctx['beat_urls']) ? $ctx['beat_urls'] : '');
@@ -419,12 +419,12 @@ function sb_ai_finish($uid, $feature, $ctx, $cost, $research, $result, &$notes) 
             $u = sb_usage_credits(isset($result['model']) ? $result['model'] : '', isset($result['usage']) ? $result['usage'] : array());
             if ($u) {
                 $cost = max(5, $u['read'] + $u['write']);
-                $result['chat']['cost_note'] = 'পড়া ' . sb_bn_digits($u['read']) . ' + লেখা/চিন্তা ' . sb_bn_digits($u['write']) . ' ক্রেডিট';
+                $result['chat']['cost_note'] = 'পড়া ' . sb_money($u['read']) . ' + লেখা/চিন্তা ' . sb_money($u['write']);
             }
         }
     }
     if ($feature === 'related' && empty($result['items'])) {
-        return array('ok' => false, 'message' => 'সাইটে এই লেখার সাথে মেলে এমন পোস্ট/পেজ পাওয়া যায়নি, তাই ক্রেডিট কাটা হয়নি। নিজে খুঁজে যোগ করতে পারেন।');
+        return array('ok' => false, 'message' => 'সাইটে এই লেখার সাথে মেলে এমন পোস্ট/পেজ পাওয়া যায়নি, তাই বিল যোগ হয়নি। নিজে খুঁজে যোগ করতে পারেন।');
     }
     if ($research && !empty($result['researched'])) {
         $cost += max(0, (int) sb_get('cost_research'));   // web search really ran
@@ -600,7 +600,7 @@ add_action('wp_ajax_sb_job_status', function () {
     if ($job['status'] !== 'waiting') {
         if ($job['status'] === 'starting' && time() - (int) (isset($job['started']) ? $job['started'] : time()) > 6 * 60) {
             delete_transient('sb_job_' . $id);
-            wp_send_json_success(array('state' => 'error', 'message' => 'সোর্স (সাইট/PDF) তৈরি করতে বেশি সময় লেগে গেছে, কাজ শুরু হয়নি; ক্রেডিট কাটা হয়নি। ফাইল/লিংক কমিয়ে আবার চেষ্টা করুন।', 'balance' => SB_Credits::state($uid)));
+            wp_send_json_success(array('state' => 'error', 'message' => 'সোর্স (সাইট/PDF) তৈরি করতে বেশি সময় লেগে গেছে, কাজ শুরু হয়নি; বিল যোগ হয়নি। ফাইল/লিংক কমিয়ে আবার চেষ্টা করুন।', 'balance' => SB_Credits::state($uid)));
         }
         wp_send_json_success(array('state' => 'running'));   // starting / finalizing
     }
@@ -609,7 +609,7 @@ add_action('wp_ajax_sb_job_status', function () {
         if (time() - (int) $job['created'] > 20 * 60) {
             SB_AI::bg_cancel($job['bg_id']);
             delete_transient('sb_job_' . $id);
-            wp_send_json_success(array('state' => 'error', 'message' => 'AI ২০ মিনিটেও শেষ করতে পারেনি, বন্ধ করা হয়েছে। ক্রেডিট কাটা হয়নি। কম ফাইল বা ছোট দৈর্ঘ্যে আবার চেষ্টা করুন।', 'balance' => SB_Credits::state($uid)));
+            wp_send_json_success(array('state' => 'error', 'message' => 'AI ২০ মিনিটেও শেষ করতে পারেনি, বন্ধ করা হয়েছে। বিল যোগ হয়নি। কম ফাইল বা ছোট দৈর্ঘ্যে আবার চেষ্টা করুন।', 'balance' => SB_Credits::state($uid)));
         }
         wp_send_json_success(array('state' => 'running'));
     }
@@ -629,7 +629,7 @@ add_action('wp_ajax_sb_job_status', function () {
             $rj = json_decode($rm[0], true);
         }
         if (!is_array($rj) || empty($rj['article'])) {
-            wp_send_json_success(array('state' => 'error', 'message' => 'AI-এর উত্তর পড়া যায়নি। ক্রেডিট কাটা হয়নি। আবার চেষ্টা করুন।', 'balance' => SB_Credits::state($uid)));
+            wp_send_json_success(array('state' => 'error', 'message' => 'AI-এর উত্তর পড়া যায়নি। বিল যোগ হয়নি। আবার চেষ্টা করুন।', 'balance' => SB_Credits::state($uid)));
         }
         $cf = array();
         foreach (isset($rj['conflicts']) && is_array($rj['conflicts']) ? array_slice($rj['conflicts'], 0, 8) : array() as $cx) {
@@ -644,7 +644,7 @@ add_action('wp_ajax_sb_job_status', function () {
     if ($jf === 'brief') {
         $pb = SB_AI::parse_brief($res['text']);
         if (is_wp_error($pb)) {
-            wp_send_json_success(array('state' => 'error', 'message' => $pb->get_error_message() . ' ক্রেডিট কাটা হয়নি।', 'balance' => SB_Credits::state($uid)));
+            wp_send_json_success(array('state' => 'error', 'message' => $pb->get_error_message() . ' বিল যোগ হয়নি।', 'balance' => SB_Credits::state($uid)));
         }
         $pb['sources'] = isset($res['sources']) ? $res['sources'] : array();
         $pb['researched'] = !empty($res['researched']);
@@ -860,11 +860,13 @@ function sb_ajax_credit_refresh() {
     if (!SB_Lock::is_unlocked()) {
         wp_send_json_error(array('message' => 'আগে সেটিংসে PIN দিয়ে আনলক করুন।'), 403);
     }
-    $limit = max(0, min(10000000, (int) sb_req('limit', 80000)));
+    $usd   = max(0, min(100000, (float) sb_req('limit_usd', 32)));
+    $limit = sb_limit_credits_from_usd($usd);
     $scope = sb_req('scope') === 'all' ? 'all' : 'me';
     $s = get_option('sb_settings', array());
     $s = is_array($s) ? $s : array();
     $s['default_limit'] = $limit;
+    $s['limit_usd']     = $usd;
     update_option('sb_settings', $s);
     $ids = array(get_current_user_id());
     if ($scope === 'all') {
@@ -891,8 +893,8 @@ function sb_ajax_set_subscription() {
         wp_send_json_error(array('message' => 'ইউজার পাওয়া যায়নি।'));
     }
     $date  = sanitize_text_field(sb_req('start_date'));
-    $limit = sb_req('limit', '');
-    $st = SB_Credits::set_subscription($uid, $date !== '' ? $date : null, $limit !== '' ? (int) $limit : null);
+    $limit = sb_req('limit_usd', '');
+    $st = SB_Credits::set_subscription($uid, $date !== '' ? $date : null, $limit !== '' ? sb_limit_credits_from_usd((float) $limit) : null);
     if (is_wp_error($st)) {
         wp_send_json_error(array('message' => $st->get_error_message()));
     }
@@ -1001,7 +1003,7 @@ function sb_ajax_enrich_post() {
         $cost = sb_feature_cost($part);
         $state = SB_Credits::state($uid);
         if ($state['remaining'] < $cost) {
-            wp_send_json_error(array('message' => 'ক্রেডিট যথেষ্ট নয়। প্রয়োজন ' . sb_bn_digits($cost) . ', আছে ' . sb_bn_digits($state['remaining']) . '।', 'partial' => $out));
+            wp_send_json_error(array('message' => 'ব্যালেন্স যথেষ্ট নয়। প্রয়োজন ' . sb_money($cost) . ', আছে ' . sb_money($state['remaining']) . '।', 'partial' => $out));
         }
         $res = SB_AI::generate($part, $ctx);
         if (is_wp_error($res)) {
@@ -1120,8 +1122,8 @@ function sb_chat_result($r, $ctx) {
             $say = $raw;
         }
         $out['reply'] = ($say !== '' ? mb_substr(sanitize_textarea_field($say), 0, 500) . "\n" : '')
-            . ($cut ? '⚠️ AI-র উত্তর সীমা ছাড়িয়ে কেটে গেছে (বেশি বড় লেখা বদলাতে চেয়েছিল), তাই কিছু বদলায়নি। বদলটা ছোট করে বা একটা অংশ ধরে লিখুন, যেমন "ফোন নম্বরের লাইনটা বদলাও"। (ক্রেডিট কাটা হয়নি)'
-                : '⚠️ AI-র উত্তর ঠিক ফরম্যাটে আসেনি, কিছু বদলায়নি; আবার চেষ্টা করুন। (ক্রেডিট কাটা হয়নি)' . ($raw !== '' ? ' [উত্তরের শুরু: ' . mb_substr(sanitize_text_field($raw), 0, 120) . ']' : ''));
+            . ($cut ? '⚠️ AI-র উত্তর সীমা ছাড়িয়ে কেটে গেছে (বেশি বড় লেখা বদলাতে চেয়েছিল), তাই কিছু বদলায়নি। বদলটা ছোট করে বা একটা অংশ ধরে লিখুন, যেমন "ফোন নম্বরের লাইনটা বদলাও"। (বিল যোগ হয়নি)'
+                : '⚠️ AI-র উত্তর ঠিক ফরম্যাটে আসেনি, কিছু বদলায়নি; আবার চেষ্টা করুন। (বিল যোগ হয়নি)' . ($raw !== '' ? ' [উত্তরের শুরু: ' . mb_substr(sanitize_text_field($raw), 0, 120) . ']' : ''));
         $r['chat'] = $out;
         return $r;
     }

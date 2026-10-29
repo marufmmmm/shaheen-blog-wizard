@@ -14,7 +14,7 @@ $seed  = $site['sites'] ? implode("\n", $site['sites']) : trim((string) sb_get('
     <div class="sba-card">
         <h2>📘 যা মনে রাখা আছে</h2>
         <label class="sba-inline-check"><input type="checkbox" id="mem-auto" <?php checked($cfg['auto']); ?>>
-            লেখা সেভ করার সময় আপনার সংশোধন থেকে নিজে নিজে শেখো <em>(নতুন কিছু শিখলে শুধু তখনই <?php echo esc_html(sb_bn_digits(sb_feature_cost('learn'))); ?> ক্রেডিট; কিছু না শিখলে কোনো খরচ নেই)</em></label>
+            লেখা সেভ করার সময় আপনার সংশোধন থেকে নিজে নিজে শেখো <em>(নতুন কিছু শিখলে শুধু তখনই <?php echo esc_html(sb_money(sb_feature_cost('learn'))); ?>; কিছু না শিখলে কোনো খরচ নেই)</em></label>
         <div id="mem-list" style="margin-top:12px"></div>
         <p>
             <button type="button" class="button" id="mem-add-rule">＋ নিয়ম যোগ করুন</button>
@@ -34,7 +34,7 @@ $seed  = $site['sites'] ? implode("\n", $site['sites']) : trim((string) sb_get('
 
     <div class="sba-card">
         <h2>🌐 ওয়েবসাইট পড়ে মনে রাখা</h2>
-        <p class="sba-muted">লিংক দিন (প্রতি লাইনে একটি, সর্বোচ্চ ৬টি)। প্লাগইন ওই সাইটের পেজ ও তার ভেতরের লিংক ঘুরে লেখাগুলো মনে রাখবে (একই সাইটের ভেতরেই থাকবে)। পরে যেকোনো লেখার সময় বিষয়ের সাথে মেলে এমন পেজ থেকে AI তথ্য নেবে। সাইট বদলালে আবার "পড়ো" চাপুন। এতে ক্রেডিট লাগে না।</p>
+        <p class="sba-muted">লিংক দিন (প্রতি লাইনে একটি, সর্বোচ্চ ৬টি)। প্লাগইন ওই সাইটের পেজ ও তার ভেতরের লিংক ঘুরে লেখাগুলো মনে রাখবে (একই সাইটের ভেতরেই থাকবে)। পরে যেকোনো লেখার সময় বিষয়ের সাথে মেলে এমন পেজ থেকে AI তথ্য নেবে। সাইট বদলালে আবার "পড়ো" চাপুন। এতে খরচ লাগে না।</p>
         <textarea id="site-urls" rows="4" style="width:100%" placeholder="https://shaheen.edu.bd/"><?php echo esc_textarea($seed); ?></textarea>
         <p>প্রতি সাইটে সর্বোচ্চ পেজ: <input type="number" id="site-max" min="5" max="80" value="<?php echo esc_attr($cfg['max_pages']); ?>" style="width:80px">
             <button type="button" class="button button-primary" id="site-go">🔄 পড়ো ও মনে রাখো</button>

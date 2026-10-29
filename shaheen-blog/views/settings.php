@@ -50,7 +50,7 @@ $render = function ($name, $cur, $blank) use ($cat) {
     echo '<select name="' . esc_attr($name) . '_sel" class="sb-model-sel" data-for="' . esc_attr($name) . '">';
     if ($blank) { echo '<option value=""' . selected($cur, '', false) . '>— ওপরের মডেলই ব্যবহার হবে —</option>'; }
     foreach ($cat as $id => $m) {
-        $t = $id . ' — আর্টিকেলে ~' . implode(' / ', array_map('sb_bn_digits', $m[1])) . ' ক্রেডিট খরচ — ' . $m[2];
+        $t = $id . ' — আর্টিকেলে ~' . implode(' / ', array_map('sb_money', $m[1])) . ' খরচ — ' . $m[2];
         echo '<option value="' . esc_attr($id) . '" data-est="' . esc_attr(implode(',', $m[1])) . '"' . selected($cur, $id, false) . '>' . esc_html($t) . '</option>';
     }
     echo '<option value="__other"' . selected(!$known && $cur !== '', true, false) . '>অন্য মডেল (নিজে লিখব)</option></select> ';
@@ -71,8 +71,8 @@ $render = function ($name, $cur, $blank) use ($cat) {
                 <textarea name="extra_models" rows="3" placeholder="model-id-here | 400 | 550 | 750"><?php echo esc_textarea($s('extra_models')); ?></textarea>
                 <small>সেভ করলে এই মডেল পোস্ট এডিটরের মডেল-তালিকায় ও ওপরের সিলেক্টে আসবে। নামটি OpenAI-র API নামের সাথে হুবহু মিলতে হবে, নইলে লেখার সময় OpenAI ত্রুটি দেবে।</small>
             </label>
-            <h3 style="margin-top:18px">💰 মডেল অনুযায়ী আর্টিকেলের চার্জ <small>(ক্রেডিট; সব মডেলের জন্য নিজে ঠিক করুন)</small></h3>
-            <p class="sba-muted">১ ক্রেডিট = ০.০০০২ ডলার (২০,০০০ ক্রেডিট = ৪ ডলার)। "আনুমানিক খরচ" বাংলায় ১ শব্দ ≈ ৪ টোকেন ধরে হিসাব, ইনপুট ফাইলসহ। লাল ঘর মানে চার্জ খরচের চেয়ে কম, অর্থাৎ লোকসান। ইন্টারনেট যাচাইয়ের চার্জ আলাদা (নিচে "ইন্টারনেট রিসার্চের অতিরিক্ত ক্রেডিট")।</p>
+            <h3 style="margin-top:18px">💰 মডেল অনুযায়ী আর্টিকেলের চার্জ <small>(ভেতরের ক্রেডিট এককে; ইউজার এর ডলার-দাম দেখে)</small></h3>
+            <p class="sba-muted">১ ক্রেডিট = ০.০০০২ ডলার আসল খরচ, মুনাফা যোগ হয়ে ইউজারকে দেখায় <?php echo esc_html(sb_fmt_usd(sb_unit_billed())); ?> (ইউজার শুধু ডলার দেখে, ক্রেডিট দেখে না)। "আনুমানিক খরচ" বাংলায় ১ শব্দ ≈ ৪ টোকেন ধরে হিসাব, ইনপুট ফাইলসহ। লাল ঘর মানে চার্জ খরচের চেয়ে কম, অর্থাৎ লোকসান। ইন্টারনেট যাচাইয়ের চার্জ আলাদা (নিচে "ইন্টারনেট রিসার্চের অতিরিক্ত ক্রেডিট")।</p>
             <div style="overflow-x:auto"><table class="widefat striped" id="sb-mp" style="max-width:900px">
                 <thead><tr><th>মডেল</th><th>দাম (ইনপুট/আউটপুট $/১০ লাখ টোকেন)</th><th>৮০০–১০০০ শব্দ<br><small>আনুমানিক খরচ → চার্জ</small></th><th>১০০০–১৫০০ শব্দ<br><small>আনুমানিক খরচ → চার্জ</small></th><th>১৫০০+ শব্দ<br><small>আনুমানিক খরচ → চার্জ</small></th></tr></thead>
                 <tbody>
@@ -88,11 +88,25 @@ $render = function ($name, $cur, $blank) use ($cat) {
         </div>
 
         <div class="sba-card">
-            <h2>💳 ক্রেডিট</h2>
-            <label>মাসিক ক্রেডিট (ডিফল্ট)
-                <input type="number" min="0" name="default_limit" value="<?php echo esc_attr($s('default_limit')); ?>">
-                <small>২০,০০০ ক্রেডিট ≈ ৪ ডলার API খরচ।</small>
+            <h2>💵 USD বিলিং</h2>
+            <label>মুনাফা (margin) %
+                <input type="number" min="0" max="90" step="0.5" name="usd_margin" value="<?php echo esc_attr($s('usd_margin')); ?>">
+                <small>৫০ দিলে $১ আসল খরচ = $২ দেখাবে (বিল = খরচ ÷ (১ − মুনাফা%))। এখন: $১ খরচ → <b><?php echo esc_html(sb_fmt_usd(sb_mult())); ?></b></small>
             </label>
+            <label>মাসিক ব্যালেন্স / লিমিট (USD, ইউজার যা দেখে)
+                <input type="number" min="0" step="0.5" name="limit_usd" value="<?php echo esc_attr($s('limit_usd')); ?>">
+                <small>এই অংকের ডলার শেষ হলে মাসের বাকি সময় AI বন্ধ। এখন সমান ≈ <?php echo esc_html(sb_bn_digits(number_format_i18n(sb_limit_credits_from_usd((float) $s('limit_usd'))))); ?> ক্রেডিট।</small>
+            </label>
+            <label>মাসিক রিপোর্ট কোন ইমেইলে যাবে
+                <input type="email" name="report_email" value="<?php echo esc_attr($s('report_email')); ?>" placeholder="<?php echo esc_attr(get_option('admin_email')); ?>">
+                <small>খালি রাখলে সাইটের অ্যাডমিন ইমেইলে যাবে।</small>
+            </label>
+            <label class="sba-inline-check"><input type="checkbox" name="report_auto" value="1" <?php checked((int) $s('report_auto')); ?>> প্রতি মাস শেষে নিজে নিজে ইমেইল পাঠান ও ভাউচার বানান</label>
+            <div class="sba-row">
+                <label>ভাউচারে "কে বিল দিচ্ছে" (আপনার নাম/কোম্পানি)<input type="text" name="bill_from" value="<?php echo esc_attr($s('bill_from')); ?>" placeholder="<?php echo esc_attr(get_bloginfo('name')); ?>"></label>
+                <label>ভাউচারে "কাকে" (গ্রাহকের নাম)<input type="text" name="bill_to" value="<?php echo esc_attr($s('bill_to')); ?>" placeholder="<?php echo esc_attr(get_bloginfo('name')); ?>"></label>
+            </div>
+            <p class="sba-muted">ভাউচার ও মাসের হিসাব দেখুন: <a href="<?php echo esc_url(admin_url('admin.php?page=sb-billing')); ?>">💵 USD Billing</a></p>
             <div class="sba-row">
                 <?php foreach (sb_feature_labels() as $f => $label) : if (in_array($f, array('rewrite_post', 'edit_new'), true)) { continue; } ?>
                     <label><?php echo esc_html($label); ?><input type="number" min="0" name="cost_<?php echo esc_attr($f); ?>" value="<?php echo esc_attr($s('cost_' . $f)); ?>"></label>
@@ -120,7 +134,7 @@ $render = function ($name, $cur, $blank) use ($cat) {
                 <textarea name="site_urls" rows="3"><?php echo esc_textarea($s('site_urls')); ?></textarea></label>
             <label>শাহীন সম্পর্কে আমাদের নিজস্ব তথ্য <small>(শাখা, ফি, যোগাযোগ, বৈশিষ্ট্য, ফলাফল ইত্যাদি, যা AI সবসময় জানবে)</small>
                 <textarea name="about" rows="8"><?php echo esc_textarea($s('about')); ?></textarea></label>
-            <label>ইন্টারনেট রিসার্চের অতিরিক্ত ক্রেডিট <small>(শুধু রিসার্চ সফল হলে কাটে)</small>
+            <label>ইন্টারনেট রিসার্চের অতিরিক্ত চার্জ (ক্রেডিট এককে) <small>(শুধু রিসার্চ সফল হলে কাটে)</small>
                 <input type="number" min="0" name="cost_research" value="<?php echo esc_attr($s('cost_research')); ?>"></label>
         </div>
 
@@ -154,10 +168,10 @@ $render = function ($name, $cur, $blank) use ($cat) {
     </script>
 
     <div class="sba-card">
-        <h2>🔄 ক্রেডিট রিফ্রেশ</h2>
+        <h2>🔄 ব্যালেন্স রিফ্রেশ</h2>
         <p class="sba-muted">এক ক্লিকে ব্যবহৃত ক্রেডিট ০ হয়ে যাবে, আজ থেকে নতুন এক মাসের চক্র শুরু হবে এবং নিচের লিমিট সবার ডিফল্ট হিসেবে সেভ হবে।</p>
         <div class="sba-row">
-            <label>ক্রেডিট লিমিট<input type="number" min="0" id="cr-limit" value="80000"></label>
+            <label>ব্যালেন্স (USD)<input type="number" min="0" step="0.5" id="cr-limit" value="<?php echo esc_attr($s('limit_usd')); ?>"></label>
             <label>কার জন্য
                 <select id="cr-scope"><option value="me">শুধু আমার</option><option value="all">সব ইউজারের</option></select>
             </label>
@@ -175,7 +189,7 @@ $render = function ($name, $cur, $blank) use ($cat) {
                 </select>
             </label>
             <label>শুরুর তারিখ<input type="date" id="sub-date" value="<?php echo esc_attr(wp_date('Y-m-d')); ?>"></label>
-            <label>ক্রেডিট লিমিট<input type="number" min="0" id="sub-limit" value="<?php echo esc_attr($s('default_limit')); ?>"></label>
+            <label>ব্যালেন্স (USD)<input type="number" min="0" step="0.5" id="sub-limit" value="<?php echo esc_attr($s('limit_usd')); ?>"></label>
         </div>
         <p><button type="button" class="button" id="sub-save">সেট করুন</button> <span id="sub-msg" class="sba-msg"></span></p>
     </div>
