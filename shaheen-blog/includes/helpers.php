@@ -11,6 +11,7 @@ function sb_defaults() {
         'default_limit' => 80000,
         'limit_usd'     => 0,
         'vat_pct'       => 5,
+        'flex_bill_standard' => 1,
         'flex_on'       => 1,
         'client_email'  => '',
         'bill_from_addr' => '',

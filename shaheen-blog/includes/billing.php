@@ -85,7 +85,9 @@ function sb_real_usd($model, $usage, $searches = 0, $flex = false) {
         return 0.0;
     }
     $tok = $in * (float) $m[1] / 1000000 + $out * (float) $m[2] / 1000000;
-    return ($flex ? $tok * 0.5 : $tok) + $searches * 0.01;   // Flex = half the token price; the search fee is the same
+    // Client is billed at the Standard price even when the call ran on Flex (Flex discount is kept by the owner).
+    $half = $flex && !sb_get('flex_bill_standard');
+    return ($half ? $tok * 0.5 : $tok) + $searches * 0.01;   // Flex = half the token price; the search fee is the same
 }
 
 add_filter('http_response', function ($r, $args, $url) {
