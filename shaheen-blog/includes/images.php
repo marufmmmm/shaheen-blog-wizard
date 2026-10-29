@@ -333,9 +333,10 @@ add_action('wp_ajax_sb_img_describe', function () {
         wp_send_json_error(array('message' => 'ছবিটা পড়া যায়নি।'));
     }
     list($title, $text, $cat) = sb_img_context();
-    $sys = "You write SEO metadata in Bangla for a blog image of a school network in Bangladesh. Look at the picture and describe only what is really visible. Reply with JSON only: {\"alt\":\"...\",\"title\":\"...\",\"caption\":\"...\",\"details\":\"...\"}. "
+    $ip  = mb_substr(trim(sanitize_textarea_field(sb_req('prompt'))), 0, 1500);
+    $sys = "You write SEO metadata in Bangla for a blog image of a school network in Bangladesh. Use three sources together: the picture itself (describe only what is really visible), the prompt the image was made from (what it was meant to show), and the article (so the text fits it). Reply with JSON only: {\"alt\":\"...\",\"title\":\"...\",\"caption\":\"...\",\"details\":\"...\"}. "
         . "alt: one natural sentence, what is shown, no keyword stuffing. title: short. caption: one short line. details: 1-2 sentences on what the image shows and why it fits the article. Do not invent names, places or school names that are not visible.";
-    $usr = array(array('type' => 'text', 'text' => "Article title: {$title}\nCategory: {$cat}\nArticle text:\n{$text}"),
+    $usr = array(array('type' => 'text', 'text' => "Article title: {$title}\nCategory: {$cat}\nImage prompt (what the image was meant to show): " . ($ip !== '' ? $ip : '(none)') . "\nArticle text:\n{$text}"),
         array('type' => 'image_url', 'image_url' => array('url' => 'data:' . $mime . ';base64,' . base64_encode($data))));
     $r = wp_remote_post('https://api.openai.com/v1/chat/completions', array('timeout' => 90, 'headers' => array('Authorization' => 'Bearer ' . $key, 'Content-Type' => 'application/json'),
         'body' => wp_json_encode(array('model' => sb_model_for('meta'), 'response_format' => array('type' => 'json_object'), 'messages' => array(array('role' => 'system', 'content' => $sys), array('role' => 'user', 'content' => $usr))))));
