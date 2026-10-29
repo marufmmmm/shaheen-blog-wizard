@@ -307,7 +307,7 @@ table{width:100%;border-collapse:collapse}.items th{font-weight:400;font-size:11
 <div class="pg"><div class="logo">BW</div>
 <h1>Voucher</h1>
 <div class="meta"><div><b>Voucher number</b><span><?php echo esc_html($v['id']); ?></span></div><div><b>Statement</b><span>Monthly API statement — <?php echo esc_html($mon); ?></span></div><div><b>Voucher date</b><span><?php echo esc_html(wp_date('F j, Y', $v['made'])); ?></span></div></div>
-<div class="cols"><div class="l"><b><?php echo esc_html($from); ?></b><?php echo $fa !== '' ? sb_addr_lines($fa) : '<div>' . esc_html(home_url()) . '</div>'; // phpcs:ignore ?></div>
+<div class="cols"><div class="l"><b><?php echo esc_html($from); ?></b><?php echo $fa !== '' ? sb_addr_lines($fa) : ''; // phpcs:ignore ?></div>
 <div class="l"><b>Bill to</b><div><?php echo esc_html($to); ?></div><?php echo sb_addr_lines($ta); // phpcs:ignore ?></div></div>
 <h2>Amount due: <?php echo esc_html(sb_fmt_usd($tot)); ?></h2>
 <div style="margin-bottom:22px;color:#333">Monthly API statement for <?php echo esc_html($mon); ?></div>
@@ -317,7 +317,7 @@ table{width:100%;border-collapse:collapse}.items th{font-weight:400;font-size:11
 <tr><td>VAT (<?php echo esc_html(rtrim(rtrim(number_format($vp, 2), '0'), '.')); ?>%)</td><td class="r"><?php echo esc_html(sb_fmt_usd($vat)); ?></td></tr>
 <tr class="t"><td>Total</td><td class="r"><?php echo esc_html(sb_fmt_usd($tot)); ?></td></tr></table>
 <?php if ($det !== '') : ?><table class="det"><tr><th>Usage summary (<?php echo (int) $v['count']; ?> uses, before VAT)</th><th class="r" style="width:60px">Times</th><th class="r" style="width:110px">Amount</th></tr><?php echo $det; // phpcs:ignore ?></table><?php endif; ?>
-<div class="foot"><span><?php echo esc_html(home_url()); ?></span><span>Page 1 of 1</span></div></div></body></html>
+<div class="foot"><span><?php echo esc_html($from); ?></span><span>Page 1 of 1</span></div></div></body></html>
     <?php
     return ob_get_clean();
 }
@@ -343,11 +343,11 @@ function sb_voucher_send($id) {
     $link   = wp_nonce_url(admin_url('admin-post.php?action=sb_voucher_view&id=' . rawurlencode($id)), 'sb_voucher');
     $tot    = isset($v['total']) ? $v['total'] : $v['bill'];
     $hd     = array('Content-Type: text/html; charset=UTF-8');
-    $subj   = '[' . get_bloginfo('name') . '] Monthly API statement ' . sb_month_label($v['ym']) . ' — ' . sb_fmt_usd($tot) . ' (voucher ' . $id . ')';
+    $subj   = '[' . 'Blog Write .ai' . '] Monthly API statement ' . sb_month_label($v['ym']) . ' — ' . sb_fmt_usd($tot) . ' (voucher ' . $id . ')';
     $vat    = 'VAT ' . rtrim(rtrim(number_format(isset($v['vat_pct']) ? $v['vat_pct'] : 0, 2), '0'), '.') . '%';
     $ctable = '<table cellpadding="8" style="border-collapse:collapse;border:1px solid #ddd"><tr><td>Subtotal</td><td align="right">' . esc_html(sb_fmt_usd($v['bill'])) . '</td></tr><tr><td>' . esc_html($vat) . '</td><td align="right">' . esc_html(sb_fmt_usd(isset($v['vat']) ? $v['vat'] : 0)) . '</td></tr><tr><td><b>Total</b></td><td align="right"><b style="color:#1a6b3e;font-size:18px">' . esc_html(sb_fmt_usd($tot)) . '</b></td></tr></table>';
     // to the report address
-    $body = '<div style="font-family:Arial,sans-serif;font-size:15px;line-height:1.6;color:#1d2327"><h2 style="color:#1a6b3e;margin:0 0 8px">' . esc_html(get_bloginfo('name')) . ' — API statement, ' . esc_html(sb_month_label($v['ym'])) . '</h2>'
+    $body = '<div style="font-family:Arial,sans-serif;font-size:15px;line-height:1.6;color:#1d2327"><h2 style="color:#1a6b3e;margin:0 0 8px">' . esc_html('Blog Write .ai') . ' — API statement, ' . esc_html(sb_month_label($v['ym'])) . '</h2>'
         . '<p>AI uses: <b>' . (int) $v['count'] . '</b></p>' . $ctable
         . '<p>Voucher <b>' . esc_html($id) . '</b> is attached (open it in a browser and print or save as PDF). Dashboard: <a href="' . esc_url($link) . '">view voucher</a>.</p></div>';
     $ok = wp_mail($to, $subj, $body, $hd, array($file));
