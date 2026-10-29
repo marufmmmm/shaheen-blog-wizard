@@ -309,6 +309,7 @@ function sb_feature_labels() {
         'chat'      => 'চ্যাট সহকারী (প্রতি সফল পরিবর্তন)',
         'brief'     => 'লেখার আগে বোঝাপড়া ও গবেষণা',
         'caption'   => 'Facebook ক্যাপশন',
+        'legacy'    => 'আগের ব্যবহার (খাতা চালুর আগের)',
         'agent_chat'  => 'Site Agent — চ্যাট ও পেজ এডিট',
         'agent_seo'   => 'Site Agent — SEO',
         'agent_blog'  => 'Site Agent — ব্লগ লেখা',

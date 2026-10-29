@@ -496,3 +496,26 @@ add_action('init', function () {
     }
     update_option('sb_bf_ref', '1', false);
 }, 8);
+
+
+/**
+ * One-time: usage that happened before the USD ledger existed (it is only in each user's cycle counter) is added to the
+ * ledger as one "আগের ব্যবহার" row per user, so this month's bill is not $0. Stays in the month it is created in.
+ */
+add_action('init', function () {
+    if (get_option('sb_ledger_backfill') === '1' || get_option('sb_usage_db') !== '2') {
+        return;
+    }
+    global $wpdb;
+    $t = sb_ledger_table();
+    foreach (get_users(array('fields' => 'ID', 'meta_key' => SB_Credits::META_USED)) as $uid) {
+        $used  = max(0, (int) get_user_meta($uid, SB_Credits::META_USED, true));
+        $start = (string) get_user_meta($uid, SB_Credits::META_START, true);
+        $from  = preg_match('/^\d{4}-\d{2}-\d{2}$/', $start) ? strtotime($start . ' 00:00:00 ' . wp_timezone_string()) : 0;
+        $have  = (int) $wpdb->get_var($wpdb->prepare("SELECT COALESCE(SUM(credits),0) FROM {$t} WHERE user_id = %d AND t >= %d", $uid, $from));
+        if ($used > $have) {
+            sb_ledger_add($uid, 'legacy', $used - $have);
+        }
+    }
+    update_option('sb_ledger_backfill', '1', false);
+}, 9);
