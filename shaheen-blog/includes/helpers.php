@@ -9,7 +9,6 @@ function sb_defaults() {
         'api_key'       => '',
         'model'         => 'gpt-4o-mini',
         'default_limit' => 80000,
-        'usd_margin'    => 50,
         'limit_usd'     => 0,
         'vat_pct'       => 5,
         'client_email'  => '',

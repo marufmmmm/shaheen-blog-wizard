@@ -13,14 +13,19 @@ if (!defined('ABSPATH')) {
 
 const SB_RAW_USD_PER_CREDIT = 0.0002;
 
-function sb_margin() {
-    $m = (float) sb_get('usd_margin');
-    return max(0, min(90, $m));
+/** Shown price = real provider cost x this number. Fixed here in the code, never shown in any screen. */
+const SB_BILL_MULT = 2;
+
+function sb_mult() {
+    return SB_BILL_MULT;
 }
 
-/** Multiplier from real cost to shown price. */
-function sb_mult() {
-    return 1 / (1 - sb_margin() / 100);
+/** Credits <-> shown USD, for the price boxes in Settings (the credit unit never appears on screen). */
+function sb_c2u($credits) {
+    return round((float) $credits * sb_unit_billed(), 4);
+}
+function sb_u2c($usd) {
+    return (int) max(0, round((float) $usd / sb_unit_billed()));
 }
 
 function sb_unit_billed() {
@@ -56,6 +61,60 @@ function sb_limit_credits_from_usd($usd) {
     return (int) max(0, round((float) $usd / sb_unit_billed()));
 }
 
+/* ---------- Real cost metering: every answer from OpenAI carries its token counts; price them with the model's rates ---------- */
+function sb_meter_model($name) {
+    $best = '';
+    foreach (array_keys(sb_model_catalog()) as $id) {
+        if (strpos($name, $id) === 0 && strlen($id) > strlen($best)) {
+            $best = $id;
+        }
+    }
+    return $best;
+}
+
+/** Real USD cost of one answer: input and output tokens at the model's $/1M-token rates (+ $0.01 per web search). */
+function sb_real_usd($model, $usage, $searches = 0) {
+    $id  = sb_meter_model((string) $model);
+    $cat = sb_model_catalog();
+    if ($id === '' || !is_array($usage) || !preg_match('/([\d.]+)\s*\/\s*([\d.]+)/', (string) $cat[$id][0], $m)) {
+        return 0.0;
+    }
+    $in  = (int) (isset($usage['prompt_tokens']) ? $usage['prompt_tokens'] : (isset($usage['input_tokens']) ? $usage['input_tokens'] : 0));
+    $out = (int) (isset($usage['completion_tokens']) ? $usage['completion_tokens'] : (isset($usage['output_tokens']) ? $usage['output_tokens'] : 0));
+    if ($in + $out < 1) {
+        return 0.0;
+    }
+    return $in * (float) $m[1] / 1000000 + $out * (float) $m[2] / 1000000 + $searches * 0.01;
+}
+
+add_filter('http_response', function ($r, $args, $url) {
+    if (is_wp_error($r) || false === strpos((string) $url, 'api.openai.com')) {
+        return $r;
+    }
+    $d = json_decode((string) wp_remote_retrieve_body($r), true);
+    if (!is_array($d) || empty($d['usage']) || !is_array($d['usage']) || (isset($d['status']) && 'completed' !== $d['status'])) {
+        return $r;
+    }
+    $searches = 0;
+    foreach (isset($d['output']) && is_array($d['output']) ? $d['output'] : array() as $it) {
+        if (isset($it['type']) && 'web_search_call' === $it['type']) {
+            $searches++;
+        }
+    }
+    $usd = sb_real_usd(isset($d['model']) ? $d['model'] : '', $d['usage'], $searches);
+    if ($usd > 0) {
+        $GLOBALS['sb_meter'] = (isset($GLOBALS['sb_meter']) ? (float) $GLOBALS['sb_meter'] : 0.0) + $usd;
+    }
+    return $r;
+}, 10, 3);
+
+/** Real cost gathered since the last call (this request), then reset. */
+function sb_meter_take() {
+    $v = isset($GLOBALS['sb_meter']) ? (float) $GLOBALS['sb_meter'] : 0.0;
+    unset($GLOBALS['sb_meter']);
+    return $v;
+}
+
 /* ---------- Ledger ---------- */
 function sb_ledger_table() {
     global $wpdb;
@@ -84,7 +143,7 @@ add_action('init', function () {
     update_option('sb_usage_db', '2');
 }, 5);
 
-function sb_ledger_add($user_id, $feature, $credits, $post_id = 0) {
+function sb_ledger_add($user_id, $feature, $credits, $post_id = 0, $real_usd = null) {
     global $wpdb;
     $credits = (int) $credits;
     if ($credits <= 0) {
@@ -96,8 +155,8 @@ function sb_ledger_add($user_id, $feature, $credits, $post_id = 0) {
         'feature'  => substr((string) $feature, 0, 40),
         'post_id'  => (int) $post_id,
         'credits'  => $credits,
-        'raw_usd'  => $credits * SB_RAW_USD_PER_CREDIT,
-        'bill_usd' => sb_usd($credits),
+        'raw_usd'  => $real_usd !== null ? (float) $real_usd : $credits * SB_RAW_USD_PER_CREDIT,
+        'bill_usd' => ($real_usd !== null ? (float) $real_usd : $credits * SB_RAW_USD_PER_CREDIT) * SB_BILL_MULT,
     ));
 }
 
@@ -383,7 +442,7 @@ function sb_page_billing() {
     }
     $owner = class_exists('SB_Lock') && SB_Lock::is_unlocked();
     if ($owner) {
-        echo '<p class="sba-muted">🔓 মালিকের ভিউ (PIN আনলক): মুনাফা (margin) এখন <b>' . esc_html(rtrim(rtrim(number_format(sb_margin(), 1), '0'), '.')) . '%</b> — মানে $১ আসল খরচ = <b>' . esc_html(sb_fmt_usd(sb_mult())) . '</b>। বদলাতে <a href="' . esc_url(admin_url('admin.php?page=sb-settings')) . '">সেটিংস</a>।</p>';
+        echo '<p class="sba-muted">🔓 মালিকের ভিউ (PIN আনলক): নিচে আসল খরচ ও লাভও দেখাচ্ছে। ক্লায়েন্ট এটা দেখে না।</p>';
     } else {
         echo '<p class="sba-muted">এখানে আপনার মাসের AI ব্যবহারের বিল ও ভাউচার দেখা যায়। কোনো সীমা নেই — যত ব্যবহার তত বিল।</p>';
     }
@@ -393,7 +452,7 @@ function sb_page_billing() {
         $vat = round($c[1]['bill'] * $vp / 100, 2);
         echo '<div class="sba-card"><h2>' . esc_html($c[0]) . '</h2><p class="sba-big">' . esc_html(sb_fmt_usd(round($c[1]['bill'], 2) + $vat)) . ' <small>মোট বিল</small></p><p class="sba-muted">ব্যবহার ' . (int) $c[1]['count'] . ' বার · API স্টেটমেন্ট ' . esc_html(sb_fmt_usd($c[1]['bill'])) . ' + VAT ' . esc_html(rtrim(rtrim(number_format($vp, 2), '0'), '.')) . '% ' . esc_html(sb_fmt_usd($vat)) . '</p>';
         if ($owner) {
-            echo '<p class="sba-muted">🔓 আসল খরচ $' . esc_html(number_format($c[1]['raw'], 3)) . ' · মুনাফা (VAT ছাড়া) $' . esc_html(number_format($profit($c[1]), 3)) . '</p>';
+            echo '<p class="sba-muted">🔓 আসল খরচ $' . esc_html(number_format($c[1]['raw'], 4)) . ' · লাভ (VAT ছাড়া) $' . esc_html(number_format($profit($c[1]), 4)) . '</p>';
         }
         echo '<form method="post" action="' . esc_url(admin_url('admin-post.php')) . '" style="display:inline">' . wp_nonce_field('sb_voucher_do', '_wpnonce', true, false) . '<input type="hidden" name="action" value="sb_voucher_do"><input type="hidden" name="ym" value="' . esc_attr($c[2]) . '"><button class="button" name="do" value="make">ভাউচার তৈরি</button> <button class="button button-primary" name="do" value="send">ভাউচার তৈরি + ইমেইল</button></form></div>';
     }

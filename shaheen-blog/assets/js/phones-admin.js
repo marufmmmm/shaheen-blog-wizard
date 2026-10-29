@@ -38,7 +38,7 @@
         post('sb_phones_run', {}).then(function (r) {
             b.disabled = false;
             if (r.success) {
-                say('✅ ' + r.data.added + 'টি নতুন মডেল যোগ হয়েছে (ক্রেডিট খরচ: ' + r.data.cost + ')।', true);
+                say('✅ ' + r.data.added + 'টি নতুন মডেল যোগ হয়েছে (বিল: ' + (r.data.cost_usd || '') + ')।', true);
                 setTimeout(function () { location.reload(); }, 1200);
             } else { say(r.data.message, false); }
         }).catch(function () { b.disabled = false; say('সংযোগে সমস্যা — আবার চেষ্টা করুন।', false); });

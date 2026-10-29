@@ -148,7 +148,6 @@ function sb_handle_save_settings() {
 
     $new = array(
         'model'         => sb_pick_model($in, 'model') ?: 'gpt-4o-mini',
-        'usd_margin'    => max(0, min(90, (float) $in('usd_margin', 50))),
         'limit_usd'     => max(0, (float) $in('limit_usd', 32)),
         'report_email'  => is_email($in('report_email')) ? sanitize_email($in('report_email')) : '',
         'report_auto'   => $in('report_auto') ? 1 : 0,
@@ -169,7 +168,7 @@ function sb_handle_save_settings() {
         'top_offset'    => max(-300, min(300, (int) $in('top_offset', 0))),
         'model_article' => sb_pick_model($in, 'model_article'),
         'style_note'    => sanitize_textarea_field($in('style_note')),
-        'cost_research' => max(0, (int) $in('cost_research', 50)),
+        'cost_research' => sb_u2c((float) $in('cost_research', 0.02)),
         'site_urls'     => sanitize_textarea_field($in('site_urls')),
         'about'         => sanitize_textarea_field($in('about')),
         'ai_lang'       => in_array($in('ai_lang'), array('bn', 'en', 'other'), true) ? $in('ai_lang') : 'bn',
@@ -181,14 +180,14 @@ function sb_handle_save_settings() {
         $row = isset($post_mp[$mid]) && is_array($post_mp[$mid]) ? array_values($post_mp[$mid]) : array();
         $mp[$mid] = array();
         for ($i = 0; $i < 3; $i++) {
-            $v = isset($row[$i]) ? (int) $row[$i] : 0;
+            $v = isset($row[$i]) ? sb_u2c((float) $row[$i]) : 0;
             $mp[$mid][$i] = $v > 0 ? $v : $mm[3][$i];
         }
     }
     $new['model_prices'] = $mp;
     $new['extra_models'] = sanitize_textarea_field($in('extra_models', ''));
     foreach (array('headlines', 'subtitle', 'meta', 'article', 'summary', 'rewrite', 'custom', 'custom2', 'custom3', 'learn', 'edit', 'edit_many', 'phones', 'faq', 'related', 'chat', 'brief', 'caption') as $f) {
-        $new['cost_' . $f] = max(0, (int) $in('cost_' . $f, 0));
+        $new['cost_' . $f] = sb_u2c((float) $in('cost_' . $f, 0));
     }
     // API key: keep the saved one unless a new one is typed or removal is ticked.
     $key = trim(sanitize_text_field($in('api_key')));

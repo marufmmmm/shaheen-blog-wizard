@@ -104,7 +104,13 @@ class SB_Credits {
             return new WP_Error('sb_no_credits', 'ব্যালেন্স যথেষ্ট নয়। প্রয়োজন ' . sb_money($cost) . ', আছে ' . sb_money($st['remaining']) . '।');
         }
         update_user_meta($user_id, self::META_USED, $st['used'] + $cost);
-        sb_ledger_add($user_id, $feature, $cost, $post_id);
+        $real = isset($GLOBALS['sb_real_charge']) ? (float) $GLOBALS['sb_real_charge'] : null;
+        unset($GLOBALS['sb_real_charge']);
+        if ($real === null) {
+            $mv = sb_meter_take();
+            $real = $mv > 0 ? $mv : null;
+        }
+        sb_ledger_add($user_id, $feature, $cost, $post_id, $real);
 
         $log = get_user_meta($user_id, self::META_LOG, true);
         if (!is_array($log)) {

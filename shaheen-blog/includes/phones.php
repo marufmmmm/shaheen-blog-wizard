@@ -323,7 +323,7 @@ add_action('wp_ajax_sb_phones_run', function () {
         wp_send_json_error(array('message' => $r->get_error_message(), 'balance' => $st));
     }
     $new = SB_Credits::charge($uid, 'phones', $cost, 0);
-    wp_send_json_success(array('added' => $r['added'], 'skipped' => $r['skipped'], 'cost' => $cost,
+    wp_send_json_success(array('added' => $r['added'], 'skipped' => $r['skipped'], 'cost' => $cost, 'cost_usd' => sb_money($cost),
         'balance' => is_wp_error($new) ? $st : $new));
 });
 

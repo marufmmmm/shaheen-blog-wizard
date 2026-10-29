@@ -446,6 +446,11 @@ function sb_ai_finish($uid, $feature, $ctx, $cost, $research, $result, &$notes) 
         $cost = max(0, min($actual + $rp, $rem));
         $result['words'] = $wc;
     }
+    $real = sb_meter_take();   // what OpenAI really charged for this answer (tokens x the model's rates)
+    if ($real > 0 && $cost > 0) {
+        $cost = max(1, (int) ceil($real / SB_RAW_USD_PER_CREDIT));
+        $GLOBALS['sb_real_charge'] = $real;
+    }
     $new = $cost > 0 ? SB_Credits::charge($uid, $feature, $cost, $post_id) : SB_Credits::state($uid);
     if (is_wp_error($new)) {
         return array('ok' => false, 'message' => $new->get_error_message());
