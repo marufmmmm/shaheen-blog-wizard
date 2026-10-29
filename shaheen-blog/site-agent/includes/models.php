@@ -14,10 +14,7 @@ function csa_providers() {
 	return array(
 		'anthropic'  => array( 'label' => 'Anthropic (Claude)', 'protocol' => 'anthropic', 'url' => 'https://api.anthropic.com/v1/messages', 'opt' => 'api_key', 'signup' => 'https://console.anthropic.com/settings/keys' ),
 		'moonshot'   => array( 'label' => 'Moonshot (Kimi)', 'protocol' => 'anthropic', 'url' => 'https://api.moonshot.ai/anthropic/v1/messages', 'opt' => 'key_moonshot', 'signup' => 'https://platform.moonshot.ai/console/api-keys' ),
-		'deepseek'   => array( 'label' => 'DeepSeek', 'protocol' => 'anthropic', 'url' => 'https://api.deepseek.com/anthropic/v1/messages', 'opt' => 'key_deepseek', 'signup' => 'https://platform.deepseek.com/api_keys' ),
-		'gemini'     => array( 'label' => 'Google (Gemini)', 'protocol' => 'openai', 'url' => 'https://generativelanguage.googleapis.com/v1beta/openai/chat/completions', 'opt' => 'key_gemini', 'signup' => 'https://aistudio.google.com/apikey' ),
 		'openai'     => array( 'label' => 'OpenAI (ChatGPT)', 'protocol' => 'openai', 'url' => 'https://api.openai.com/v1/chat/completions', 'opt' => 'key_openai', 'signup' => 'https://platform.openai.com/api-keys' ),
-		'openrouter' => array( 'label' => 'OpenRouter (many models)', 'protocol' => 'openai', 'url' => 'https://openrouter.ai/api/v1/chat/completions', 'opt' => 'key_openrouter', 'signup' => 'https://openrouter.ai/keys' ),
 	);
 }
 
@@ -31,39 +28,27 @@ function csa_builtin_models() {
 		// Anthropic (Claude)
 		'haiku55'        => array( 'provider' => 'anthropic', 'id' => 'claude-haiku-5-5', 'label' => 'Claude Haiku 5.5', 'in' => 0.1, 'out' => 0.5, 'cache' => 0.01, 'vision' => true, 'code' => 4, 'bn' => 4, 'tier' => 'save', 'best' => 'New (Oct 2026), very cheap Claude: SEO audits, titles and descriptions, bulk work. Prices rise to $0.50/$2.50 only when one request is over 100,000 tokens.' ),
 		'sonnet55'       => array( 'provider' => 'anthropic', 'id' => 'claude-sonnet-5-5', 'label' => 'Claude Sonnet 5.5', 'in' => 2, 'out' => 10, 'cache' => 0.2, 'vision' => true, 'code' => 5, 'bn' => 5, 'tier' => 'good', 'best' => 'Newest Sonnet: hard page design, Elementor fixes and your best Bangla writing.' ),
-		'haiku'          => array( 'provider' => 'anthropic', 'id' => 'claude-haiku-4-5-20251001', 'label' => 'Claude Haiku 4.5', 'in' => 1, 'out' => 5, 'cache' => 0.1, 'vision' => true, 'code' => 4, 'bn' => 4, 'tier' => 'good', 'best' => 'Default for everything: good page edits, SEO audits, alt text and Bangla blogs at a low price' ),
-		'sonnet'         => array( 'provider' => 'anthropic', 'id' => 'claude-sonnet-5', 'label' => 'Claude Sonnet 5', 'in' => 2, 'out' => 10, 'cache' => 0.2, 'vision' => true, 'code' => 5, 'bn' => 5, 'tier' => 'good', 'best' => 'Complex page design, Elementor fixes, important pages, best Bangla writing' ),
 		'opus'           => array( 'provider' => 'anthropic', 'id' => 'claude-opus-5-5', 'label' => 'Claude Opus 5.5', 'in' => 4, 'out' => 20, 'cache' => 0.2, 'vision' => true, 'code' => 5, 'bn' => 5, 'tier' => 'premium', 'best' => 'Very hard redesigns only; twice the Sonnet price, rarely needed here' ),
-		'fable'          => array( 'provider' => 'anthropic', 'id' => 'claude-fable-5-1', 'label' => 'Claude Fable 5.1', 'in' => 10, 'out' => 50, 'cache' => 0.25, 'vision' => true, 'code' => 5, 'bn' => 5, 'tier' => 'premium', 'best' => 'Most capable and most expensive; not recommended for website work' ),
 		// Moonshot (Kimi)
 		'kimi-k3'        => array( 'provider' => 'moonshot', 'id' => 'kimi-k3', 'label' => 'Kimi K3', 'in' => 3, 'out' => 15, 'cache' => 0.3, 'vision' => true, 'code' => 5, 'bn' => 3, 'tier' => 'premium', 'best' => 'Kimi\'s strongest model; priced above Sonnet, so rarely worth it here' ),
 		'kimi-k31'       => array( 'provider' => 'moonshot', 'id' => 'kimi-k3.1-pro', 'label' => 'Kimi K3.1 Pro', 'in' => 2, 'out' => 10, 'cache' => 0.2, 'vision' => true, 'code' => 5, 'bn' => 3, 'tier' => 'good', 'best' => 'Newer, cheaper than K3 (1M context)' ),
 		'kimi-k31-fast'  => array( 'provider' => 'moonshot', 'id' => 'kimi-k3.1-pro-highspeed', 'label' => 'Kimi K3.1 Pro Highspeed', 'in' => 4, 'out' => 20, 'cache' => 0.2, 'vision' => true, 'code' => 5, 'bn' => 3, 'tier' => 'premium', 'best' => 'Same as K3.1 Pro but faster; double the price' ),
 		// DeepSeek
-		'deepseek-pro'   => array( 'provider' => 'deepseek', 'id' => 'deepseek-v4-pro', 'label' => 'DeepSeek V4 Pro', 'in' => 1.32, 'out' => 3.96, 'cache' => 0.044, 'vision' => false, 'code' => 4, 'bn' => 3, 'tier' => 'save', 'best' => 'Cheap page fixes and code; very cheap when it re-reads the same chat (cache)' ),
-		'deepseek-flash' => array( 'provider' => 'deepseek', 'id' => 'deepseek-flash', 'label' => 'DeepSeek Flash', 'in' => 0.3, 'out' => 1.2, 'cache' => 0.006, 'vision' => false, 'code' => 3, 'bn' => 3, 'tier' => 'save', 'best' => 'Cheapest for text: bulk SEO audits, keywords, blog ideas, English posts' ),
 		// OpenAI (ChatGPT)
-		'gpt-sol'        => array( 'provider' => 'openai', 'id' => 'gpt-6-sol', 'label' => 'GPT-6 Sol (ChatGPT)', 'in' => 2, 'out' => 10, 'cache' => 0.2, 'vision' => true, 'code' => 5, 'bn' => 5, 'tier' => 'good', 'best' => 'ChatGPT writing: natural Bangla and English blog posts; same price as Claude Sonnet' ),
 		'gpt-terra'      => array( 'provider' => 'openai', 'id' => 'gpt-6.1-terra', 'label' => 'GPT-6.1 Terra', 'in' => 1, 'out' => 5, 'cache' => 0.05, 'vision' => true, 'code' => 5, 'bn' => 5, 'tier' => 'good', 'best' => 'ChatGPT Terra: fast, cheap, strong Bangla; good default for writing, SEO text and edits' ),
-		'gpt-luna'       => array( 'provider' => 'openai', 'id' => 'gpt-6-luna', 'label' => 'GPT-6 Luna', 'in' => 0.1, 'out' => 0.5, 'cache' => 0.01, 'vision' => true, 'code' => 3, 'bn' => 3, 'tier' => 'save', 'best' => 'Very cheap ChatGPT model: bulk work, ideas, short texts, alt text' ),
 		'gpt-astra'      => array( 'provider' => 'openai', 'id' => 'gpt-6-astra', 'label' => 'GPT-6 Astra', 'in' => 10, 'out' => 50, 'cache' => 1, 'vision' => true, 'code' => 5, 'bn' => 5, 'tier' => 'premium', 'best' => 'OpenAI\'s strongest and most expensive model; not needed for website work' ),
 		// Google (Gemini)
-		'gemini-lite'    => array( 'provider' => 'gemini', 'id' => 'gemini-3.1-flash-lite', 'label' => 'Gemini 3.1 Flash-Lite', 'in' => 0.25, 'out' => 1.5, 'cache' => 0.25, 'vision' => true, 'code' => 3, 'bn' => 4, 'tier' => 'save', 'best' => 'Very cheap with images: alt text, screenshot audits, bulk SEO, Bangla drafts' ),
-		'gemini-lite35'  => array( 'provider' => 'gemini', 'id' => 'gemini-3.5-flash-lite', 'label' => 'Gemini 3.5 Flash-Lite', 'in' => 0.3, 'out' => 2.5, 'cache' => 0.3, 'vision' => true, 'code' => 3, 'bn' => 4, 'tier' => 'save', 'best' => 'Newer Flash-Lite: slightly better writing, a little more expensive' ),
-		'gemini-lite25'  => array( 'provider' => 'gemini', 'id' => 'gemini-2.5-flash-lite', 'label' => 'Gemini 2.5 Flash-Lite', 'in' => 0.1, 'out' => 0.4, 'cache' => 0.1, 'vision' => true, 'code' => 2, 'bn' => 3, 'tier' => 'save', 'best' => 'Absolute cheapest: alt text and simple bulk tasks only' ),
-		'gemini-flash'   => array( 'provider' => 'gemini', 'id' => 'gemini-3.6-flash', 'label' => 'Gemini 3.6 Flash', 'in' => 1.5, 'out' => 7.5, 'cache' => 1.5, 'vision' => true, 'code' => 4, 'bn' => 4, 'tier' => 'good', 'best' => 'Good all-rounder with images and Bangla; similar cost to Haiku' ),
-		'gemini-pro'     => array( 'provider' => 'gemini', 'id' => 'gemini-3.1-pro-preview', 'label' => 'Gemini 3.1 Pro', 'in' => 2, 'out' => 12, 'cache' => 2, 'vision' => true, 'code' => 5, 'bn' => 4, 'tier' => 'premium', 'best' => 'Google\'s best; priced like Sonnet, use only if you prefer Gemini' ),
 	);
 }
 
 /** Cheapest sensible order to try for each task, used when the chosen model has no API key. */
 function csa_task_priority() {
 	return array(
-		'chat'   => array( 'haiku', 'kimi-k31', 'deepseek-pro', 'gemini-flash', 'sonnet', 'gemini-lite35' ),
-		'blog'   => array( 'haiku', 'gpt-sol', 'gemini-lite35', 'gemini-lite', 'gemini-flash', 'kimi-k31', 'deepseek-flash', 'sonnet' ),
-		'seo'    => array( 'gpt-terra', 'kimi-k31', 'haiku55', 'haiku', 'gemini-lite', 'deepseek-flash', 'gemini-flash', 'sonnet' ),
-		'bulk'   => array( 'haiku55', 'deepseek-flash', 'gpt-luna', 'gemini-lite', 'gemini-lite25', 'haiku', 'kimi-k31' ),
-		'vision' => array( 'gemini-lite', 'haiku', 'kimi-k31', 'gemini-flash', 'sonnet' ),
+		'chat'   => array( 'gpt-terra', 'kimi-k31', 'sonnet55', 'haiku55' ),
+		'blog'   => array( 'gpt-terra', 'sonnet55', 'kimi-k31', 'haiku55' ),
+		'seo'    => array( 'gpt-terra', 'kimi-k31', 'haiku55', 'sonnet55' ),
+		'bulk'   => array( 'gpt-terra', 'haiku55', 'kimi-k31' ),
+		'vision' => array( 'gpt-terra', 'haiku55', 'kimi-k31', 'sonnet55' ),
 	);
 }
 
@@ -107,28 +92,27 @@ function csa_model( $key ) {
 
 function csa_tasks() {
 	return array(
-		'chat'   => array( 'label' => csa_t( 'Chat: page design & editing' ), 'default' => 'haiku' ),
-		'blog'   => array( 'label' => csa_t( 'Blog Studio: plans & writing' ), 'default' => 'haiku' ),
+		'chat'   => array( 'label' => csa_t( 'Chat: page design & editing' ), 'default' => 'gpt-terra' ),
+		'blog'   => array( 'label' => csa_t( 'Blog Studio: plans & writing' ), 'default' => 'gpt-terra' ),
 		'seo'    => array( 'label' => csa_t( 'Single SEO audit' ), 'default' => 'gpt-terra' ),
-		'bulk'   => array( 'label' => csa_t( 'Bulk work: bulk audits, keywords, ideas, weekly audit' ), 'default' => 'haiku' ),
-		'vision' => array( 'label' => csa_t( 'Images: alt text, screenshots' ), 'default' => 'haiku' ),
+		'bulk'   => array( 'label' => csa_t( 'Bulk work: bulk audits, keywords, ideas, weekly audit' ), 'default' => 'gpt-terra' ),
+		'vision' => array( 'label' => csa_t( 'Images: alt text, screenshots' ), 'default' => 'gpt-terra' ),
 	);
 }
 
 function csa_presets() {
 	return array(
-		'smart'    => array( 'label' => '⭐ ' . csa_t( 'Smart mix (recommended)' ), 'chat' => 'kimi-k31', 'blog' => 'gpt-sol', 'seo' => 'haiku', 'bulk' => 'gpt-luna', 'vision' => 'haiku' ),
-		'terra-astra' => array( 'label' => 'GPT Terra + Astra', 'chat' => 'gpt-terra', 'blog' => 'gpt-terra', 'seo' => 'gpt-astra', 'bulk' => 'gpt-terra', 'vision' => 'gpt-terra' ),
-		'quality'  => array( 'label' => csa_t( 'Best quality' ), 'chat' => 'sonnet', 'blog' => 'sonnet', 'seo' => 'sonnet', 'bulk' => 'haiku', 'vision' => 'haiku' ),
-		'balanced' => array( 'label' => csa_t( 'Balanced' ), 'chat' => 'kimi-k31', 'blog' => 'haiku', 'seo' => 'haiku', 'bulk' => 'deepseek-flash', 'vision' => 'gemini-lite' ),
-		'cheapest' => array( 'label' => csa_t( 'Lowest cost' ), 'chat' => 'deepseek-pro', 'blog' => 'gemini-lite', 'seo' => 'deepseek-flash', 'bulk' => 'deepseek-flash', 'vision' => 'gemini-lite' ),
+		'terra-astra' => array( 'label' => '⭐ GPT Terra + Astra', 'chat' => 'gpt-terra', 'blog' => 'gpt-terra', 'seo' => 'gpt-terra', 'bulk' => 'gpt-terra', 'vision' => 'gpt-terra' ),
+		'quality'     => array( 'label' => csa_t( 'Best quality' ), 'chat' => 'sonnet55', 'blog' => 'sonnet55', 'seo' => 'gpt-terra', 'bulk' => 'haiku55', 'vision' => 'haiku55' ),
+		'kimi'        => array( 'label' => 'Kimi K3.1 Pro', 'chat' => 'kimi-k31', 'blog' => 'kimi-k31', 'seo' => 'kimi-k31', 'bulk' => 'kimi-k31', 'vision' => 'kimi-k31' ),
+		'cheapest'    => array( 'label' => csa_t( 'Lowest cost' ), 'chat' => 'haiku55', 'blog' => 'haiku55', 'seo' => 'haiku55', 'bulk' => 'haiku55', 'vision' => 'haiku55' ),
 	);
 }
 
 function csa_task_model_key( $task ) {
 	$t   = csa_tasks();
 	$key = csa_opt( 'm_' . $task );
-	$key = ( $key && csa_model( $key ) ) ? $key : ( $t[ $task ]['default'] ?? 'haiku' );
+	$key = ( $key && csa_model( $key ) ) ? $key : ( $t[ $task ]['default'] ?? 'gpt-terra' );
 	// "Just add a key": if the chosen model's provider has no key, use the cheapest sensible model that has one.
 	if ( '' === csa_provider_key( csa_model( $key )['provider'] ) ) {
 		foreach ( csa_task_priority()[ $task ] ?? array() as $k ) {
@@ -156,7 +140,7 @@ function csa_has_any_key() {
 
 /** How many times cheaper than Sonnet for a typical request (3 parts reading : 1 part writing). */
 function csa_model_ratio( $m ) {
-	$s = csa_builtin_models()['sonnet'];
+	$s = csa_builtin_models()['sonnet55'];
 	$a = 3 * $s['in'] + $s['out'];
 	$b = 3 * $m['in'] + $m['out'];
 	return $b > 0 ? $a / $b : 1;
@@ -194,7 +178,7 @@ function csa_claude( $messages, $system, $args = array() ) {
 	if ( csa_usage_percent() >= 100 ) {
 		return new WP_Error( 'budget', csa_alert_text( 100 ) );
 	}
-	$day_cap = (float) csa_opt( 'budget_usd' ) * (int) csa_opt( 'day_cap_pct' ) / 100;
+	$day_cap = csa_budget_base() * (int) csa_opt( 'day_cap_pct' ) / 100;
 	if ( csa_eco() && $day_cap > 0 && csa_day_cost() >= $day_cap ) {
 		return new WP_Error( 'day', sprintf( csa_t( "Today's AI limit is reached (%d%% of the monthly budget per day). It resets tomorrow; an admin can change it in Settings > Economy mode." ), (int) csa_opt( 'day_cap_pct' ) ) );
 	}
@@ -302,7 +286,7 @@ function csa_claude( $messages, $system, $args = array() ) {
 /** A faster model from another provider (or a cheaper Claude) that has an API key; '' if none. */
 function csa_fallback_key( $not ) {
 	$cur = csa_model( $not );
-	foreach ( array( 'haiku55', 'haiku', 'sonnet55', 'sonnet' ) as $k ) {
+	foreach ( array( 'gpt-terra', 'haiku55', 'sonnet55' ) as $k ) {
 		$m = csa_model( $k );
 		if ( $m && $k !== $not && '' !== csa_provider_key( $m['provider'] ) && ( ! $cur || $m['provider'] !== $cur['provider'] || $m['tier'] === 'save' ) ) {
 			return $k;
@@ -441,4 +425,31 @@ add_action( 'init', function () {
 		update_option( CSA_OPT, $o );
 	}
 	update_option( 'csa_k2_gone', '1', false );
+}, 7 );
+
+
+/** One-time: removed models/providers -> Terra; new defaults for brand, language, weekly audit, live pages, roles. */
+add_action( 'init', function () {
+	if ( '1' === get_option( 'csa_plan_v2' ) ) {
+		return;
+	}
+	$o = get_option( CSA_OPT, array() );
+	$o = is_array( $o ) ? $o : array();
+	$ok = array_keys( csa_models() );
+	foreach ( array( 'chat', 'blog', 'seo', 'bulk', 'vision' ) as $t ) {
+		if ( empty( $o[ 'm_' . $t ] ) || ! in_array( $o[ 'm_' . $t ], $ok, true ) ) {
+			$o[ 'm_' . $t ] = 'gpt-terra';
+		}
+	}
+	$o['brand']        = 'Blog Write .ai';
+	$o['ui_lang']      = 'bn';
+	$o['seo_lang']     = 'Bangla';
+	$o['weekly_audit'] = 0;
+	$o['allow_live']   = 0;
+	$o['roles_chat']   = array( 'administrator' );
+	$o['roles_seo']    = array( 'administrator', 'editor' );
+	$o['roles_blog']   = array( 'administrator', 'editor' );
+	$o['roles_images'] = array( 'administrator', 'editor' );
+	update_option( CSA_OPT, $o );
+	update_option( 'csa_plan_v2', '1', false );
 }, 7 );

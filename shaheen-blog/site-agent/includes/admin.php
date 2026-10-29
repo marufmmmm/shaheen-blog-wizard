@@ -57,10 +57,8 @@ function csa_register_settings() {
 					'm_seo'            => $task( 'seo' ),
 					'm_bulk'           => $task( 'bulk' ),
 					'm_vision'         => $task( 'vision' ),
-					'brand'            => sanitize_text_field( $in['brand'] ?? '' ) ? sanitize_text_field( $in['brand'] ) : 'Claude.api',
+					'brand'            => sanitize_text_field( $in['brand'] ?? '' ) ? sanitize_text_field( $in['brand'] ) : 'Blog Write .ai',
 					'ui_lang'          => ( ( $in['ui_lang'] ?? '' ) === 'bn' ) ? 'bn' : 'en',
-					'budget_usd'       => max( 0.5, (float) ( $in['budget_usd'] ?? 5 ) ),
-					'allowance_tokens' => max( 100000, (int) ( $in['allowance_tokens'] ?? 12000000 ) ),
 					'allow_live'       => empty( $in['allow_live'] ) ? 0 : 1,
 					'seo_lang'         => ( ( $in['seo_lang'] ?? '' ) === 'Bangla' ) ? 'Bangla' : 'English',
 					'roles_chat'       => $roles( $in['roles_chat'] ?? array() ),
@@ -1054,23 +1052,13 @@ function csa_screen_activity() {
 	csa_header( csa_t( 'Activity' ) );
 	?>
 	<div class="csa-card">
-		<h2><?php echo esc_html( csa_t( 'AI allowance' ) ); ?></h2>
-		<?php $pct = min( 100, csa_usage_percent() ); ?>
-		<div class="csa-meter"><i style="width:<?php echo esc_attr( $pct ); ?>%" class="<?php echo $pct >= 90 ? 'bad' : ( $pct >= 70 ? 'ok' : 'good' ); ?>"></i></div>
-		<p><strong><?php echo esc_html( sprintf( csa_t( '%s%% of this month\'s allowance used' ), number_format_i18n( $pct, $pct < 10 ? 1 : 0 ) ) ); ?></strong></p>
-		<p class="csa-muted"><?php echo esc_html( csa_t( 'You get a message at 15%, 40%, 70% and 90%. At 100% the agent pauses until the 1st of next month.' ) ); ?></p>
-		<?php if ( $usage ) : ?>
-			<table class="widefat striped" style="max-width:420px"><thead><tr><th><?php echo esc_html( csa_t( 'Month' ) ); ?></th><th><?php echo esc_html( csa_t( 'Requests' ) ); ?></th><th><?php echo esc_html( csa_t( 'Allowance used' ) ); ?></th></tr></thead><tbody>
-			<?php foreach ( $usage as $m => $u ) : ?>
-				<tr><td><?php echo esc_html( $m ); ?></td><td><?php echo (int) $u['calls']; ?></td><td><?php echo esc_html( min( 100, round( (float) ( $u['cost'] ?? 0 ) / $b * 100 ) ) . '%' ); ?></td></tr>
-			<?php endforeach; ?>
-			</tbody></table>
-		<?php endif; ?>
+		<h2><?php echo esc_html( csa_t( 'Monthly bill' ) ); ?></h2>
+		<p><?php echo esc_html( csa_t( 'All AI use (writing, SEO, chat) is in one monthly bill.' ) ); ?> <a href="<?php echo esc_url( admin_url( 'admin.php?page=sb-billing' ) ); ?>">💵 USD Billing</a></p>
 	</div>
 	<?php $reqs = (array) get_option( 'csa_reqlog', array() ); ?>
 	<div class="csa-card">
 		<h2><?php echo esc_html( csa_t( 'Recent AI requests' ) ); ?></h2>
-		<p class="csa-muted"><?php echo esc_html( csa_t( 'Every AI request and how much of the monthly allowance it used.' ) ); ?></p>
+		<p class="csa-muted"><?php echo esc_html( csa_t( 'Every AI request and its size.' ) ); ?></p>
 		<?php if ( ! $reqs ) : ?>
 			<p class="csa-muted"><?php echo esc_html( csa_t( 'Nothing yet.' ) ); ?></p>
 		<?php else : ?>
@@ -1174,18 +1162,16 @@ function csa_models_settings_html( $o, $n ) {
 
 		<h3><?php echo esc_html( csa_t( '3. Guide: why choose which model' ) ); ?></h3>
 		<div class="csa-table-wrap"><table class="widefat striped csa-guide">
-			<thead><tr><th><?php echo esc_html( csa_t( 'Model' ) ); ?></th><th><?php echo esc_html( csa_t( 'Price per 1M tokens (read / write)' ) ); ?></th><th><?php echo esc_html( csa_t( 'Cost vs Claude Sonnet' ) ); ?></th><th><?php echo esc_html( csa_t( 'Page design & code' ) ); ?></th><th><?php echo esc_html( csa_t( 'Bangla writing' ) ); ?></th><th><?php echo esc_html( csa_t( 'Sees images' ) ); ?></th><th><?php echo esc_html( csa_t( 'Best for' ) ); ?></th></tr></thead>
+			<thead><tr><th><?php echo esc_html( csa_t( 'Model' ) ); ?></th><th><?php echo esc_html( csa_t( 'Page design & code' ) ); ?></th><th><?php echo esc_html( csa_t( 'Bangla writing' ) ); ?></th><th><?php echo esc_html( csa_t( 'Sees images' ) ); ?></th><th><?php echo esc_html( csa_t( 'Best for' ) ); ?></th></tr></thead>
 			<tbody>
 			<?php foreach ( $models as $mk => $m ) : $r = csa_model_ratio( $m ); ?>
 				<tr>
 					<td><strong><?php echo esc_html( $m['label'] ); ?></strong><br><span class="csa-muted"><?php echo esc_html( csa_providers()[ $m['provider'] ]['label'] ); ?></span>
-					<?php if ( 'sonnet' === $mk ) : ?><br><span class="csa-badge gold">⭐ <?php echo esc_html( csa_t( 'Best quality' ) ); ?></span><?php endif; ?>
+					<?php if ( 'sonnet55' === $mk ) : ?><br><span class="csa-badge gold">⭐ <?php echo esc_html( csa_t( 'Best quality' ) ); ?></span><?php endif; ?>
 					<?php if ( $r >= 5 ) : ?><br><span class="csa-badge green">💰 <?php echo esc_html( csa_t( 'Very cheap' ) ); ?></span><?php endif; ?>
 					<?php if ( 'premium' === ( $m['tier'] ?? '' ) ) : ?><br><span class="csa-badge red">💸 <?php echo esc_html( csa_t( 'Expensive: not recommended' ) ); ?></span><?php endif; ?>
-					<?php if ( 'haiku' === $mk ) : ?><br><span class="csa-badge blue">✔ <?php echo esc_html( csa_t( 'Default' ) ); ?></span><?php endif; ?>
+					<?php if ( 'gpt-terra' === $mk ) : ?><br><span class="csa-badge blue">✔ <?php echo esc_html( csa_t( 'Default' ) ); ?></span><?php endif; ?>
 					</td>
-					<td>$<?php echo esc_html( $m['in'] . ' / $' . $m['out'] ); ?></td>
-					<td><?php echo 'sonnet' === $mk ? '—' : ( $r >= 1 ? esc_html( sprintf( csa_t( '~%s× cheaper' ), number_format_i18n( $r, $r < 10 ? 1 : 0 ) ) ) : esc_html( sprintf( csa_t( '~%s× more expensive' ), number_format_i18n( 1 / $r, 1 ) ) ) ); ?></td>
 					<td class="csa-stars"><?php echo esc_html( csa_stars( $m['code'] ) ); ?></td>
 					<td class="csa-stars"><?php echo esc_html( csa_stars( $m['bn'] ) ); ?></td>
 					<td><?php echo $m['vision'] ? '✅' : '❌'; ?></td>
@@ -1195,11 +1181,10 @@ function csa_models_settings_html( $o, $n ) {
 			</tbody>
 		</table></div>
 		<ul class="csa-tips">
-			<li><?php echo esc_html( csa_t( 'Best quality: use Claude Sonnet for important pages and complex Elementor designs.' ) ); ?></li>
-			<li><?php echo esc_html( csa_t( 'Save money: Kimi K2.6 or DeepSeek V4 Pro for everyday page fixes, DeepSeek Flash or Gemini Flash-Lite for bulk work.' ) ); ?></li>
+			<li><?php echo esc_html( csa_t( 'Best quality: use Claude Sonnet 5.5 for important pages and complex Elementor designs.' ) ); ?></li>
+			<li><?php echo esc_html( csa_t( 'Everyday work: GPT Terra is the default; Kimi K3.1 Pro is a cheaper alternative.' ) ); ?></li>
 			<li><?php echo esc_html( csa_t( 'Screenshots and alt text need a model that sees images (✅). If the chosen model cannot, the Images model is used automatically.' ) ); ?></li>
-			<li><?php echo esc_html( csa_t( 'Kimi (Moonshot) and DeepSeek are Chinese companies; your page content is processed on their servers. Do not send private student or staff data.' ) ); ?></li>
-			<li><?php echo esc_html( csa_t( 'DeepSeek prices shown are peak rates; outside peak hours they are half.' ) ); ?></li>
+			<li><?php echo esc_html( csa_t( 'Kimi (Moonshot) is a Chinese company; your page content is processed on their servers. Do not send private student or staff data.' ) ); ?></li>
 			<li><?php echo esc_html( csa_t( 'Ratings are our assessment. Try a cheaper model on one page first and compare.' ) ); ?></li>
 		</ul>
 
@@ -1259,29 +1244,10 @@ function csa_screen_settings() {
 			</table>
 		</div>
 
-		<div class="csa-card"><h2><?php echo esc_html( csa_t( 'Monthly AI allowance' ) ); ?></h2>
+		<div class="csa-card"><h2><?php echo esc_html( csa_t( 'AI safety' ) ); ?></h2>
 		<table class="form-table">
-			<tr><th><?php echo esc_html( csa_t( 'Monthly budget (USD)' ) ); ?></th><td><input type="number" step="0.5" min="0.5" name="<?php echo esc_attr( $n ); ?>[budget_usd]" value="<?php echo esc_attr( $o['budget_usd'] ); ?>" style="width:100px"></td></tr>
-			<tr><th><?php echo esc_html( csa_t( 'Monthly token allowance' ) ); ?></th><td><input type="number" step="100000" min="100000" name="<?php echo esc_attr( $n ); ?>[allowance_tokens]" value="<?php echo esc_attr( $o['allowance_tokens'] ); ?>" style="width:160px"><p class="description"><?php echo esc_html( csa_t( 'The allowance equals the budget. Tokens are deducted in proportion to their real price (writing costs more than reading), so the allowance never costs more than the budget. You get messages at 15%, 40%, 70% and 90%; at 100% the agent pauses until next month.' ) ); ?></p></td></tr>
-			<tr><th><?php echo esc_html( csa_t( 'Used this month' ) ); ?></th><td><strong><?php echo esc_html( number_format_i18n( min( 100, csa_usage_percent() ), 1 ) . '%' ); ?></strong> <span class="csa-muted"><?php echo esc_html( sprintf( csa_t( '≈ %1$s of %2$s allowance tokens' ), number_format_i18n( csa_tokens_used() ), number_format_i18n( (int) $o['allowance_tokens'] ) ) ); ?></span></td></tr>
 			<tr><th><?php echo esc_html( csa_t( 'Max size per AI request' ) ); ?></th><td><input type="number" step="1000" min="8000" max="200000" name="<?php echo esc_attr( $n ); ?>[max_request_tokens]" value="<?php echo esc_attr( $o['max_request_tokens'] ); ?>" style="width:120px"> <?php echo esc_html( csa_t( 'tokens' ) ); ?><p class="description"><?php echo esc_html( csa_t( 'Safety limit: a single chat step bigger than this is shortened or stopped, so one big page can never use a large part of the budget. 40,000 is about 0.4% of a $20 budget with Claude Sonnet, and much less with cheaper models.' ) ); ?></p></td></tr>
 		</table>
-		<h3><?php echo esc_html( csa_t( 'How each model uses the allowance' ) ); ?></h3>
-		<p class="csa-muted"><?php echo esc_html( sprintf( csa_t( 'Rule: %1$s allowance tokens = $%2$s. Each real token is charged by its price: allowance tokens = model price per 1M × %3$s. Reading is cheap, writing costs more, and re-reading the same chat (cache) costs least. All of this is calculated automatically; other screens only show the percentage used.' ), number_format_i18n( (int) $o['allowance_tokens'] ), number_format_i18n( (float) $o['budget_usd'], 2 ), number_format_i18n( (float) $o['allowance_tokens'] / ( max( 0.01, (float) $o['budget_usd'] ) * 1000000 ), 2 ) ) ); ?></p>
-		<div class="csa-table-wrap"><table class="widefat striped csa-rules">
-			<thead><tr><th><?php echo esc_html( csa_t( 'Model' ) ); ?></th><th><?php echo esc_html( csa_t( '1 token read uses' ) ); ?></th><th><?php echo esc_html( csa_t( '1 token written uses' ) ); ?></th><th><?php echo esc_html( csa_t( '1 cached token uses' ) ); ?></th><th><?php echo esc_html( csa_t( 'The monthly allowance is enough for about' ) ); ?></th></tr></thead>
-			<tbody>
-			<?php foreach ( csa_models() as $mk => $mm ) : $wr = csa_wallet_rate( $mm ); ?>
-				<tr>
-					<td><strong><?php echo esc_html( $mm['label'] ); ?></strong></td>
-					<td><?php echo esc_html( number_format_i18n( $wr['read'], $wr['read'] < 1 ? 2 : 1 ) ); ?></td>
-					<td><?php echo esc_html( number_format_i18n( $wr['write'], $wr['write'] < 1 ? 2 : 1 ) ); ?></td>
-					<td><?php echo esc_html( number_format_i18n( $wr['cached'], $wr['cached'] < 1 ? 3 : 1 ) ); ?></td>
-					<td><?php echo esc_html( sprintf( csa_t( '%1$sM tokens read, or %2$sM written' ), number_format_i18n( (float) $o['allowance_tokens'] / max( 0.0001, $wr['read'] ) / 1000000, 1 ), number_format_i18n( (float) $o['allowance_tokens'] / max( 0.0001, $wr['write'] ) / 1000000, 1 ) ) ); ?></td>
-				</tr>
-			<?php endforeach; ?>
-			</tbody>
-		</table></div>
 		</div>
 
 		<div class="csa-card"><h2><?php echo esc_html( csa_t( 'Look & language' ) ); ?></h2>

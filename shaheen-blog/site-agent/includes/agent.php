@@ -1541,7 +1541,7 @@ function csa_ajax_step() {
 
 	if ( csa_eco() ) {
 		// Per-chat spending cap.
-		$cap = (float) csa_opt( 'budget_usd' ) * (int) csa_opt( 'chat_cap_pct' ) / 100;
+		$cap = csa_budget_base() * (int) csa_opt( 'chat_cap_pct' ) / 100;
 		if ( $chat_id && $cap > 0 && csa_chat_cost( $chat_id ) >= $cap ) {
 			csa_gd_handoff_reply( $chat_id, $title, $state, csa_t( 'chat cost limit' ) );
 			csa_step_release(); wp_send_json_error( sprintf( csa_t( 'This chat has used its limit (%d%% of the monthly budget). Start a new chat to continue; a fresh chat is cheaper because it does not carry the old conversation.' ), (int) csa_opt( 'chat_cap_pct' ) ) );

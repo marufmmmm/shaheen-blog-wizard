@@ -56,20 +56,20 @@ function csa_defaults() {
 		'key_gemini'       => '',
 		'key_openrouter'   => '',
 		'key_openai'       => '',
-		'm_chat'           => 'haiku',
-		'm_blog'           => 'haiku',
-		'm_seo'            => 'haiku',
-		'm_bulk'           => 'haiku',
-		'm_vision'         => 'haiku',
+		'm_chat'           => 'gpt-terra',
+		'm_blog'           => 'gpt-terra',
+		'm_seo'            => 'gpt-terra',
+		'm_bulk'           => 'gpt-terra',
+		'm_vision'         => 'gpt-terra',
 		'custom_models'    => '',
-		'brand'            => 'Claude.api',
-		'ui_lang'          => 'en',
+		'brand'            => 'Blog Write .ai',
+		'ui_lang'          => 'bn',
 		'budget_usd'       => 20,
 		'allowance_tokens' => 50000000,
-		'allow_live'       => 1,
-		'seo_lang'         => 'English',
+		'allow_live'       => 0,
+		'seo_lang'         => 'Bangla',
 		'roles_chat'       => array( 'administrator' ),
-		'roles_seo'        => array( 'administrator' ),
+		'roles_seo'        => array( 'administrator', 'editor' ),
 		'roles_blog'       => array( 'administrator', 'editor' ),
 		'roles_images'     => array( 'administrator', 'editor' ),
 		'weekly_email'     => 1,
@@ -201,9 +201,17 @@ function csa_usage_month() {
 	return ( is_array( $u ) && isset( $u[ $m ] ) ) ? $u[ $m ] : array( 'cost' => 0, 'in' => 0, 'out' => 0, 'calls' => 0 );
 }
 
+/** The monthly limit is the single USD limit from Blog Write .ai settings (0 = unlimited, no pause, no reminders). */
+function csa_budget_base() {
+	return function_exists( 'sb_get' ) ? max( 0.0, (float) sb_get( 'limit_usd' ) ) : 0.0;
+}
+
 function csa_usage_percent() {
-	$budget = max( 0.01, (float) csa_opt( 'budget_usd' ) );
-	return round( (float) csa_usage_month()['cost'] / $budget * 100, 1 );
+	$base = csa_budget_base();
+	if ( $base <= 0 || ! function_exists( 'sb_ledger_month' ) ) {
+		return 0.0;
+	}
+	return round( (float) sb_ledger_month( current_time( 'Y-m' ) )['bill'] / $base * 100, 1 );
 }
 
 /**
@@ -243,7 +251,7 @@ function csa_record_usage( $entry, $usage, $feature = '' ) {
 				}
 			}
 		}
-		$entry = $found ? $found : csa_model( 'sonnet' );
+		$entry = $found ? $found : csa_model( 'gpt-terra' );
 	}
 	$in   = (int) ( $usage['input_tokens'] ?? 0 );
 	$cw   = (int) ( $usage['cache_creation_input_tokens'] ?? 0 );
