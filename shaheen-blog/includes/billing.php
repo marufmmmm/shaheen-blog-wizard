@@ -266,10 +266,9 @@ function sb_addr_lines($t) {
 
 function sb_voucher_html($v) {
     $from = sb_trim_from();
-    $to   = trim((string) sb_get('bill_to'));
-    $to   = $to !== '' ? $to : get_bloginfo('name');
-    $fa   = trim((string) sb_get('bill_from_addr'));
-    $ta   = trim((string) sb_get('bill_to_addr'));
+    $to   = 'Shaheen Education Family';
+    $fa   = '';
+    $ta   = '';
     $sub  = (float) $v['bill'];
     $vat  = isset($v['vat']) ? (float) $v['vat'] : 0;
     $tot  = isset($v['total']) ? (float) $v['total'] : $sub;
@@ -317,8 +316,7 @@ table{width:100%;border-collapse:collapse}.items th{font-weight:400;font-size:11
 }
 
 function sb_trim_from() {
-    $f = trim((string) sb_get('bill_from'));
-    return $f !== '' ? $f : get_bloginfo('name');
+    return 'Blog Write .ai';   // the voucher is always issued by Blog Write .ai to Shaheen Education Family
 }
 
 /** Email the month's summary and attach the voucher file. */

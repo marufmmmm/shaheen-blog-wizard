@@ -14,12 +14,8 @@ function sb_defaults() {
         'flex_bill_standard' => 0,
         'flex_on'       => 1,
         'client_email'  => '',
-        'bill_from_addr' => '',
-        'bill_to_addr'  => '',
         'report_email'  => '',
         'report_auto'   => 1,
-        'bill_to'       => '',
-        'bill_from'     => '',
         'cost_headlines' => 50,
         'cost_subtitle'  => 30,
         'cost_meta'      => 20,
@@ -44,7 +40,6 @@ function sb_defaults() {
         'style_note'     => 'প্রচলিত চলিত ভাষায় লিখবে। কঠিন, সাধু বা বইয়ের মতো ভারী শব্দ এড়িয়ে প্রতিদিনের সহজ শব্দ ব্যবহার করবে। যেখানে জনপ্রিয় ইংরেজি শব্দ (যেমন: ক্লাস, কোচিং, অনলাইন) বেশি চলে সেখানে সেটাই লিখবে।',
         'model_article'  => 'gpt-6.1-terra',
         'model_plan'     => 'gpt-6-astra',
-        'extra_models'   => '',
         'top_offset'     => 0,
         'content_width'  => 0,
         'site_urls'      => "https://shaheen.edu.bd/",
@@ -83,50 +78,26 @@ function sb_save_settings(array $new) {
  * thinking tokens included for reasoning models. Prices per 1M tokens (input/output) as of Oct 2026.
  */
 /** Models the owner added in Settings (one per line: model-id | charge for 800-1000 | 1000-1500 | 1500+ words). */
-function sb_extra_models() {
-    $out = array();
-    foreach (preg_split('/\R/u', (string) sb_get('extra_models')) as $line) {
-        $p = array_map('trim', explode('|', $line));
-        $id = $p[0];
-        if (!preg_match('/^[A-Za-z0-9][A-Za-z0-9._:\-]{1,59}$/', $id)) {
-            continue;
-        }
-        $c = array();
-        for ($i = 1; $i <= 3; $i++) {
-            $c[] = isset($p[$i]) && (int) $p[$i] > 0 ? (int) $p[$i] : array(360, 450, 630)[$i - 1];
-        }
-        $out[$id] = array('—', array(0, 0, 0), 'আপনার যোগ করা মডেল', $c);
-    }
-    return $out;
-}
-
+/** Model catalog, read from data/models.json (the one place prices live). id => [price text, [est credits t1..t3], note, [charge t1..t3]] */
 function sb_model_catalog() {
-    // id => [price text, [est credits t1,t2,t3], note, [default charge t1,t2,t3]]
-    return array_merge(sb_extra_models(), array(
-        'gpt-6.1-terra' => array('1.00 / 5.00', array(200, 275, 390), 'প্রস্তাবিত: ভালো বাংলা, কম দাম, দ্রুত', array(320, 440, 620)),
-        'gpt-4o-mini'  => array('0.15 / 0.60', array(17, 21, 29), 'সবচেয়ে সস্তা; বাংলার মান মোটামুটি', array(120, 150, 180)),
-        'gpt-5.4-nano' => array('0.20 / 1.25', array(55, 73, 103), 'সস্তা, নতুন প্রজন্ম', array(120, 150, 180)),
-        'gpt-4.1-mini' => array('0.40 / 1.60', array(45, 56, 78), 'ভালো ও সস্তা', array(120, 150, 180)),
-        'gpt-5-mini'   => array('0.25 / 2.00', array(80, 110, 155), 'ভালো বাংলা, মাঝারি খরচ (প্রস্তাবিত)', array(130, 180, 250)),
-        'gpt-5.4-mini' => array('0.75 / 4.50', array(190, 255, 360), 'আরও ভালো, দাম বেশি', array(310, 410, 580)),
-        'gpt-4.1'      => array('2.00 / 8.00', array(225, 280, 390), 'দামি', array(360, 450, 630)),
-        'gpt-4o'       => array('2.50 / 10.00', array(280, 340, 460), 'দামি', array(450, 550, 740)),
-        'gpt-6-astra'  => array('10.00 / 50.00', array(2283, 2983, 3983), 'OpenAI-র সবচেয়ে সক্ষম মডেল; খুব দামি', array(2300, 3000, 4000)),
-        'gpt-5'        => array('1.25 / 10.00', array(410, 550, 750), 'সবচেয়ে দামি (চিন্তার টোকেনে)', array(660, 880, 1200)),
-    ));
+    static $cat = null;
+    if (null !== $cat) {
+        return $cat;
+    }
+    $cat  = array();
+    $file = SB_PATH . 'data/models.json';
+    $d    = is_readable($file) ? json_decode((string) file_get_contents($file), true) : null;
+    foreach ((is_array($d) && !empty($d['models']) && is_array($d['models'])) ? $d['models'] : array() as $id => $m) {
+        $cat[$id] = array(sprintf('%.2f / %.2f', (float) $m['in'], (float) $m['out']), array_values((array) $m['est']), (string) $m['note'], array_values((array) $m['charge']));
+    }
+    return $cat;
 }
 
 /** Charge (credits) per model for the three length tiers; owner-editable in Settings. */
 function sb_model_prices() {
-    $saved = sb_get('model_prices');
-    $saved = is_array($saved) ? $saved : array();
     $out = array();
     foreach (sb_model_catalog() as $id => $m) {
-        $row = isset($saved[$id]) && is_array($saved[$id]) ? array_values($saved[$id]) : array();
-        for ($i = 0; $i < 3; $i++) {
-            $row[$i] = isset($row[$i]) && (int) $row[$i] > 0 ? (int) $row[$i] : $m[3][$i];
-        }
-        $out[$id] = array_slice($row, 0, 3);
+        $out[$id] = array_slice($m[3], 0, 3);
     }
     return $out;
 }
@@ -618,3 +589,26 @@ add_action('init', function () {
     update_option('sb_settings', $s);
     update_option('sb_model_rec', '1', false);
 }, 6);
+
+
+/** One-time: prices, billing names and model lists now live in code. Drop old saved overrides; move retired models to Terra. */
+add_action('init', function () {
+    if (get_option('sb_code_prices') === '1') {
+        return;
+    }
+    $s = get_option('sb_settings', array());
+    $s = is_array($s) ? $s : array();
+    foreach (array_keys($s) as $k) {
+        if (strpos($k, 'cost_') === 0 || in_array($k, array('model_prices', 'extra_models', 'bill_from', 'bill_to', 'bill_from_addr', 'bill_to_addr'), true)) {
+            unset($s[$k]);
+        }
+    }
+    $cat = sb_model_catalog();
+    foreach (array('model', 'model_article', 'model_plan') as $k) {
+        if (!empty($s[$k]) && !isset($cat[$s[$k]])) {
+            $s[$k] = $k === 'model_plan' ? 'gpt-6-astra' : 'gpt-6.1-terra';
+        }
+    }
+    update_option('sb_settings', $s);
+    update_option('sb_code_prices', '1', false);
+}, 7);

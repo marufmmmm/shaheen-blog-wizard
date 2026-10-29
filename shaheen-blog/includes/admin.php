@@ -147,17 +147,13 @@ function sb_handle_save_settings() {
     };
 
     $new = array(
-        'model'         => sb_pick_model($in, 'model') ?: 'gpt-4o-mini',
+        'model'         => sb_pick_model($in, 'model') ?: 'gpt-6.1-terra',
         'limit_usd'     => max(0, (float) $in('limit_usd', 32)),
         'report_email'  => is_email($in('report_email')) ? sanitize_email($in('report_email')) : '',
         'report_auto'   => $in('report_auto') ? 1 : 0,
         'flex_on'       => $in('flex_on') ? 1 : 0,
         'vat_pct'       => max(0, min(50, (float) $in('vat_pct', 5))),
         'client_email'  => is_email($in('client_email')) ? sanitize_email($in('client_email')) : '',
-        'bill_from_addr' => sanitize_textarea_field($in('bill_from_addr')),
-        'bill_to_addr'  => sanitize_textarea_field($in('bill_to_addr')),
-        'bill_from'     => sanitize_text_field($in('bill_from')),
-        'bill_to'       => sanitize_text_field($in('bill_to')),
         'hero_title'    => sanitize_text_field($in('hero_title')),
         'hero_subtitle' => sanitize_text_field($in('hero_subtitle')),
         'intro'         => sanitize_textarea_field($in('intro')),
@@ -170,27 +166,11 @@ function sb_handle_save_settings() {
         'model_article' => sb_pick_model($in, 'model_article'),
         'model_plan'    => sb_pick_model($in, 'model_plan'),
         'style_note'    => sanitize_textarea_field($in('style_note')),
-        'cost_research' => sb_u2c((float) $in('cost_research', 0.02)),
         'site_urls'     => sanitize_textarea_field($in('site_urls')),
         'about'         => sanitize_textarea_field($in('about')),
         'ai_lang'       => in_array($in('ai_lang'), array('bn', 'en', 'other'), true) ? $in('ai_lang') : 'bn',
         'ai_lang_other' => sanitize_text_field($in('ai_lang_other')),
     );
-    $mp = array();
-    $post_mp = isset($_POST['mp']) && is_array($_POST['mp']) ? wp_unslash($_POST['mp']) : array(); // phpcs:ignore WordPress.Security.NonceVerification
-    foreach (sb_model_catalog() as $mid => $mm) {
-        $row = isset($post_mp[$mid]) && is_array($post_mp[$mid]) ? array_values($post_mp[$mid]) : array();
-        $mp[$mid] = array();
-        for ($i = 0; $i < 3; $i++) {
-            $v = isset($row[$i]) ? sb_u2c((float) $row[$i]) : 0;
-            $mp[$mid][$i] = $v > 0 ? $v : $mm[3][$i];
-        }
-    }
-    $new['model_prices'] = $mp;
-    $new['extra_models'] = sanitize_textarea_field($in('extra_models', ''));
-    foreach (array('headlines', 'subtitle', 'meta', 'article', 'summary', 'rewrite', 'custom', 'custom2', 'custom3', 'learn', 'edit', 'edit_many', 'phones', 'faq', 'related', 'chat', 'brief', 'caption') as $f) {
-        $new['cost_' . $f] = sb_u2c((float) $in('cost_' . $f, 0));
-    }
     // API key: keep the saved one unless a new one is typed or removal is ticked.
     $key = trim(sanitize_text_field($in('api_key')));
     if ($in('remove_key')) {

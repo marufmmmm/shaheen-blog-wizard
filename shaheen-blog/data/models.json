@@ -1,0 +1,9 @@
+{
+  "_note": "Single source of OpenAI model prices (USD per 1M tokens). Edit ONLY here, never in the settings screen. 'est' and 'charge' are credit estimates for the three article lengths (1 credit = $0.0002).",
+  "_source": "https://platform.openai.com/docs/pricing",
+  "_checked": "2026-10-29 (Terra price from third-party sites; Astra price from third-party sites. Re-check against the official OpenAI pricing page.)",
+  "models": {
+    "gpt-6.1-terra": { "in": 1.00, "out": 5.00,  "note": "প্রস্তাবিত: ভালো বাংলা, কম দাম, দ্রুত", "est": [200, 275, 390],    "charge": [320, 440, 620] },
+    "gpt-6-astra":   { "in": 10.00, "out": 50.00, "note": "সবচেয়ে সক্ষম ও দামি; শুধু কৌশল/পরিকল্পনা ধাপে",   "est": [2283, 2983, 3983], "charge": [2300, 3000, 4000] }
+  }
+}

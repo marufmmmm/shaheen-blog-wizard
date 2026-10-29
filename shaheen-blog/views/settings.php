@@ -53,8 +53,7 @@ $render = function ($name, $cur, $blank) use ($cat) {
         $t = $id . ' — আর্টিকেলে ~' . implode(' / ', array_map('sb_money', $m[1])) . ' খরচ — ' . $m[2];
         echo '<option value="' . esc_attr($id) . '" data-est="' . esc_attr(implode(',', $m[1])) . '"' . selected($cur, $id, false) . '>' . esc_html($t) . '</option>';
     }
-    echo '<option value="__other"' . selected(!$known && $cur !== '', true, false) . '>অন্য মডেল (নিজে লিখব)</option></select> ';
-    echo '<input type="text" name="' . esc_attr($name) . '_other" value="' . esc_attr(!$known ? $cur : '') . '" placeholder="মডেলের নাম" style="' . ($known || $cur === '' ? 'display:none;' : '') . 'margin-top:6px">';
+    echo '</select>';
 };
 ?>
             <label>মডেল <small>(শিরোনাম, সাবটাইটেল, মেটা, সামারি, FAQ ইত্যাদির জন্য)</small>
@@ -71,24 +70,6 @@ $render = function ($name, $cur, $blank) use ($cat) {
                 <?php $render('model_plan', $s('model_plan'), true); ?>
                 <small>প্রস্তাবিত: gpt-6-astra (সবচেয়ে দামি, শুধু এই ধাপে)। খালি রাখলে ওপরের মডেলই চলবে।</small>
             </label>
-            <label>➕ নিজের মডেল যোগ করুন <small>(OpenAI অ্যাকাউন্টে যে মডেলের API নাম আছে, প্রতি লাইনে একটি। চাইলে চার্জও দিন: <code>মডেল-নাম | ৮০০–১০০০ শব্দের চার্জ | ১০০০–১৫০০ | ১৫০০+</code>)</small>
-                <textarea name="extra_models" rows="3" placeholder="model-id-here | 400 | 550 | 750"><?php echo esc_textarea($s('extra_models')); ?></textarea>
-                <small>সেভ করলে এই মডেল পোস্ট এডিটরের মডেল-তালিকায় ও ওপরের সিলেক্টে আসবে। নামটি OpenAI-র API নামের সাথে হুবহু মিলতে হবে, নইলে লেখার সময় OpenAI ত্রুটি দেবে।</small>
-            </label>
-            <h3 style="margin-top:18px">💰 মডেল অনুযায়ী আর্টিকেলের আনুমানিক দাম <small>(USD, বোতামের পাশে যা দেখায়)</small></h3>
-            <p class="sba-muted">এগুলো শুধু লেখার আগে বোতামের পাশে দেখানো আনুমানিক দাম। লেখা শেষে আসল বিল OpenAI-এর আসল টোকেন ব্যবহার থেকে নিজে হিসাব হয়, তাই এখানকার অংকে বিল বদলায় না।</p>
-            <div style="overflow-x:auto"><table class="widefat striped" id="sb-mp" style="max-width:900px">
-                <thead><tr><th>মডেল</th><th>দাম (ইনপুট/আউটপুট $/১০ লাখ টোকেন)</th><th>৮০০–১০০০ শব্দ<br><small>আনুমানিক খরচ → চার্জ</small></th><th>১০০০–১৫০০ শব্দ<br><small>আনুমানিক খরচ → চার্জ</small></th><th>১৫০০+ শব্দ<br><small>আনুমানিক খরচ → চার্জ</small></th></tr></thead>
-                <tbody>
-                <?php $mprices = sb_model_prices(); foreach (sb_model_catalog() as $mid => $mm) : ?>
-                    <tr><td><strong><?php echo esc_html($mid); ?></strong><br><small><?php echo esc_html($mm[2]); ?></small></td>
-                        <td><?php echo esc_html($mm[0]); ?></td>
-                        <?php for ($i = 0; $i < 3; $i++) : ?>
-                        <td>~<?php echo esc_html(sb_money($mm[1][$i])); ?> → <input type="number" min="0" step="0.0001" data-est="<?php echo esc_attr(sb_c2u($mm[1][$i])); ?>" name="mp[<?php echo esc_attr($mid); ?>][]" value="<?php echo esc_attr(sb_c2u($mprices[$mid][$i])); ?>" style="width:90px"></td>
-                        <?php endfor; ?>
-                    </tr>
-                <?php endforeach; ?>
-                </tbody></table></div>
         </div>
 
         <div class="sba-card">
@@ -112,22 +93,7 @@ $render = function ($name, $cur, $blank) use ($cat) {
                 <small>দিলে মাস শেষে ক্লায়েন্টও শুধু বিল ও ভাউচার পাবে (শুধু বিলের অংক পাবে)।</small>
             </label>
             <label class="sba-inline-check"><input type="checkbox" name="report_auto" value="1" <?php checked((int) $s('report_auto')); ?>> প্রতি মাস শেষে নিজে নিজে ইমেইল পাঠান ও ভাউচার বানান</label>
-            <div class="sba-row">
-                <label>ভাউচারে "কে বিল দিচ্ছে" (আপনার নাম/কোম্পানি)<input type="text" name="bill_from" value="<?php echo esc_attr($s('bill_from')); ?>" placeholder="<?php echo esc_attr(get_bloginfo('name')); ?>"></label>
-                <label>ভাউচারে "কাকে" (গ্রাহকের নাম)<input type="text" name="bill_to" value="<?php echo esc_attr($s('bill_to')); ?>" placeholder="<?php echo esc_attr(get_bloginfo('name')); ?>"></label>
-            </div>
-            <div class="sba-row">
-                <label>আপনার ঠিকানা/ফোন/ইমেইল (প্রতি লাইনে একটি)<textarea name="bill_from_addr" rows="4"><?php echo esc_textarea($s('bill_from_addr')); ?></textarea></label>
-                <label>গ্রাহকের ঠিকানা (প্রতি লাইনে একটি)<textarea name="bill_to_addr" rows="4"><?php echo esc_textarea($s('bill_to_addr')); ?></textarea></label>
-            </div>
             <p class="sba-muted">ভাউচার ও মাসের হিসাব দেখুন: <a href="<?php echo esc_url(admin_url('admin.php?page=sb-billing')); ?>">💵 USD Billing</a></p>
-            <div class="sba-row">
-                <?php foreach (sb_feature_labels() as $f => $label) : if (in_array($f, array('rewrite_post', 'edit_new'), true)) { continue; } ?>
-                    <label><?php echo esc_html($label); ?><input type="number" min="0" step="0.0001" name="cost_<?php echo esc_attr($f); ?>" value="<?php echo esc_attr(sb_c2u($s('cost_' . $f))); ?>"></label>
-                <?php endforeach; ?>
-                <label>নিজের প্রম্পটে আর্টিকেল: ১০০০–১৫০০ শব্দ<input type="number" min="0" step="0.0001" name="cost_custom2" value="<?php echo esc_attr(sb_c2u($s('cost_custom2'))); ?>"></label>
-                <label>নিজের প্রম্পটে আর্টিকেল: ১৫০০+ শব্দ<input type="number" min="0" step="0.0001" name="cost_custom3" value="<?php echo esc_attr(sb_c2u($s('cost_custom3'))); ?>"></label>
-            </div>
         </div>
 
         <div class="sba-card">
@@ -148,8 +114,6 @@ $render = function ($name, $cur, $blank) use ($cat) {
                 <textarea name="site_urls" rows="3"><?php echo esc_textarea($s('site_urls')); ?></textarea></label>
             <label>শাহীন সম্পর্কে আমাদের নিজস্ব তথ্য <small>(শাখা, ফি, যোগাযোগ, বৈশিষ্ট্য, ফলাফল ইত্যাদি, যা AI সবসময় জানবে)</small>
                 <textarea name="about" rows="8"><?php echo esc_textarea($s('about')); ?></textarea></label>
-            <label>ইন্টারনেট রিসার্চের আনুমানিক অতিরিক্ত দাম (USD) <small>(শুধু রিসার্চ সফল হলে)</small>
-                <input type="number" min="0" step="0.0001" name="cost_research" value="<?php echo esc_attr(sb_c2u($s('cost_research'))); ?>"></label>
         </div>
 
         <div class="sba-card">
@@ -170,11 +134,6 @@ $render = function ($name, $cur, $blank) use ($cat) {
         function sync() {
             document.querySelectorAll('.sb-model-sel').forEach(function (sel) {
                 var o = document.querySelector('input[name="' + sel.dataset.for + '_other"]'); if (o) { o.style.display = sel.value === '__other' ? '' : 'none'; }
-            });
-            document.querySelectorAll('#sb-mp input[data-est]').forEach(function (i) {
-                var low = (parseFloat(i.value) || 0) < parseFloat(i.dataset.est);
-                i.style.background = low ? '#fde8e8' : ''; i.style.borderColor = low ? '#b32d2e' : '';
-                i.title = low ? 'চার্জ আনুমানিক খরচের চেয়ে কম — লোকসান' : '';
             });
         }
         document.addEventListener('change', sync); document.addEventListener('input', sync); sync();
