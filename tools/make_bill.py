@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """Monthly API statement bill (PDF), same layout as the plugin's voucher / the OpenRouter receipt.
 
-  python3 tools/make_bill.py --amount 123.45 --month 2026-10 [--vat 5] [--no SEF-202610-001] [--out bill.pdf]
+  python3 tools/make_bill.py --amount 123.45 --month 2026-10 [--vat 5] [--no BF-202610-001] [--out bill.pdf]
 
 --amount is the USD amount BEFORE VAT (what the client's usage comes to). VAT is added on top.
 Party details (seller, client, logo) come from tools/bill_party.json.
@@ -27,7 +27,7 @@ d = datetime.date.fromisoformat(a.date) if a.date else datetime.date.today()
 sub = round(a.amount, 2)
 vat = round(sub * vat_pct / 100, 2)
 tot = round(sub + vat, 2)
-no = a.no or 'SEF-%04d%02d-001' % (y, m)
+no = a.no or 'BF-%04d%02d-001' % (y, m)
 usd = lambda x: '${:,.2f}'.format(x)
 e = html.escape
 vp = ('%g' % vat_pct)

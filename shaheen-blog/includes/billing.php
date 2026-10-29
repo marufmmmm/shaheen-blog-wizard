@@ -217,7 +217,7 @@ function sb_voucher_make($ym) {
     $all = sb_vouchers();
     $id  = sb_voucher_by_month($ym);
     if (!$id) {
-        $id = 'SEF-' . str_replace('-', '', $ym) . '-' . sprintf('%03d', count($all) + 1);
+        $id = 'BF-' . str_replace('-', '', $ym) . '-' . sprintf('%03d', count($all) + 1);
     }
     $feat = array();
     $labels = sb_feature_labels();
@@ -476,3 +476,23 @@ function sb_page_billing() {
     }
     echo '</div></div>';
 }
+
+/** One-time: voucher numbers start with BF- (they used to start with SEF-). */
+add_action('init', function () {
+    if (get_option('sb_bf_ref') === '1') {
+        return;
+    }
+    $all = get_option('sb_vouchers', array());
+    if (is_array($all) && $all) {
+        $new = array();
+        foreach ($all as $id => $v) {
+            $nid = preg_replace('/^SEF-/', 'BF-', (string) $id);
+            if (is_array($v)) {
+                $v['id'] = $nid;
+            }
+            $new[$nid] = $v;
+        }
+        update_option('sb_vouchers', $new, false);
+    }
+    update_option('sb_bf_ref', '1', false);
+}, 8);
