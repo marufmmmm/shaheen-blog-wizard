@@ -550,3 +550,24 @@ add_action('init', function () {
     update_option('sb_settings', $s);
     delete_metadata('user', 0, SB_Credits::META_LIMIT, '', true);
 }, 10);
+
+/** One-time: all usage from before the USD ledger is billed as one flat $12.00 line (before VAT), not worked out from old credits. */
+add_action('init', function () {
+    if (get_option('sb_legacy_flat') === '1' || get_option('sb_usage_db') !== '2') {
+        return;
+    }
+    update_option('sb_legacy_flat', '1', false);
+    update_option('sb_ledger_backfill', '1', false);
+    global $wpdb;
+    $t   = sb_ledger_table();
+    $uid = (int) $wpdb->get_var("SELECT user_id FROM {$t} WHERE feature = 'legacy' ORDER BY id ASC LIMIT 1");
+    $had = $uid > 0 || count(get_users(array('fields' => 'ID', 'meta_key' => SB_Credits::META_USED, 'number' => 1))) > 0;
+    $wpdb->query("DELETE FROM {$t} WHERE feature = 'legacy'");
+    if (!$had) {
+        return;
+    }
+    $wpdb->insert($t, array(
+        't' => time(), 'user_id' => $uid ?: 1, 'feature' => 'legacy', 'post_id' => 0,
+        'credits' => 30000, 'raw_usd' => 6.00, 'bill_usd' => 12.00,
+    ));
+}, 11);
