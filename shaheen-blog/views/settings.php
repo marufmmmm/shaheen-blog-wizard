@@ -93,6 +93,8 @@ $render = function ($name, $cur, $blank) use ($cat) {
                 <input type="number" min="0" step="0.5" name="limit_usd" value="<?php echo esc_attr($s('limit_usd')); ?>">
                 <small><b>০ = সীমাহীন</b> (ক্লায়েন্ট যত ব্যবহার করবে তত বিল)। অংক দিলে এই ডলার শেষ হলে মাসের বাকি সময় AI বন্ধ।</small>
             </label>
+            <label class="sba-inline-check"><input type="checkbox" name="flex_on" value="1" <?php checked((int) $s('flex_on')); ?>> ⚡ লম্বা আর্টিকেল OpenAI Flex-এ লিখুন (অর্ধেক দাম, একটু ধীর)</label>
+            <p class="sba-muted" style="margin-top:-4px">Flex ব্যস্ত থাকলে বা মডেল Flex না চাইলে নিজে Standard-এ চলে যায়। শিরোনাম, মেটা, চ্যাট ইত্যাদি সবসময় Standard (সাথে সাথে)। Flex-এ খরচ কমলে বিলও আসল খরচ অনুযায়ী কমে।</p>
             <label>VAT %
                 <input type="number" min="0" max="50" step="0.5" name="vat_pct" value="<?php echo esc_attr($s('vat_pct')); ?>">
                 <small>ভাউচারে মাসিক API স্টেটমেন্টের সাথে এই হারে VAT যোগ হয় (ডিফল্ট ৫%)।</small>

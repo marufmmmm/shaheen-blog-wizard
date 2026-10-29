@@ -442,14 +442,15 @@ class SB_AI {
         if (function_exists('set_time_limit')) {
             @set_time_limit(180); // phpcs:ignore
         }
-        $resp = wp_remote_post(self::ENDPOINT, array(
+        // Long writing can wait: it goes on the cheaper Flex tier. Titles, meta, chat and the rest stay on Standard (immediate).
+        $resp = self::post(self::ENDPOINT, array(
             'timeout' => 150,
             'headers' => array(
                 'Authorization' => 'Bearer ' . $key,
                 'Content-Type'  => 'application/json',
             ),
             'body'    => wp_json_encode($body),
-        ));
+        ), in_array($feature, array('article', 'custom', 'rewrite', 'rewrite_post', 'edit_new'), true));
         if (is_wp_error($resp)) {
             return new WP_Error('sb_http', 'OpenAI-তে সংযোগ হয়নি: ' . $resp->get_error_message());
         }
@@ -675,6 +676,38 @@ class SB_AI {
         return $in;
     }
 
+
+    /**
+     * POST to OpenAI. With $flex, the request asks for the Flex tier (half price, may be slower or unavailable).
+     * If Flex fails (busy, timeout, model without Flex), the same request is sent again on the Standard tier.
+     */
+    public static function post($url, $args, $flex = false) {
+        if ($flex && sb_get('flex_on') && !get_transient('sb_flex_pause')) {
+            $b = json_decode((string) $args['body'], true);
+            if (is_array($b)) {
+                $fb = $b;
+                $fb['service_tier'] = 'flex';
+                $fa = $args;
+                $fa['body'] = wp_json_encode($fb);
+                $r = wp_remote_post($url, $fa);
+                if (!is_wp_error($r)) {
+                    $code = (int) wp_remote_retrieve_response_code($r);
+                    $txt  = (string) wp_remote_retrieve_body($r);
+                    $bad  = in_array($code, array(408, 429, 500, 502, 503, 504), true) || ($code === 400 && preg_match('/service_tier|flex/i', $txt));
+                    if (!$bad) {
+                        return $r;
+                    }
+                    if (in_array($code, array(429, 503), true)) {
+                        set_transient('sb_flex_pause', 1, 300); // Flex is busy: go Standard for 5 minutes
+                    }
+                } else {
+                    set_transient('sb_flex_pause', 1, 300);
+                }
+            }
+        }
+        return wp_remote_post($url, $args);
+    }
+
     /** Starts a long generation in OpenAI's background mode: returns at once with an id (no long-open request, so no 504). */
     public static function bg_start($model, $user, $parts, $max, $research) {
         if (function_exists('set_time_limit')) {
@@ -695,11 +728,11 @@ class SB_AI {
         if ($research) {
             $body['tools'] = array(array('type' => 'web_search_preview'));
         }
-        $resp = wp_remote_post('https://api.openai.com/v1/responses', array(
+        $resp = self::post('https://api.openai.com/v1/responses', array(
             'timeout' => 100,
             'headers' => array('Authorization' => 'Bearer ' . sb_get('api_key'), 'Content-Type' => 'application/json'),
             'body'    => wp_json_encode($body),
-        ));
+        ), true);
         if (is_wp_error($resp)) {
             return new WP_Error('sb_http', 'OpenAI-তে সংযোগ হয়নি: ' . $resp->get_error_message());
         }
@@ -736,7 +769,8 @@ class SB_AI {
         }
         if ($st !== 'completed') {
             $why = isset($data['error']['message']) ? $data['error']['message'] : (isset($data['incomplete_details']['reason']) ? $data['incomplete_details']['reason'] : $st);
-            return array('state' => 'error', 'message' => 'AI লেখা শেষ করতে পারেনি (' . $why . ')। বিল যোগ হয়নি।');
+            set_transient('sb_flex_pause', 1, 600); // if this job ran on Flex, the retry goes Standard
+            return array('state' => 'error', 'message' => 'AI লেখা শেষ করতে পারেনি (' . $why . ')। বিল যোগ হয়নি। আবার চেষ্টা করুন।');
         }
         $text = '';
         $sources = array();
@@ -786,7 +820,7 @@ class SB_AI {
         if (function_exists('set_time_limit')) {
             @set_time_limit(240); // phpcs:ignore
         }
-        $resp = wp_remote_post('https://api.openai.com/v1/responses', array(
+        $resp = self::post('https://api.openai.com/v1/responses', array(
             'timeout' => 200,
             'headers' => array('Authorization' => 'Bearer ' . sb_get('api_key'), 'Content-Type' => 'application/json'),
             'body'    => wp_json_encode(array(
@@ -798,7 +832,7 @@ class SB_AI {
                 'tools' => array(array('type' => 'web_search_preview')),
                 'max_output_tokens' => $max + 1500,
             )),
-        ));
+        ), true);
         if (is_wp_error($resp)) {
             return $resp;
         }

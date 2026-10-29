@@ -151,6 +151,7 @@ function sb_handle_save_settings() {
         'limit_usd'     => max(0, (float) $in('limit_usd', 32)),
         'report_email'  => is_email($in('report_email')) ? sanitize_email($in('report_email')) : '',
         'report_auto'   => $in('report_auto') ? 1 : 0,
+        'flex_on'       => $in('flex_on') ? 1 : 0,
         'vat_pct'       => max(0, min(50, (float) $in('vat_pct', 5))),
         'client_email'  => is_email($in('client_email')) ? sanitize_email($in('client_email')) : '',
         'bill_from_addr' => sanitize_textarea_field($in('bill_from_addr')),

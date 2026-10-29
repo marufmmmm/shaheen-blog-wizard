@@ -73,7 +73,7 @@ function sb_meter_model($name) {
 }
 
 /** Real USD cost of one answer: input and output tokens at the model's $/1M-token rates (+ $0.01 per web search). */
-function sb_real_usd($model, $usage, $searches = 0) {
+function sb_real_usd($model, $usage, $searches = 0, $flex = false) {
     $id  = sb_meter_model((string) $model);
     $cat = sb_model_catalog();
     if ($id === '' || !is_array($usage) || !preg_match('/([\d.]+)\s*\/\s*([\d.]+)/', (string) $cat[$id][0], $m)) {
@@ -84,7 +84,8 @@ function sb_real_usd($model, $usage, $searches = 0) {
     if ($in + $out < 1) {
         return 0.0;
     }
-    return $in * (float) $m[1] / 1000000 + $out * (float) $m[2] / 1000000 + $searches * 0.01;
+    $tok = $in * (float) $m[1] / 1000000 + $out * (float) $m[2] / 1000000;
+    return ($flex ? $tok * 0.5 : $tok) + $searches * 0.01;   // Flex = half the token price; the search fee is the same
 }
 
 add_filter('http_response', function ($r, $args, $url) {
@@ -101,7 +102,7 @@ add_filter('http_response', function ($r, $args, $url) {
             $searches++;
         }
     }
-    $usd = sb_real_usd(isset($d['model']) ? $d['model'] : '', $d['usage'], $searches);
+    $usd = sb_real_usd(isset($d['model']) ? $d['model'] : '', $d['usage'], $searches, isset($d['service_tier']) && 'flex' === $d['service_tier']);
     if ($usd > 0) {
         $GLOBALS['sb_meter'] = (isset($GLOBALS['sb_meter']) ? (float) $GLOBALS['sb_meter'] : 0.0) + $usd;
     }
