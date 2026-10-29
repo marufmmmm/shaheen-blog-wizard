@@ -47,7 +47,11 @@ function sb_money($credits) {
     return sb_fmt_usd(sb_usd($credits));
 }
 
-/** Monthly limit in credits, from the USD limit setting. */
+function sb_vat_pct() {
+    return max(0, min(50, (float) sb_get('vat_pct')));
+}
+
+/** Monthly limit in credits (0 = no limit: the client simply pays for what is used). */
 function sb_limit_credits_from_usd($usd) {
     return (int) max(0, round((float) $usd / sb_unit_billed()));
 }
@@ -172,6 +176,9 @@ function sb_voucher_make($ym) {
         'credits' => $m['credits'],
         'raw'     => round($m['raw'], 4),
         'bill'    => round($m['bill'], 2),
+        'vat_pct' => sb_vat_pct(),
+        'vat'     => round($m['bill'] * sb_vat_pct() / 100, 2),
+        'total'   => round($m['bill'], 2) + round($m['bill'] * sb_vat_pct() / 100, 2),
         'features' => $feat,
         'users'   => $users,
         'sent'    => isset($all[$id]['sent']) ? $all[$id]['sent'] : 0,
@@ -185,39 +192,65 @@ function sb_month_label($ym) {
     return wp_date('F Y', $s->getTimestamp());
 }
 
-/** One printable HTML page (billed amounts only: the real cost and the margin never appear on it). */
+/** One printable HTML page in the same layout as the OpenRouter receipt. Billed amounts only: the real cost and the margin never appear. */
+function sb_addr_lines($t) {
+    $o = '';
+    foreach (preg_split('/\R/u', (string) $t) as $l) {
+        if (trim($l) !== '') {
+            $o .= '<div>' . esc_html(trim($l)) . '</div>';
+        }
+    }
+    return $o;
+}
+
 function sb_voucher_html($v) {
-    $site = get_bloginfo('name');
-    $to   = trim((string) sb_get('bill_to'));
-    $to   = $to !== '' ? $to : $site;
-    $rows = '';
-    foreach ($v['features'] as $r) {
-        $rows .= '<tr><td>' . esc_html($r['name']) . '</td><td class="n">' . (int) $r['n'] . '</td><td class="n">' . esc_html(sb_fmt_usd($r['bill'])) . '</td></tr>';
-    }
-    if ($rows === '') {
-        $rows = '<tr><td colspan="3" style="color:#777">This month there was no AI use.</td></tr>';
-    }
-    $urows = '';
-    foreach ($v['users'] as $r) {
-        $urows .= '<tr><td>' . esc_html($r['name']) . '</td><td class="n">' . (int) $r['n'] . '</td><td class="n">' . esc_html(sb_fmt_usd($r['bill'])) . '</td></tr>';
-    }
     $from = sb_trim_from();
+    $to   = trim((string) sb_get('bill_to'));
+    $to   = $to !== '' ? $to : get_bloginfo('name');
+    $fa   = trim((string) sb_get('bill_from_addr'));
+    $ta   = trim((string) sb_get('bill_to_addr'));
+    $sub  = (float) $v['bill'];
+    $vat  = isset($v['vat']) ? (float) $v['vat'] : 0;
+    $tot  = isset($v['total']) ? (float) $v['total'] : $sub;
+    $vp   = isset($v['vat_pct']) ? (float) $v['vat_pct'] : 0;
+    $mon  = sb_month_label($v['ym']);
+    $det  = '';
+    foreach ($v['features'] as $r) {
+        $det .= '<tr><td>' . esc_html($r['name']) . '</td><td class="r">' . (int) $r['n'] . '</td><td class="r">' . esc_html(sb_fmt_usd($r['bill'])) . '</td></tr>';
+    }
     ob_start();
     ?>
 <!doctype html><html><head><meta charset="utf-8"><title>Voucher <?php echo esc_html($v['id']); ?></title>
-<style>body{font-family:Arial,Helvetica,sans-serif;color:#1d2327;margin:0;background:#f3f4f6}.pg{max-width:760px;margin:24px auto;background:#fff;padding:40px;border-radius:6px}
-h1{margin:0;font-size:26px;letter-spacing:1px}.top{display:flex;justify-content:space-between;border-bottom:3px solid #1a6b3e;padding-bottom:14px;margin-bottom:18px}
-.meta{font-size:14px;line-height:1.7}.meta b{display:inline-block;min-width:96px}table{width:100%;border-collapse:collapse;margin:14px 0}th{background:#1a6b3e;color:#fff;text-align:left;padding:8px 10px;font-size:13px}
-td{padding:8px 10px;border-bottom:1px solid #e5e7eb;font-size:14px}.n{text-align:right;white-space:nowrap}.tot td{font-weight:700;font-size:17px;border-top:2px solid #1a6b3e;border-bottom:0}
-.note{font-size:12px;color:#666;margin-top:22px}.btn{margin:16px auto;text-align:center}@media print{body{background:#fff}.pg{margin:0;padding:0}.btn{display:none}}</style></head><body>
+<style>
+*{box-sizing:border-box}body{margin:0;background:#f3f4f6;color:#111;font:13px/1.5 Inter,"Segoe UI",Arial,sans-serif}
+.pg{max-width:820px;margin:24px auto;background:#fff;padding:42px 42px 36px;min-height:1000px;position:relative}
+.logo{position:absolute;right:42px;top:42px;width:56px;height:56px;border-radius:6px;background:#1a6b3e;color:#fff;font-weight:800;font-size:20px;display:flex;align-items:center;justify-content:center}
+h1{font-size:26px;margin:0 0 14px;font-weight:700}h2{font-size:19px;margin:34px 0 8px;font-weight:700}
+.meta div{display:flex;gap:10px;line-height:1.45}.meta b{display:inline-block;min-width:118px;font-weight:600}.meta span{font-weight:500}
+.cols{display:flex;gap:60px;margin-top:26px}.cols>div{flex:1;min-width:0}.cols b{display:block;margin-bottom:4px}
+.cols .l{line-height:1.5}
+table{width:100%;border-collapse:collapse}.items th{font-weight:400;font-size:11px;color:#444;text-align:left;padding:0 0 8px;border-bottom:1px solid #111}
+.items th.r,.det th.r{text-align:right}.items td{padding:9px 0;font-size:13px}.r{text-align:right}
+.sum{width:55%;margin:18px 0 0 auto}.sum td{padding:3px 0;border-bottom:1px solid #e5e7eb;font-size:13px}.sum tr:last-child td{border-bottom:0}.sum .t td{font-weight:700}
+.det{margin-top:30px}.det th{font-weight:400;font-size:11px;color:#444;text-align:left;padding:0 0 6px;border-bottom:1px solid #111}.det td{padding:6px 0;border-bottom:1px solid #f0f0f0;font-size:12.5px}
+.foot{position:absolute;left:42px;right:42px;bottom:28px;border-top:1px solid #e5e7eb;padding-top:12px;font-size:11px;color:#555;display:flex;justify-content:space-between}
+.btn{text-align:center;margin:16px}@media print{body{background:#fff}.pg{margin:0;padding:0;min-height:0}.logo{right:0;top:0}.foot{left:0;right:0}.btn{display:none}}
+</style></head><body>
 <div class="btn"><button onclick="window.print()" style="padding:8px 18px;font-size:14px">🖨 Print / Save as PDF</button></div>
-<div class="pg"><div class="top"><div><h1>VOUCHER</h1><div style="color:#1a6b3e;font-weight:700"><?php echo esc_html($v['id']); ?></div></div>
-<div class="meta" style="text-align:right"><b><?php echo esc_html($from); ?></b><br><?php echo esc_html(home_url()); ?></div></div>
-<div class="meta"><div><b>Billed to</b> <?php echo esc_html($to); ?></div><div><b>Period</b> <?php echo esc_html(sb_month_label($v['ym'])); ?></div><div><b>Issued</b> <?php echo esc_html(wp_date('d M Y', $v['made'])); ?></div><div><b>Service</b> Blog Write .ai — AI usage</div><div><b>Total uses</b> <?php echo (int) $v['count']; ?></div></div>
-<table><tr><th>AI feature</th><th class="n">Times used</th><th class="n">Amount (USD)</th></tr><?php echo $rows; // phpcs:ignore ?>
-<tr class="tot"><td colspan="2">Total payable</td><td class="n"><?php echo esc_html(sb_fmt_usd($v['bill'])); ?></td></tr></table>
-<?php if (count($v['users']) > 1) : ?><table><tr><th>User</th><th class="n">Times used</th><th class="n">Amount (USD)</th></tr><?php echo $urows; // phpcs:ignore ?></table><?php endif; ?>
-<p class="note">All amounts are in US dollars. This voucher lists the AI services used through Blog Write .ai during the period shown.</p></div></body></html>
+<div class="pg"><div class="logo">BW</div>
+<h1>Voucher</h1>
+<div class="meta"><div><b>Voucher number</b><span><?php echo esc_html($v['id']); ?></span></div><div><b>Statement</b><span>Monthly API statement — <?php echo esc_html($mon); ?></span></div><div><b>Voucher date</b><span><?php echo esc_html(wp_date('F j, Y', $v['made'])); ?></span></div></div>
+<div class="cols"><div class="l"><b><?php echo esc_html($from); ?></b><?php echo $fa !== '' ? sb_addr_lines($fa) : '<div>' . esc_html(home_url()) . '</div>'; // phpcs:ignore ?></div>
+<div class="l"><b>Bill to</b><div><?php echo esc_html($to); ?></div><?php echo sb_addr_lines($ta); // phpcs:ignore ?></div></div>
+<h2>Amount due: <?php echo esc_html(sb_fmt_usd($tot)); ?></h2>
+<div style="margin-bottom:22px;color:#333">Monthly API statement for <?php echo esc_html($mon); ?></div>
+<table class="items"><tr><th>Description</th><th class="r" style="width:60px">Qty</th><th class="r" style="width:110px">Unit price</th><th class="r" style="width:110px">Amount</th></tr>
+<tr><td>Monthly API Statement — <?php echo esc_html($mon); ?></td><td class="r">1</td><td class="r"><?php echo esc_html(sb_fmt_usd($sub)); ?></td><td class="r"><?php echo esc_html(sb_fmt_usd($sub)); ?></td></tr></table>
+<table class="sum"><tr><td>Subtotal</td><td class="r"><?php echo esc_html(sb_fmt_usd($sub)); ?></td></tr>
+<tr><td>VAT (<?php echo esc_html(rtrim(rtrim(number_format($vp, 2), '0'), '.')); ?>%)</td><td class="r"><?php echo esc_html(sb_fmt_usd($vat)); ?></td></tr>
+<tr class="t"><td>Total</td><td class="r"><?php echo esc_html(sb_fmt_usd($tot)); ?></td></tr></table>
+<?php if ($det !== '') : ?><table class="det"><tr><th>Usage summary (<?php echo (int) $v['count']; ?> uses, before VAT)</th><th class="r" style="width:60px">Times</th><th class="r" style="width:110px">Amount</th></tr><?php echo $det; // phpcs:ignore ?></table><?php endif; ?>
+<div class="foot"><span><?php echo esc_html(home_url()); ?></span><span>Page 1 of 1</span></div></div></body></html>
     <?php
     return ob_get_clean();
 }
@@ -243,13 +276,22 @@ function sb_voucher_send($id) {
     file_put_contents($file, sb_voucher_html($v));
     $profit = $v['bill'] - $v['raw'];
     $link   = wp_nonce_url(admin_url('admin-post.php?action=sb_voucher_view&id=' . rawurlencode($id)), 'sb_voucher');
-    $body   = '<div style="font-family:Arial,sans-serif;font-size:15px;line-height:1.6;color:#1d2327"><h2 style="color:#1a6b3e;margin:0 0 8px">' . esc_html(get_bloginfo('name')) . ' — AI usage, ' . esc_html(sb_month_label($v['ym'])) . '</h2>'
-        . '<table cellpadding="8" style="border-collapse:collapse;border:1px solid #ddd"><tr><td>AI uses</td><td align="right"><b>' . (int) $v['count'] . '</b></td></tr>'
-        . '<tr><td>Real cost (provider)</td><td align="right"><b>$' . number_format($v['raw'], 2) . '</b></td></tr>'
-        . '<tr><td>Billed amount (margin ' . esc_html(rtrim(rtrim(number_format(sb_margin(), 1), '0'), '.')) . '%)</td><td align="right"><b style="color:#1a6b3e;font-size:18px">' . esc_html(sb_fmt_usd($v['bill'])) . '</b></td></tr>'
-        . '<tr><td>Profit</td><td align="right"><b>$' . number_format($profit, 2) . '</b></td></tr></table>'
-        . '<p>Voucher <b>' . esc_html($id) . '</b> is attached (open it in a browser and print or save as PDF). You can also open it in your dashboard: <a href="' . esc_url($link) . '">view voucher</a>.</p></div>';
-    $ok = wp_mail($to, '[' . get_bloginfo('name') . '] AI usage ' . sb_month_label($v['ym']) . ' — ' . sb_fmt_usd($v['bill']) . ' (voucher ' . $id . ')', $body, array('Content-Type: text/html; charset=UTF-8'), array($file));
+    $tot    = isset($v['total']) ? $v['total'] : $v['bill'];
+    $hd     = array('Content-Type: text/html; charset=UTF-8');
+    $subj   = '[' . get_bloginfo('name') . '] Monthly API statement ' . sb_month_label($v['ym']) . ' — ' . sb_fmt_usd($tot) . ' (voucher ' . $id . ')';
+    $vat    = 'VAT ' . rtrim(rtrim(number_format(isset($v['vat_pct']) ? $v['vat_pct'] : 0, 2), '0'), '.') . '%';
+    $ctable = '<table cellpadding="8" style="border-collapse:collapse;border:1px solid #ddd"><tr><td>Subtotal</td><td align="right">' . esc_html(sb_fmt_usd($v['bill'])) . '</td></tr><tr><td>' . esc_html($vat) . '</td><td align="right">' . esc_html(sb_fmt_usd(isset($v['vat']) ? $v['vat'] : 0)) . '</td></tr><tr><td><b>Total</b></td><td align="right"><b style="color:#1a6b3e;font-size:18px">' . esc_html(sb_fmt_usd($tot)) . '</b></td></tr></table>';
+    // to the owner: with the real cost and profit
+    $body = '<div style="font-family:Arial,sans-serif;font-size:15px;line-height:1.6;color:#1d2327"><h2 style="color:#1a6b3e;margin:0 0 8px">' . esc_html(get_bloginfo('name')) . ' — API statement, ' . esc_html(sb_month_label($v['ym'])) . '</h2>'
+        . '<p>AI uses: <b>' . (int) $v['count'] . '</b> · Real cost (provider): <b>$' . number_format($v['raw'], 2) . '</b> · Profit before VAT: <b>$' . number_format($profit, 2) . '</b></p>' . $ctable
+        . '<p>Voucher <b>' . esc_html($id) . '</b> is attached (open it in a browser and print or save as PDF). Dashboard: <a href="' . esc_url($link) . '">view voucher</a>.</p></div>';
+    $ok = wp_mail($to, $subj, $body, $hd, array($file));
+    // to the client (optional): the bill only
+    $cl = trim((string) sb_get('client_email'));
+    if (is_email($cl)) {
+        $cb = '<div style="font-family:Arial,sans-serif;font-size:15px;line-height:1.6;color:#1d2327"><h2 style="color:#1a6b3e;margin:0 0 8px">Monthly API statement — ' . esc_html(sb_month_label($v['ym'])) . '</h2>' . $ctable . '<p>Your voucher <b>' . esc_html($id) . '</b> is attached. You can also see it any time in your dashboard under Blog Write .ai → USD Billing.</p></div>';
+        wp_mail($cl, $subj, $cb, $hd, array($file));
+    }
     if ($ok) {
         $all[$id]['sent'] = time();
         update_option('sb_vouchers', $all, false);
@@ -339,10 +381,20 @@ function sb_page_billing() {
     if (isset($msgs[$m])) {
         echo '<div class="notice notice-' . ('mailfail' === $m || 'bad' === $m ? 'warning' : 'success') . '"><p>' . esc_html($msgs[$m]) . '</p></div>';
     }
-    echo '<p class="sba-muted">মুনাফা (margin) এখন <b>' . esc_html(rtrim(rtrim(number_format(sb_margin(), 1), '0'), '.')) . '%</b> — মানে $১ আসল খরচ = <b>' . esc_html(sb_fmt_usd(sb_mult())) . '</b> দেখাবে। বদলাতে <a href="' . esc_url(admin_url('admin.php?page=sb-settings')) . '">সেটিংস</a>।</p>';
+    $owner = class_exists('SB_Lock') && SB_Lock::is_unlocked();
+    if ($owner) {
+        echo '<p class="sba-muted">🔓 মালিকের ভিউ (PIN আনলক): মুনাফা (margin) এখন <b>' . esc_html(rtrim(rtrim(number_format(sb_margin(), 1), '0'), '.')) . '%</b> — মানে $১ আসল খরচ = <b>' . esc_html(sb_fmt_usd(sb_mult())) . '</b>। বদলাতে <a href="' . esc_url(admin_url('admin.php?page=sb-settings')) . '">সেটিংস</a>।</p>';
+    } else {
+        echo '<p class="sba-muted">এখানে আপনার মাসের AI ব্যবহারের বিল ও ভাউচার দেখা যায়। কোনো সীমা নেই — যত ব্যবহার তত বিল।</p>';
+    }
+    $vp = sb_vat_pct();
     echo '<div class="sba-grid sba-grid--2">';
     foreach (array(array('এই মাস (' . sb_month_label($cur) . ')', $now, $cur), array('গত মাস (' . sb_month_label($prev) . ')', $pm, $prev)) as $c) {
-        echo '<div class="sba-card"><h2>' . esc_html($c[0]) . '</h2><p class="sba-big">' . esc_html(sb_fmt_usd($c[1]['bill'])) . ' <small>বিল</small></p><p class="sba-muted">ব্যবহার ' . (int) $c[1]['count'] . ' বার · আসল খরচ $' . esc_html(number_format($c[1]['raw'], 3)) . ' · মুনাফা $' . esc_html(number_format($profit($c[1]), 3)) . '</p>';
+        $vat = round($c[1]['bill'] * $vp / 100, 2);
+        echo '<div class="sba-card"><h2>' . esc_html($c[0]) . '</h2><p class="sba-big">' . esc_html(sb_fmt_usd(round($c[1]['bill'], 2) + $vat)) . ' <small>মোট বিল</small></p><p class="sba-muted">ব্যবহার ' . (int) $c[1]['count'] . ' বার · API স্টেটমেন্ট ' . esc_html(sb_fmt_usd($c[1]['bill'])) . ' + VAT ' . esc_html(rtrim(rtrim(number_format($vp, 2), '0'), '.')) . '% ' . esc_html(sb_fmt_usd($vat)) . '</p>';
+        if ($owner) {
+            echo '<p class="sba-muted">🔓 আসল খরচ $' . esc_html(number_format($c[1]['raw'], 3)) . ' · মুনাফা (VAT ছাড়া) $' . esc_html(number_format($profit($c[1]), 3)) . '</p>';
+        }
         echo '<form method="post" action="' . esc_url(admin_url('admin-post.php')) . '" style="display:inline">' . wp_nonce_field('sb_voucher_do', '_wpnonce', true, false) . '<input type="hidden" name="action" value="sb_voucher_do"><input type="hidden" name="ym" value="' . esc_attr($c[2]) . '"><button class="button" name="do" value="make">ভাউচার তৈরি</button> <button class="button button-primary" name="do" value="send">ভাউচার তৈরি + ইমেইল</button></form></div>';
     }
     echo '</div><div class="sba-card"><h2>ভাউচার তালিকা</h2>';
@@ -350,10 +402,10 @@ function sb_page_billing() {
     if (!$all) {
         echo '<p class="sba-muted">এখনো কোনো ভাউচার নেই। মাস শেষে নিজে তৈরি হবে (সেটিংসে "অটো" চালু থাকলে), অথবা উপরের বোতামে এখনই বানান।</p>';
     } else {
-        echo '<table class="widefat striped"><thead><tr><th>নম্বর</th><th>মাস</th><th>ব্যবহার</th><th>বিল</th><th>ইমেইল</th><th></th></tr></thead><tbody>';
+        echo '<table class="widefat striped"><thead><tr><th>নম্বর</th><th>মাস</th><th>ব্যবহার</th><th>মোট (VAT সহ)</th><th>ইমেইল</th><th></th></tr></thead><tbody>';
         foreach ($all as $id => $v) {
             $link = wp_nonce_url(admin_url('admin-post.php?action=sb_voucher_view&id=' . rawurlencode($id)), 'sb_voucher');
-            echo '<tr><td><b>' . esc_html($id) . '</b></td><td>' . esc_html(sb_month_label($v['ym'])) . '</td><td>' . (int) $v['count'] . '</td><td><b>' . esc_html(sb_fmt_usd($v['bill'])) . '</b></td><td>' . ($v['sent'] ? esc_html(wp_date('d M Y H:i', $v['sent'])) : '—') . '</td><td><a class="button" target="_blank" href="' . esc_url($link) . '">দেখুন / প্রিন্ট</a></td></tr>';
+            echo '<tr><td><b>' . esc_html($id) . '</b></td><td>' . esc_html(sb_month_label($v['ym'])) . '</td><td>' . (int) $v['count'] . '</td><td><b>' . esc_html(sb_fmt_usd(isset($v['total']) ? $v['total'] : $v['bill'])) . '</b></td><td>' . ($v['sent'] ? esc_html(wp_date('d M Y H:i', $v['sent'])) : '—') . '</td><td><a class="button" target="_blank" href="' . esc_url($link) . '">দেখুন / প্রিন্ট</a></td></tr>';
         }
         echo '</tbody></table>';
     }

@@ -110,10 +110,10 @@ function sb_credit_pill() {
     ?>
     <div class="sba-credit" id="sb-credit">
         <div class="sba-credit-top">
-            <span>💵 ব্যালেন্স</span>
-            <strong><span data-sb="remaining"><?php echo esc_html($st['remaining_usd']); ?></span> / <?php echo esc_html($st['limit_usd']); ?></strong>
+            <span><?php echo $st['unlimited'] ? '💵 এই মাসের বিল' : '💵 ব্যালেন্স'; ?></span>
+            <strong><span data-sb="remaining"><?php echo esc_html($st['remaining_usd']); ?></span><?php echo $st['unlimited'] ? '' : ' / ' . esc_html($st['limit_usd']); ?></strong>
         </div>
-        <div class="sba-bar"><div class="sba-bar-fill" data-sb="bar" style="width:<?php echo esc_attr($st['percent']); ?>%"></div></div>
+        <?php if (!$st['unlimited']) : ?><div class="sba-bar"><div class="sba-bar-fill" data-sb="bar" style="width:<?php echo esc_attr($st['percent']); ?>%"></div></div><?php endif; ?>
         <small>রিসেট: <span data-sb="reset"><?php echo esc_html($st['next_reset_bn']); ?></span></small>
     </div>
     <?php
@@ -152,6 +152,10 @@ function sb_handle_save_settings() {
         'limit_usd'     => max(0, (float) $in('limit_usd', 32)),
         'report_email'  => is_email($in('report_email')) ? sanitize_email($in('report_email')) : '',
         'report_auto'   => $in('report_auto') ? 1 : 0,
+        'vat_pct'       => max(0, min(50, (float) $in('vat_pct', 5))),
+        'client_email'  => is_email($in('client_email')) ? sanitize_email($in('client_email')) : '',
+        'bill_from_addr' => sanitize_textarea_field($in('bill_from_addr')),
+        'bill_to_addr'  => sanitize_textarea_field($in('bill_to_addr')),
         'bill_from'     => sanitize_text_field($in('bill_from')),
         'bill_to'       => sanitize_text_field($in('bill_to')),
         'hero_title'    => sanitize_text_field($in('hero_title')),

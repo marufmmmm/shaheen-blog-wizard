@@ -78,16 +78,18 @@ class SB_Credits {
         list($start, $next) = self::sync($user_id);
         $used  = max(0, (int) get_user_meta($user_id, self::META_USED, true));
         $limit = self::limit($user_id);
-        $remaining = max(0, $limit - $used);
+        $unl = ($limit <= 0);   // no limit: the client pays for what is used
+        $remaining = $unl ? 1000000000 : max(0, $limit - $used);
         return array(
             'limit'       => $limit,
             'used'        => $used,
             'remaining'   => $remaining,
             'unit'        => sb_unit_billed(),
-            'limit_usd'   => sb_fmt_usd(sb_usd($limit)),
+            'unlimited'   => $unl,
+            'limit_usd'   => $unl ? 'Unlimited' : sb_fmt_usd(sb_usd($limit)),
             'used_usd'    => sb_fmt_usd(sb_usd($used)),
-            'remaining_usd' => sb_fmt_usd(sb_usd($remaining)),
-            'percent'     => $limit > 0 ? min(100, round($used * 100 / $limit, 1)) : 100,
+            'remaining_usd' => $unl ? sb_fmt_usd(sb_usd($used)) : sb_fmt_usd(sb_usd($remaining)),
+            'percent'     => $unl ? 0 : min(100, round($used * 100 / $limit, 1)),
             'cycle_start' => $start,
             'next_reset'  => $next,
             'next_reset_bn' => sb_bn_date(strtotime($next . ' 12:00:00 ' . wp_timezone_string())),

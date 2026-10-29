@@ -93,18 +93,30 @@ $render = function ($name, $cur, $blank) use ($cat) {
                 <input type="number" min="0" max="90" step="0.5" name="usd_margin" value="<?php echo esc_attr($s('usd_margin')); ?>">
                 <small>৫০ দিলে $১ আসল খরচ = $২ দেখাবে (বিল = খরচ ÷ (১ − মুনাফা%))। এখন: $১ খরচ → <b><?php echo esc_html(sb_fmt_usd(sb_mult())); ?></b></small>
             </label>
-            <label>মাসিক ব্যালেন্স / লিমিট (USD, ইউজার যা দেখে)
+            <label>মাসিক লিমিট (USD)
                 <input type="number" min="0" step="0.5" name="limit_usd" value="<?php echo esc_attr($s('limit_usd')); ?>">
-                <small>এই অংকের ডলার শেষ হলে মাসের বাকি সময় AI বন্ধ। এখন সমান ≈ <?php echo esc_html(sb_bn_digits(number_format_i18n(sb_limit_credits_from_usd((float) $s('limit_usd'))))); ?> ক্রেডিট।</small>
+                <small><b>০ = সীমাহীন</b> (ক্লায়েন্ট যত ব্যবহার করবে তত বিল)। অংক দিলে এই ডলার শেষ হলে মাসের বাকি সময় AI বন্ধ।</small>
+            </label>
+            <label>VAT %
+                <input type="number" min="0" max="50" step="0.5" name="vat_pct" value="<?php echo esc_attr($s('vat_pct')); ?>">
+                <small>ভাউচারে মাসিক API স্টেটমেন্টের সাথে এই হারে VAT যোগ হয় (ডিফল্ট ৫%)।</small>
             </label>
             <label>মাসিক রিপোর্ট কোন ইমেইলে যাবে
                 <input type="email" name="report_email" value="<?php echo esc_attr($s('report_email')); ?>" placeholder="<?php echo esc_attr(get_option('admin_email')); ?>">
                 <small>খালি রাখলে সাইটের অ্যাডমিন ইমেইলে যাবে।</small>
             </label>
+            <label>ক্লায়েন্টের ইমেইল (ঐচ্ছিক)
+                <input type="email" name="client_email" value="<?php echo esc_attr($s('client_email')); ?>" placeholder="client@example.com">
+                <small>দিলে মাস শেষে ক্লায়েন্টও শুধু বিল ও ভাউচার পাবে (আসল খরচ ও মুনাফা পাবে না)।</small>
+            </label>
             <label class="sba-inline-check"><input type="checkbox" name="report_auto" value="1" <?php checked((int) $s('report_auto')); ?>> প্রতি মাস শেষে নিজে নিজে ইমেইল পাঠান ও ভাউচার বানান</label>
             <div class="sba-row">
                 <label>ভাউচারে "কে বিল দিচ্ছে" (আপনার নাম/কোম্পানি)<input type="text" name="bill_from" value="<?php echo esc_attr($s('bill_from')); ?>" placeholder="<?php echo esc_attr(get_bloginfo('name')); ?>"></label>
                 <label>ভাউচারে "কাকে" (গ্রাহকের নাম)<input type="text" name="bill_to" value="<?php echo esc_attr($s('bill_to')); ?>" placeholder="<?php echo esc_attr(get_bloginfo('name')); ?>"></label>
+            </div>
+            <div class="sba-row">
+                <label>আপনার ঠিকানা/ফোন/ইমেইল (প্রতি লাইনে একটি)<textarea name="bill_from_addr" rows="4"><?php echo esc_textarea($s('bill_from_addr')); ?></textarea></label>
+                <label>গ্রাহকের ঠিকানা (প্রতি লাইনে একটি)<textarea name="bill_to_addr" rows="4"><?php echo esc_textarea($s('bill_to_addr')); ?></textarea></label>
             </div>
             <p class="sba-muted">ভাউচার ও মাসের হিসাব দেখুন: <a href="<?php echo esc_url(admin_url('admin.php?page=sb-billing')); ?>">💵 USD Billing</a></p>
             <div class="sba-row">

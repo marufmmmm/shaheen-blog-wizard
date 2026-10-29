@@ -16,11 +16,11 @@ $blog_page = (int) get_option('sb_blog_page_id');
 
     <div class="sba-grid">
         <div class="sba-card sba-card--credit">
-            <h2>💵 AI Balance (USD)</h2>
+            <h2><?php echo $st['unlimited'] ? '💵 This month\'s AI bill' : '💵 AI Balance (USD)'; ?></h2>
             <p class="sba-big"><span data-sb="remaining"><?php echo esc_html($st['remaining_usd']); ?></span>
-                <small>/ <?php echo esc_html($st['limit_usd']); ?></small></p>
-            <div class="sba-bar"><div class="sba-bar-fill" style="width:<?php echo esc_attr($st['percent']); ?>%"></div></div>
-            <p class="sba-muted">Used: <?php echo esc_html($st['used_usd']); ?> · Next reset: <strong><?php echo esc_html($st['next_reset_bn']); ?></strong></p>
+                <?php if (!$st['unlimited']) : ?><small>/ <?php echo esc_html($st['limit_usd']); ?></small><?php endif; ?></p>
+            <?php if (!$st['unlimited']) : ?><div class="sba-bar"><div class="sba-bar-fill" style="width:<?php echo esc_attr($st['percent']); ?>%"></div></div><?php endif; ?>
+            <p class="sba-muted"><?php echo $st['unlimited'] ? 'No limit — you pay for what you use. ' : ''; ?>Used: <?php echo esc_html($st['used_usd']); ?> · Next reset: <strong><?php echo esc_html($st['next_reset_bn']); ?></strong></p>
         </div>
         <div class="sba-card">
             <h2>📰 Posts</h2>
