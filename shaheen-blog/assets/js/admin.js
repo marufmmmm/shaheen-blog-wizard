@@ -433,6 +433,7 @@
     }
     var t = $('#sb_content'); return t ? t.value : '';
   }
+  window.sbEditorContent = editorContent;
   function setEditorContent(html) {
     if (window.tinymce && tinymce.get('sb_content') && !tinymce.get('sb_content').isHidden()) {
       tinymce.get('sb_content').setContent(html);
@@ -492,10 +493,12 @@
       imgId = a.id;
       pv.src = (a.sizes && a.sizes.medium) ? a.sizes.medium.url : a.url;
       pv.hidden = false; rm.hidden = false;
+      if (window.sbImgOnPick) { window.sbImgOnPick(a); }
     });
     frame.open();
   });
-  rm.addEventListener('click', function () { imgId = 0; pv.hidden = true; pv.removeAttribute('src'); rm.hidden = true; });
+  rm.addEventListener('click', function () { imgId = 0; pv.hidden = true; pv.removeAttribute('src'); rm.hidden = true; if (window.sbImgOnPick) { window.sbImgOnPick(null); } });
+  window.sbFeat = { get: function () { return imgId; }, set: function (id, url) { imgId = id; pv.src = url; pv.hidden = false; rm.hidden = false; } };
 
   /* FAQ */
   var faqList = $('#faq-list');
@@ -1071,6 +1074,9 @@
             return post('sb_ai', aiPayload(c)).then(function (d2) { spent += d2.cost; applyAI(c, d2.result); });
           });
         }, Promise.resolve());
+      }).then(function () {
+        var ai = $('#inc-image');
+        if ((f === 'article' || f === 'custom' || f === 'rewrite') && ai && ai.checked && window.sbImgAuto) { btn.textContent = '⏳ ছবি তৈরি হচ্ছে…'; return window.sbImgAuto().then(function (c) { spent += c || 0; }); }
       }).then(function () {
         say(msg, '✓ হয়েছে। মোট ' + money(spent) + ' কেটেছে।', 'ok'); toast('✓ হয়েছে। মোট ' + money(spent) + ' কেটেছে।', 'ok');
       }).catch(function (e) { say(msg, e.message, 'err'); toast(e.message, 'err'); })

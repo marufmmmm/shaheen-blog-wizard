@@ -3,7 +3,51 @@
   "_source": "https://platform.openai.com/docs/pricing",
   "_checked": "2026-10-29 (Terra price from third-party sites; Astra price from third-party sites. Re-check against the official OpenAI pricing page.)",
   "models": {
-    "gpt-6.1-terra": { "in": 1.00, "out": 5.00,  "note": "প্রস্তাবিত: ভালো বাংলা, কম দাম, দ্রুত", "est": [200, 275, 390],    "charge": [320, 440, 620] },
-    "gpt-6-astra":   { "in": 10.00, "out": 50.00, "note": "সবচেয়ে সক্ষম ও দামি; শুধু কৌশল/পরিকল্পনা ধাপে",   "est": [2283, 2983, 3983], "charge": [2300, 3000, 4000] }
+    "gpt-6.1-terra": {
+      "in": 1.0,
+      "out": 5.0,
+      "note": "প্রস্তাবিত: ভালো বাংলা, কম দাম, দ্রুত",
+      "est": [
+        200,
+        275,
+        390
+      ],
+      "charge": [
+        320,
+        440,
+        620
+      ]
+    },
+    "gpt-6-astra": {
+      "in": 10.0,
+      "out": 50.0,
+      "note": "সবচেয়ে সক্ষম ও দামি; শুধু কৌশল/পরিকল্পনা ধাপে",
+      "est": [
+        2283,
+        2983,
+        3983
+      ],
+      "charge": [
+        2300,
+        3000,
+        4000
+      ]
+    }
+  },
+  "image_models": {
+    "gpt-image-2.5-sunburst": {
+      "label": "Sunburst",
+      "note": "সবচেয়ে নির্ভুল; ইউনিফর্ম রেফারেন্স ছবির সাথে ভালো",
+      "txt_in": 5.0,
+      "img_in": 8.0,
+      "img_out": 30.0
+    },
+    "gpt-image-2.5-flare": {
+      "label": "Flare",
+      "note": "খুব দ্রুত; সাধারণ ছবির জন্য",
+      "txt_in": 5.0,
+      "img_in": 8.0,
+      "img_out": 30.0
+    }
   }
 }

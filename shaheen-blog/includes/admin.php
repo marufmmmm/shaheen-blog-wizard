@@ -40,6 +40,12 @@ function sb_admin_assets() {
     wp_enqueue_style('sb-admin', SB_URL . 'assets/css/admin.css', array('sb-fonts'), SB_VERSION . '.' . filemtime(SB_PATH . 'assets/css/admin.css'));
     wp_enqueue_script('sb-admin', SB_URL . 'assets/js/admin.js', array(), SB_VERSION . '.' . filemtime(SB_PATH . 'assets/js/admin.js'), true);
 
+    if ($page === 'sb-new') {
+        wp_enqueue_script('sb-images', SB_URL . 'assets/js/images.js', array('sb-admin'), SB_VERSION . '.' . filemtime(SB_PATH . 'assets/js/images.js'), true);
+    }
+    if ($page === 'sb-uniforms') {
+        wp_enqueue_media();
+    }
     if ($page === 'sb-phones') {
         wp_enqueue_script('sb-phones-admin', SB_URL . 'assets/js/phones-admin.js', array('sb-admin'), SB_VERSION . '.' . filemtime(SB_PATH . 'assets/js/phones-admin.js'), true);
     }

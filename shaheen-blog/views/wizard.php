@@ -239,6 +239,7 @@ $costs['research'] = max(0, (int) sb_get('cost_research'));
                 <label class="sba-inline-check"><input type="checkbox" id="inc-faq" <?php checked($d['inc_faq']); ?>> FAQ <em>(আর্টিকেলের নিচে প্রশ্ন-উত্তর — AI হলে +<?php echo esc_html(sb_money($costs['faq'])); ?>)</em></label>
                 <select id="f-faqn" title="FAQ কয়টি"><option value="3">৩</option><option value="5" selected>৫</option><option value="7">৭</option></select> টি<br>
                 <label class="sba-inline-check"><input type="checkbox" id="inc-related"> স্মার্ট সম্পর্কিত পোস্ট/পেজ <em>(পাশে — AI সাইট থেকে মিলগুলো বেছে দেবে, +<?php echo esc_html(sb_money($costs['related'])); ?>)</em></label>
+                <label class="sba-inline-check"><input type="checkbox" id="inc-image"> 🎨 AI দিয়ে ফিচার্ড ছবিও বানান <em>(ঐচ্ছিক — ছবি আগে থেকে না থাকলে, লেখা শেষে AI ছবি বেছে বানাবে)</em></label><br>
                 <p class="sba-muted">পুরনো পোস্টে শুধু এগুলো যোগ করতে: টিক দিয়ে "শুধু টিক দেওয়াগুলো বানান" চাপুন — আর্টিকেল একদম বদলাবে না। নতুন পোস্টে টিক দিয়ে নিচের "সম্পূর্ণ আর্টিকেল" তৈরি করলে AI আর্টিকেল থেকে টিক দেওয়াগুলো নিজে বানিয়ে দেবে। হাতে লিখতে চাইলে নিচের সামারি ঘরে ও পেজ ৩-এর FAQ অংশে লিখুন। <strong>টিক না দিলে সামারি/FAQ বানানো হবে না, পোস্টেও দেখাবে না।</strong>
                 <button type="button" class="button button-primary" id="inc-only">🤖 শুধু টিক দেওয়াগুলো বানান (আর্টিকেল বদলাবে না)</button>
                 <button type="button" class="button" data-ai="faq">🤖 শুধু FAQ তৈরি করুন (<?php echo esc_html(sb_money($costs['faq'])); ?>)</button></p>
@@ -310,6 +311,31 @@ $costs['research'] = max(0, (int) sb_get('cost_research'));
                     </div>
                 </div>
             </div>
+            <details class="sba-imgstudio" id="img-studio" style="margin:10px 0 16px">
+                <summary><strong>🎨 ছবির তথ্য ও AI ছবি</strong> <small class="sba-muted">(ঐচ্ছিক — ছবি নিজে দিলেও নিচের তথ্যগুলো লিখে রাখা যায়)</small></summary>
+                <div class="sba-row" style="margin-top:8px">
+                    <label>Alt text (SEO)<input type="text" id="img-alt" placeholder="ছবিতে আসলে কী দেখা যাচ্ছে"></label>
+                    <label>ছবির শিরোনাম<input type="text" id="img-title"></label>
+                    <label>ক্যাপশন<input type="text" id="img-caption"></label>
+                </div>
+                <label>ছবির বিবরণ <small>(এই ছবি কী এবং লেখার সাথে কেন মেলে)</small><textarea id="img-details" rows="2"></textarea></label>
+                <hr>
+                <div class="sba-row">
+                    <label>মডেল<select id="img-model"><option value="auto">স্বয়ংক্রিয় (প্রস্তাবিত)</option><option value="gpt-image-2.5-sunburst">Sunburst — সবচেয়ে নির্ভুল</option><option value="gpt-image-2.5-flare">Flare — দ্রুত</option></select></label>
+                    <label>ইউনিফর্ম<select id="img-uniform"><option value="auto">স্বয়ংক্রিয় (লেখা দেখে)</option><option value="none">ইউনিফর্ম লাগবে না</option>
+                    <?php foreach (sb_uniforms(true) as $u) : ?><option value="<?php echo esc_attr($u['id']); ?>"><?php echo esc_html((sb_uniform_cats()[$u['cat']] ?? '') . ($u['name'] !== '' ? ' — ' . $u['name'] : '')); ?></option><?php endforeach; ?>
+                    </select></label>
+                    <label>মাপ<select id="img-size"><option value="1536x1024">আড়াআড়ি (১৫৩৬×১০২৪)</option><option value="1024x1024">চৌকো (১০২৪×১০২৪)</option><option value="1024x1536">লম্বা (১০২৪×১৫৩৬)</option></select></label>
+                    <label>মান<select id="img-quality"><option value="low">কম (সস্তা)</option><option value="medium" selected>মাঝারি</option><option value="high">উচ্চ (দামি)</option></select></label>
+                </div>
+                <label>ছবির প্রম্পট <small>(তৈরি হলে নিজে বদলাতে পারবেন)</small><textarea id="img-prompt" rows="4" placeholder="ইংরেজিতে বিস্তারিত প্রম্পট — বা নিচের বোতামে AI দিয়ে তৈরি করুন"></textarea></label>
+                <p>
+                    <button type="button" class="button" id="img-mkprompt">✍️ প্রম্পট তৈরি করুন</button>
+                    <button type="button" class="button button-primary" id="img-make">🎨 এই প্রম্পটে ছবি বানান</button>
+                    <span class="sba-muted" id="img-msg"></span>
+                </p>
+                <p class="sba-muted">একবার চাপলে একটি ছবি তৈরি হয় এবং তখনই শুধু বিল যোগ হয়। ছবি ব্যর্থ হলে কোনো বিল নেই। ছবি WebP ফরম্যাটে সেভ হয়।</p>
+            </details>
             <div class="sba-ai">
                 <div class="sba-ai-head"><h3>📣 Facebook ক্যাপশন <small class="sba-muted">(আর্টিকেল থেকে; পেজে পোস্টের সময় কপি করুন)</small></h3>
                     <button type="button" class="button" data-ai="caption">🤖 তৈরি করুন <em>(<?php echo esc_html(sb_money($costs['caption'])); ?>)</em></button></div>

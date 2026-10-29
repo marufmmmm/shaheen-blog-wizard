@@ -159,7 +159,7 @@ function sb_ledger_add($user_id, $feature, $credits, $post_id = 0, $real_usd = n
         'post_id'  => (int) $post_id,
         'credits'  => $credits,
         'raw_usd'  => $real_usd !== null ? (float) $real_usd : $credits * SB_RAW_USD_PER_CREDIT,
-        'bill_usd' => ($real_usd !== null ? (float) $real_usd : $credits * SB_RAW_USD_PER_CREDIT) * SB_BILL_MULT,
+        'bill_usd' => isset($GLOBALS['sb_bill_override']) ? (float) $GLOBALS['sb_bill_override'] : ($real_usd !== null ? (float) $real_usd : $credits * SB_RAW_USD_PER_CREDIT) * SB_BILL_MULT,
     ));
 }
 
