@@ -272,6 +272,10 @@ function csa_record_usage( $entry, $usage, $feature = '' ) {
 	krsort( $day );
 	update_option( 'csa_usage_day', array_slice( $day, 0, 40, true ), false );
 	$GLOBALS['csa_last_cost'] = $cost;
+	// Same USD ledger as the blog writer, so the monthly bill covers SEO, chat and every other Site Agent use.
+	if ( function_exists( 'sb_ledger_add' ) && $cost > 0 ) {
+		sb_ledger_add( get_current_user_id(), 'agent_' . ( $feature ? $feature : 'chat' ), max( 1, (int) ceil( $cost / SB_RAW_USD_PER_CREDIT ) ), 0, $cost );
+	}
 	if ( ! empty( $GLOBALS['csa_current_chat'] ) ) {
 		$cc                                  = get_option( 'csa_chatcost', array() );
 		$cc                                  = is_array( $cc ) ? $cc : array();
