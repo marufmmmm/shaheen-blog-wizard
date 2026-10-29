@@ -65,7 +65,7 @@ $blog_page = (int) get_option('sb_blog_page_id');
                         <li>
                             <?php echo esc_html(isset($labels[$row['feature']]) ? $labels[$row['feature']] : $row['feature']); ?>
                             <span class="sba-muted"><?php echo esc_html(sb_bn_date($row['t'], false)); ?></span>
-                            <strong class="sba-minus">−<?php echo esc_html(sb_money($row['cost'])); ?></strong>
+                            <strong><?php echo esc_html(sb_money($row['cost'])); ?></strong>
                         </li>
                     <?php endforeach; ?>
                 </ul>
