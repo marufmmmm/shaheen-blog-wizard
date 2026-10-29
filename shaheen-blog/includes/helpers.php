@@ -7,7 +7,7 @@ if (!defined('ABSPATH')) {
 function sb_defaults() {
     return array(
         'api_key'       => '',
-        'model'         => 'gpt-4o-mini',
+        'model'         => 'gpt-6.1-terra',
         'default_limit' => 80000,
         'limit_usd'     => 0,
         'vat_pct'       => 5,
@@ -41,7 +41,8 @@ function sb_defaults() {
         'ai_lang'        => 'bn',
         'ai_lang_other'  => '',
         'style_note'     => 'প্রচলিত চলিত ভাষায় লিখবে। কঠিন, সাধু বা বইয়ের মতো ভারী শব্দ এড়িয়ে প্রতিদিনের সহজ শব্দ ব্যবহার করবে। যেখানে জনপ্রিয় ইংরেজি শব্দ (যেমন: ক্লাস, কোচিং, অনলাইন) বেশি চলে সেখানে সেটাই লিখবে।',
-        'model_article'  => '',
+        'model_article'  => 'gpt-6.1-terra',
+        'model_plan'     => 'gpt-6-astra',
         'extra_models'   => '',
         'top_offset'     => 0,
         'content_width'  => 0,
@@ -101,6 +102,7 @@ function sb_extra_models() {
 function sb_model_catalog() {
     // id => [price text, [est credits t1,t2,t3], note, [default charge t1,t2,t3]]
     return array_merge(sb_extra_models(), array(
+        'gpt-6.1-terra' => array('1.00 / 5.00', array(200, 275, 390), 'প্রস্তাবিত: ভালো বাংলা, কম দাম, দ্রুত', array(320, 440, 620)),
         'gpt-4o-mini'  => array('0.15 / 0.60', array(17, 21, 29), 'সবচেয়ে সস্তা; বাংলার মান মোটামুটি', array(120, 150, 180)),
         'gpt-5.4-nano' => array('0.20 / 1.25', array(55, 73, 103), 'সস্তা, নতুন প্রজন্ম', array(120, 150, 180)),
         'gpt-4.1-mini' => array('0.40 / 1.60', array(45, 56, 78), 'ভালো ও সস্তা', array(120, 150, 180)),
@@ -131,7 +133,7 @@ function sb_model_prices() {
 /** Models an editor may pick for a prompt-article. */
 function sb_allowed_models() {
     $ids = array_keys(sb_model_catalog());
-    foreach (array('model', 'model_article') as $k) {
+    foreach (array('model', 'model_article', 'model_plan') as $k) {
         $m = trim((string) sb_get($k));
         if ($m !== '') {
             $ids[] = $m;
@@ -149,6 +151,9 @@ function sb_pick_model($in, $name) {
 
 /** Model for a feature: article may use its own (better) model. */
 function sb_model_for($feature) {
+    if ($feature === 'brief' && trim((string) sb_get('model_plan')) !== '') {
+        return trim((string) sb_get('model_plan'));   // SEO strategy / planning step
+    }
     $m = (in_array($feature, array('article', 'custom', 'rewrite', 'rewrite_post', 'edit', 'edit_new'), true)) ? trim((string) sb_get('model_article')) : '';
     return $m !== '' ? $m : sb_get('model');
 }
@@ -592,3 +597,18 @@ function sb_usage_credits($model, $usage) {
     $write = ((int) (isset($usage['completion_tokens']) ? $usage['completion_tokens'] : 0)) * (float) $m[2] / 1000000 / 0.0002;
     return array('read' => (int) ceil($read), 'write' => (int) ceil($write));
 }
+
+
+/** One-time: apply the recommended model setup (Terra for writing, Astra for strategy) to settings saved earlier. */
+add_action('init', function () {
+    if (get_option('sb_model_rec') === '1') {
+        return;
+    }
+    $s = get_option('sb_settings', array());
+    $s = is_array($s) ? $s : array();
+    $s['model']         = 'gpt-6.1-terra';
+    $s['model_article'] = 'gpt-6.1-terra';
+    $s['model_plan']    = 'gpt-6-astra';
+    update_option('sb_settings', $s);
+    update_option('sb_model_rec', '1', false);
+}, 6);

@@ -168,6 +168,7 @@ function sb_handle_save_settings() {
         'content_width' => max(0, min(1600, (int) $in('content_width', 0))),
         'top_offset'    => max(-300, min(300, (int) $in('top_offset', 0))),
         'model_article' => sb_pick_model($in, 'model_article'),
+        'model_plan'    => sb_pick_model($in, 'model_plan'),
         'style_note'    => sanitize_textarea_field($in('style_note')),
         'cost_research' => sb_u2c((float) $in('cost_research', 0.02)),
         'site_urls'     => sanitize_textarea_field($in('site_urls')),

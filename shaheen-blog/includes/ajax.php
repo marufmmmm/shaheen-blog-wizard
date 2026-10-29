@@ -110,6 +110,9 @@ function sb_ajax_ai() {
         if (!in_array($cmodel, sb_allowed_models(), true)) {
             $cmodel = trim((string) sb_get('model_article')) ?: sb_get('model');
         }
+        if ($feature === 'brief' && trim((string) sb_get('model_plan')) !== '') {
+            $cmodel = trim((string) sb_get('model_plan'));   // planning step always uses the planning model
+        }
         $cost = ($feature === 'brief') ? max($cost, (int) round(sb_custom_cost(1, $cmodel) * 0.2)) : (((int) sb_req('words', 0) >= 300) ? sb_words_cost((int) sb_req('words'), $cmodel) : sb_custom_cost($tier, $cmodel));   // the brief costs about 1/5 of an article on the chosen model
     }
     if ($feature === 'rewrite_post') {

@@ -59,13 +59,17 @@ $render = function ($name, $cur, $blank) use ($cat) {
 ?>
             <label>মডেল <small>(শিরোনাম, সাবটাইটেল, মেটা, সামারি, FAQ ইত্যাদির জন্য)</small>
                 <?php $render('model', $s('model'), false); ?>
-                <small>প্রস্তাবিত: gpt-4o-mini (সস্তা ও দ্রুত)। বাংলা মান ভালো চাইলে নিচে আর্টিকেলের মডেল আলাদা বাছুন।</small>
+                <small>প্রস্তাবিত: gpt-6.1-terra (কম দাম, ভালো বাংলা)।</small>
             </label>
             <label>লেখার ভাষা ও স্টাইল নির্দেশনা <small>(সব AI লেখায় মানা হবে)</small>
                 <textarea name="style_note" rows="3"><?php echo esc_textarea($s('style_note')); ?></textarea></label>
             <label>আর্টিকেলের জন্য আলাদা মডেল <small>(প্রম্পট থেকে লেখা, সংশোধন, রিরাইট)</small>
                 <?php $render('model_article', $s('model_article'), true); ?>
                 <small>প্রতিটি মডেলের চার্জ নিচের তালিকায় ঠিক করুন। লেখার সময় পোস্ট এডিটরেও মডেল বাছা যাবে।</small>
+            </label>
+            <label>SEO কৌশল ও পরিকল্পনার মডেল <small>("আগে বুঝে নিন" ধাপ: বিষয় বোঝা, গবেষণা, পরিকল্পনা)</small>
+                <?php $render('model_plan', $s('model_plan'), true); ?>
+                <small>প্রস্তাবিত: gpt-6-astra (সবচেয়ে দামি, শুধু এই ধাপে)। খালি রাখলে ওপরের মডেলই চলবে।</small>
             </label>
             <label>➕ নিজের মডেল যোগ করুন <small>(OpenAI অ্যাকাউন্টে যে মডেলের API নাম আছে, প্রতি লাইনে একটি। চাইলে চার্জও দিন: <code>মডেল-নাম | ৮০০–১০০০ শব্দের চার্জ | ১০০০–১৫০০ | ১৫০০+</code>)</small>
                 <textarea name="extra_models" rows="3" placeholder="model-id-here | 400 | 550 | 750"><?php echo esc_textarea($s('extra_models')); ?></textarea>

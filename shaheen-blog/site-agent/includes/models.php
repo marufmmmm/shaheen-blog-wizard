@@ -44,6 +44,7 @@ function csa_builtin_models() {
 		'deepseek-flash' => array( 'provider' => 'deepseek', 'id' => 'deepseek-flash', 'label' => 'DeepSeek Flash', 'in' => 0.3, 'out' => 1.2, 'cache' => 0.006, 'vision' => false, 'code' => 3, 'bn' => 3, 'tier' => 'save', 'best' => 'Cheapest for text: bulk SEO audits, keywords, blog ideas, English posts' ),
 		// OpenAI (ChatGPT)
 		'gpt-sol'        => array( 'provider' => 'openai', 'id' => 'gpt-6-sol', 'label' => 'GPT-6 Sol (ChatGPT)', 'in' => 2, 'out' => 10, 'cache' => 0.2, 'vision' => true, 'code' => 5, 'bn' => 5, 'tier' => 'good', 'best' => 'ChatGPT writing: natural Bangla and English blog posts; same price as Claude Sonnet' ),
+		'gpt-terra'      => array( 'provider' => 'openai', 'id' => 'gpt-6.1-terra', 'label' => 'GPT-6.1 Terra', 'in' => 1, 'out' => 5, 'cache' => 0.05, 'vision' => true, 'code' => 5, 'bn' => 5, 'tier' => 'good', 'best' => 'ChatGPT Terra: fast, cheap, strong Bangla; good default for writing, SEO text and edits' ),
 		'gpt-luna'       => array( 'provider' => 'openai', 'id' => 'gpt-6-luna', 'label' => 'GPT-6 Luna', 'in' => 0.1, 'out' => 0.5, 'cache' => 0.01, 'vision' => true, 'code' => 3, 'bn' => 3, 'tier' => 'save', 'best' => 'Very cheap ChatGPT model: bulk work, ideas, short texts, alt text' ),
 		'gpt-astra'      => array( 'provider' => 'openai', 'id' => 'gpt-6-astra', 'label' => 'GPT-6 Astra', 'in' => 10, 'out' => 50, 'cache' => 1, 'vision' => true, 'code' => 5, 'bn' => 5, 'tier' => 'premium', 'best' => 'OpenAI\'s strongest and most expensive model; not needed for website work' ),
 		// Google (Gemini)
@@ -117,6 +118,7 @@ function csa_tasks() {
 function csa_presets() {
 	return array(
 		'smart'    => array( 'label' => '⭐ ' . csa_t( 'Smart mix (recommended)' ), 'chat' => 'kimi', 'blog' => 'gpt-sol', 'seo' => 'haiku', 'bulk' => 'gpt-luna', 'vision' => 'haiku' ),
+		'terra-astra' => array( 'label' => 'GPT Terra + Astra', 'chat' => 'gpt-terra', 'blog' => 'gpt-terra', 'seo' => 'gpt-astra', 'bulk' => 'gpt-terra', 'vision' => 'gpt-terra' ),
 		'quality'  => array( 'label' => csa_t( 'Best quality' ), 'chat' => 'sonnet', 'blog' => 'sonnet', 'seo' => 'sonnet', 'bulk' => 'haiku', 'vision' => 'haiku' ),
 		'balanced' => array( 'label' => csa_t( 'Balanced' ), 'chat' => 'kimi', 'blog' => 'haiku', 'seo' => 'haiku', 'bulk' => 'deepseek-flash', 'vision' => 'gemini-lite' ),
 		'cheapest' => array( 'label' => csa_t( 'Lowest cost' ), 'chat' => 'deepseek-pro', 'blog' => 'gemini-lite', 'seo' => 'deepseek-flash', 'bulk' => 'deepseek-flash', 'vision' => 'gemini-lite' ),
