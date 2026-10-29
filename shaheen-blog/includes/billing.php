@@ -233,7 +233,6 @@ function sb_voucher_make($ym) {
         'made'    => time(),
         'count'   => $m['count'],
         'credits' => $m['credits'],
-        'raw'     => round($m['raw'], 4),
         'bill'    => round($m['bill'], 2),
         'vat_pct' => sb_vat_pct(),
         'vat'     => round($m['bill'] * sb_vat_pct() / 100, 2),
@@ -333,16 +332,15 @@ function sb_voucher_send($id) {
     @file_put_contents($dir . '/index.html', '');
     $file = $dir . '/voucher-' . $id . '.html';
     file_put_contents($file, sb_voucher_html($v));
-    $profit = $v['bill'] - $v['raw'];
     $link   = wp_nonce_url(admin_url('admin-post.php?action=sb_voucher_view&id=' . rawurlencode($id)), 'sb_voucher');
     $tot    = isset($v['total']) ? $v['total'] : $v['bill'];
     $hd     = array('Content-Type: text/html; charset=UTF-8');
     $subj   = '[' . get_bloginfo('name') . '] Monthly API statement ' . sb_month_label($v['ym']) . ' — ' . sb_fmt_usd($tot) . ' (voucher ' . $id . ')';
     $vat    = 'VAT ' . rtrim(rtrim(number_format(isset($v['vat_pct']) ? $v['vat_pct'] : 0, 2), '0'), '.') . '%';
     $ctable = '<table cellpadding="8" style="border-collapse:collapse;border:1px solid #ddd"><tr><td>Subtotal</td><td align="right">' . esc_html(sb_fmt_usd($v['bill'])) . '</td></tr><tr><td>' . esc_html($vat) . '</td><td align="right">' . esc_html(sb_fmt_usd(isset($v['vat']) ? $v['vat'] : 0)) . '</td></tr><tr><td><b>Total</b></td><td align="right"><b style="color:#1a6b3e;font-size:18px">' . esc_html(sb_fmt_usd($tot)) . '</b></td></tr></table>';
-    // to the owner: with the real cost and profit
+    // to the report address
     $body = '<div style="font-family:Arial,sans-serif;font-size:15px;line-height:1.6;color:#1d2327"><h2 style="color:#1a6b3e;margin:0 0 8px">' . esc_html(get_bloginfo('name')) . ' — API statement, ' . esc_html(sb_month_label($v['ym'])) . '</h2>'
-        . '<p>AI uses: <b>' . (int) $v['count'] . '</b> · Real cost (provider): <b>$' . number_format($v['raw'], 2) . '</b> · Profit before VAT: <b>$' . number_format($profit, 2) . '</b></p>' . $ctable
+        . '<p>AI uses: <b>' . (int) $v['count'] . '</b></p>' . $ctable
         . '<p>Voucher <b>' . esc_html($id) . '</b> is attached (open it in a browser and print or save as PDF). Dashboard: <a href="' . esc_url($link) . '">view voucher</a>.</p></div>';
     $ok = wp_mail($to, $subj, $body, $hd, array($file));
     // to the client (optional): the bill only
@@ -435,25 +433,16 @@ function sb_page_billing() {
     $pm   = sb_ledger_month($prev);
     $msgs = array('made' => 'ভাউচার তৈরি হয়েছে ✓', 'sent' => 'ভাউচার তৈরি হয়েছে এবং ইমেইল পাঠানো হয়েছে ✓', 'mailfail' => 'ভাউচার তৈরি হয়েছে, কিন্তু ইমেইল যায়নি — হোস্টের মেইল ঠিক আছে কিনা দেখুন (সেটিংসে ইমেইল ঠিকানা মিলিয়ে নিন)।', 'bad' => 'মাস ঠিক নয়।');
     $m = sanitize_key($_GET['m'] ?? '');
-    $profit = function ($x) { return $x['bill'] - $x['raw']; };
     echo '<div class="wrap sba"><h1>💵 USD Billing</h1>';
     if (isset($msgs[$m])) {
         echo '<div class="notice notice-' . ('mailfail' === $m || 'bad' === $m ? 'warning' : 'success') . '"><p>' . esc_html($msgs[$m]) . '</p></div>';
     }
-    $owner = class_exists('SB_Lock') && SB_Lock::is_unlocked();
-    if ($owner) {
-        echo '<p class="sba-muted">🔓 মালিকের ভিউ (PIN আনলক): নিচে আসল খরচ ও লাভও দেখাচ্ছে। ক্লায়েন্ট এটা দেখে না।</p>';
-    } else {
-        echo '<p class="sba-muted">এখানে আপনার মাসের AI ব্যবহারের বিল ও ভাউচার দেখা যায়। কোনো সীমা নেই — যত ব্যবহার তত বিল।</p>';
-    }
+    echo '<p class="sba-muted">এখানে আপনার মাসের AI ব্যবহারের বিল ও ভাউচার দেখা যায়। কোনো সীমা নেই — যত ব্যবহার তত বিল।</p>';
     $vp = sb_vat_pct();
     echo '<div class="sba-grid sba-grid--2">';
     foreach (array(array('এই মাস (' . sb_month_label($cur) . ')', $now, $cur), array('গত মাস (' . sb_month_label($prev) . ')', $pm, $prev)) as $c) {
         $vat = round($c[1]['bill'] * $vp / 100, 2);
         echo '<div class="sba-card"><h2>' . esc_html($c[0]) . '</h2><p class="sba-big">' . esc_html(sb_fmt_usd(round($c[1]['bill'], 2) + $vat)) . ' <small>মোট বিল</small></p><p class="sba-muted">ব্যবহার ' . (int) $c[1]['count'] . ' বার · API স্টেটমেন্ট ' . esc_html(sb_fmt_usd($c[1]['bill'])) . ' + VAT ' . esc_html(rtrim(rtrim(number_format($vp, 2), '0'), '.')) . '% ' . esc_html(sb_fmt_usd($vat)) . '</p>';
-        if ($owner) {
-            echo '<p class="sba-muted">🔓 আসল খরচ $' . esc_html(number_format($c[1]['raw'], 4)) . ' · লাভ (VAT ছাড়া) $' . esc_html(number_format($profit($c[1]), 4)) . '</p>';
-        }
         echo '<form method="post" action="' . esc_url(admin_url('admin-post.php')) . '" style="display:inline">' . wp_nonce_field('sb_voucher_do', '_wpnonce', true, false) . '<input type="hidden" name="action" value="sb_voucher_do"><input type="hidden" name="ym" value="' . esc_attr($c[2]) . '"><button class="button" name="do" value="make">ভাউচার তৈরি</button> <button class="button button-primary" name="do" value="send">ভাউচার তৈরি + ইমেইল</button></form></div>';
     }
     echo '</div><div class="sba-card"><h2>ভাউচার তালিকা</h2>';
