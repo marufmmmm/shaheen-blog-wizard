@@ -170,6 +170,13 @@ function sb_month_range($ym) {
     return array($s->getTimestamp(), $e->getTimestamp() - 1);
 }
 
+/** One number for a month: API statement + VAT. Every screen shows this same figure. */
+function sb_month_total($ym) {
+    $m   = sb_ledger_month($ym);
+    $sub = round($m['bill'], 2);
+    return $sub + round($sub * sb_vat_pct() / 100, 2);
+}
+
 function sb_ledger_month($ym) {
     global $wpdb;
     list($a, $b) = sb_month_range($ym);
@@ -430,6 +437,11 @@ function sb_page_billing() {
     }
     $cur  = wp_date('Y-m');
     $prev = (new DateTimeImmutable('first day of last month', wp_timezone()))->format('Y-m');
+    foreach (sb_vouchers() as $vid => $vv) {   // an open (current-month) voucher always shows today's numbers
+        if (isset($vv['ym']) && $vv['ym'] === $cur) {
+            sb_voucher_make($cur);
+        }
+    }
     $now  = sb_ledger_month($cur);
     $pm   = sb_ledger_month($prev);
     $msgs = array('made' => 'ভাউচার তৈরি হয়েছে ✓', 'sent' => 'ভাউচার তৈরি হয়েছে এবং ইমেইল পাঠানো হয়েছে ✓', 'mailfail' => 'ভাউচার তৈরি হয়েছে, কিন্তু ইমেইল যায়নি — হোস্টের মেইল ঠিক আছে কিনা দেখুন (সেটিংসে ইমেইল ঠিকানা মিলিয়ে নিন)।', 'bad' => 'মাস ঠিক নয়।');
@@ -506,6 +518,7 @@ add_action('init', function () {
     if (get_option('sb_ledger_backfill') === '1' || get_option('sb_usage_db') !== '2') {
         return;
     }
+    update_option('sb_ledger_backfill', '1', false);   // set first so a parallel request cannot run it again
     global $wpdb;
     $t = sb_ledger_table();
     foreach (get_users(array('fields' => 'ID', 'meta_key' => SB_Credits::META_USED)) as $uid) {
@@ -513,9 +526,27 @@ add_action('init', function () {
         $start = (string) get_user_meta($uid, SB_Credits::META_START, true);
         $from  = preg_match('/^\d{4}-\d{2}-\d{2}$/', $start) ? strtotime($start . ' 00:00:00 ' . wp_timezone_string()) : 0;
         $have  = (int) $wpdb->get_var($wpdb->prepare("SELECT COALESCE(SUM(credits),0) FROM {$t} WHERE user_id = %d AND t >= %d", $uid, $from));
-        if ($used > $have) {
+        $done = (int) $wpdb->get_var($wpdb->prepare("SELECT COUNT(*) FROM {$t} WHERE user_id = %d AND feature = 'legacy'", $uid));
+        if ($used > $have && !$done) {
             sb_ledger_add($uid, 'legacy', $used - $have);
         }
     }
     update_option('sb_ledger_backfill', '1', false);
 }, 9);
+
+
+/** One-time: remove duplicate "legacy" rows (the backfill once ran twice), make usage unlimited, and clear old per-user limits. */
+add_action('init', function () {
+    if (get_option('sb_fix_dup') === '1' || get_option('sb_usage_db') !== '2') {
+        return;
+    }
+    update_option('sb_fix_dup', '1', false);
+    global $wpdb;
+    $t = sb_ledger_table();
+    $wpdb->query("DELETE a FROM {$t} a INNER JOIN {$t} b ON a.user_id = b.user_id AND a.feature = 'legacy' AND b.feature = 'legacy' AND a.id > b.id");
+    $s = get_option('sb_settings', array());
+    $s = is_array($s) ? $s : array();
+    $s['limit_usd'] = 0;
+    update_option('sb_settings', $s);
+    delete_metadata('user', 0, SB_Credits::META_LIMIT, '', true);
+}, 10);

@@ -114,7 +114,7 @@ function sb_credit_pill() {
             <strong><span data-sb="remaining"><?php echo esc_html($st['remaining_usd']); ?></span><?php echo $st['unlimited'] ? '' : ' / ' . esc_html($st['limit_usd']); ?></strong>
         </div>
         <?php if (!$st['unlimited']) : ?><div class="sba-bar"><div class="sba-bar-fill" data-sb="bar" style="width:<?php echo esc_attr($st['percent']); ?>%"></div></div><?php endif; ?>
-        <small>রিসেট: <span data-sb="reset"><?php echo esc_html($st['next_reset_bn']); ?></span></small>
+        <small><?php echo $st['unlimited'] ? 'মাস শেষে ভাউচার' : 'রিসেট: <span data-sb="reset">' . esc_html($st['next_reset_bn']) . '</span>'; ?></small>
     </div>
     <?php
 }

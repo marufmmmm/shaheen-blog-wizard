@@ -80,6 +80,7 @@ class SB_Credits {
         $limit = self::limit($user_id);
         $unl = ($limit <= 0);   // no limit: the client pays for what is used
         $remaining = $unl ? 1000000000 : max(0, $limit - $used);
+        $mt = sb_fmt_usd(sb_month_total(wp_date('Y-m')));
         return array(
             'limit'       => $limit,
             'used'        => $used,
@@ -87,8 +88,8 @@ class SB_Credits {
             'unit'        => sb_unit_billed(),
             'unlimited'   => $unl,
             'limit_usd'   => $unl ? 'Unlimited' : sb_fmt_usd(sb_usd($limit)),
-            'used_usd'    => sb_fmt_usd(sb_usd($used)),
-            'remaining_usd' => $unl ? sb_fmt_usd(sb_usd($used)) : sb_fmt_usd(sb_usd($remaining)),
+            'used_usd'    => $unl ? $mt : sb_fmt_usd(sb_usd($used)),
+            'remaining_usd' => $unl ? $mt : sb_fmt_usd(sb_usd($remaining)),
             'percent'     => $unl ? 0 : min(100, round($used * 100 / $limit, 1)),
             'cycle_start' => $start,
             'next_reset'  => $next,
