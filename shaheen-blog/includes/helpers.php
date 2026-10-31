@@ -10,6 +10,7 @@ function sb_defaults() {
         'admin_key'     => '',
         'api_project'   => '',
         'api_carry'     => '',
+        'human_extra'   => '',
         'model'         => 'gpt-6.1-terra',
         'default_limit' => 80000,
         'limit_usd'     => 0,
@@ -175,6 +176,7 @@ function sb_feature_cost($feature) {
         'chat'      => 'cost_chat',
         'brief'     => 'cost_brief',
         'caption'   => 'cost_caption',
+        'humanize'  => 'cost_edit',
     );
     return isset($map[$feature]) ? max(0, (int) sb_get($map[$feature])) : 0;
 }
@@ -313,6 +315,7 @@ function sb_feature_labels() {
         'chat'      => 'চ্যাট সহকারী (প্রতি সফল পরিবর্তন)',
         'brief'     => 'লেখার আগে বোঝাপড়া ও গবেষণা',
         'caption'   => 'Facebook ক্যাপশন',
+        'humanize'  => 'লেখা মানবিক করা',
         'image'     => 'AI ছবি',
         'imgprompt' => 'ছবির প্রম্পট',
         'imgmeta'   => 'ছবির alt/শিরোনাম/ক্যাপশন (AI)',

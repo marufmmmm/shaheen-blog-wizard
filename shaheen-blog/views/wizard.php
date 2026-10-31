@@ -196,9 +196,11 @@ $costs['research'] = max(0, (int) sb_get('cost_research'));
             
                 <div class="sba-tools" style="margin-top:10px;display:flex;gap:8px;flex-wrap:wrap;align-items:center">
                     <button type="button" class="button" id="hard-check">🔍 কঠিন শব্দ চেক (বিনামূল্যে)</button>
+                    <button type="button" class="button" id="human-check">🧑 কোথায় কড়া/যান্ত্রিক? (বিনামূল্যে চেক)</button>
                     <label id="ver-wrap" hidden>🕘 আগের ভার্সন <select id="ver-sel"><option value="">— ফিরে যান —</option></select></label>
                 </div>
                 <div id="hard-box" class="sba-factpanel" hidden></div>
+                <div id="human-box" class="sba-factpanel" hidden></div>
                 <div id="fact-panel" class="sba-factpanel" hidden></div>
                 <div id="cover-panel" class="sba-coverpanel" hidden></div>
             </div>

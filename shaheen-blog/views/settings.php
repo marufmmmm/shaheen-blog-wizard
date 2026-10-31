@@ -76,6 +76,8 @@ $render = function ($name, $cur, $blank) use ($cat) {
             </label>
             <label>লেখার ভাষা ও স্টাইল নির্দেশনা <small>(সব AI লেখায় মানা হবে)</small>
                 <textarea name="style_note" rows="3"><?php echo esc_textarea($s('style_note')); ?></textarea></label>
+            <label>নিজের বাদ দেওয়া বাক্যাংশ (প্রতি লাইনে একটি) <small>— লেখা চেক করার সময় এগুলো ধরা পড়বে, আর AI-কে বলা হবে এগুলো লিখতে না। যেমন: “আজকের দিনে”</small>
+                <textarea name="human_extra" rows="3"><?php echo esc_textarea($s('human_extra')); ?></textarea></label>
             <label>আর্টিকেলের জন্য আলাদা মডেল <small>(প্রম্পট থেকে লেখা, সংশোধন, রিরাইট)</small>
                 <?php $render('model_article', $s('model_article'), true); ?>
                 <small>প্রতিটি মডেলের চার্জ নিচের তালিকায় ঠিক করুন। লেখার সময় পোস্ট এডিটরেও মডেল বাছা যাবে।</small>

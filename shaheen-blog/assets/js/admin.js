@@ -1031,6 +1031,60 @@
       box.appendChild(ul);
     });
   })();
+
+  /* ---- humanise: find stiff / machine-like paragraphs (free), rewrite only the ticked ones ---- */
+  (function () {
+    var hb = $('#human-check'), box = $('#human-box'); if (!hb) { return; }
+    function esc(t) { return String(t == null ? '' : t).replace(/[&<>"]/g, function (c) { return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]; }); }
+    function paras() {
+      var d = document.createElement('div'); d.innerHTML = editorContent();
+      return Array.prototype.slice.call(d.querySelectorAll('p,li'));
+    }
+    function replaceAt(i, oldT, newT) {
+      var d = document.createElement('div'); d.innerHTML = editorContent();
+      var list = Array.prototype.slice.call(d.querySelectorAll('p,li')), el = list[i];
+      if (!el || el.textContent.trim() !== oldT.trim() || el.children.length) { return false; }
+      el.textContent = newT; setEditorContent(d.innerHTML); return true;
+    }
+    hb.addEventListener('click', function () {
+      var ps = paras(); if (ps.reduce(function (a, p) { return a + p.textContent.length; }, 0) < 120) { toast('আগে আর্টিকেল লিখুন।', 'err'); return; }
+      hb.disabled = true; box.hidden = false; box.innerHTML = '⏳ পড়ে দেখছি…';
+      post('sb_humanize_scan', { paras: ps.map(function (p) { return p.textContent; }) }).then(function (d) {
+        var flags = d.flags || [];
+        if (!flags.length) { box.innerHTML = '<strong>✅ ' + bn(d.checked) + 'টি অনুচ্ছেদ দেখা হয়েছে: কোথাও কড়া বা যান্ত্রিক লাগেনি।</strong>'; return; }
+        box.innerHTML = '<strong>🧑 ' + bn(d.checked) + 'টির মধ্যে ' + bn(flags.length) + 'টি অনুচ্ছেদ কড়া/যান্ত্রিক লাগছে</strong> <span class="sba-muted">(স্বাভাবিকতার নম্বর ' + bn(d.score) + '/১০০). যেগুলো সহজ করতে চান টিক দিন।</span>';
+        var ul = document.createElement('div'); ul.style.cssText = 'margin-top:8px;display:grid;gap:8px';
+        flags.forEach(function (f) {
+          var p = ps[f.i]; if (!p) { return; }
+          var row = document.createElement('label'); row.style.cssText = 'display:block;border:1px solid #dcdcde;border-radius:6px;padding:8px;background:#fff';
+          row.innerHTML = '<input type="checkbox" checked data-i="' + f.i + '"> <b>অনুচ্ছেদ ' + bn(f.i + 1) + '</b> <span class="sba-muted">' + esc(p.textContent.slice(0, 110)) + '…</span>'
+            + '<ul style="margin:4px 0 0 22px;color:#b26a00">' + f.why.map(function (w) { return '<li>' + esc(w) + '</li>'; }).join('') + '</ul>';
+          row._why = f.why.join('; '); row._i = f.i; row._t = p.textContent; ul.appendChild(row);
+        });
+        box.appendChild(ul);
+        var go = document.createElement('button'); go.type = 'button'; go.className = 'button button-primary'; go.style.marginTop = '8px'; go.textContent = '✍️ টিক দেওয়াগুলো সহজ করে লিখুন';
+        var out = document.createElement('div'); out.style.marginTop = '8px';
+        go.addEventListener('click', function () {
+          var rows = $$('label', ul).filter(function (r) { return r.querySelector('input').checked; });
+          if (!rows.length) { toast('কমপক্ষে একটি টিক দিন।', 'err'); return; }
+          go.disabled = true; out.innerHTML = '⏳ লেখা হচ্ছে…';
+          post('sb_humanize_run', { title: val('#f-title'), post_id: postId || 0, items: rows.slice(0, 12).map(function (r) { return { i: r._i, t: r._t, why: r._why }; }) }).then(function (d) {
+            var res = (d.result && d.result.items) || []; out.innerHTML = '';
+            if (!res.length) { out.textContent = 'কোনো অনুচ্ছেদ বদলানোর মতো হয়নি।'; return; }
+            res.forEach(function (r) {
+              var c = document.createElement('div'); c.style.cssText = 'border:1px solid #c3c4c7;border-radius:6px;padding:8px;margin-bottom:6px;background:#fff';
+              if (r.bad) { c.innerHTML = '<b>অনুচ্ছেদ ' + bn(r.i + 1) + ':</b> <span style="color:#b32d2e">' + esc(r.bad) + '</span>'; out.appendChild(c); return; }
+              c.innerHTML = '<div class="sba-muted" style="text-decoration:line-through">' + esc(r.old) + '</div><div style="margin-top:4px">' + esc(r.new) + '</div>';
+              var ok = document.createElement('button'); ok.type = 'button'; ok.className = 'button button-small'; ok.textContent = 'এটা বসান'; ok.style.marginTop = '6px';
+              ok.addEventListener('click', function () { if (replaceAt(r.i, r.old, r.new)) { c.remove(); toast('✓ বসানো হয়েছে। সেভ করুন।', 'ok'); } else { toast('এই অনুচ্ছেদে ছবি/লিংক আছে বা লেখা বদলে গেছে, হাতে বদলান।', 'err'); } });
+              c.appendChild(ok); out.appendChild(c);
+            });
+          }).catch(function (e) { out.textContent = e.message; }).then(function () { go.disabled = false; });
+        });
+        box.appendChild(go); box.appendChild(out);
+      }).catch(function (e) { box.textContent = e.message; }).then(function () { hb.disabled = false; });
+    });
+  })();
   if ($('#caption-copy')) {
     $('#caption-copy').addEventListener('click', function () {
       var t = $('#f-caption'); t.select();

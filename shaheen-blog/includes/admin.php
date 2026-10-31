@@ -190,6 +190,7 @@ function sb_handle_save_settings() {
     } elseif ($ak !== '') {
         $new['admin_key'] = $ak;
     }
+    $new['human_extra'] = mb_substr(sanitize_textarea_field((string) $in('human_extra')), 0, 3000);
     $new['api_carry'] = trim((string) $in('api_carry')) === '' ? '' : (string) max(0, round((float) $in('api_carry'), 2));
     $new['api_project'] = preg_replace('/[^A-Za-z0-9_\-]/', '', $in('api_project'));
     sb_save_settings($new);
