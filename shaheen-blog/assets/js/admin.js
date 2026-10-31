@@ -427,15 +427,21 @@
   var P = window.SB_POST || {};
   var step = 1, TOTAL = 3, postId = P.id || 0, msg = $('#msg');
 
+  var NEED = /\[তথ্য দরকার:[^\]]*\]/g;
+  function plainNeed(h) { return String(h).replace(/<span class="sb-need"[^>]*>([\s\S]*?)<\/span>/g, '$1'); }
+  function markNeed(h) {   // missing-info markers show in red inside the editor only; they are never saved with the span
+    return plainNeed(h).replace(NEED, function (m) { return '<span class="sb-need" style="color:#d63638;background:#fde8e8;font-weight:600">' + m + '</span>'; });
+  }
   function editorContent() {
     if (window.tinymce && tinymce.get('sb_content') && !tinymce.get('sb_content').isHidden()) {
-      return tinymce.get('sb_content').getContent();
+      return plainNeed(tinymce.get('sb_content').getContent());
     }
-    var t = $('#sb_content'); return t ? t.value : '';
+    var t = $('#sb_content'); return t ? plainNeed(t.value) : '';
   }
   window.sbEditorContent = editorContent;
   window.sbEditorSet = function (h) { setEditorContent(h); };
   function setEditorContent(html) {
+    html = markNeed(html);
     if (window.tinymce && tinymce.get('sb_content') && !tinymce.get('sb_content').isHidden()) {
       tinymce.get('sb_content').setContent(html);
     }
