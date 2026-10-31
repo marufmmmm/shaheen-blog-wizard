@@ -801,7 +801,7 @@
   function runCustom(btn, feature) {
     return prepareCustomFiles(btn).then(function (pf) {
       var pl = aiPayload(feature || 'custom'); pl.files = pf.files; pl.keep_pdf = pf.keep_pdf;
-      if (pf.files.length) { SB.hasSrc = 1; if (window.__sbSrcShow) { window.__sbSrcShow(); } }
+      if (pf.files.length) { SB.hasSrc = 1; SB.srcNames = pf.files.map(function (f) { return f.name || ''; }).filter(Boolean); if (window.__sbSrcShow) { window.__sbSrcShow(); } }
       if (btn) { btn.textContent = '⏳ ফাইল পাঠানো হচ্ছে…'; }
       return post('sb_ai', pl);
     }).then(function (d) {
@@ -1207,7 +1207,13 @@
       if (o.kw && $('#f-kw')) { $('#f-kw').value = o.kw.join(', '); $('#f-kw').dispatchEvent(new Event('input')); }
       var cs = $('#f-category'); if (cs && o.cat !== undefined) { var hit = [].filter.call(cs.options, function (x) { return x.text === o.cat; })[0]; cs.value = hit ? hit.value : (o.cat === '' ? '0' : cs.value); }
     }
-    function srcShow() { var w = $('#chat-src-wrap'); if (w) { w.hidden = !SB.hasSrc; } }
+    if (P.src_names && P.src_names.length) { SB.hasSrc = 1; }
+    function srcShow() {
+      var w = $('#chat-src-wrap'); if (w) { w.hidden = !SB.hasSrc; }
+      var n = $('#chat-src-names'); if (n) { n.textContent = (SB.srcNames || P.src_names || []).join(', '); }
+    }
+    var scl = $('#chat-src-clear');
+    if (scl) { scl.addEventListener('click', function (e) { e.preventDefault(); post('sb_src_clear', {}).then(function () { SB.hasSrc = 0; srcShow(); }); }); }
     srcShow(); window.__sbSrcShow = srcShow;
     function add(cls, t, note) {
       var d = document.createElement('div'); d.className = 'sba-msg ' + cls; d.textContent = t;

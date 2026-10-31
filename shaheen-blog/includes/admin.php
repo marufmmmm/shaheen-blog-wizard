@@ -86,7 +86,7 @@ function sb_admin_assets() {
         'gblocks' => sb_block_library(),
         'ratios'  => sb_ratio_options(),
         'memAuto' => (int) sb_memory_cfg()['auto'],
-        'hasSrc'  => sb_src_has(get_current_user_id()) ? 1 : 0,
+        'hasSrc'  => 0,   // set by the page only for THIS post's own attachments
         'words'   => sb_words_all(),
         'postsUrl' => admin_url('admin.php?page=sb-posts'),
     ));

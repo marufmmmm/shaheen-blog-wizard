@@ -59,7 +59,7 @@ $costs['research'] = max(0, (int) sb_get('cost_research'));
     <div class="sba-note">✏️ পোস্টের লেখা, ছবি, ক্যাটাগরি, তারিখ এডিট করতে <strong>কোনো খরচ লাগে না</strong>। খরচ হয় শুধু AI বাটনে ক্লিক করলে।</div>
 
     <?php $d['autosave'] = sb_autosave_get($post ? $post->ID : 0); ?>
-    <script>window.SB_POST = <?php echo wp_json_encode($d); ?>;</script>
+    <script>window.SB_POST = <?php echo wp_json_encode(array_merge($d, array('src_names' => sb_src_info(get_current_user_id(), isset($d['id']) ? $d['id'] : 0)))); ?>;</script>
     <div class="sba-topsave" id="topsave"><span id="autosave-note" class="sba-muted">Autosave is on</span> <button type="button" class="button button-primary" id="f-save-top">💾 Save</button></div>
     <div class="notice notice-info inline" id="restore-box" hidden><p><span id="restore-text"></span> <button type="button" class="button" id="restore-yes">Restore it</button> <button type="button" class="button-link" id="restore-no">Ignore</button></p></div>
 
@@ -206,7 +206,7 @@ $costs['research'] = max(0, (int) sb_get('cost_research'));
                 <div class="sba-ai-head"><h3>💬 Tell AI what to change</h3>
                     <button type="button" class="button" id="chat-undo" hidden>↩ Undo last draft change</button></div>
                 <p class="sba-muted">One box for everything. Type like a chat, in Bangla or English. AI works on a <strong>working draft</strong> shown here; the editor stays untouched until you press <strong>Send final to editor</strong>. AI changes only what you ask, and the rest of the draft stays the same. Examples: <em>"make paragraph 3 shorter"</em>, <em>"add the fee after the first paragraph"</em>, <em>"add an FAQ about the exam date"</em>. Each change that is applied costs <strong><?php echo esc_html(sb_money($costs['chat'])); ?></strong>; a question or no change is free. Your title is never changed.</p>
-                <label class="sba-inline-check" id="chat-src-wrap" hidden><input type="checkbox" id="chat-src" checked> Let AI look at the attached PDF / images again (reads the source pages)</label>
+                <label class="sba-inline-check" id="chat-src-wrap" hidden><input type="checkbox" id="chat-src" checked> Let AI look at the PDF / images attached to this post again: <span id="chat-src-names"></span> <a href="#" id="chat-src-clear">remove</a></label>
                 <div class="sba-chat-draft" id="chat-draft" hidden>
                     <div class="sba-chat-draft-head"><strong>📝 Working draft</strong> <span id="chat-draft-state" class="sba-muted"></span></div>
                     <div class="sba-chat-draft-body" id="chat-draft-body"></div>

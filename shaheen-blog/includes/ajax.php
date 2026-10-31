@@ -587,7 +587,7 @@ add_action('wp_ajax_sb_job_run', function () {
             ? array('type' => 'file', 'file' => array('filename' => $f['name'], 'file_data' => $uri))
             : array('type' => 'image_url', 'image_url' => array('url' => $uri));
     }
-    sb_src_save($job['uid'], $job['files']);
+    sb_src_save($job['uid'], $job['files'], isset($ctx['post_id']) ? (int) $ctx['post_id'] : 0);
     $notes = array_merge($notes, SB_Know::status(isset($ctx['keywords']) ? $ctx['keywords'] : array()));
     $ctx['bg'] = true;
     $r = SB_AI::generate(isset($job['feature']) ? $job['feature'] : 'custom', $ctx);
@@ -1280,7 +1280,22 @@ function sb_src_has($uid) {
     return is_dir($d) && count(glob($d . '/*.{jpg,jpeg,png,webp,pdf}', GLOB_BRACE)) > 0;
 }
 
-function sb_src_save($uid, $files) {
+/** The saved pack belongs to ONE post. Returns its file names only when it is the post being edited; never for a new post. */
+function sb_src_info($uid, $post_id) {
+    $post_id = (int) $post_id;
+    $m = sb_src_dir($uid) . '/meta.json';
+    $j = $post_id > 0 && sb_src_has($uid) && is_readable($m) ? json_decode((string) file_get_contents($m), true) : null; // phpcs:ignore
+    return (is_array($j) && (int) $j['post_id'] === $post_id) ? array_values(array_map('sanitize_text_field', (array) $j['names'])) : array();
+}
+
+add_action('wp_ajax_sb_src_clear', function () {
+    sb_ajax_guard();
+    $d = sb_src_dir(get_current_user_id());
+    array_map('unlink', glob($d . '/*') ?: array());
+    wp_send_json_success(array('ok' => 1));
+});
+
+function sb_src_save($uid, $files, $post_id = 0) {
     $d = sb_src_dir($uid);
     foreach (glob(dirname($d) . '/src-*') ?: array() as $old) {          // old packs (14 days) are removed
         if (is_dir($old) && filemtime($old) < time() - 14 * DAY_IN_SECONDS) {
@@ -1302,6 +1317,11 @@ function sb_src_save($uid, $files) {
     foreach (array_slice($keep, 0, 14) as $i => $f) {
         @copy($f['path'], $d . '/' . sprintf('%02d', $i) . '.' . $f['ext']); // phpcs:ignore WordPress.WP.AlternativeFunctions
     }
+    $names = array();
+    foreach (array_slice($keep, 0, 14) as $f) {
+        $names[] = isset($f['name']) ? (string) $f['name'] : '';
+    }
+    file_put_contents($d . '/meta.json', wp_json_encode(array('post_id' => (int) $post_id, 'names' => $names))); // phpcs:ignore
     @touch($d); // phpcs:ignore WordPress.WP.AlternativeFunctions
 }
 
