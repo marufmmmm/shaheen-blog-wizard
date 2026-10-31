@@ -8,7 +8,7 @@ $cost = sb_feature_cost('rewrite_post');
 <div class="wrap sba" id="rw-page">
     <h1>🔁 রিরাইট করে পোস্ট</h1>
     <?php sb_credit_pill(); ?>
-    <div class="sba-note">অন্য উৎসের শিরোনাম ও লেখা পেস্ট করুন। AI <strong>তথ্য একদম ঠিক রেখে</strong> ভাষা সম্পূর্ণ বদলে সহজ প্রচলিত বাংলায় নতুন শিরোনাম, সংক্ষিপ্ত বর্ণনা ও লেখা বানাবে। তারপর ছবি দিয়ে এখান থেকেই পোস্ট করুন। শুধু "নতুন করে লিখুন" বাটনে <?php echo esc_html(sb_money($cost)); ?> লাগে, বাকি সব বিনামূল্যে।</div>
+    <div class="sba-note">অন্য উৎসের শিরোনাম ও লেখা পেস্ট করুন। AI <strong>তথ্য একদম ঠিক রেখে</strong> ভাষা সম্পূর্ণ বদলে সহজ প্রচলিত বাংলায় নতুন শিরোনাম, সংক্ষিপ্ত বর্ণনা ও লেখা বানাবে। তারপর ছবি দিয়ে এখান থেকেই পোস্ট করুন। শুধু "নতুন করে লিখুন" বাটন ছাড়া বাকি সব AI-ছাড়া কাজ।</div>
 
     <div class="sba-card sba-form">
         <h2>১. মূল লেখা পেস্ট করুন</h2>
@@ -42,7 +42,7 @@ $cost = sb_feature_cost('rewrite_post');
                 <small>লেখার ভেতরে আরও ছবি দিতে নিচের এডিটরে "Add Media" ব্যবহার করুন।</small>
             </div>
         </div>
-        <p><button type="button" class="button button-primary button-hero" id="rw-go" data-cost="<?php echo (int) $cost; ?>">🤖 নতুন করে লিখুন <em>(<?php echo esc_html(sb_money($cost)); ?>)</em></button>
+        <p><button type="button" class="button button-primary button-hero" id="rw-go" data-cost="<?php echo (int) $cost; ?>">🤖 নতুন করে লিখুন</button>
            <span id="msg" class="sba-msg"></span></p>
     </div>
 

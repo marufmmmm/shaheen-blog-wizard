@@ -80,7 +80,7 @@ $costs['research'] = max(0, (int) sb_get('cost_research'));
 
             <div class="sba-ai">
                 <div class="sba-ai-head"><h3>৫টি শিরোনাম</h3>
-                    <button type="button" class="button button-primary" data-ai="headlines">🤖 তৈরি করুন <em>(<?php echo esc_html(sb_money($costs['headlines'])); ?>)</em></button></div>
+                    <button type="button" class="button button-primary" data-ai="headlines">🤖 তৈরি করুন</button></div>
                 <p class="sba-muted">ওপরের কীওয়ার্ড ব্যবহার করে। পছন্দেরটিতে ক্লিক করলে শিরোনাম হিসেবে বসবে।</p>
                 <ul id="headline-results" class="sba-headlines"></ul>
             </div>
@@ -134,20 +134,20 @@ $costs['research'] = max(0, (int) sb_get('cost_research'));
                     <label class="sba-inline-check" style="display:block;margin-top:6px"><input type="checkbox" id="f-cimg" checked> 🖼️ PDF-এর পাতাগুলো ছবি করে AI-কে দাও <em>(সরকারি PDF প্রায়ই পুরনো বিজয় ফন্টে থাকে, লেখা হিজিবিজি হয়ে যায়, ছবি করে পড়ালে ঠিক পড়ে; বেশি পাতা হলে প্রথম ১২ পাতা)</em></label>
                     <label class="sba-inline-check" style="display:block;margin-top:4px"><input type="checkbox" id="f-ckeep" checked> 📥 PDF সাইটের মিডিয়ায় রেখে এই পোস্টে <strong>ডাউনলোড বাটন</strong> ও <strong>পেজে পড়ার ঘর</strong> যোগ করো <em>(পেজ ৩-এর নিচে দেখা যাবে, সরাতেও পারবেন)</em></label>
                 </details>
-                <label class="sba-research" style="display:block;margin-top:8px"><input type="checkbox" id="f-research" checked> 🌐 সঠিক ও সর্বশেষ খবরের জন্য AI ইন্টারনেটেও যাচাই করুক <em>(+<?php echo esc_html(sb_money($costs['research'])); ?>, শুধু সফল হলে)</em></label>
+                <label class="sba-research" style="display:block;margin-top:8px"><input type="checkbox" id="f-research" checked> 🌐 সঠিক ও সর্বশেষ খবরের জন্য AI ইন্টারনেটেও যাচাই করুক</label>
 
                 <div class="sba-style" style="margin-top:12px;display:flex;gap:10px;align-items:flex-end;flex-wrap:wrap">
                     <label>🤖 মডেল<br><?php $cur_m = trim((string) sb_get('model_article')) ?: sb_get('model'); ?>
                     <select id="f-cmodel" title="কোন AI মডেলে লিখবে">
                         <?php foreach (sb_model_catalog() as $mid => $mm) : ?>
-                            <option value="<?php echo esc_attr($mid); ?>" <?php selected($cur_m, $mid); ?>><?php echo esc_html($mid . ' — ' . $mm[2] . ' — ' . sb_money(sb_per100($mid)) . '/১০০ শব্দ'); ?></option>
+                            <option value="<?php echo esc_attr($mid); ?>" <?php selected($cur_m, $mid); ?>><?php echo esc_html($mid . ' — ' . $mm[2]); ?></option>
                         <?php endforeach; ?>
                         <?php if (!isset(sb_model_catalog()[$cur_m])) : ?><option value="<?php echo esc_attr($cur_m); ?>" selected><?php echo esc_html($cur_m); ?></option><?php endif; ?>
                     </select></label>
                     <label>📏 দৈর্ঘ্য<br><select id="f-clen" title="আর্টিকেলের দৈর্ঘ্য">
-                        <option value="1">৮০০–১০০০ শব্দ (<?php echo esc_html(sb_money($costs['custom'])); ?>)</option>
-                        <option value="2">১০০০–১৫০০ শব্দ (<?php echo esc_html(sb_money($costs['custom2'])); ?>)</option>
-                        <option value="3">১৫০০+ শব্দ (<?php echo esc_html(sb_money($costs['custom3'])); ?>)</option>
+                        <option value="1">৮০০–১০০০ শব্দ</option>
+                        <option value="2">১০০০–১৫০০ শব্দ</option>
+                        <option value="3">১৫০০+ শব্দ</option>
                     </select></label>
                     <label>📝 লেখার ধরন<br>
                         <select id="f-style">
@@ -168,7 +168,7 @@ $costs['research'] = max(0, (int) sb_get('cost_research'));
 
                 <p class="sba-muted" style="margin:10px 0 0">💡 <strong>আগে বুঝে নিন:</strong> AI পুরো লেখা না লিখে আপনার তথ্য, সাইট ও ইন্টারনেট ঘেঁটে বলবে সে কী বুঝেছে, কী জানতে চায় ও কী যোগ করলে লেখা তথ্যবহুল হবে। আপনি ঠিক করে দিলে তবেই লেখা শুরু হবে।</p>
                 <div style="margin-top:8px;display:flex;gap:10px;align-items:center;flex-wrap:wrap">
-                    <button type="button" class="button button-primary" id="brief-go">🧭 আগে বুঝে নিন (<?php echo esc_html(sb_money($costs['brief'])); ?>)</button>
+                    <button type="button" class="button button-primary" id="brief-go">🧭 আগে বুঝে নিন</button>
                     <button type="button" class="button" data-ai="custom">🤖 সরাসরি লিখুন</button>
                 </div>
                 <div id="brief-box" class="sba-brief" hidden></div>
@@ -220,7 +220,7 @@ $costs['research'] = max(0, (int) sb_get('cost_research'));
                 <div class="sba-chat-log" id="chat-log" aria-live="polite"></div>
                 <div class="sba-chat-in">
                     <textarea id="chat-text" rows="3" placeholder="What do you want to change? (Ctrl+Enter to send)"></textarea>
-                    <button type="button" class="button button-primary" id="chat-send">Send <small>· <?php echo esc_html(sb_money($costs['chat'])); ?></small></button>
+                    <button type="button" class="button button-primary" id="chat-send">Send </button>
                 </div>
                 <div class="sba-chat-rule" id="chat-rule" hidden><span id="chat-rule-text"></span> <button type="button" class="button" id="chat-rule-yes">Remember for all posts</button> <button type="button" class="button-link" id="chat-rule-no">No</button></div>
             </div>
@@ -235,19 +235,19 @@ $costs['research'] = max(0, (int) sb_get('cost_research'));
 
             <div class="sba-ai sba-include">
                 <div class="sba-ai-head"><h3>📌 পোস্টের সাথে কী কী থাকবে?</h3></div>
-                <label class="sba-inline-check"><input type="checkbox" id="inc-summary" <?php checked($d['inc_summary']); ?>> সামারি <em>(আর্টিকেলের ওপরে "সংক্ষেপে" বক্স — AI হলে +<?php echo esc_html(sb_money($costs['summary'])); ?>)</em></label><br>
-                <label class="sba-inline-check"><input type="checkbox" id="inc-faq" <?php checked($d['inc_faq']); ?>> FAQ <em>(আর্টিকেলের নিচে প্রশ্ন-উত্তর — AI হলে +<?php echo esc_html(sb_money($costs['faq'])); ?>)</em></label>
+                <label class="sba-inline-check"><input type="checkbox" id="inc-summary" <?php checked($d['inc_summary']); ?>> সামারি <em>(আর্টিকেলের ওপরে "সংক্ষেপে" বক্স</em></label><br>
+                <label class="sba-inline-check"><input type="checkbox" id="inc-faq" <?php checked($d['inc_faq']); ?>> FAQ <em>(আর্টিকেলের নিচে প্রশ্ন-উত্তর</em></label>
                 <select id="f-faqn" title="FAQ কয়টি"><option value="3">৩</option><option value="5" selected>৫</option><option value="7">৭</option></select> টি<br>
-                <label class="sba-inline-check"><input type="checkbox" id="inc-related"> স্মার্ট সম্পর্কিত পোস্ট/পেজ <em>(পাশে — AI সাইট থেকে মিলগুলো বেছে দেবে, +<?php echo esc_html(sb_money($costs['related'])); ?>)</em></label>
+                <label class="sba-inline-check"><input type="checkbox" id="inc-related"> স্মার্ট সম্পর্কিত পোস্ট/পেজ <em>(পাশে — AI সাইট থেকে মিলগুলো বেছে দেবে)</em></label>
                 <label class="sba-inline-check"><input type="checkbox" id="inc-image"> 🎨 AI দিয়ে ফিচার্ড ছবিও বানান <em>(ঐচ্ছিক — ছবি আগে থেকে না থাকলে, লেখা শেষে AI ছবি বেছে বানাবে)</em></label><br>
                 <p class="sba-muted">পুরনো পোস্টে শুধু এগুলো যোগ করতে: টিক দিয়ে "শুধু টিক দেওয়াগুলো বানান" চাপুন — আর্টিকেল একদম বদলাবে না। নতুন পোস্টে টিক দিয়ে নিচের "সম্পূর্ণ আর্টিকেল" তৈরি করলে AI আর্টিকেল থেকে টিক দেওয়াগুলো নিজে বানিয়ে দেবে। হাতে লিখতে চাইলে নিচের সামারি ঘরে ও পেজ ৩-এর FAQ অংশে লিখুন। <strong>টিক না দিলে সামারি/FAQ বানানো হবে না, পোস্টেও দেখাবে না।</strong>
                 <button type="button" class="button button-primary" id="inc-only">🤖 শুধু টিক দেওয়াগুলো বানান (আর্টিকেল বদলাবে না)</button>
-                <button type="button" class="button" data-ai="faq">🤖 শুধু FAQ তৈরি করুন (<?php echo esc_html(sb_money($costs['faq'])); ?>)</button></p>
+                <button type="button" class="button" data-ai="faq">🤖 শুধু FAQ তৈরি করুন</button></p>
             </div>
 
             <div class="sba-ai">
                 <div class="sba-ai-head"><h3>সামারি <small class="sba-muted">(মূল পোস্ট থেকে তৈরি হয়)</small></h3>
-                    <button type="button" class="button" data-ai="summary">🤖 তৈরি করুন <em>(<?php echo esc_html(sb_money($costs['summary'])); ?>)</em></button></div>
+                    <button type="button" class="button" data-ai="summary">🤖 তৈরি করুন</button></div>
                 <textarea id="f-summary" rows="4"><?php echo esc_textarea($d['summary']); ?></textarea>
                 <label style="display:block;margin-top:8px">📍 সামারি কোথায় দেখাবে
                     <select id="f-summary_pos">
@@ -265,7 +265,7 @@ $costs['research'] = max(0, (int) sb_get('cost_research'));
 
             <div class="sba-ai">
                 <div class="sba-ai-head"><h3>FAQ (প্রশ্ন-উত্তর) <small class="sba-muted">(আর্টিকেল লেখার পর বাটনে তৈরি হয়)</small></h3>
-                    <button type="button" class="button" data-ai="faq">🤖 তৈরি করুন <em>(<?php echo esc_html(sb_money($costs['faq'])); ?>)</em></button></div>
+                    <button type="button" class="button" data-ai="faq">🤖 তৈরি করুন</button></div>
                 <div id="faq-list"></div>
                 <button type="button" class="button" id="faq-add">+ প্রশ্ন যোগ করুন</button>
             </div>
@@ -274,13 +274,13 @@ $costs['research'] = max(0, (int) sb_get('cost_research'));
 
             <div class="sba-ai">
                 <div class="sba-ai-head"><h3>সাবটাইটেল</h3>
-                    <button type="button" class="button" data-ai="subtitle">🤖 তৈরি করুন <em>(<?php echo esc_html(sb_money($costs['subtitle'])); ?>)</em></button></div>
+                    <button type="button" class="button" data-ai="subtitle">🤖 তৈরি করুন</button></div>
                 <input type="text" id="f-subtitle" value="<?php echo esc_attr($d['subtitle']); ?>">
             </div>
 
             <div class="sba-ai">
                 <div class="sba-ai-head"><h3>মেটা বর্ণনা (SEO)</h3>
-                    <button type="button" class="button" data-ai="meta">🤖 তৈরি করুন <em>(<?php echo esc_html(sb_money($costs['meta'])); ?>)</em></button></div>
+                    <button type="button" class="button" data-ai="meta">🤖 তৈরি করুন</button></div>
                 <textarea id="f-meta" rows="2"><?php echo esc_textarea($d['meta_desc']); ?></textarea>
                 <small class="sba-muted">গুগলে দেখানোর জন্য ১২০-১৬০ অক্ষর ভালো। <span id="meta-count"></span></small>
             </div>
@@ -339,7 +339,7 @@ $costs['research'] = max(0, (int) sb_get('cost_research'));
             </details>
             <div class="sba-ai">
                 <div class="sba-ai-head"><h3>📣 Facebook ক্যাপশন <small class="sba-muted">(আর্টিকেল থেকে; পেজে পোস্টের সময় কপি করুন)</small></h3>
-                    <button type="button" class="button" data-ai="caption">🤖 তৈরি করুন <em>(<?php echo esc_html(sb_money($costs['caption'])); ?>)</em></button></div>
+                    <button type="button" class="button" data-ai="caption">🤖 তৈরি করুন</button></div>
                 <textarea id="f-caption" rows="5" placeholder="ক্যাপশন এখানে আসবে (সেভ হয় না, কপি করে নিন)"></textarea>
                 <button type="button" class="button button-small" id="caption-copy">📋 কপি</button>
             </div>
@@ -375,7 +375,7 @@ $costs['research'] = max(0, (int) sb_get('cost_research'));
 
             <h3>সম্পর্কিত পোস্ট/পেজ <small>(পোস্টের পাশে দেখাবে)</small></h3>
             <p class="sba-muted">🤖 AI সাইটের সব পোস্ট ও পেজ থেকে এই লেখার সাথে সবচেয়ে মিলগুলো বেছে দেয় (যেমন ক্যাডেট পোস্টে ক্যাডেট কোচিং পেজ) এবং পাঠকের জন্য এক লাইনে কারণ লিখে দেয়। না মিললে জোর করে ভরে না। নিজেও খুঁজে যোগ করতে পারেন (বিনামূল্যে)। কিছু না বাছলে একই ক্যাটাগরির ব্লগ পোস্ট দেখাবে।
-                <button type="button" class="button" data-ai="related">🤖 স্মার্ট সম্পর্কিত বানান (<?php echo esc_html(sb_money($costs['related'])); ?>)</button></p>
+                <button type="button" class="button" data-ai="related">🤖 স্মার্ট সম্পর্কিত বানান</button></p>
             <input type="search" id="rel-q" placeholder="পোস্ট বা পেজের নাম লিখে খুঁজুন…" style="max-width:420px">
             <ul id="rel-results" class="sba-relres"></ul>
             <div id="rel-chosen" class="sba-chips"></div>

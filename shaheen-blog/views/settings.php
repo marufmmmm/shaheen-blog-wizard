@@ -50,7 +50,7 @@ $render = function ($name, $cur, $blank) use ($cat) {
     echo '<select name="' . esc_attr($name) . '_sel" class="sb-model-sel" data-for="' . esc_attr($name) . '">';
     if ($blank) { echo '<option value=""' . selected($cur, '', false) . '>— ওপরের মডেলই ব্যবহার হবে —</option>'; }
     foreach ($cat as $id => $m) {
-        $t = $id . ' — আর্টিকেলে ~' . implode(' / ', array_map('sb_money', $m[1])) . ' খরচ — ' . $m[2];
+        $t = $id . ' — ' . $m[2];
         echo '<option value="' . esc_attr($id) . '" data-est="' . esc_attr(implode(',', $m[1])) . '"' . selected($cur, $id, false) . '>' . esc_html($t) . '</option>';
     }
     echo '</select>';

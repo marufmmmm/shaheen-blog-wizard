@@ -128,7 +128,7 @@
       (function next() {
         if (!ids.length) {
           run.disabled = false;
-          m.textContent = '✓ শেষ: ' + fmt(done) + 'টি অংশ যোগ হয়েছে, ' + fmt(none) + 'টি মেলেনি, ' + fmt(skipped) + 'টি আগে থেকেই ছিল (বাদ)। বিল যোগ হয়েছে ' + money(spent) + '।';
+          m.textContent = '✓ শেষ: ' + fmt(done) + 'টি অংশ যোগ হয়েছে, ' + fmt(none) + 'টি মেলেনি, ' + fmt(skipped) + 'টি আগে থেকেই ছিল (বাদ)। ';
           setTimeout(function () { location.reload(); }, 2500); return;
         }
         var id = ids.shift(); m.textContent = '⏳ চলছে… বাকি ' + fmt(ids.length + 1) + 'টি';
@@ -260,12 +260,12 @@
       var m = $('input[name="' + p + '-mode"]:checked'), mode = m ? m.value : 'edit', cost = SB.costs[mode];
       if (mode === 'edit' && list.length > 5) { cost = SB.costs.edit_many; }
       if (!list.length) { toast('কী বদলাতে চান তা অন্তত একটি ঘরে লিখুন।', 'err'); return; }
-      if (SB.balance.remaining < cost) { toast('ব্যালেন্স যথেষ্ট নয়। প্রয়োজন ' + money(cost) + ', আছে ' + money(SB.balance.remaining) + '।', 'err'); return; }
+      if (SB.balance.remaining < cost) { toast('ব্যবহারের সীমা শেষ। সীমা বাড়ালে আবার চালানো যাবে।', 'err'); return; }
       var ctx = ctxFn(), old = go.innerHTML; go.disabled = true; go.textContent = '⏳ হচ্ছে… (১ মিনিট পর্যন্ত লাগতে পারে)';
       post('sb_ai', { feature: mode, post_id: 0, instruction: ins, ins_count: list.length, content: getFn(), title: ctx.title, keywords: ctx.keywords }).then(function (d) {
         prev = getFn(); setFn(d.result.text); undo.hidden = false;
         (window.__sbIns = window.__sbIns || []).push(ins);
-        toast('✓ হয়েছে। ' + money(d.cost) + ' কেটেছে। পছন্দ না হলে "আগের লেখা ফিরিয়ে আনুন" চাপুন।', 'ok');
+        toast('✓ হয়েছে। পছন্দ না হলে "আগের লেখা ফিরিয়ে আনুন" চাপুন।', 'ok');
         if (d.result.missing && d.result.missing.length) { toast('লেখায় ' + bn(d.result.missing.length) + 'টি জায়গায় আপনার তথ্য দরকার ([তথ্য দরকার: …] খুঁজুন)।', 'err'); }
       }).catch(function (e) { toast(e.message, 'err'); })
         .then(function () { go.disabled = false; go.innerHTML = old; });
@@ -377,7 +377,7 @@
       var btn = this, src = val('#rw-source').trim(), cost = Number(btn.dataset.cost);
       var refs = val('#rw-refs').trim();
       if (src.length < 200 && !refs) { toastR('কমপক্ষে ২০০ অক্ষরের মূল লেখা পেস্ট করুন, অথবা নিচে সাইটের লিংক দিন।', 'err'); return; }
-      if (SB.balance.remaining < cost) { toastR('ব্যালেন্স যথেষ্ট নয়। প্রয়োজন ' + money(cost) + ', আছে ' + money(SB.balance.remaining) + '।', 'err'); return; }
+      if (SB.balance.remaining < cost) { toastR('ব্যবহারের সীমা শেষ। সীমা বাড়ালে আবার চালানো যাবে।', 'err'); return; }
       var old = btn.innerHTML; btn.disabled = true; btn.textContent = '⏳ লেখা হচ্ছে… (১ মিনিট পর্যন্ত লাগতে পারে)'; say(rwMsg, '');
       runJob({ feature: 'rewrite_post', post_id: 0, title: val('#rw-title'), source: src, keywords: rwKw(), urls: refs, model: val('#rw-model') }, btn).then(function (d) {
         var r = d.result;
@@ -396,7 +396,7 @@
           var ch = document.createElement('div'); ch.style.marginTop = '6px'; ch.innerHTML = '<strong>⚖️ সাইটগুলোর মধ্যে যে তথ্য মেলেনি (প্রকাশের আগে নিজে যাচাই করুন):</strong>';
           var cl = document.createElement('ul'); r.conflicts.forEach(function (x) { var li = document.createElement('li'); li.textContent = x; cl.appendChild(li); }); ch.appendChild(cl); fb.appendChild(ch); fb.hidden = false;
         }
-        toastR('✓ হয়েছে। ' + money(d.cost) + ' কেটেছে। প্রকাশের আগে তথ্য মিলিয়ে নিন।', 'ok');
+        toastR('✓ হয়েছে। প্রকাশের আগে তথ্য মিলিয়ে নিন।', 'ok');
         $('#rw-result').scrollIntoView({ behavior: 'smooth' });
       }).catch(function (e) { toastR(e.message, 'err'); })
         .then(function () { btn.disabled = false; btn.innerHTML = old; });
@@ -691,7 +691,7 @@
   function per100(m) { var p1 = (SB.modelPrices && SB.modelPrices[m]) ? SB.modelPrices[m][0] : SB.costs.custom; return Math.max(1, Math.ceil(p1 / 9)); }
   function refreshWordsCost() {
     var el = $('#words-cost'), w = parseInt(val('#f-words'), 10) || 0; if (!el) { return; }
-    el.textContent = (w >= 300 ? 'আনুমানিক ' + money(customPrice()) + ' (' + fmt(per100(val('#f-cmodel'))) + '/১০০ শব্দ)' : money(per100(val('#f-cmodel'))) + '/১০০ শব্দ') + ' — লেখা শেষে আসল শব্দ অনুযায়ী কাটবে';
+    el.textContent = '';
   }
   function customPrice() {
     var m = val('#f-cmodel'), t = (parseInt(val('#f-clen'), 10) || 1) - 1, w = parseInt(val('#f-words'), 10) || 0;
@@ -703,7 +703,7 @@
     var names = ['৮০০–১০০০ শব্দ', '১০০০–১৫০০ শব্দ', '১৫০০+ শব্দ'];
     [].forEach.call(sel.options, function (o, i) {
       var p = (SB.modelPrices && SB.modelPrices[m]) ? SB.modelPrices[m][i] : SB.costs[['custom', 'custom2', 'custom3'][i]];
-      o.textContent = names[i] + ' — ' + money(p);
+      o.textContent = names[i];
     });
   }
   if ($('#f-cmodel')) { $('#f-cmodel').addEventListener('change', function () { refreshCustomPrices(); refreshWordsCost(); }); refreshCustomPrices(); }
@@ -900,14 +900,14 @@
       return L.join('\n\n');
     }
     function briefPrice() { var m = val('#f-cmodel'), p = (SB.modelPrices && SB.modelPrices[m]) ? Math.round(SB.modelPrices[m][0] * 0.2) : 0; return Math.max(SB.costs.brief, p); }
-    function label() { go.innerHTML = '🧭 আগে বুঝে নিন (' + money(briefPrice()) + ')'; }
+    function label() { go.innerHTML = '🧭 আগে বুঝে নিন'; }
     if ($('#f-cmodel')) { $('#f-cmodel').addEventListener('change', label); label(); }
     function run() {
       if (val('#f-custom').trim().length < 30) { toast('আগে প্রম্পট বক্সে বিষয়ের বিবরণ লিখুন (কমপক্ষে ৩০ অক্ষর)।', 'err'); return; }
       var cost = briefPrice() + ($('#f-research') && $('#f-research').checked ? SB.costs.research : 0);
-      if (SB.balance.remaining < cost) { toast('ব্যালেন্স যথেষ্ট নয়। প্রয়োজন ' + money(cost) + '।', 'err'); return; }
+      if (SB.balance.remaining < cost) { toast('ব্যবহারের সীমা শেষ। সীমা বাড়ালে আবার চালানো যাবে।', 'err'); return; }
       var old = go.innerHTML; go.disabled = true; go.textContent = '⏳ AI পড়ছে ও গবেষণা করছে…';
-      runCustom(go, 'brief').then(function (d) { render(d.result || d); toast('✓ বোঝাপড়া তৈরি। ' + money(d.cost || cost) + ' কেটেছে।', 'ok'); })
+      runCustom(go, 'brief').then(function (d) { render(d.result || d); toast('✓ বোঝাপড়া তৈরি।', 'ok'); })
         .catch(function (e) { toast(e.message, 'err'); })
         .then(function () { go.disabled = false; go.innerHTML = old; });
     }
@@ -1032,14 +1032,14 @@
       if (!list.length) { toast('আগে ওপরে টিক দিন কী কী বানাবেন।', 'err'); return; }
       if (editorContent().replace(/<[^>]+>/g, '').trim().length < 80) { toast('আগে আর্টিকেল থাকতে হবে।', 'err'); return; }
       var cost = list.reduce(function (a, c) { return a + SB.costs[c]; }, 0);
-      if (SB.balance.remaining < cost) { toast('ব্যালেন্স যথেষ্ট নয়। প্রয়োজন ' + money(cost) + '।', 'err'); return; }
+      if (SB.balance.remaining < cost) { toast('ব্যবহারের সীমা শেষ। সীমা বাড়ালে আবার চালানো যাবে।', 'err'); return; }
       var old = onlyBtn.innerHTML; onlyBtn.disabled = true; var spent = 0;
       list.reduce(function (pr, c) {
         return pr.then(function () {
           onlyBtn.textContent = '⏳ তৈরি হচ্ছে…';
           return post('sb_ai', aiPayload(c)).then(function (d) { spent += d.cost; applyAI(c, d.result); });
         });
-      }, Promise.resolve()).then(function () { toast('✓ হয়েছে (আর্টিকেল অপরিবর্তিত)। ' + money(spent) + ' কেটেছে। এখন সেভ করুন।', 'ok'); })
+      }, Promise.resolve()).then(function () { toast('✓ হয়েছে (আর্টিকেল অপরিবর্তিত)। এখন সেভ করুন।', 'ok'); })
         .catch(function (e) { toast(e.message, 'err'); })
         .then(function () { onlyBtn.disabled = false; onlyBtn.innerHTML = old; });
     });
@@ -1063,7 +1063,7 @@
       if (f === 'article' || f === 'custom' || f === 'rewrite') { if ($('#inc-summary').checked) { chain.push('summary'); } if ($('#inc-faq').checked) { chain.push('faq'); } if ($('#inc-related').checked) { chain.push('related'); } }
       var cost = (f === 'custom' ? customPrice() : SB.costs[f]) + ((f === 'article' || f === 'custom') && $('#f-research') && $('#f-research').checked ? SB.costs.research : 0);
       chain.forEach(function (c) { cost += SB.costs[c]; });
-      if (SB.balance.remaining < cost) { toast('ব্যালেন্স যথেষ্ট নয়। প্রয়োজন ' + money(cost) + ', আছে ' + money(SB.balance.remaining) + '।', 'err'); return; }
+      if (SB.balance.remaining < cost) { toast('ব্যবহারের সীমা শেষ। সীমা বাড়ালে আবার চালানো যাবে।', 'err'); return; }
       var old = btn.innerHTML; btn.disabled = true; btn.textContent = '⏳ তৈরি হচ্ছে… (আর্টিকেলে ১ মিনিট লাগতে পারে)';
       say(msg, '');
       var spent = 0;
@@ -1079,7 +1079,7 @@
         var ai = $('#inc-image');
         if ((f === 'article' || f === 'custom' || f === 'rewrite') && ai && ai.checked && window.sbImgAuto) { btn.textContent = '⏳ ছবি তৈরি হচ্ছে…'; return window.sbImgAuto().then(function (c) { spent += c || 0; }); }
       }).then(function () {
-        say(msg, '✓ হয়েছে। মোট ' + money(spent) + ' কেটেছে।', 'ok'); toast('✓ হয়েছে। মোট ' + money(spent) + ' কেটেছে।', 'ok');
+        say(msg, '✓ হয়েছে।', 'ok'); toast('✓ হয়েছে।', 'ok');
       }).catch(function (e) { say(msg, e.message, 'err'); toast(e.message, 'err'); })
         .then(function () { btn.disabled = false; btn.innerHTML = old; });
     });
@@ -1265,7 +1265,7 @@
       var t = retry && retry.t ? retry.t : txt.value.trim(), again = false;
       if (!t) { return; }
       var cost = SB.costs.chat;
-      if (SB.balance.remaining < cost) { toast('Not enough balance. Need ' + money(cost) + ', have ' + money(SB.balance.remaining) + '.', 'err'); return; }
+      if (SB.balance.remaining < cost) { toast('Usage limit reached. Raise the limit to continue.', 'err'); return; }
       ensureDraft();
       if (!retry) { add('me', t); txt.value = ''; }
       send.disabled = true;
@@ -1294,7 +1294,7 @@
           undo.hidden = false;
           (window.__sbIns = window.__sbIns || []).push(t);
         }
-        var note = c.applied ? '✓ Changed: ' + done.join(', ') + ' — total ' + money(d.cost) + (c.cost_note ? ' (' + c.cost_note + ')' : '') : 'Nothing changed · free';
+        var note = c.applied ? '✓ Changed: ' + done.join(', ') : 'Nothing changed';
         if (c.failed && c.failed.length) { note += '\n⚠️ Not changed: "' + c.failed.join('", "') + '"'; }
         if (c.missing && c.missing.length) { note += '\n⚠️ Information needed from you: ' + c.missing.join(' '); }
         add('ai', c.reply || (c.applied ? 'Done.' : 'I did not understand, please rephrase.'), note);
@@ -1388,7 +1388,7 @@
     if (!SB.memAuto || (!aiDraft && !insList.length) || !finalHtml) { return; }
     var draft = aiDraft || ''; aiDraft = finalHtml; window.__sbIns = [];
     post('sb_mem_learn', { draft: draft, final: finalHtml, ins: insList.join('\n---\n'), title: val('#f-title'), post_id: postId }).then(function (d) {
-      if (d && d.added) { toast('🧠 মেমোরিতে ' + bn(d.added) + 'টি নতুন শিক্ষা জমা হয়েছে (' + money(d.cost) + ')। দেখুন/বদলান: মেমোরি মেনু।', 'ok'); }
+      if (d && d.added) { toast('🧠 মেমোরিতে ' + bn(d.added) + 'টি নতুন শিক্ষা জমা হয়েছে। দেখুন/বদলান: মেমোরি মেনু।', 'ok'); }
     }).catch(function () {});
   }
 

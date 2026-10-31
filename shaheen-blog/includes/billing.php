@@ -163,6 +163,21 @@ function sb_ledger_add($user_id, $feature, $credits, $post_id = 0, $real_usd = n
     ));
 }
 
+/** Every AI action of the last 2 calendar months (newest first): what it was, on which post, and its bill. */
+function sb_ledger_recent($limit = 500) {
+    global $wpdb;
+    $t    = sb_ledger_table();
+    $from = (new DateTimeImmutable('first day of last month 00:00:00', wp_timezone()))->getTimestamp();
+    $rows = (array) $wpdb->get_results($wpdb->prepare("SELECT t, feature, post_id, bill_usd FROM {$t} WHERE t >= %d AND bill_usd > 0 ORDER BY t DESC, id DESC LIMIT %d", $from, (int) $limit), ARRAY_A);
+    $lab  = sb_feature_labels();
+    foreach ($rows as $i => $r) {
+        $title = $r['post_id'] ? get_the_title((int) $r['post_id']) : '';
+        $rows[$i]['label'] = isset($lab[$r['feature']]) ? $lab[$r['feature']] : $r['feature'];
+        $rows[$i]['title'] = $title;
+    }
+    return $rows;
+}
+
 /** First/last second of a month "YYYY-MM" in the site's time zone. */
 function sb_month_range($ym) {
     $s = new DateTimeImmutable($ym . '-01 00:00:00', wp_timezone());

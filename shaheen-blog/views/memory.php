@@ -14,7 +14,7 @@ $seed  = $site['sites'] ? implode("\n", $site['sites']) : trim((string) sb_get('
     <div class="sba-card">
         <h2>📘 যা মনে রাখা আছে</h2>
         <label class="sba-inline-check"><input type="checkbox" id="mem-auto" <?php checked($cfg['auto']); ?>>
-            লেখা সেভ করার সময় আপনার সংশোধন থেকে নিজে নিজে শেখো <em>(নতুন কিছু শিখলে শুধু তখনই <?php echo esc_html(sb_money(sb_feature_cost('learn'))); ?>; কিছু না শিখলে কোনো খরচ নেই)</em></label>
+            লেখা সেভ করার সময় আপনার সংশোধন থেকে নিজে নিজে শেখো <em>(নতুন কিছু শিখলে শুধু তখনই খরচ হয়)</em></label>
         <div id="mem-list" style="margin-top:12px"></div>
         <p>
             <button type="button" class="button" id="mem-add-rule">＋ নিয়ম যোগ করুন</button>

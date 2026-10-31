@@ -56,19 +56,25 @@ $blog_page = (int) get_option('sb_blog_page_id');
             <?php endif; ?>
         </div>
         <div class="sba-card">
-            <h2>Recent AI Use</h2>
-            <?php if (!$log) : ?>
+            <h2>AI ব্যবহার ও খরচ <span class="sba-muted" style="font-weight:400;font-size:12px">(গত ২ মাস)</span></h2>
+            <?php $uses = sb_ledger_recent(); ?>
+            <?php if (!$uses) : ?>
                 <p class="sba-muted">এখনো কোনো AI ব্যবহার হয়নি।</p>
             <?php else : ?>
-                <ul class="sba-list">
-                    <?php foreach ($log as $row) : ?>
-                        <li>
-                            <?php echo esc_html(isset($labels[$row['feature']]) ? $labels[$row['feature']] : $row['feature']); ?>
+                <ul class="sba-list" id="sb-uselist">
+                    <?php foreach ($uses as $i => $row) : ?>
+                        <li<?php echo $i >= 10 ? ' class="sb-more" style="display:none"' : ''; ?>>
+                            <?php echo esc_html($row['label']); ?>
+                            <?php if ($row['title']) : ?><span class="sba-muted">— <?php echo esc_html(wp_trim_words($row['title'], 6, '…')); ?></span><?php endif; ?>
                             <span class="sba-muted"><?php echo esc_html(sb_bn_date($row['t'], false)); ?></span>
-                            <strong><?php echo esc_html(sb_money($row['cost'])); ?></strong>
+                            <strong><?php echo esc_html('$' . number_format((float) $row['bill_usd'], (float) $row['bill_usd'] < 0.1 ? 3 : 2)); ?></strong>
                         </li>
                     <?php endforeach; ?>
                 </ul>
+                <?php if (count($uses) > 10) : ?>
+                    <p><button type="button" class="button" id="sb-usemore">আরও দেখুন (<?php echo esc_html(sb_bn_digits(count($uses) - 10)); ?>টি)</button></p>
+                    <script>document.getElementById('sb-usemore').addEventListener('click',function(){document.querySelectorAll('#sb-uselist .sb-more').forEach(function(l){l.style.display='';});this.parentNode.remove();});</script>
+                <?php endif; ?>
             <?php endif; ?>
         </div>
     </div>

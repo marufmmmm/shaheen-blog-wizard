@@ -101,8 +101,8 @@ function sb_edit_box($p) {
         <div class="sba-insrows" id="<?php echo esc_attr($p); ?>-rows"></div>
         <button type="button" class="button" id="<?php echo esc_attr($p); ?>-addrow">＋ আরেকটি পরিবর্তন যোগ করুন</button>
         <div class="sba-edit-modes">
-            <label class="sba-inline-check"><input type="radio" name="<?php echo esc_attr($p); ?>-mode" value="edit" checked> শুধু সংশোধন <em>(১–৫টি পরিবর্তন <?php echo esc_html(sb_money(sb_feature_cost('edit'))); ?>, ৬–১০টি <?php echo esc_html(sb_bn_digits(sb_feature_cost('edit_many'))); ?>)</em> — বাকি লেখা যেমন আছে তেমন থাকবে, শুধু আপনার নির্দেশের অংশ বদলাবে</label>
-            <label class="sba-inline-check"><input type="radio" name="<?php echo esc_attr($p); ?>-mode" value="edit_new"> নতুন করে লেখা <em>(<?php echo esc_html(sb_money(sb_feature_cost('edit_new'))); ?>)</em> — নির্দেশ মেনে পুরো লেখা নতুন করে তৈরি হবে</label>
+            <label class="sba-inline-check"><input type="radio" name="<?php echo esc_attr($p); ?>-mode" value="edit" checked> শুধু সংশোধন <em>(১–১০টি পরিবর্তন)</em> — বাকি লেখা যেমন আছে তেমন থাকবে, শুধু আপনার নির্দেশের অংশ বদলাবে</label>
+            <label class="sba-inline-check"><input type="radio" name="<?php echo esc_attr($p); ?>-mode" value="edit_new"> নতুন করে লেখা — নির্দেশ মেনে পুরো লেখা নতুন করে তৈরি হবে</label>
         </div>
         <p><button type="button" class="button button-primary" id="<?php echo esc_attr($p); ?>-go">🤖 নির্দেশ অনুযায়ী করুন</button>
            <button type="button" class="button" id="<?php echo esc_attr($p); ?>-undo" hidden>↩️ আগের লেখা ফিরিয়ে আনুন</button></p>
