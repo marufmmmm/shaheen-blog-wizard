@@ -1222,10 +1222,15 @@ function sb_chat_result($r, $ctx) {
         // a truncated or placeholder answer must never replace the owner's article
         $cand = sb_strip_echo($cand, isset($ctx['instruction']) ? $ctx['instruction'] : '', isset($ctx['keywords']) && is_array($ctx['keywords']) ? $ctx['keywords'] : array())[0];
         $cl = mb_strlen(wp_strip_all_tags($cand));
-        if ($cl < 150 || ($ol > 600 && $cl < $ol * 0.4)) {
-            $out['failed'][] = 'AI returned an incomplete article; the article was left unchanged';
+        $placeholder = (bool) preg_match('/(বাকি|অবশিষ্ট)\s*(অংশ|লেখা)[^।]{0,25}(আগের\s*মতো|অপরিবর্তিত|একই)|rest of the article|\[\s*…\s*\]/iu', wp_strip_all_tags($cand));
+        // Only a placeholder or a stub is refused. A real rewrite may be shorter (a news-style rewrite drops repetition): accept it and say so.
+        if ($cl < 150 || $placeholder || ($ol > 600 && $cl < $ol * 0.15)) {
+            $out['failed'][] = 'AI-র নতুন লেখা অসম্পূর্ণ (' . sb_bn_digits($cl) . ' অক্ষর, আগে ছিল ' . sb_bn_digits($ol) . '), তাই আগের লেখা যেমন ছিল তেমন আছে। আবার চেষ্টা করুন।';
         } else {
             $new = $cand;
+            if ($ol > 600 && $cl < $ol * 0.6) {
+                $short_note = 'ℹ️ নতুন লেখা আগের চেয়ে ' . sb_bn_digits((int) round((1 - $cl / $ol) * 100)) . '% ছোট (' . sb_bn_digits($cl) . ' অক্ষর, আগে ' . sb_bn_digits($ol) . ')। কিছু হারিয়েছে মনে হলে "Undo last send" বা "Reset draft" চাপুন।';
+            }
         }
     } elseif (!empty($j['edits']) && is_array($j['edits'])) {
         foreach (array_slice($j['edits'], 0, 12) as $e) {
@@ -1261,6 +1266,9 @@ function sb_chat_result($r, $ctx) {
     }
     $out['pdf_docs'] = isset($j['pdfs']) ? sb_pdf_docs($j['pdfs']) : array();
     $out['applied'] = count($out['changes']) + ($out['article'] !== null ? 1 : 0) + ($out['pdf_docs'] ? 1 : 0);
+    if (!empty($short_note) && $out['applied']) {
+        $out['reply'] = trim($out['reply'] . "\n" . $short_note);
+    }
     $out['promise'] = (!$out['applied'] && empty($out['failed']) && preg_match('/(করব|করছি|যুক্ত করে দেব|যোগ করব|দিচ্ছি|লিখব|বদলাব|সরিয়ে দেব)/u', $out['reply'])) ? 1 : 0;
     if (!$out['applied'] && $out['reply'] === '') {
         $out['reply'] = 'কিছু বদলানো যায়নি। কোন অংশ কীভাবে বদলাবেন আরও স্পষ্ট করে লিখুন।';
