@@ -42,7 +42,7 @@ function sb_img_price($real) {
 
 /* ---------- Uniform reference library ---------- */
 function sb_uniform_cats() {
-    return array('general' => 'সাধারণ / বাংলা মাধ্যম', 'english' => 'ইংলিশ ভার্সন', 'madrasha' => 'মাদ্রাসা / ইসলামিক', 'other' => 'অন্যান্য');
+    return array('general' => 'সাধারণ / বাংলা মাধ্যম', 'english' => 'ইংলিশ ভার্সন', 'madrasha' => 'মাদ্রাসা / ইসলামিক', 'cadet' => 'ক্যাডেট কলেজ (আলাদা প্রতিষ্ঠান)', 'teacher' => 'শিক্ষকের পোশাক', 'other' => 'অন্যান্য');
 }
 
 function sb_uniforms($only_active = false) {
@@ -54,39 +54,136 @@ function sb_uniforms($only_active = false) {
     return $u;
 }
 
-/** Which uniforms to send: explicit id, 'none', or automatic from the article. Returns array(refs[], note). */
-function sb_uniform_pick($explicit, $text) {
+/**
+ * Which dress references to send. $explicit: an id, 'none', 'auto' or 'cat:<category>'. $subject: auto|student|teacher|none.
+ * Returns array(refs[], note).
+ */
+function sb_uniform_pick($explicit, $text, $subject = 'auto') {
     $all = sb_uniforms(true);
-    if ($explicit === 'none' || !$all) {
-        return array(array(), $all ? '' : 'ইউনিফর্ম লাইব্রেরিতে কোনো ছবি নেই, তাই রেফারেন্স ছাড়াই বানানো হবে।');
+    if ($explicit === 'none' || $subject === 'none') {
+        return array(array(), '');
     }
+    if (!$all) {
+        return array(array(), 'ড্রেসের নমুনা লাইব্রেরিতে কোনো ছবি নেই, তাই রেফারেন্স ছাড়াই বানানো হবে।');
+    }
+    $in_cat = function ($cat) use ($all) {
+        $p = array_values(array_filter($all, function ($r) use ($cat) { return $r['cat'] === $cat; }));
+        usort($p, function ($a, $b) { return (int) !empty($b['default']) <=> (int) !empty($a['default']); });
+        return array_slice($p, 0, 3);
+    };
     if ($explicit !== '' && $explicit !== 'auto') {
+        if (strpos($explicit, 'cat:') === 0) {
+            $pool = $in_cat(substr($explicit, 4));
+            return array($pool, $pool ? '' : 'এই ধরনের ড্রেসের কোনো নমুনা ছবি লাইব্রেরিতে নেই, তাই রেফারেন্স ছাড়াই বানানো হবে।');
+        }
         foreach ($all as $r) {
             if ((string) $r['id'] === (string) $explicit) {
                 return array(array($r), '');
             }
         }
     }
+    if ($subject === 'teacher') {
+        $pool = $in_cat('teacher');
+        return array($pool, $pool ? '' : 'শিক্ষকের পোশাকের কোনো নমুনা ছবি নেই, তাই রেফারেন্স ছাড়াই বানানো হবে। Uniform Library-তে "শিক্ষকের পোশাক" ধরনে ছবি দিন।');
+    }
     $cat = '';
-    if (preg_match('/ইংলিশ\s*ভার্সন|ইংরেজি\s*ভার্সন|english\s*version/iu', $text)) {
+    if (preg_match('/ক্যাডেট\s*কলেজ|cadet/iu', $text)) {
+        $cat = 'cadet';
+    } elseif (preg_match('/ইংলিশ\s*ভার্সন|ইংরেজি\s*ভার্সন|english\s*version/iu', $text)) {
         $cat = 'english';
     } elseif (preg_match('/মাদ্রাসা|মাদরাসা|মাদ্রাসাহ|ইসলামিক\s*স্কুল|madrasa|madrasha/iu', $text)) {
         $cat = 'madrasha';
-    } elseif (preg_match('/স্কুল|শিক্ষার্থী|ছাত্র|ছাত্রী|ক্যাডেট|school|student/iu', $text)) {
+    } elseif (preg_match('/স্কুল|শিক্ষার্থী|ছাত্র|ছাত্রী|school|student/iu', $text)) {
         $cat = 'general';
     }
-    $pool = array();
-    if ($cat !== '') {
-        $pool = array_values(array_filter($all, function ($r) use ($cat) { return $r['cat'] === $cat; }));
-    }
+    $pool = $cat !== '' ? $in_cat($cat) : array();
     if (!$pool) {
         $pool = array_values(array_filter($all, function ($r) { return !empty($r['default']); }));
         if (!$pool) {
-            return array(array(), 'এই লেখার জন্য কোন ইউনিফর্ম, তা নিশ্চিত নই। উপরে ইউনিফর্ম বেছে দিন, নইলে রেফারেন্স ছাড়াই বানানো হবে।');
+            return array(array(), 'এই লেখার জন্য কোন ড্রেস, তা নিশ্চিত নই। ড্রেস বেছে দিন, নইলে রেফারেন্স ছাড়াই বানানো হবে।');
         }
     }
-    usort($pool, function ($a, $b) { return (int) !empty($b['default']) <=> (int) !empty($a['default']); });
     return array(array_slice($pool, 0, 3), '');
+}
+
+/* ---------- Logo library (3 fixed logos) ---------- */
+function sb_logo_defs() {
+    return array('school' => 'শাহীন স্কুল লোগো', 'family' => 'শাহীন এডুকেশন ফ্যামিলি লোগো', 'cadet' => 'ক্যাডেট কলেজ লোগো');
+}
+
+function sb_logos() {
+    $o = get_option('sb_logos', array());
+    $out = array();
+    foreach (sb_logo_defs() as $k => $label) {
+        $att = is_array($o) && !empty($o[$k]) ? (int) $o[$k] : 0;
+        if ($att && get_attached_file($att)) {
+            $out[$k] = array('label' => $label, 'att' => $att);
+        }
+    }
+    return $out;
+}
+
+function sb_logo_places() {
+    return array(
+        'chest'  => array('ছাত্র/ছাত্রী বা শিক্ষকের পোশাকের বুকে', 'on the left chest of the shirt, tunic or blazer of the person'),
+        'pocket' => array('পোশাকের বুক-পকেটে', 'on the chest pocket or blazer badge of the person'),
+        'bag'    => array('স্কুলব্যাগে', 'on the school bag'),
+        'id'     => array('গলার আইডি কার্ডে', 'on the ID card hanging from a lanyard on the neck'),
+        'gate'   => array('স্কুলের গেট / সাইনবোর্ডে (পেছনে)', 'on the school gate or signboard in the background'),
+        'wall'   => array('দেয়াল / ব্যানার / বোর্ডে (পেছনে)', 'on a wall, banner or notice board in the background'),
+        'book'   => array('খাতা / বইয়ের মলাটে', 'on the cover of a notebook or book'),
+    );
+}
+
+/** Logo reference + the sentence that tells the model where to put it. Returns array(ref|null, text). */
+function sb_logo_pick($logo, $place, $refs) {
+    $all = sb_logos();
+    if ($logo === 'auto') {
+        $logo = 'school';
+        foreach ($refs as $r) {
+            if ($r['cat'] === 'cadet') {
+                $logo = 'cadet';
+            }
+        }
+    }
+    if (!isset($all[$logo])) {
+        return array(null, $logo !== '' && $logo !== 'none' ? 'এই লোগোটি Uniform Library পেজে এখনো দেওয়া হয়নি, তাই লোগো ছাড়াই বানানো হয়েছে।' : '');
+    }
+    $pl = sb_logo_places();
+    $where = isset($pl[$place]) ? $pl[$place][1] : $pl['chest'][1];
+    return array(array('att' => $all[$logo]['att'], 'cat' => 'logo', 'name' => $all[$logo]['label']), $where);
+}
+
+/** Choices for the dress / logo / place selects (the wizard prints them and the JS builds the extra image panels from the same list). */
+function sb_img_opts() {
+    $u = array(array('auto', 'স্বয়ংক্রিয় (লেখা দেখে)'), array('none', 'ড্রেসের রেফারেন্স লাগবে না (AI নিজের মতো)'));
+    foreach (sb_uniform_cats() as $k => $l) {
+        if ($k !== 'other') {
+            $u[] = array('cat:' . $k, 'ধরন: ' . $l);
+        }
+    }
+    foreach (sb_uniforms(true) as $r) {
+        $u[] = array((string) $r['id'], (sb_uniform_cats()[$r['cat']] ?? '') . ($r['name'] !== '' ? ' — ' . $r['name'] : '') . ' (নির্দিষ্ট ছবি)');
+    }
+    $lg = array(array('none', 'লোগো লাগবে না'), array('auto', 'স্বয়ংক্রিয় (ক্যাডেট হলে ক্যাডেট, নইলে শাহীন স্কুল)'));
+    foreach (sb_logo_defs() as $k => $l) {
+        $lg[] = array($k, $l . (isset(sb_logos()[$k]) ? '' : ' (এখনো দেওয়া হয়নি)'));
+    }
+    $pl = array();
+    foreach (sb_logo_places() as $k => $p) {
+        $pl[] = array($k, $p[0]);
+    }
+    return array('uniforms' => $u, 'logos' => $lg, 'places' => $pl,
+        'subjects' => array(array('auto', 'স্বয়ংক্রিয় (লেখা দেখে)'), array('student', 'ছাত্র-ছাত্রী'), array('teacher', 'শিক্ষক'), array('none', 'কোনো মানুষ নেই (ক্যাম্পাস, বই, বস্তু)')),
+        'max' => 3);
+}
+
+function sb_img_select($id, $opts) {
+    $h = '<select id="' . esc_attr($id) . '">';
+    foreach ($opts as $o) {
+        $h .= '<option value="' . esc_attr($o[0]) . '">' . esc_html($o[1]) . '</option>';
+    }
+    return $h . '</select>';
 }
 
 /* ---------- OpenAI calls ---------- */
@@ -207,7 +304,10 @@ add_action('wp_ajax_sb_img_prompt', function () {
     if ($title === '' && mb_strlen($text) < 40) {
         wp_send_json_error(array('message' => 'আগে শিরোনাম বা আর্টিকেল লিখুন।'));
     }
-    list($refs, $note) = sb_uniform_pick(sanitize_text_field(sb_req('uniform', 'auto')), $title . ' ' . $cat . ' ' . $text);
+    $subject = in_array(sb_req('subject'), array('auto', 'student', 'teacher', 'none'), true) ? sb_req('subject') : 'auto';
+    $section = mb_substr(sanitize_textarea_field(sb_req('section')), 0, 900);
+    list($refs, $note) = sb_uniform_pick(sanitize_text_field(sb_req('uniform', 'auto')), $title . ' ' . $cat . ' ' . $text . ' ' . $section, $subject);
+    list($logoref, $lwhere) = sb_logo_pick(sanitize_text_field(sb_req('logo', 'none')), sanitize_text_field(sb_req('logo_at', 'chest')), $refs);
     $udesc = '';
     foreach ($refs as $r) {
         $udesc .= ($r['name'] !== '' ? $r['name'] . ': ' : '') . $r['desc'] . ' ';
@@ -216,10 +316,12 @@ add_action('wp_ajax_sb_img_prompt', function () {
     $sys  = "You write image-generation prompts for blog images of Shaheen Education Family (a school network in Bangladesh). Reply with JSON only: {\"prompt\":\"...\",\"alt\":\"...\",\"title\":\"...\",\"caption\":\"...\",\"details\":\"...\"}.\n"
         . "prompt: English, 90-160 words, specific to THIS article. Cover: main visual message, who the audience is, setting and background, composition and camera angle, natural lighting and realism, aspect ratio, and things to avoid.\n"
         . "People must look like natural, realistic Bangladeshi people: South Asian features, authentic light-brown to deep-brown skin tones with natural texture, black or dark-brown hair, age-appropriate children, realistic Bangladeshi adults. No skin lightening, no beauty filter, no European or East Asian look. Use authentic Bangladeshi classrooms, homes, schools, libraries.\n"
-        . ($refs ? "If students are shown, they wear the school uniform exactly as in the attached reference image(s): same colours, shirt/tunic, trousers/skirt, scarf/hijab/cap. Never invent a logo, badge, school name or a different uniform. " . ($udesc ? "Uniform notes: {$udesc}" : '') . "\n" : "If students are shown, use plain, simple school-style clothes with no logos or text.\n")
-        . "No text, letters, watermarks or logos inside the image. Avoid stereotypes.\n"
+        . ($subject === 'none' ? "Show no people: the scene is the place, objects, books or campus only.\n" : '')
+        . ($refs ? ($subject === 'teacher' ? "The person shown is a teacher wearing the dress exactly as in the attached reference image(s): same garments and colours. " : "If students are shown, they wear the dress exactly as in the attached reference image(s): same colours, shirt/tunic, trousers/skirt, scarf/hijab/cap. ") . "Never invent a different uniform. " . ($udesc ? "Dress notes: {$udesc}" : '') . "\n" : "If people are shown, use plain, simple clothes with no logos or text.\n")
+        . ($logoref ? "The official logo ({$logoref['name']}) is attached as a reference image and will be added by the image model: mention it once in the prompt as placed {$lwhere}, unaltered. Nothing else may carry any logo, text, letters or watermark.\n" : "No text, letters, watermarks or logos inside the image.\n")
+        . "Avoid stereotypes.\n"
         . "alt: Bangla, one natural sentence describing what is actually shown, no keyword stuffing. title: Bangla, short. caption: Bangla, one short line. details: Bangla, 1-2 sentences on what the image shows and why it fits the article.";
-    $usr  = "Article title: {$title}\nCategory: {$cat}\nImage size: {$size}\nArticle text:\n{$text}";
+    $usr  = "Article title: {$title}\nCategory: {$cat}\nImage size: {$size}\n" . ($section !== '' ? "This image sits right after this part of the article, so it must fit THIS part, not the whole article:\n{$section}\n" : '') . "Article text:\n{$text}";
     $r    = wp_remote_post('https://api.openai.com/v1/chat/completions', array('timeout' => 90, 'headers' => array('Authorization' => 'Bearer ' . $key, 'Content-Type' => 'application/json'),
         'body' => wp_json_encode(array('model' => sb_model_for('meta'), 'response_format' => array('type' => 'json_object'), 'messages' => array(array('role' => 'system', 'content' => $sys), array('role' => 'user', 'content' => $usr))))));
     $d = is_wp_error($r) ? null : json_decode((string) wp_remote_retrieve_body($r), true);
@@ -236,7 +338,7 @@ add_action('wp_ajax_sb_img_prompt', function () {
     wp_send_json_success(array(
         'prompt' => sanitize_textarea_field($j['prompt']), 'alt' => sanitize_text_field(isset($j['alt']) ? $j['alt'] : ''),
         'title' => sanitize_text_field(isset($j['title']) ? $j['title'] : ''), 'caption' => sanitize_text_field(isset($j['caption']) ? $j['caption'] : ''),
-        'details' => sanitize_textarea_field(isset($j['details']) ? $j['details'] : ''), 'note' => $note, 'uniforms' => count($refs),
+        'details' => sanitize_textarea_field(isset($j['details']) ? $j['details'] : ''), 'note' => $note, 'uniforms' => count($refs), 'logo' => $logoref ? 1 : 0,
     ));
 });
 
@@ -261,7 +363,21 @@ add_action('wp_ajax_sb_img_make', function () {
     $size    = in_array(sb_req('size'), $sizes, true) ? sb_req('size') : '1536x1024';
     $quality = in_array(sb_req('quality'), array('low', 'medium', 'high'), true) ? sb_req('quality') : 'medium';
     list($title, $text, $cat) = sb_img_context();
-    list($refs, $note) = sb_uniform_pick(sanitize_text_field(sb_req('uniform', 'auto')), $title . ' ' . $cat . ' ' . $text . ' ' . $prompt);
+    $subject = in_array(sb_req('subject'), array('auto', 'student', 'teacher', 'none'), true) ? sb_req('subject') : 'auto';
+    list($refs, $note) = sb_uniform_pick(sanitize_text_field(sb_req('uniform', 'auto')), $title . ' ' . $cat . ' ' . $text . ' ' . $prompt, $subject);
+    $nd = count($refs);
+    list($logoref, $lwhere) = sb_logo_pick(sanitize_text_field(sb_req('logo', 'none')), sanitize_text_field(sb_req('logo_at', 'chest')), $refs);
+    if ($logoref) {
+        $refs[] = $logoref;
+    } elseif ($lwhere !== '') {
+        $note = trim($note . ' ' . $lwhere);
+    }
+    if ($nd) {
+        $prompt .= "\n\nReference image" . ($nd > 1 ? 's 1-' . $nd : ' 1') . ' show the dress to use: copy the garments, colours and style exactly, change nothing.';
+    }
+    if ($logoref) {
+        $prompt .= "\n\nReference image " . count($refs) . ' is the official logo (' . $logoref['name'] . '). Show it exactly once, ' . $lwhere . ', copied faithfully from the reference: same shape, colours and lettering, not redrawn, not distorted, readable. No other logo, text or watermark anywhere.';
+    }
     $model = sanitize_text_field(sb_req('model', 'auto'));
     if ($model === 'auto' || !isset(sb_img_models()[$model])) {
         $model = $refs ? 'gpt-image-2.5-sunburst' : 'gpt-image-2.5-flare';   // references need the most precise model
@@ -288,7 +404,8 @@ add_action('wp_ajax_sb_img_make', function () {
     }
     $bill = sb_img_charge($uid, (int) sb_req('post_id', 0), $real);
     delete_transient($lock);
-    $out = array('id' => $id, 'url' => wp_get_attachment_image_url($id, 'medium'), 'bill' => sb_fmt_usd(is_wp_error($bill) ? 0 : $bill),
+    $big = wp_get_attachment_image_src($id, 'large');
+    $out = array('id' => $id, 'url' => wp_get_attachment_image_url($id, 'medium'), 'src' => $big ? $big[0] : wp_get_attachment_url($id), 'w' => $big ? (int) $big[1] : 0, 'h' => $big ? (int) $big[2] : 0, 'bill' => sb_fmt_usd(is_wp_error($bill) ? 0 : $bill),
         'model' => sb_img_models()[$model]['label'], 'uniforms' => count($refs), 'note' => $note, 'estimated' => $est, 'balance' => SB_Credits::state($uid));
     if ($job !== '') {
         set_transient('sb_imgjob_' . $job, $out, 900);
@@ -389,6 +506,11 @@ add_action('admin_post_sb_uniform_save', function () {
             'desc' => sanitize_textarea_field(isset($r['desc']) ? $r['desc'] : ''), 'active' => !empty($r['active']) ? 1 : 0, 'default' => ($def === $att) ? 1 : 0);
     }
     update_option('sb_uniforms', $out, false);
+    $lg = array();
+    foreach (array_keys(sb_logo_defs()) as $k) {
+        $lg[$k] = isset($_POST['logo'][$k]) ? (int) $_POST['logo'][$k] : 0; // phpcs:ignore WordPress.Security.NonceVerification
+    }
+    update_option('sb_logos', $lg, false);
     wp_safe_redirect(admin_url('admin.php?page=sb-uniforms&saved=1'));
     exit;
 });
@@ -403,8 +525,16 @@ function sb_page_uniforms() {
     if (isset($_GET['saved'])) { // phpcs:ignore WordPress.Security.NonceVerification
         echo '<div class="notice notice-success"><p>সেভ হয়েছে ✓</p></div>';
     }
-    echo '<p class="sba-muted">এখানে স্কুলের ইউনিফর্মের নমুনা ছবি রাখুন (৩–৫টি দিয়ে শুরু করুন)। AI ছবি বানানোর সময় লেখা অনুযায়ী সঠিক ইউনিফর্মের ছবি মডেলকে দেখানো হয়। কোনো লোগো বা স্কুলের নাম AI নিজে বানাবে না।</p>';
+    echo '<p class="sba-muted">এখানে ড্রেসের নমুনা ছবি রাখুন: ছাত্র-ছাত্রীর ইউনিফর্ম (বাংলা মাধ্যম, ইংলিশ ভার্সন, মাদ্রাসা), ক্যাডেট কলেজ ও শিক্ষকের পোশাক। প্রতিটির জন্য ধরন ঠিক করে দিন। AI ছবি বানানোর সময় লেখা অনুযায়ী সঠিক ইউনিফর্মের ছবি মডেলকে দেখানো হয়। লোগো নিচের লোগো অংশ থেকে হুবহু বসবে, AI নিজে বানাবে না।</p>';
     echo '<form method="post" action="' . esc_url(admin_url('admin-post.php')) . '">' . wp_nonce_field('sb_uniform_save', '_wpnonce', true, false) . '<input type="hidden" name="action" value="sb_uniform_save">';
+    $lg = get_option('sb_logos', array());
+    echo '<div class="sba-card"><h2>🏷️ লোগো</h2><p class="sba-muted">এই লোগোগুলো AI ছবির রেফারেন্স হিসেবে যাবে। ছবি বানানোর সময় আপনি বেছে নেবেন কোন লোগো, পোশাকের কোথায় বা ব্যাগ/গেট/ব্যানারে বসবে। লোগো AI নিজে আঁকবে না, এই ছবি দেখে হুবহু বসাবে। স্বচ্ছ (PNG) পটভূমির পরিষ্কার লোগো ভালো কাজ করে।</p><div style="display:flex;gap:18px;flex-wrap:wrap">';
+    foreach (sb_logo_defs() as $k => $label) {
+        $att = is_array($lg) && !empty($lg[$k]) ? (int) $lg[$k] : 0;
+        echo '<div style="min-width:170px"><strong>' . esc_html($label) . '</strong><br><div class="sbl-prev" data-k="' . esc_attr($k) . '" style="width:110px;height:110px;border:1px dashed #bbb;margin:6px 0;display:flex;align-items:center;justify-content:center;background:#fafafa">' . ($att ? wp_get_attachment_image($att, array(100, 100)) : '<span class="sba-muted">নেই</span>') . '</div>'
+            . '<input type="hidden" name="logo[' . esc_attr($k) . ']" value="' . $att . '" class="sbl-in"><button type="button" class="button sbl-pick" data-k="' . esc_attr($k) . '">ছবি বেছে নিন</button> <button type="button" class="button-link-delete sbl-del" data-k="' . esc_attr($k) . '">সরান</button></div>';
+    }
+    echo '</div></div>';
     echo '<div class="sba-card"><table class="widefat striped" id="sbu-table"><thead><tr><th>ছবি</th><th>ধরন</th><th>নাম</th><th>বর্ণনা (ঐচ্ছিক)</th><th>চালু</th><th>ডিফল্ট</th><th>মুছুন</th></tr></thead><tbody>';
     foreach ($rows as $i => $r) {
         sb_uniform_row($i, $r, $cats);
@@ -413,6 +543,24 @@ function sb_page_uniforms() {
     ?>
     <script>
     (function () {
+        document.querySelectorAll('.sbl-pick').forEach(function (b) {
+            b.addEventListener('click', function () {
+                if (!window.wp || !wp.media) { return; }
+                var k = b.dataset.k, f = wp.media({ title: 'লোগো', library: { type: 'image' }, multiple: false });
+                f.on('select', function () {
+                    var a = f.state().get('selection').first().toJSON(), u = (a.sizes && a.sizes.thumbnail) ? a.sizes.thumbnail.url : a.url;
+                    document.querySelector('.sbl-in[name="logo[' + k + ']"]').value = a.id;
+                    document.querySelector('.sbl-prev[data-k="' + k + '"]').innerHTML = '<img src="' + u + '" style="max-width:100px;max-height:100px">';
+                });
+                f.open();
+            });
+        });
+        document.querySelectorAll('.sbl-del').forEach(function (b) {
+            b.addEventListener('click', function () {
+                document.querySelector('.sbl-in[name="logo[' + b.dataset.k + ']"]').value = 0;
+                document.querySelector('.sbl-prev[data-k="' + b.dataset.k + '"]').innerHTML = '<span class="sba-muted">নেই</span>';
+            });
+        });
         var cats = <?php echo wp_json_encode($cats); ?>, n = <?php echo (int) count($rows) + 100; ?>;
         document.getElementById('sbu-add').addEventListener('click', function () {
             if (!window.wp || !wp.media) { return; }

@@ -1007,3 +1007,8 @@ body.single-sb_post.shb-hide-title main .wp-block-separator { display: none; }
 .shb-single .post-body > :last-child { margin-bottom: 0; }
 .shb-single .post-layout { padding-bottom: 28px; }
 body.shb-page { background-color: #f5f9f2; }
+
+/* AI images placed inside an article */
+.sb-fig, .shb-single figure.wp-block-image { margin: 1.6em 0; }
+.sb-fig img { display: block; max-width: 100%; height: auto; border-radius: 8px; margin: 0 auto; }
+.sb-fig figcaption { font-size: .88em; color: #667; text-align: center; margin-top: 8px; }

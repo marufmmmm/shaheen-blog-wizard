@@ -323,11 +323,15 @@ $costs['research'] = max(0, (int) sb_get('cost_research'));
                 <hr>
                 <div class="sba-row">
                     <label>মডেল<select id="img-model"><option value="auto">স্বয়ংক্রিয় (প্রস্তাবিত)</option><option value="gpt-image-2.5-sunburst">Sunburst — সবচেয়ে নির্ভুল</option><option value="gpt-image-2.5-flare">Flare — দ্রুত</option></select></label>
-                    <label>ইউনিফর্ম<select id="img-uniform"><option value="auto">স্বয়ংক্রিয় (লেখা দেখে)</option><option value="none">ইউনিফর্ম লাগবে না</option>
-                    <?php foreach (sb_uniforms(true) as $u) : ?><option value="<?php echo esc_attr($u['id']); ?>"><?php echo esc_html((sb_uniform_cats()[$u['cat']] ?? '') . ($u['name'] !== '' ? ' — ' . $u['name'] : '')); ?></option><?php endforeach; ?>
-                    </select></label>
+                    <?php $io = sb_img_opts(); ?>
+                    <label>কার ছবি<?php echo sb_img_select('img-subject', $io['subjects']); ?></label>
+                    <label>ড্রেস<?php echo sb_img_select('img-uniform', $io['uniforms']); ?></label>
                     <label>মাপ<select id="img-size"><option value="1536x1024">আড়াআড়ি (১৫৩৬×১০২৪)</option><option value="1024x1024">চৌকো (১০২৪×১০২৪)</option><option value="1024x1536">লম্বা (১০২৪×১৫৩৬)</option></select></label>
                     <label>মান<select id="img-quality"><option value="low">কম (সস্তা)</option><option value="medium" selected>মাঝারি</option><option value="high">উচ্চ (দামি)</option></select></label>
+                </div>
+                <div class="sba-row">
+                    <label>লোগো<?php echo sb_img_select('img-logo', $io['logos']); ?></label>
+                    <label>লোগো কোথায় বসবে<?php echo sb_img_select('img-logoat', $io['places']); ?></label>
                 </div>
                 <label>ছবির প্রম্পট <small>(তৈরি হলে নিজে বদলাতে পারবেন)</small><textarea id="img-prompt" rows="4" placeholder="ইংরেজিতে বিস্তারিত প্রম্পট — বা নিচের বোতামে AI দিয়ে তৈরি করুন"></textarea></label>
                 <p>
@@ -336,6 +340,12 @@ $costs['research'] = max(0, (int) sb_get('cost_research'));
                     <span class="sba-muted" id="img-msg"></span>
                 </p>
                 <p class="sba-muted">একবার চাপলে একটি ছবি তৈরি হয় এবং তখনই শুধু বিল যোগ হয়। ছবি ব্যর্থ হলে কোনো বিল নেই। ছবি WebP ফরম্যাটে সেভ হয়।</p>
+                <hr>
+                <div id="img-extra" data-opts="<?php echo esc_attr(wp_json_encode($io)); ?>">
+                    <h4 style="margin:6px 0">🖼️ আর্টিকেলের ভেতরের ছবি <small class="sba-muted">(ফিচার্ড ছাড়া)</small></h4>
+                    <label style="display:inline-block;max-width:260px">কয়টি ছবি<select id="img-count"><option value="0">০ (লাগবে না)</option><?php for ($n = 1; $n <= $io['max']; $n++) : ?><option value="<?php echo (int) $n; ?>"><?php echo esc_html(sb_bn_digits($n)); ?>টি</option><?php endfor; ?></select></label>
+                    <div id="img-slots"></div>
+                </div>
             </details>
             <div class="sba-ai">
                 <div class="sba-ai-head"><h3>📣 Facebook ক্যাপশন <small class="sba-muted">(আর্টিকেল থেকে; পেজে পোস্টের সময় কপি করুন)</small></h3>

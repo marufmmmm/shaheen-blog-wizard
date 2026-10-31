@@ -434,6 +434,7 @@
     var t = $('#sb_content'); return t ? t.value : '';
   }
   window.sbEditorContent = editorContent;
+  window.sbEditorSet = function (h) { setEditorContent(h); };
   function setEditorContent(html) {
     if (window.tinymce && tinymce.get('sb_content') && !tinymce.get('sb_content').isHidden()) {
       tinymce.get('sb_content').setContent(html);
