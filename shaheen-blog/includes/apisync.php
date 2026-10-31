@@ -8,7 +8,7 @@ if (!defined('ABSPATH')) {
  *
  * Every 2 hours (and on demand) the plugin asks the OpenAI Costs API for the real dollars of the site's Project,
  * day by day (UTC days, grouped by line item). The monthly bill then follows the provider's statement:
- *   text and search  = real cost x 2        images = real cost / 0.80
+ *   text and search  = real cost x 2        images = real cost / 0.70
  * The per-use ledger still tells WHAT was used; one "হিসাব সমন্বয়" line carries the difference, so the voucher always totals the provider's figure.
  * Real cost and profit are stored only in the database, never printed on a client screen or voucher.
  * Needs an Admin key (the normal key cannot read costs). Put the site on its own Project and enter its Project ID.

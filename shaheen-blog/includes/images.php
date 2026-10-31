@@ -7,7 +7,7 @@ if (!defined('ABSPATH')) {
  * AI Blog Image Studio (phase 1): uniform reference library, one featured image per click (WebP),
  * SEO metadata, billing at a 20% margin (code-only). Prices come from data/models.json.
  */
-const SB_IMG_MARGIN = 0.20;   // selling price = direct cost / (1 - 0.20); never shown on any screen
+const SB_IMG_MARGIN = 0.30;   // selling price = direct cost / (1 - 0.30) = cost / 0.70; never shown on any screen
 
 function sb_img_models() {
     static $m = null;
@@ -35,7 +35,7 @@ function sb_img_cost($model, $usage) {
     return ($txt * (float) $m[$model]['txt_in'] + $img * (float) $m[$model]['img_in'] + $out * (float) $m[$model]['img_out']) / 1000000;
 }
 
-/** What the client pays: cost / 0.80, rounded UP to $0.0001. */
+/** What the client pays: cost / 0.70, rounded UP to $0.0001. */
 function sb_img_price($real) {
     return ceil(($real / (1 - SB_IMG_MARGIN)) * 10000 - 1e-9) / 10000;
 }
@@ -276,7 +276,7 @@ function sb_img_save($bytes, $meta, $post_id) {
     return $id;
 }
 
-/** Book the image: real cost is recorded, the client is billed cost / 0.80 (rounded up). */
+/** Book the image: real cost is recorded, the client is billed cost / 0.70 (rounded up). */
 function sb_img_charge($uid, $post_id, $real) {
     $bill = sb_img_price($real);
     $GLOBALS['sb_real_charge']   = $real;
