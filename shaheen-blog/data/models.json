@@ -1,5 +1,5 @@
 {
-  "_note": "Single source of OpenAI model prices (USD per 1M tokens). Edit ONLY here, never in the settings screen. 'est' and 'charge' are credit estimates for the three article lengths (1 credit = $0.0002).",
+  "_note": "Single source of OpenAI model prices (USD per 1M tokens). Edit ONLY here, never in the settings screen. 'est' and 'charge' are credit estimates for the three article lengths (1 credit = $0.0002). 'cached' = price of cached input tokens; 'long' = rates when one request has more than 272K input tokens. Flex = exactly half of these (checked against the provider's price page).",
   "_source": "https://platform.openai.com/docs/pricing",
   "_checked": "2026-10-29 (Terra price from third-party sites; Astra price from third-party sites. Re-check against the official OpenAI pricing page.)",
   "models": {
@@ -16,7 +16,13 @@
         320,
         440,
         620
-      ]
+      ],
+      "cached": 0.05,
+      "long": {
+        "in": 2.0,
+        "out": 7.5,
+        "cached": 0.1
+      }
     },
     "gpt-6-astra": {
       "in": 10.0,
@@ -31,7 +37,13 @@
         2300,
         3000,
         4000
-      ]
+      ],
+      "cached": 1.0,
+      "long": {
+        "in": 20.0,
+        "out": 75.0,
+        "cached": 2.0
+      }
     }
   },
   "image_models": {

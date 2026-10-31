@@ -73,10 +73,20 @@ function sb_meter_model($name) {
 }
 
 /** Real USD cost of one answer: input and output tokens at the model's $/1M-token rates (+ $0.01 per web search). */
+function sb_model_rates($id) {
+    static $raw = null;
+    if (null === $raw) {
+        $f   = SB_PATH . 'data/models.json';
+        $d   = is_readable($f) ? json_decode((string) file_get_contents($f), true) : null;
+        $raw = is_array($d) && !empty($d['models']) && is_array($d['models']) ? $d['models'] : array();
+    }
+    return isset($raw[$id]) ? $raw[$id] : null;
+}
+
 function sb_real_usd($model, $usage, $searches = 0, $flex = false) {
-    $id  = sb_meter_model((string) $model);
-    $cat = sb_model_catalog();
-    if ($id === '' || !is_array($usage) || !preg_match('/([\d.]+)\s*\/\s*([\d.]+)/', (string) $cat[$id][0], $m)) {
+    $id = sb_meter_model((string) $model);
+    $r  = $id !== '' ? sb_model_rates($id) : null;
+    if (!$r || !is_array($usage)) {
         return 0.0;
     }
     $in  = (int) (isset($usage['prompt_tokens']) ? $usage['prompt_tokens'] : (isset($usage['input_tokens']) ? $usage['input_tokens'] : 0));
@@ -84,9 +94,12 @@ function sb_real_usd($model, $usage, $searches = 0, $flex = false) {
     if ($in + $out < 1) {
         return 0.0;
     }
-    $tok = $in * (float) $m[1] / 1000000 + $out * (float) $m[2] / 1000000;
-    // Client is billed at the Standard price even when the call ran on Flex (Flex discount is kept by the owner).
-    $half = $flex && !sb_get('flex_bill_standard');
+    $cached = (int) (isset($usage['prompt_tokens_details']['cached_tokens']) ? $usage['prompt_tokens_details']['cached_tokens'] : 0);
+    $cached = max(0, min($in, $cached));
+    $rate   = ($in > 272000 && !empty($r['long']) && is_array($r['long'])) ? $r['long'] : $r;   // one request above 272K input tokens costs the "long" rates
+    $cp     = isset($rate['cached']) ? (float) $rate['cached'] : (float) $rate['in'];            // cached input tokens are much cheaper
+    $tok    = (($in - $cached) * (float) $rate['in'] + $cached * $cp + $out * (float) $rate['out']) / 1000000;
+    $half   = $flex && !sb_get('flex_bill_standard');
     return ($half ? $tok * 0.5 : $tok) + $searches * 0.01;   // Flex = half the token price; the search fee is the same
 }
 

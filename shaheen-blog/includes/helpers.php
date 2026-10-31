@@ -631,15 +631,19 @@ function sb_clean_body($html, $beats = array()) {
 
 /** Credits for a real API call: read (prompt) + write (completion incl. thinking), from the model's $/1M-token prices (1 credit = $0.0002). */
 function sb_usage_credits($model, $usage) {
-    $cat = sb_model_catalog();
-    if (!isset($cat[$model]) || !is_array($usage) || empty($usage['prompt_tokens'])) {
+    if (!is_array($usage) || empty($usage['prompt_tokens'])) {
         return array();
     }
-    if (!preg_match('/([\d.]+)\s*\/\s*([\d.]+)/', (string) $cat[$model][0], $m)) {
+    $id = sb_meter_model((string) $model);
+    $r  = $id !== '' ? sb_model_rates($id) : null;
+    if (!$r) {
         return array();
     }
-    $read = ((int) $usage['prompt_tokens']) * (float) $m[1] / 1000000 / 0.0002;
-    $write = ((int) (isset($usage['completion_tokens']) ? $usage['completion_tokens'] : 0)) * (float) $m[2] / 1000000 / 0.0002;
+    $in     = (int) $usage['prompt_tokens'];
+    $cached = max(0, min($in, (int) (isset($usage['prompt_tokens_details']['cached_tokens']) ? $usage['prompt_tokens_details']['cached_tokens'] : 0)));
+    $cp     = isset($r['cached']) ? (float) $r['cached'] : (float) $r['in'];
+    $read   = (($in - $cached) * (float) $r['in'] + $cached * $cp) / 1000000 / 0.0002;
+    $write  = ((int) (isset($usage['completion_tokens']) ? $usage['completion_tokens'] : 0)) * (float) $r['out'] / 1000000 / 0.0002;
     return array('read' => (int) ceil($read), 'write' => (int) ceil($write));
 }
 
