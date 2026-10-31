@@ -4,7 +4,7 @@
 	var app = document.getElementById('br-app');
 	if (!app || !window.BR) { return; }
 	var S = { list: BR.list || [], o: BR.o, tab: 'list', q: '', tf: 'all', msg: '', modal: null };
-	var TABS = [['list', 'শাখা তালিকা'], ['nomap', 'Map / স্থানাঙ্ক'], ['hero', 'হিরো'], ['hq', 'প্রধান কার্যালয়'], ['btns', 'বোতাম ও CTA'], ['set', 'সেটিংস'], ['data', 'ডেটা']];
+	var TABS = [['list', 'শাখা তালিকা'], ['nomap', 'Map / স্থানাঙ্ক'], ['hero', 'হিরো'], ['hq', 'প্রধান কার্যালয়'], ['btns', 'বোতাম ও CTA'], ['typo', 'লেখার আকার ও ফন্ট'], ['set', 'সেটিংস'], ['data', 'ডেটা']];
 
 	function esc(t) { var d = document.createElement('div'); d.textContent = t == null ? '' : String(t); return d.innerHTML; }
 	function attr(t) { return esc(t).replace(/"/g, '&quot;'); }
@@ -41,7 +41,7 @@
 		var h = S.msg + '<div class="br-top"><span class="br-chip"><b>' + bn(s.n) + '</b> শাখা</span><span class="br-chip"><b>' + bn(s.ds) + '</b> জেলা</span><span class="br-chip"><b>' + bn(s.dv) + '</b> বিভাগ</span><span class="br-chip ' + (s.m < s.n ? 'warn' : '') + '">🗺 Map আছে <b>' + bn(s.m) + '</b>/' + bn(s.n) + '</span><span class="br-chip">📡 স্থানাঙ্ক <b>' + bn(s.c) + '</b></span><span class="br-chip">🔗 শাখা-পেজ <b>' + bn(s.p) + '</b></span>';
 		if (BR.page) { h += '<a class="button" href="' + attr(BR.page.url) + '" target="_blank">পেজ দেখুন ↗</a>'; }
 		h += '</div><h2 class="nav-tab-wrapper">' + TABS.map(function (t) { return '<a href="#" class="nav-tab' + (S.tab === t[0] ? ' nav-tab-active' : '') + '" data-tab="' + t[0] + '">' + t[1] + '</a>'; }).join('') + '</h2><div class="br-body">';
-		h += ({ list: tList, nomap: tNoMap, hero: tHero, hq: tHq, btns: tBtns, set: tSet, data: tData })[S.tab]();
+		h += ({ list: tList, nomap: tNoMap, hero: tHero, hq: tHq, btns: tBtns, typo: tTypo, set: tSet, data: tData })[S.tab]();
 		h += '</div>' + (S.modal ? modal() : '');
 		app.innerHTML = h;
 		bind();
@@ -138,6 +138,23 @@
 		return h + '<p><button class="button button-primary" data-act="btns">💾 সংরক্ষণ</button></p>';
 	}
 
+	/* ---------- text size + font ---------- */
+	function tTypo() {
+		var ty = S.o.typo || {}, fonts = BR.fonts || [];
+		var h = '<h3>🔤 লেখার আকার ও ফন্ট</h3><p class="description">যে অংশ বদলাতে চান শুধু সেটার ঘর ভরুন। ফাঁকা মানে এখনকার মাপ/ফন্টই থাকবে। আকার px-এ (সাধারণ লেখা ১৪–১৬, শিরোনাম ১৮–২৮)। মোবাইলের ঘর ফাঁকা রাখলে কম্পিউটারের মাপের ৮৫% ধরা হবে।</p>'
+			+ '<table class="widefat striped"><thead><tr><th>অংশ</th><th style="width:90px">কম্পিউটার px</th><th style="width:90px">মোবাইল px</th><th>ফন্ট</th><th style="width:110px">মোটা-পাতলা</th></tr></thead><tbody>';
+		(BR.parts || []).forEach(function (p) {
+			var r = ty[p.k] || {}, special = p.k.charAt(0) === '_';
+			h += '<tr data-ty="' + p.k + '"><td><b>' + esc(p.l) + '</b></td>'
+				+ '<td>' + (special ? '—' : '<input type="number" min="8" max="90" step="0.5" data-f="s" value="' + attr(r.s) + '" style="width:80px">') + '</td>'
+				+ '<td>' + (special ? '—' : '<input type="number" min="8" max="90" step="0.5" data-f="m" value="' + attr(r.m) + '" style="width:80px">') + '</td>'
+				+ '<td><select data-f="f"><option value="">এখনকার ফন্ট</option>' + fonts.map(function (f) { return '<option value="' + attr(f.k) + '"' + (r.f === f.k ? ' selected' : '') + '>' + esc(f.l) + '</option>'; }).join('') + '</select></td>'
+				+ '<td>' + (special ? '—' : '<select data-f="b">' + [['', 'এখনকার'], ['400', 'সাধারণ'], ['500', 'মাঝারি'], ['600', 'একটু মোটা'], ['700', 'মোটা'], ['800', 'খুব মোটা']].map(function (w) { return '<option value="' + w[0] + '"' + (String(r.b || '') === w[0] ? ' selected' : '') + '>' + w[1] + '</option>'; }).join('') + '</select>') + '</td></tr>';
+		});
+		return h + '</tbody></table><p><button class="button button-primary button-large" data-act="typo">💾 সংরক্ষণ</button> <button class="button" data-act="typo-reset">↩ সব আগের মতো করুন</button></p>'
+			+ '<p class="description">সংরক্ষণ করলে পেজের ক্যাশ নিজে পরিষ্কার হয়। তারপর "পেজ দেখুন ↗" চাপুন।</p>';
+	}
+
 	/* ---------- settings ---------- */
 	function tSet() {
 		var o = S.o, h = '';
@@ -213,6 +230,13 @@
 		if (a === 'btns') {
 			var ac = []; for (var k = 0; k < 4; k++) { ac.push({ ic: val('a-i' + k), t: val('a-t' + k), u: val('a-u' + k) }); }
 			post('sec', { key: 'actions', val: ac }).then(function () { return post('sec', { key: 'cta', val: { t: val('c-t'), p: val('c-p'), bt: val('c-bt'), bu: val('c-bu') } }); }).then(function () { say('সংরক্ষিত ✓'); draw(); }).catch(function (e) { say(e.message, true); draw(); });
+			return;
+		}
+		if (a === 'typo' || a === 'typo-reset') {
+			var tv = {};
+			if (a === 'typo') { qa('tr[data-ty]').forEach(function (r) { var t = {}; qa('[data-f]', r).forEach(function (i) { t[i.getAttribute('data-f')] = i.value; }); tv[r.getAttribute('data-ty')] = t; }); }
+			else if (!confirm('সব আকার ও ফন্টের পরিবর্তন মুছে আগের মতো করবেন?')) { return; }
+			run(post('sec', { key: 'typo', val: tv }), a === 'typo' ? 'সংরক্ষিত ✓ (পেজ ক্যাশ পরিষ্কার হয়েছে)' : 'আগের মতো করা হয়েছে ✓');
 			return;
 		}
 		if (a === 'settings') {

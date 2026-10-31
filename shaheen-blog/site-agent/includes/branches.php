@@ -20,6 +20,7 @@ function csa_br_defaults() {
 			array( 'ic' => '📚', 't' => 'ক্যাডেট গাইড কিনুন', 'u' => '' ),
 			array( 'ic' => '📝', 't' => 'মডেল টেস্ট কিনুন', 'u' => '' ),
 		),
+		'typo'         => array(),
 		'cta'          => array( 't' => 'নতুন শাখা খুলতে চান?', 'p' => 'শাহীন শিক্ষা পরিবারের সাথে যুক্ত হয়ে শিক্ষার আলো ছড়িয়ে দিন', 'bt' => '📄 শাখা আবেদন করুন →', 'bu' => '' ),
 		'types'        => array(
 			'main'    => array( 'label' => 'সাধারণ শাখা', 'icon' => '🏫', 'kicker' => 'শাহীন স্কুল এন্ড ক্যাডেট কোচিং :', 'tag' => '' ),
@@ -59,6 +60,83 @@ function csa_br_opt( $k ) {
 function csa_br_set( $o ) {
 	update_option( CSA_BR_OPT, $o, false );
 	csa_br_purge();
+}
+
+/** Text parts of the page the owner can resize / re-font: key => [label, selectors]. */
+function csa_br_typo_parts() {
+	return array(
+		'_all'     => array( 'পুরো পেজের মূল ফন্ট', '.sbr,.sbr button,.sbr select,.sbr input' ),
+		'_num'     => array( 'সংখ্যা ও ফোন নম্বরের ফন্ট', '.sbr .hsn,.sbr .bc-ph-num,.sbr .hq-ph' ),
+		'hero_h1'  => array( 'ওপরের বড় শিরোনাম (আমাদের শাখা সমূহ)', '.sbr .hero h1' ),
+		'hero_p'   => array( 'ওপরের ছোট লেখা', '.sbr .hero p' ),
+		'hero_n'   => array( 'ওপরের সংখ্যা (শাখা, জেলা...)', '.sbr .hsn' ),
+		'hero_l'   => array( 'ওপরের সংখ্যার নিচের লেখা', '.sbr .hsl' ),
+		'hq_name'  => array( 'প্রধান কার্যালয়ের নাম', '.sbr .hq-info h2' ),
+		'hq_addr'  => array( 'প্রধান কার্যালয়ের ঠিকানা', '.sbr .hq-info .addr' ),
+		'hq_ph'    => array( 'প্রধান কার্যালয়ের ফোন', '.sbr .hq-ph' ),
+		'hq_btn'   => array( 'কার্যালয়ের বোতাম (কল, WhatsApp, Map)', '.sbr .hq-call,.sbr .hq-wa,.sbr .hq-map' ),
+		'act'      => array( 'দ্রুত বোতামের লেখা (ভর্তি, গাইড...)', '.sbr .abtxt' ),
+		'filter'   => array( 'বিভাগ বাছার বক্স ও লেখা', '.sbr .filter-in label,.sbr .div-sel' ),
+		'div_h'    => array( 'বিভাগের শিরোনাম', '.sbr .div-head h2' ),
+		'dist'     => array( 'জেলার নাম', '.sbr .dist-label' ),
+		'card_t'   => array( 'শাখার কার্ডের নাম (সবুজ অংশ)', '.sbr .bc-hd h3' ),
+		'card_k'   => array( 'কার্ডের "শাহীন স্কুল এন্ড ক্যাডেট কোচিং :" লেখা', '.sbr .bc-kicker' ),
+		'card_a'   => array( 'কার্ডের ঠিকানা', '.sbr .bc-addr' ),
+		'card_p'   => array( 'কার্ডের ফোন নম্বর', '.sbr .bc-ph-num,.sbr .bc-ph' ),
+		'card_m'   => array( 'কার্ডের Map / কল বোতাম', '.sbr .bc-map,.sbr .bc-call' ),
+		'nb_n'     => array( 'কাছের শাখার নাম', '.sbr .nbc-name' ),
+		'nb_a'     => array( 'কাছের শাখার ঠিকানা', '.sbr .nbc-addr' ),
+		'cta_t'    => array( 'নিচের হলুদ বক্সের শিরোনাম', '.sbr .cta h3' ),
+		'cta_p'    => array( 'নিচের হলুদ বক্সের ছোট লেখা', '.sbr .cta p' ),
+		'cta_b'    => array( 'নিচের হলুদ বক্সের বোতাম', '.sbr .cta a' ),
+	);
+}
+
+/** Google Fonts link + CSS for the owner's size / font choices ('' when nothing is set). */
+function csa_br_typo_head() {
+	$ty = csa_br_opt( 'typo' );
+	if ( ! is_array( $ty ) || ! $ty || ! function_exists( 'csa_font_list' ) ) {
+		return '';
+	}
+	$parts = csa_br_typo_parts();
+	$fams  = array();
+	$css   = '';
+	$mob   = '';
+	foreach ( $ty as $k => $r ) {
+		if ( ! isset( $parts[ $k ] ) || ! is_array( $r ) ) {
+			continue;
+		}
+		$sel = $parts[ $k ][1];
+		$d   = '';
+		$f   = ! empty( $r['f'] ) ? csa_font( $r['f'] ) : null;
+		if ( $f ) {
+			$fams[ $f[0] ] = 'family=' . str_replace( ' ', '+', $f[0] ) . ':wght@' . $f[1];
+			$d            .= 'font-family:' . csa_font_stack( $f ) . ' !important;';
+		}
+		$w = isset( $r['b'] ) ? (int) $r['b'] : 0;
+		if ( $w >= 300 && $w <= 900 ) {
+			$d .= 'font-weight:' . $w . ' !important;';
+		}
+		$s = isset( $r['s'] ) ? (float) $r['s'] : 0;
+		$m = isset( $r['m'] ) ? (float) $r['m'] : 0;
+		if ( $s >= 8 && $s <= 90 ) {
+			$d .= 'font-size:' . $s . 'px !important;';
+			if ( $m < 8 ) {
+				$m = round( $s * 0.85, 1 );   // no phone size given: a little smaller than the computer size
+			}
+		}
+		if ( $d ) {
+			$css .= $sel . '{' . $d . '}';
+		}
+		if ( $m >= 8 && $m <= 90 ) {
+			$mob .= $sel . '{font-size:' . $m . 'px !important}';
+		}
+	}
+	if ( '' === $css . $mob ) {
+		return '';
+	}
+	$link = $fams ? '<link rel="stylesheet" href="' . esc_url( 'https://fonts.googleapis.com/css2?' . implode( '&', $fams ) . '&display=swap' ) . '">' : '';
+	return $link . '<style id="sbr-typo">' . $css . ( $mob ? '@media(max-width:600px){' . $mob . '}' : '' ) . '</style>';
 }
 
 /** The page is usually cached by the host (LiteSpeed etc.): clear it after every change, so a new link or text shows at once. */
@@ -367,7 +445,7 @@ function csa_br_page() {
 	$cfg = array( 'b' => $data, 'lm' => $o['lm'], 'mode' => $nm, 'def' => $o['default_view'] );
 	$GLOBALS['csa_br_done'] = true;
 	$fonts = '<link rel="preconnect" href="https://fonts.googleapis.com"><link href="https://fonts.googleapis.com/css2?family=Hind+Siliguri:wght@400;500;600;700&family=Roboto+Mono:wght@500&display=swap" rel="stylesheet"><link rel="stylesheet" href="' . esc_url( CSA_URL . 'assets/branches.css?ver=' . CSA_VER ) . '">';
-	$h  = $fonts . '<div class="sbr" id="sbr"><div class="hero"><div class="sp" aria-hidden="true"><span style="left:5%;animation-duration:13s">✦</span><span style="left:20%;animation-duration:10s;animation-delay:2s">★</span><span style="left:40%;animation-duration:15s;animation-delay:1s">✦</span><span style="left:60%;animation-duration:11s;animation-delay:3s">★</span><span style="left:80%;animation-duration:14s;animation-delay:.5s">✦</span><span style="left:95%;animation-duration:9s;animation-delay:2s">★</span></div>';
+	$h  = $fonts . csa_br_typo_head() . '<div class="sbr" id="sbr"><div class="hero"><div class="sp" aria-hidden="true"><span style="left:5%;animation-duration:13s">✦</span><span style="left:20%;animation-duration:10s;animation-delay:2s">★</span><span style="left:40%;animation-duration:15s;animation-delay:1s">✦</span><span style="left:60%;animation-duration:11s;animation-delay:3s">★</span><span style="left:80%;animation-duration:14s;animation-delay:.5s">✦</span><span style="left:95%;animation-duration:9s;animation-delay:2s">★</span></div>';
 	$h .= '<div class="hero-in"><h1>' . esc_html( $hero['h1a'] ) . ' <em>' . esc_html( $hero['h1b'] ) . '</em></h1><p>' . esc_html( $hero['sub'] ) . '</p><div class="hero-stats">' . $stats . '</div></div></div>';
 	$h .= '<div class="hq"><div class="hq-in"><div class="hq-icon">🏢</div><div class="hq-info"><h2>' . esc_html( $hq['name'] ) . '</h2><div class="addr">📍 <strong>' . esc_html( $hq['addr'] ) . '</strong></div><div class="hq-phones">' . $ph . '</div></div><div class="hq-btns">'
 		. ( $p1 ? '<a class="hq-call" href="tel:' . esc_attr( $p1 ) . '">📞 কল করুন</a>' : '' )
@@ -506,6 +584,8 @@ function csa_br_screen() {
 		'roles'    => array_map( function ( $k, $r ) { return array( 'k' => $k, 'l' => translate_user_role( $r['name'] ) ); }, array_keys( wp_roles()->roles ), wp_roles()->roles ),
 		'page'     => $lp ? array( 'id' => $lp, 'title' => get_the_title( $lp ), 'url' => get_permalink( $lp ) ) : null,
 		'export'   => wp_nonce_url( admin_url( 'admin-post.php?action=csa_br_export' ), 'csa_br_export' ),
+		'parts'    => array_map( function ( $k, $r ) { return array( 'k' => $k, 'l' => $r[0] ); }, array_keys( csa_br_typo_parts() ), csa_br_typo_parts() ),
+		'fonts'    => function_exists( 'csa_font_list' ) ? array_map( function ( $k, $r ) { return array( 'k' => $k, 'l' => $r[0] . ' — ' . $r[3] ); }, array_keys( csa_font_list() ), csa_font_list() ) : array(),
 		'seedN'    => count( (array) ( csa_br_seed()['branches'] ?? array() ) ),
 	) );
 	echo '<div class="wrap" id="csa-br"><h1>🏫 শাখা পেজ</h1><div id="br-app"><p>লোড হচ্ছে…</p></div></div>';
@@ -599,6 +679,21 @@ add_action( 'wp_ajax_csa_br_op', function () {
 					$a[] = array( 'ic' => sanitize_text_field( $x['ic'] ?? '' ), 't' => sanitize_text_field( $x['t'] ?? '' ), 'u' => esc_url_raw( $x['u'] ?? '' ) );
 				}
 				$o['actions'] = $a;
+			} elseif ( 'typo' === $k && is_array( $v ) ) {
+				$ty = array();
+				foreach ( csa_br_typo_parts() as $pk => $pv ) {
+					$r = isset( $v[ $pk ] ) && is_array( $v[ $pk ] ) ? $v[ $pk ] : array();
+					$e = array(
+						's' => ( '' !== trim( (string) ( $r['s'] ?? '' ) ) && (float) $r['s'] >= 8 && (float) $r['s'] <= 90 ) ? round( (float) $r['s'], 1 ) : '',
+						'm' => ( '' !== trim( (string) ( $r['m'] ?? '' ) ) && (float) $r['m'] >= 8 && (float) $r['m'] <= 90 ) ? round( (float) $r['m'], 1 ) : '',
+						'f' => ( ! empty( $r['f'] ) && csa_font( sanitize_key( $r['f'] ) ) ) ? sanitize_key( $r['f'] ) : '',
+						'b' => in_array( (string) ( $r['b'] ?? '' ), array( '400', '500', '600', '700', '800' ), true ) ? (string) $r['b'] : '',
+					);
+					if ( '' !== $e['s'] . $e['m'] . $e['f'] . $e['b'] ) {
+						$ty[ $pk ] = $e;
+					}
+				}
+				$o['typo'] = $ty;
 			} elseif ( 'cta' === $k && is_array( $v ) ) {
 				$o['cta'] = array( 't' => sanitize_text_field( $v['t'] ?? '' ), 'p' => sanitize_text_field( $v['p'] ?? '' ), 'bt' => sanitize_text_field( $v['bt'] ?? '' ), 'bu' => esc_url_raw( $v['bu'] ?? '' ) );
 			} elseif ( 'settings' === $k && is_array( $v ) ) {
