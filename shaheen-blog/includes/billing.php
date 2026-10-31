@@ -107,6 +107,14 @@ add_filter('http_response', function ($r, $args, $url) {
     $usd = sb_real_usd(isset($d['model']) ? $d['model'] : '', $d['usage'], $searches, isset($d['service_tier']) && 'flex' === $d['service_tier']);
     if ($usd > 0) {
         $GLOBALS['sb_meter'] = (isset($GLOBALS['sb_meter']) ? (float) $GLOBALS['sb_meter'] : 0.0) + $usd;
+        $u  = $d['usage'];
+        $tk = isset($GLOBALS['sb_meter_tok']) ? $GLOBALS['sb_meter_tok'] : array('model' => '', 'in' => 0, 'out' => 0, 'cached' => 0, 'calls' => 0);
+        $tk['model']   = isset($d['model']) ? substr((string) $d['model'], 0, 60) : $tk['model'];
+        $tk['in']     += (int) (isset($u['prompt_tokens']) ? $u['prompt_tokens'] : (isset($u['input_tokens']) ? $u['input_tokens'] : 0));
+        $tk['out']    += (int) (isset($u['completion_tokens']) ? $u['completion_tokens'] : (isset($u['output_tokens']) ? $u['output_tokens'] : 0));
+        $tk['cached'] += (int) (isset($u['prompt_tokens_details']['cached_tokens']) ? $u['prompt_tokens_details']['cached_tokens'] : 0);
+        $tk['calls']++;
+        $GLOBALS['sb_meter_tok'] = $tk;
     }
     return $r;
 }, 10, 3);
@@ -114,7 +122,10 @@ add_filter('http_response', function ($r, $args, $url) {
 /** Real cost gathered since the last call (this request), then reset. */
 function sb_meter_take() {
     $v = isset($GLOBALS['sb_meter']) ? (float) $GLOBALS['sb_meter'] : 0.0;
-    unset($GLOBALS['sb_meter']);
+    if (isset($GLOBALS['sb_meter_tok'])) {
+        $GLOBALS['sb_meter_last'] = $GLOBALS['sb_meter_tok'];   // the ledger row written next keeps these tokens (for checking against the provider's usage page)
+    }
+    unset($GLOBALS['sb_meter'], $GLOBALS['sb_meter_tok']);
     return $v;
 }
 
@@ -125,7 +136,7 @@ function sb_ledger_table() {
 }
 
 add_action('init', function () {
-    if (get_option('sb_usage_db') === '2') {
+    if (get_option('sb_usage_db') === '3') {
         return;
     }
     global $wpdb;
@@ -140,10 +151,15 @@ add_action('init', function () {
         credits int(11) NOT NULL DEFAULT 0,
         raw_usd decimal(12,6) NOT NULL DEFAULT 0,
         bill_usd decimal(12,6) NOT NULL DEFAULT 0,
+        model varchar(60) NOT NULL DEFAULT '',
+        tok_in int(11) unsigned NOT NULL DEFAULT 0,
+        tok_out int(11) unsigned NOT NULL DEFAULT 0,
+        tok_cached int(11) unsigned NOT NULL DEFAULT 0,
+        calls smallint(5) unsigned NOT NULL DEFAULT 0,
         PRIMARY KEY  (id),
         KEY t (t)
     ) " . $wpdb->get_charset_collate() . ';');
-    update_option('sb_usage_db', '2');
+    update_option('sb_usage_db', '3');
 }, 5);
 
 function sb_ledger_add($user_id, $feature, $credits, $post_id = 0, $real_usd = null) {
@@ -152,7 +168,14 @@ function sb_ledger_add($user_id, $feature, $credits, $post_id = 0, $real_usd = n
     if ($credits <= 0) {
         return;
     }
+    $tk = isset($GLOBALS['sb_meter_last']) ? $GLOBALS['sb_meter_last'] : array();
+    unset($GLOBALS['sb_meter_last']);
     $wpdb->insert(sb_ledger_table(), array(
+        'model'      => isset($tk['model']) ? $tk['model'] : '',
+        'tok_in'     => isset($tk['in']) ? (int) $tk['in'] : 0,
+        'tok_out'    => isset($tk['out']) ? (int) $tk['out'] : 0,
+        'tok_cached' => isset($tk['cached']) ? (int) $tk['cached'] : 0,
+        'calls'      => isset($tk['calls']) ? (int) $tk['calls'] : 0,
         't'        => time(),
         'user_id'  => (int) $user_id,
         'feature'  => substr((string) $feature, 0, 40),
@@ -586,3 +609,52 @@ add_action('init', function () {
         'credits' => 30000, 'raw_usd' => 6.00, 'bill_usd' => 12.00,
     ));
 }, 11);
+
+
+/* ---------- Billing audit (hidden): compares the ledger with the provider's own usage page ----------
+ * Only exists when the owner adds  define('SB_AUDIT', true);  to wp-config.php, so a client never sees real costs. */
+add_action('admin_menu', function () {
+    if (defined('SB_AUDIT') && SB_AUDIT) {
+        add_submenu_page('sb-dashboard', 'Billing audit', '🧾 Billing audit', 'manage_options', 'sb-audit', 'sb_page_audit');
+    }
+}, 40);
+
+function sb_page_audit() {
+    if (!current_user_can('manage_options') || !defined('SB_AUDIT') || !SB_AUDIT) {
+        wp_die('No.');
+    }
+    global $wpdb;
+    $t   = sb_ledger_table();
+    $day = isset($_GET['d']) && preg_match('/^\d{4}-\d{2}-\d{2}$/', $_GET['d']) ? $_GET['d'] : wp_date('Y-m-d'); // phpcs:ignore WordPress.Security.NonceVerification
+    $a   = (new DateTimeImmutable($day . ' 00:00:00', wp_timezone()))->getTimestamp();
+    $b   = $a + DAY_IN_SECONDS - 1;
+    $u0  = (new DateTimeImmutable($day . ' 00:00:00', new DateTimeZone('UTC')))->getTimestamp();   // the provider's usage page counts UTC days
+    $rows = (array) $wpdb->get_results($wpdb->prepare("SELECT * FROM {$t} WHERE t BETWEEN %d AND %d ORDER BY t", min($a, $u0), max($b, $u0 + DAY_IN_SECONDS - 1)), ARRAY_A);
+    $lab  = sb_feature_labels();
+    $tot  = array('local' => array(0, 0, 0, 0.0, 0.0), 'utc' => array(0, 0, 0, 0.0, 0.0));
+    echo '<div class="wrap"><h1>🧾 Billing audit</h1><form method="get"><input type="hidden" name="page" value="sb-audit"><input type="date" name="d" value="' . esc_attr($day) . '"> <button class="button">Show</button></form>';
+    echo '<p>Real cost here is tokens × the price table. Compare the "UTC day" totals with the provider\'s usage page for the same date (it counts UTC days; this site is on ' . esc_html(wp_timezone_string()) . ').</p>';
+    echo '<table class="widefat striped"><thead><tr><th>Time (local)</th><th>UTC</th><th>What</th><th>Model</th><th>Calls</th><th>In</th><th>Cached</th><th>Out</th><th>Real $</th><th>Billed $</th></tr></thead><tbody>';
+    foreach ($rows as $r) {
+        $in_local = $r['t'] >= $a && $r['t'] <= $b;
+        $in_utc   = $r['t'] >= $u0 && $r['t'] < $u0 + DAY_IN_SECONDS;
+        foreach (array('local' => $in_local, 'utc' => $in_utc) as $k => $yes) {
+            if ($yes) {
+                $tot[$k][0] += (int) $r['tok_in'];
+                $tot[$k][1] += (int) $r['tok_out'];
+                $tot[$k][2] += (int) $r['tok_cached'];
+                $tot[$k][3] += (float) $r['raw_usd'];
+                $tot[$k][4] += (float) $r['bill_usd'];
+            }
+        }
+        $post = $r['post_id'] ? ' — ' . wp_trim_words(get_the_title((int) $r['post_id']), 4, '…') : '';
+        echo '<tr><td>' . esc_html(wp_date('d M H:i:s', (int) $r['t'])) . ($in_local ? '' : ' <em>(other day)</em>') . '</td><td>' . esc_html(gmdate('H:i', (int) $r['t'])) . ($in_utc ? '' : ' <em>(other UTC day)</em>') . '</td><td>'
+            . esc_html((isset($lab[$r['feature']]) ? $lab[$r['feature']] : $r['feature']) . $post) . '</td><td>' . esc_html($r['model']) . '</td><td>' . (int) $r['calls'] . '</td><td>' . number_format((int) $r['tok_in']) . '</td><td>'
+            . number_format((int) $r['tok_cached']) . '</td><td>' . number_format((int) $r['tok_out']) . '</td><td>$' . number_format((float) $r['raw_usd'], 4) . '</td><td>$' . number_format((float) $r['bill_usd'], 4) . '</td></tr>';
+    }
+    echo '</tbody></table><h2>Totals</h2><table class="widefat" style="max-width:720px"><thead><tr><th></th><th>In</th><th>Cached</th><th>Out</th><th>Real $</th><th>Billed $</th></tr></thead><tbody>';
+    foreach (array('local' => 'Local day (' . wp_timezone_string() . ')', 'utc' => 'UTC day (provider usage page)') as $k => $l) {
+        echo '<tr><td>' . esc_html($l) . '</td><td>' . number_format($tot[$k][0]) . '</td><td>' . number_format($tot[$k][2]) . '</td><td>' . number_format($tot[$k][1]) . '</td><td>$' . number_format($tot[$k][3], 4) . '</td><td>$' . number_format($tot[$k][4], 4) . '</td></tr>';
+    }
+    echo '</tbody></table><p>Rows made before this version have no token numbers (shown as 0).</p></div>';
+}
