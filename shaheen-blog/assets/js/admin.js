@@ -1058,6 +1058,7 @@
       if ((f === 'summary' || f === 'faq' || f === 'caption') && editorContent().replace(/<[^>]+>/g, '').trim().length < 80) {
         toast('সামারি/FAQ মূল পোস্ট থেকে তৈরি হয়। আগে আর্টিকেল লিখুন বা তৈরি করুন।', 'err'); return;
       }
+      if (f === 'custom' && !SB.briefText && !window.confirm('আপনি "🧭 আগে বুঝে নিন" চালাননি। এতে AI আগে জানতে চায় কোন তথ্য লাগবে (ফি, তারিখ, শাখা…); না চালালে লেখায় তথ্যের ঘাটতি থাকতে পারে।\n\nতবুও এখনই লিখবেন?')) { return; }
       var chain = [];
       if (f === 'article' || f === 'custom' || f === 'rewrite') { if ($('#inc-summary').checked) { chain.push('summary'); } if ($('#inc-faq').checked) { chain.push('faq'); } if ($('#inc-related').checked) { chain.push('related'); } }
       var cost = (f === 'custom' ? customPrice() : SB.costs[f]) + ((f === 'article' || f === 'custom') && $('#f-research') && $('#f-research').checked ? SB.costs.research : 0);
@@ -1114,6 +1115,12 @@
         gh.innerHTML = '<strong>🎯 How this article goes beyond the sites you wanted to beat:</strong>';
         var gl = document.createElement('ul'); r.gaps.forEach(function (x) { var li = document.createElement('li'); li.textContent = x; gl.appendChild(li); });
         gh.appendChild(gl); sb.appendChild(gh); sb.hidden = false;
+      }
+      if (r.dropped && r.dropped.length) {
+        var dh = document.createElement('div'); dh.style.marginTop = '6px';
+        dh.innerHTML = '<strong>✂️ লেখা থেকে বাদ দেওয়া হয়েছে (AI-র নিজের যাচাইয়ের কথা, পাঠকের জন্য নয়):</strong>';
+        var dl = document.createElement('ul'); r.dropped.forEach(function (x) { var li = document.createElement('li'); li.textContent = x; dl.appendChild(li); });
+        dh.appendChild(dl); sb.appendChild(dh); sb.hidden = false;
       }
       renderVerify(r.verify); renderCoverage(r.coverage);
       if (r.notes && r.notes.length) {
@@ -1389,9 +1396,16 @@
   $('#f-save').addEventListener('click', function () {
     var er = validate(1);
     if (er) { say(msg, er, 'err'); return; }
+    var st0 = $('input[name="f-status"]:checked');
+    var nm = (editorContent().match(/\[তথ্য দরকার/g) || []).length;
+    var ack = '';
+    if (st0 && st0.value === 'publish' && nm) {
+      if (!window.confirm('লেখায় এখনো ' + bn(nm) + 'টি [তথ্য দরকার: …] চিহ্ন আছে। পাঠক এগুলো দেখতে পাবে।\n\nতবুও প্রকাশ করবেন? ("Cancel" চাপলে ফিরে গিয়ে তথ্য বসাতে পারবেন।)')) { return; }
+      ack = '1';
+    }
     var btn = this; btn.disabled = true;
     var st = $('input[name="f-status"]:checked');
-    post('sb_save_post', {
+    post('sb_save_post', { ack_missing: ack,
       id: postId, title: val('#f-title'), slug: val('#f-slug'), excerpt: val('#f-excerpt'), content: editorContent(),
       subtitle: val('#f-subtitle'), meta_desc: val('#f-meta'), summary: val('#f-summary'), summary_pos: val('#f-summary_pos') || 'top', author_name: val('#f-author'),
       date: val('#f-date'), topic: val('#f-topic'), keywords: keywords(), category: val('#f-category'), category_extra: extraCats(),

@@ -537,6 +537,19 @@ function sb_beat_hosts($txt) {
  * Link hygiene for AI articles: never link to the sites the owner wants to beat;
  * keep at most 2 outside links in the body (the "তথ্যসূত্র" list at the bottom may keep its own).
  */
+function sb_host_is_beat($h, $beats) {
+    foreach ((array) $beats as $b) {
+        $b = preg_replace('/^www\./', '', strtolower((string) $b));
+        if ($b === '' || $h === '') {
+            continue;
+        }
+        if ($h === $b || substr($h, -strlen('.' . $b)) === '.' . $b || substr($b, -strlen('.' . $h)) === '.' . $h) {
+            return true;   // same site, also en.site.com / site.com
+        }
+    }
+    return false;
+}
+
 function sb_ref_clean($html, $beat_hosts) {
     $html = (string) $html;
     if (stripos($html, '<a ') === false) {
@@ -545,23 +558,69 @@ function sb_ref_clean($html, $beat_hosts) {
     $own = preg_replace('/^www\./', '', strtolower((string) wp_parse_url(home_url(), PHP_URL_HOST)));
     $split = preg_match('/<h[23][^>]*>[^<]*তথ্যসূত্র/u', $html, $mm, PREG_OFFSET_CAPTURE) ? $mm[0][1] : strlen($html);
     $parts = array(substr($html, 0, $split), substr($html, $split));
-    $kept = 0;
     foreach ($parts as $i => $part) {
-        $parts[$i] = preg_replace_callback('#<a\s[^>]*href=["\']([^"\']*)["\'][^>]*>(.*?)</a>#isu', function ($m) use ($beat_hosts, $own, &$kept, $i) {
+        $parts[$i] = preg_replace_callback('#<a\s[^>]*href=["\']([^"\']*)["\'][^>]*>(.*?)</a>#isu', function ($m) use ($beat_hosts, $own, $i) {
             $h = preg_replace('/^www\./', '', strtolower((string) wp_parse_url($m[1], PHP_URL_HOST)));
             if ($h === '' || $h === $own) {
                 return $m[0];   // internal link
             }
-            if (in_array($h, $beat_hosts, true)) {
-                return $m[2];   // competitor: plain text only
+            if ($i === 0 || sb_host_is_beat($h, $beat_hosts)) {
+                return $m[2];   // no outside link inside the text, and never a competitor anywhere: plain text only
             }
-            if ($i === 0 && ++$kept > 2) {
-                return $m[2];
-            }
-            return $m[0];
+            return $m[0];       // only the "তথ্যসূত্র" list at the end may link out
         }, $part);
     }
     return $parts[0] . $parts[1];
+}
+
+/**
+ * Reader-ready body: no site names or links in the text, none of the AI's own talk about checking sources
+ * ("যাচাই করা যায়নি", "প্রতিবেদনের সঙ্গে মিলেছে"), no repeated sentence or paragraph. Returns array(html, dropped[]).
+ */
+function sb_clean_body($html, $beats = array()) {
+    $html = (string) $html;
+    $drop = array();
+    // 1) markdown links: "([site.com](https://...))" disappears, "[words](https://...)" keeps the words
+    $html = preg_replace_callback('/(\(\s*)?\[([^\]\n]{1,160})\]\(\s*<?(?:https?:)?\/\/[^)\s>]+>?\s*\)(\s*\))?/u', function ($m) {
+        $label = trim($m[2]);
+        $o = isset($m[1]) ? $m[1] : '';
+        $c = isset($m[3]) ? $m[3] : '';
+        if (preg_match('/^(?:https?:\/\/)?(?:www\.)?(?:[a-z0-9-]+\.)+[a-z]{2,}(?:\/\S*)?$/iu', $label)) {
+            return ($o !== '' && $c !== '') ? '' : $o . $c;
+        }
+        return $o . $label . $c;
+    }, $html);
+    // 2) "(site.com)" / "(www.site.com/page)" in brackets
+    $html = preg_replace('/\s*\(\s*(?:https?:\/\/)?(?:www\.)?(?:[a-z0-9-]+\.)+[a-z]{2,}(?:\/[^\s)<]*)?\s*\)/iu', '', $html);
+    // 3) sentence level: AI's own talk, repeats
+    $meta = '/(যাচাই\s*করা\s*(যায়নি|হয়নি|সম্ভব\s*হয়নি)|সরাসরি\s*যাচাই|প্রকাশিত\s*(প্রতিবেদন|সংবাদ|রিপোর্ট)[^।]{0,40}(সঙ্গে|সাথে)[^।]{0,30}(মিল|মেল)|(প্রতিবেদন|সূত্র)[^।]{0,30}(সঙ্গে|সাথে)[^।]{0,20}(মিলেছে|মিলে যায়|মেলে)|খুঁজে\s*পাওয়া\s*যায়নি|ইন্টারনেটে\s*(খুঁজে|অনুসন্ধান)|অনুসন্ধানে\s*দেখা\s*গেছে)/u';
+    $seen = array();
+    $html = preg_replace_callback('#<(p|li)(\s[^>]*)?>(.*?)</\1>#isu', function ($m) use ($meta, &$seen, &$drop) {
+        $sent = preg_split('/(?<=[।?!])\s+/u', trim($m[3]), -1, PREG_SPLIT_NO_EMPTY);
+        $keep = array();
+        foreach ($sent as $x) {
+            $plain = trim(preg_replace('/\s+/u', ' ', wp_strip_all_tags($x)));
+            if ($plain === '') {
+                continue;
+            }
+            if (mb_strpos($x, 'তথ্য দরকার') === false && preg_match($meta, $plain)) {
+                if (count($drop) < 10) {
+                    $drop[] = $plain;
+                }
+                continue;
+            }
+            $k = mb_strtolower($plain);
+            if (mb_strlen($k) >= 25) {
+                if (isset($seen[$k])) {
+                    continue;   // same sentence again
+                }
+                $seen[$k] = true;
+            }
+            $keep[] = $x;
+        }
+        return $keep ? '<' . $m[1] . (isset($m[2]) ? $m[2] : '') . '>' . implode(' ', $keep) . '</' . $m[1] . '>' : '';
+    }, $html);
+    return array('html' => trim(preg_replace("/\n{3,}/", "\n\n", $html)), 'dropped' => $drop);
 }
 
 

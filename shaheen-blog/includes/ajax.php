@@ -410,10 +410,24 @@ function sb_ai_finish($uid, $feature, $ctx, $cost, $research, $result, &$notes) 
     if (in_array($feature, array('custom', 'rewrite_post'), true) && !empty($result['text'])) {
         $result['text'] = sb_ref_clean($result['text'], $bh);
     }
+    if (in_array($feature, array('custom', 'rewrite_post', 'article', 'rewrite', 'edit', 'edit_new'), true) && !empty($result['text'])) {
+        $cb = sb_clean_body($result['text'], $bh);
+        $result['text'] = $cb['html'];
+        $result['dropped'] = $cb['dropped'];
+    }
     if ($feature === 'chat') {
         $result = sb_chat_result($result, $ctx);
         if (isset($result['chat']['article']) && is_string($result['chat']['article'])) {
-            $result['chat']['article'] = sb_ref_clean($result['chat']['article'], $bh);
+            $cb = sb_clean_body(sb_ref_clean($result['chat']['article'], $bh), $bh);
+            $result['chat']['article'] = $cb['html'];
+            $result['dropped'] = $cb['dropped'];
+        }
+        if (isset($result['chat']['edits']) && is_array($result['chat']['edits'])) {
+            foreach ($result['chat']['edits'] as $ei => $ed) {
+                if (is_array($ed) && isset($ed['replace']) && is_string($ed['replace']) && $ed['replace'] !== '') {
+                    $result['chat']['edits'][$ei]['replace'] = sb_clean_body(sb_ref_clean($ed['replace'], $bh), $bh)['html'];
+                }
+            }
         }
         if (empty($result['chat']['applied'])) {
             $cost = 0;   // a question or nothing applied: free
@@ -686,6 +700,9 @@ function sb_ajax_save_post() {
     }
     if ($status === 'publish' && !current_user_can('publish_posts')) {
         $status = 'pending';
+    }
+    if ($status === 'publish' && sb_req('ack_missing') !== '1' && preg_match_all('/\[তথ্য দরকার/u', (string) sb_req('content'), $mk)) {
+        wp_send_json_error(array('message' => 'লেখায় এখনো ' . sb_bn_digits(count($mk[0])) . 'টি [তথ্য দরকার: …] চিহ্ন আছে। পাঠক এগুলো দেখতে পাবে। আগে তথ্য বসান বা চিহ্নটি সরান, তারপর প্রকাশ করুন।'));
     }
 
     $postarr = array(
