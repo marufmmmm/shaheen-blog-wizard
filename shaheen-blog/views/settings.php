@@ -43,6 +43,14 @@ if (!SB_Lock::is_unlocked()) : ?>
                 <input type="password" name="api_key" value="" autocomplete="new-password" placeholder="<?php echo $has_key ? '••••••••••• (সংরক্ষিত আছে, বদলাতে নতুন কী লিখুন)' : 'sk-…'; ?>">
             </label>
             <?php if ($has_key) : ?><label class="sba-inline-check"><input type="checkbox" name="remove_key" value="1"> সংরক্ষিত কী মুছে ফেলুন</label><?php endif; ?>
+            <?php $has_ak = (bool) sb_get('admin_key'); ?>
+            <label>OpenAI Admin Key <small>(বিল সরবরাহকারীর নিজের হিসাব থেকে নেওয়ার জন্য; সাধারণ কী দিয়ে হয় না)</small>
+                <input type="password" name="admin_key" value="" autocomplete="new-password" placeholder="<?php echo $has_ak ? '••••••••••• (সংরক্ষিত আছে, বদলাতে নতুন কী লিখুন)' : 'sk-admin-…'; ?>">
+            </label>
+            <?php if ($has_ak) : ?><label class="sba-inline-check"><input type="checkbox" name="remove_admin_key" value="1"> Admin Key মুছে ফেলুন</label><?php endif; ?>
+            <label>OpenAI Project ID <small>(শুধু এই সাইটের খরচ আনতে; যেমন proj_abc123। ফাঁকা রাখলে পুরো অ্যাকাউন্টের খরচ ধরা হবে)</small>
+                <input type="text" name="api_project" value="<?php echo esc_attr($s('api_project')); ?>" placeholder="proj_…">
+            </label>
 <?php
 $cat = sb_model_catalog();
 $render = function ($name, $cur, $blank) use ($cat) {

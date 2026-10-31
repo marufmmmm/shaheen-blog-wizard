@@ -3,7 +3,7 @@
  * Plugin Name: Shaheen Blog
  * Plugin URI:  https://shaheen.edu.bd
  * Description: শাহীন শিক্ষা পরিবারের ব্লগ: নিজস্ব ডিজাইনের ব্লগ পেজ, AI দিয়ে পোস্ট তৈরির উইজার্ড, ক্রেডিট সিস্টেম ও অ্যাডমিন প্যানেল।
- * Version:     2.82.3
+ * Version:     2.83.0
  * Requires at least: 6.0
  * Author:      Shaheen Education Family
  * Text Domain: shaheen-blog
@@ -15,7 +15,7 @@ if (!defined('ABSPATH')) {
     exit;
 }
 
-define('SB_VERSION', '2.82.3');
+define('SB_VERSION', '2.83.0');
 define('SB_FILE', __FILE__);
 define('SB_PATH', plugin_dir_path(__FILE__));
 define('SB_URL', plugin_dir_url(__FILE__));
@@ -25,6 +25,7 @@ require_once SB_PATH . 'includes/post-types.php';
 require_once SB_PATH . 'includes/credits.php';
 require_once SB_PATH . 'includes/billing.php';
 require_once SB_PATH . 'includes/images.php';
+require_once SB_PATH . 'includes/apisync.php';
 require_once SB_PATH . 'includes/know.php';
 require_once SB_PATH . 'includes/memory.php';
 require_once SB_PATH . 'includes/ai.php';

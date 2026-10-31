@@ -282,7 +282,9 @@ function csa_record_usage( $entry, $usage, $feature = '' ) {
 	$GLOBALS['csa_last_cost'] = $cost;
 	// Same USD ledger as the blog writer, so the monthly bill covers SEO, chat and every other Site Agent use.
 	if ( function_exists( 'sb_ledger_add' ) && $cost > 0 ) {
+		$GLOBALS['sb_ledger_model'] = (string) ( $entry['provider'] ?? '' );   // 'openai' rows are covered by the provider cost page; Claude / Kimi rows are not
 		sb_ledger_add( get_current_user_id(), 'agent_' . ( $feature ? $feature : 'chat' ), max( 1, (int) ceil( $cost / SB_RAW_USD_PER_CREDIT ) ), 0, $cost );
+		unset( $GLOBALS['sb_ledger_model'] );
 	}
 	if ( ! empty( $GLOBALS['csa_current_chat'] ) ) {
 		$cc                                  = get_option( 'csa_chatcost', array() );

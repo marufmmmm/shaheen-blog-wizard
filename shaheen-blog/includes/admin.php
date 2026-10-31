@@ -184,6 +184,13 @@ function sb_handle_save_settings() {
     } elseif ($key !== '') {
         $new['api_key'] = $key;
     }
+    $ak = trim(sanitize_text_field($in('admin_key')));
+    if ($in('remove_admin_key')) {
+        $new['admin_key'] = '';
+    } elseif ($ak !== '') {
+        $new['admin_key'] = $ak;
+    }
+    $new['api_project'] = preg_replace('/[^A-Za-z0-9_\-]/', '', $in('api_project'));
     sb_save_settings($new);
     wp_safe_redirect(admin_url('admin.php?page=sb-settings&saved=1'));
     exit;

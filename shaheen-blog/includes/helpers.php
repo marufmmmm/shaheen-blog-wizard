@@ -7,6 +7,8 @@ if (!defined('ABSPATH')) {
 function sb_defaults() {
     return array(
         'api_key'       => '',
+        'admin_key'     => '',
+        'api_project'   => '',
         'model'         => 'gpt-6.1-terra',
         'default_limit' => 80000,
         'limit_usd'     => 0,
@@ -291,6 +293,7 @@ function sb_related_items($post_id, $min = 3, $max = 5) {
 
 function sb_feature_labels() {
     return array(
+        'api_adjust' => 'হিসাব সমন্বয় (সরবরাহকারীর হিসাবের সাথে মিলানো)',
         'headlines' => '৫টি শিরোনাম',
         'subtitle'  => 'সাবটাইটেল',
         'meta'      => 'মেটা বর্ণনা (SEO)',
