@@ -51,6 +51,12 @@ if (!SB_Lock::is_unlocked()) : ?>
             <label>OpenAI Project ID <small>(শুধু এই সাইটের খরচ আনতে; যেমন proj_abc123। ফাঁকা রাখলে পুরো অ্যাকাউন্টের খরচ ধরা হবে)</small>
                 <input type="text" name="api_project" value="<?php echo esc_attr($s('api_project')); ?>" placeholder="proj_…">
             </label>
+            <label>এই সংস্করণের আগের বিল (USD, VAT ছাড়া) <small>(প্রথম সফল সিঙ্কের মাসে এটি আগের ব্যবহার হিসেবে যোগ হয়; এরপর থেকে বিল OpenAI-এর হিসাব ×২ এবং প্রতি ২ ঘণ্টায় নিজে আপডেট হয়। ফাঁকা = ১৮.০০)</small>
+                <input type="number" step="0.01" min="0" name="api_carry" value="<?php echo esc_attr($s('api_carry')); ?>" placeholder="18.00">
+            </label>
+            <?php if ($has_ak) : $st = get_option('sb_api_state', array()); ?>
+                <p class="sba-muted" style="margin:0 0 8px">🔄 বিল-সিঙ্ক: <?php echo !empty($st['at']) ? 'সর্বশেষ সফল ' . esc_html(wp_date('j M, g:i a', (int) $st['at'])) : 'এখনো সফল হয়নি (প্রথম সিঙ্ক ২ মিনিটের মধ্যে শুরু হবে)'; ?>.<?php echo empty($st['ok']) && !empty($st['msg']) ? ' <span style="color:#b32d2e">ব্যর্থ: ' . esc_html($st['msg']) . '</span>' : ''; ?></p>
+            <?php endif; ?>
 <?php
 $cat = sb_model_catalog();
 $render = function ($name, $cur, $blank) use ($cat) {

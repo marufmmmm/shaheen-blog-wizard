@@ -251,7 +251,9 @@ function sb_ledger_month($ym) {
     // The provider's own cost page decides the month's total (when synced): one adjustment line carries the difference to the per-use ledger.
     $api = function_exists('sb_api_month') ? sb_api_month($ym) : null;
     if ($api) {
-        $target = sb_api_bill_from((float) $api['text'], (float) $api['image']) + sb_ledger_other_bill($ym);
+        $base   = sb_api_base();
+        $first  = $base['ym'] === $ym;
+        $target = sb_api_bill_from((float) $api['text'], (float) $api['image']) + sb_ledger_other_bill($ym, $first ? (int) $base['t0'] : 0) + ($first ? sb_api_carry() : 0);
         $adj    = round($target - $out['bill'], 4);
         if (abs($adj) >= 0.005) {
             $out['by_feature']['api_adjust'] = array('n' => 0, 'bill' => $adj);
@@ -506,7 +508,7 @@ function sb_page_billing() {
     }
     $now  = sb_ledger_month($cur);
     $pm   = sb_ledger_month($prev);
-    $msgs = array('synced' => 'সরবরাহকারীর হিসাব থেকে সিঙ্ক হয়েছে ✓', 'syncfail' => 'সিঙ্ক হয়নি (নিচে কারণ দেখুন)', 'made' => 'ভাউচার তৈরি হয়েছে ✓', 'sent' => 'ভাউচার তৈরি হয়েছে এবং ইমেইল পাঠানো হয়েছে ✓', 'mailfail' => 'ভাউচার তৈরি হয়েছে, কিন্তু ইমেইল যায়নি — হোস্টের মেইল ঠিক আছে কিনা দেখুন (সেটিংসে ইমেইল ঠিকানা মিলিয়ে নিন)।', 'bad' => 'মাস ঠিক নয়।');
+    $msgs = array('made' => 'ভাউচার তৈরি হয়েছে ✓', 'sent' => 'ভাউচার তৈরি হয়েছে এবং ইমেইল পাঠানো হয়েছে ✓', 'mailfail' => 'ভাউচার তৈরি হয়েছে, কিন্তু ইমেইল যায়নি — হোস্টের মেইল ঠিক আছে কিনা দেখুন (সেটিংসে ইমেইল ঠিকানা মিলিয়ে নিন)।', 'bad' => 'মাস ঠিক নয়।');
     $m = sanitize_key($_GET['m'] ?? '');
     echo '<div class="wrap sba"><h1>💵 USD Billing</h1>';
     if (isset($msgs[$m])) {
@@ -514,12 +516,6 @@ function sb_page_billing() {
     }
     echo '<p class="sba-muted">এখানে আপনার মাসের AI ব্যবহারের বিল ও ভাউচার দেখা যায়। কোনো সীমা নেই — যত ব্যবহার তত বিল।</p>';
     $vp = sb_vat_pct();
-    if (trim((string) sb_get('admin_key')) !== '') {
-        $st = get_option('sb_api_state', array());
-        echo '<div class="sba-card"><p style="margin:0">🔄 বিল সরবরাহকারীর নিজের হিসাব থেকে প্রতি ২ ঘণ্টায় মিলিয়ে নেওয়া হয়। ' . (!empty($st['at']) ? 'সর্বশেষ সফল সিঙ্ক: ' . esc_html(wp_date('j M, g:i a', (int) $st['at'])) . '।' : 'এখনো সিঙ্ক হয়নি।') . '</p>'
-            . (empty($st['ok']) && !empty($st['msg']) ? '<p style="color:#b32d2e;margin:6px 0 0">সিঙ্ক ব্যর্থ: ' . esc_html($st['msg']) . '</p>' : '')
-            . '<form method="post" action="' . esc_url(admin_url('admin-post.php')) . '" style="margin-top:8px">' . wp_nonce_field('sb_api_sync_now', '_wpnonce', true, false) . '<input type="hidden" name="action" value="sb_api_sync_now"><button class="button">🔄 এখনই সিঙ্ক করুন</button></form></div>';
-    }
     echo '<div class="sba-grid sba-grid--2">';
     foreach (array(array('এই মাস (' . sb_month_label($cur) . ')', $now, $cur), array('গত মাস (' . sb_month_label($prev) . ')', $pm, $prev)) as $c) {
         $vat = round($c[1]['bill'] * $vp / 100, 2);

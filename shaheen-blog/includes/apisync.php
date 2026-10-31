@@ -10,6 +10,10 @@ if (!defined('ABSPATH')) {
  * day by day (UTC days, grouped by line item). The monthly bill then follows the provider's statement:
  *   text and search  = real cost x 2        images = real cost / 0.70
  * The per-use ledger still tells WHAT was used; one "হিসাব সমন্বয়" line carries the difference, so the voucher always totals the provider's figure.
+
+ * Starting point: the first successful sync fixes a baseline. The bill of that month = the amount owed before this version (a fixed carry-in,
+ * default $18.00) + the provider's cost since the baseline. Nobody can refresh or trigger it from the screen: the OpenAI part only moves at the
+ * automatic 2-hour sync, and stays unchanged between syncs. Other providers (Claude, Kimi...) are still counted live from the ledger.
  * Real cost and profit are stored only in the database, never printed on a client screen or voucher.
  * Needs an Admin key (the normal key cannot read costs). Put the site on its own Project and enter its Project ID.
  */
@@ -37,9 +41,40 @@ function sb_api_bill_from($text, $image) {
     return round($bill, 4);
 }
 
+function sb_api_base() {
+    $b = get_option('sb_api_base', array());
+    return is_array($b) && !empty($b['t0']) ? $b : null;
+}
+
+/** Provider cost lines for a month that belong to this bill (text, image), or null when the sync is not active for it. */
 function sb_api_month($ym) {
-    $all = get_option('sb_api_cost', array());
-    return is_array($all) && isset($all[$ym]) && is_array($all[$ym]) ? $all[$ym] : null;
+    $base = sb_api_base();
+    $days = get_option('sb_api_days', array());
+    if (!$base || !is_array($days) || $ym < $base['ym']) {
+        return null;
+    }
+    $t = 0.0;
+    $i = 0.0;
+    $n = 0;
+    foreach ($days as $d => $v) {
+        if (substr($d, 0, 7) !== $ym || ($ym === $base['ym'] && $d < $base['day'])) {
+            continue;
+        }
+        $t += (float) $v[0];
+        $i += (float) $v[1];
+        $n++;
+    }
+    if ($ym === $base['ym']) {   // what was already used on the baseline day is inside the carry-in amount
+        $t = max(0.0, $t - (float) $base['text0']);
+        $i = max(0.0, $i - (float) $base['image0']);
+    }
+    return $n || $ym === $base['ym'] ? array('text' => $t, 'image' => $i) : null;
+}
+
+/** The amount owed before this version (month of the baseline), fixed. */
+function sb_api_carry() {
+    $c = sb_get('api_carry');
+    return $c === '' || $c === null ? 18.0 : max(0.0, (float) $c);
 }
 
 /** Pull the costs of last month + this month. Returns array(ok, message). */
@@ -50,7 +85,7 @@ function sb_api_sync() {
     }
     $first = (new DateTimeImmutable('first day of last month 00:00:00', new DateTimeZone('UTC')))->getTimestamp();
     $proj  = trim((string) sb_get('api_project'));
-    $months = array();
+    $daysnew = array();
     $page   = '';
     $n      = 0;
     do {
@@ -66,26 +101,30 @@ function sb_api_sync() {
             return sb_api_fail(in_array($code, array(401, 403), true) ? 'Admin key কাজ করেনি (এটি সাধারণ কী নয়, Admin key লাগে): ' . $m : $m);
         }
         foreach (isset($d['data']) && is_array($d['data']) ? $d['data'] : array() as $b) {
-            $ym = gmdate('Y-m', (int) (isset($b['start_time']) ? $b['start_time'] : 0));
-            if (!isset($months[$ym])) {
-                $months[$ym] = array('text' => 0.0, 'image' => 0.0, 'days' => 0);
+            $day = gmdate('Y-m-d', (int) (isset($b['start_time']) ? $b['start_time'] : 0));
+            if (!isset($daysnew[$day])) {
+                $daysnew[$day] = array(0.0, 0.0);
             }
-            $months[$ym]['days']++;
             foreach (isset($b['results']) && is_array($b['results']) ? $b['results'] : array() as $x) {
                 $v  = isset($x['amount']['value']) ? (float) $x['amount']['value'] : 0.0;
                 $li = isset($x['line_item']) ? (string) $x['line_item'] : '';
-                $months[$ym][preg_match('/image|dall-?e/i', $li) ? 'image' : 'text'] += $v;
+                $daysnew[$day][preg_match('/image|dall-?e/i', $li) ? 1 : 0] += $v;
             }
         }
         $page = !empty($d['has_more']) && !empty($d['next_page']) ? (string) $d['next_page'] : '';
     } while ($page !== '' && ++$n < 6);
-    $all = get_option('sb_api_cost', array());
-    $all = is_array($all) ? $all : array();
-    foreach ($months as $ym => $m) {
-        $all[$ym] = array('text' => round($m['text'], 6), 'image' => round($m['image'], 6), 'days' => $m['days'], 'at' => time());
+    $days = get_option('sb_api_days', array());
+    $days = is_array($days) ? $days : array();
+    foreach ($daysnew as $d => $v) {
+        $days[$d] = array(round($v[0], 6), round($v[1], 6));
     }
-    krsort($all);
-    update_option('sb_api_cost', array_slice($all, 0, 6, true), false);
+    krsort($days);
+    update_option('sb_api_days', array_slice($days, 0, 75, true), false);
+    if (!sb_api_base()) {   // first good sync: this moment is where the provider-based bill starts
+        $today = gmdate('Y-m-d');
+        update_option('sb_api_base', array('t0' => time(), 'ym' => wp_date('Y-m'), 'day' => $today,
+            'text0' => isset($daysnew[$today]) ? $daysnew[$today][0] : 0, 'image0' => isset($daysnew[$today]) ? $daysnew[$today][1] : 0), false);
+    }
     update_option('sb_api_state', array('ok' => 1, 'at' => time(), 'msg' => ''), false);
     return array(true, 'সিঙ্ক হয়েছে');
 }
@@ -97,20 +136,10 @@ function sb_api_fail($msg) {
 }
 
 /** Sum of billed dollars of ledger rows that came from other providers (Claude, Kimi): the OpenAI cost page does not contain them. */
-function sb_ledger_other_bill($ym) {
+function sb_ledger_other_bill($ym, $since = 0) {
     global $wpdb;
     list($a, $b) = sb_month_range($ym);
+    $a = max($a, (int) $since);
     $t = sb_ledger_table();
     return (float) $wpdb->get_var($wpdb->prepare("SELECT SUM(bill_usd) FROM {$t} WHERE t BETWEEN %d AND %d AND model <> '' AND model NOT LIKE %s AND model <> 'openai'", $a, $b, 'gpt%'));
 }
-
-/** Admin: sync now. */
-add_action('admin_post_sb_api_sync_now', function () {
-    if (!current_user_can('manage_options')) {
-        wp_die('No.');
-    }
-    check_admin_referer('sb_api_sync_now');
-    $r = sb_api_sync();
-    wp_safe_redirect(admin_url('admin.php?page=sb-billing&m=' . ($r[0] ? 'synced' : 'syncfail')));
-    exit;
-});

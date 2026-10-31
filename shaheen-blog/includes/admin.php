@@ -190,6 +190,7 @@ function sb_handle_save_settings() {
     } elseif ($ak !== '') {
         $new['admin_key'] = $ak;
     }
+    $new['api_carry'] = trim((string) $in('api_carry')) === '' ? '' : (string) max(0, round((float) $in('api_carry'), 2));
     $new['api_project'] = preg_replace('/[^A-Za-z0-9_\-]/', '', $in('api_project'));
     sb_save_settings($new);
     wp_safe_redirect(admin_url('admin.php?page=sb-settings&saved=1'));
