@@ -19,6 +19,7 @@ $d = array(
     'excerpt'     => $post ? $post->post_excerpt : '',
     'subtitle'    => $post ? get_post_meta($pid, '_sb_subtitle', true) : '',
     'meta_desc'   => $post ? get_post_meta($pid, '_sb_meta_desc', true) : '',
+    'seo_title'   => $post ? get_post_meta($pid, '_sb_seo_title', true) : '',
     'summary'     => $post ? get_post_meta($pid, '_sb_summary', true) : '',
     'summary_pos' => $post ? (get_post_meta($pid, '_sb_summary_pos', true) ?: 'top') : 'top',
     'author_name' => $post ? get_post_meta($pid, '_sb_author_name', true) : '',
@@ -278,11 +279,15 @@ $costs['research'] = max(0, (int) sb_get('cost_research'));
                 <input type="text" id="f-subtitle" value="<?php echo esc_attr($d['subtitle']); ?>">
             </div>
 
+            <label>SEO টাইটেল <small>— গুগলের ফলাফলে নীল শিরোনাম। ফাঁকা রাখলে পোস্টের শিরোনাম ও সাইটের নাম নিজে বসবে। ৬০ অক্ষরের মধ্যে ভালো। <span id="seot-count"></span></small>
+                <input type="text" id="f-seotitle" maxlength="70" value="<?php echo esc_attr($d['seo_title']); ?>">
+            </label>
+
             <div class="sba-ai">
                 <div class="sba-ai-head"><h3>মেটা বর্ণনা (SEO)</h3>
                     <button type="button" class="button" data-ai="meta">🤖 তৈরি করুন</button></div>
                 <textarea id="f-meta" rows="2"><?php echo esc_textarea($d['meta_desc']); ?></textarea>
-                <small class="sba-muted">গুগলে দেখানোর জন্য ১২০-১৬০ অক্ষর ভালো। <span id="meta-count"></span></small>
+                <small class="sba-muted">গুগলে দেখানোর জন্য ১২০-১৫৫ অক্ষর ভালো। <span id="meta-count"></span></small>
             </div>
 
             <label>সারাংশ (কার্ডে দেখাবে) <small>— এখন ফাঁকা রাখতে পারেন। আর্টিকেল তৈরি/লেখার পর পেজ ৩-এ "সারাংশ" বানালে এটা নিজে ভরে যাবে</small>

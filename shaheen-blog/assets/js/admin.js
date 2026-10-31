@@ -668,8 +668,14 @@
   });
 
   /* meta counter */
-  function metaCount() { var n = val('#f-meta').length; $('#meta-count').textContent = n ? bn(n) + ' অক্ষর' : ''; }
-  $('#f-meta').addEventListener('input', metaCount); metaCount();
+  function metaCount() {
+    var n = val('#f-meta').length, el = $('#meta-count');
+    el.textContent = n ? bn(n) + ' অক্ষর' + (n < 110 ? ' — একটু ছোট' : n > 160 ? ' — বেশি লম্বা, গুগল কেটে দেবে' : ' ✓') : '';
+    el.style.color = n && (n < 110 || n > 160) ? '#b26a00' : '#1a7f37';
+    var t = val('#f-seotitle').length, te = $('#seot-count');
+    if (te) { te.textContent = t ? bn(t) + ' অক্ষর' + (t > 60 ? ' — লম্বা' : ' ✓') : ''; te.style.color = t > 60 ? '#b26a00' : '#1a7f37'; }
+  }
+  $('#f-meta').addEventListener('input', metaCount); if ($('#f-seotitle')) { $('#f-seotitle').addEventListener('input', metaCount); } metaCount();
 
   /* AI */
   function looksAnsi(t) {
@@ -1420,7 +1426,7 @@
     var st = $('input[name="f-status"]:checked');
     post('sb_save_post', { ack_missing: ack,
       id: postId, title: val('#f-title'), slug: val('#f-slug'), excerpt: val('#f-excerpt'), content: editorContent(),
-      subtitle: val('#f-subtitle'), meta_desc: val('#f-meta'), summary: val('#f-summary'), summary_pos: val('#f-summary_pos') || 'top', author_name: val('#f-author'),
+      subtitle: val('#f-subtitle'), meta_desc: val('#f-meta'), seo_title: val('#f-seotitle'), summary: val('#f-summary'), summary_pos: val('#f-summary_pos') || 'top', author_name: val('#f-author'),
       date: val('#f-date'), topic: val('#f-topic'), keywords: keywords(), category: val('#f-category'), category_extra: extraCats(),
       image_id: imgId, faq: faqData(), inc_summary: $('#inc-summary').checked ? '1' : '0', inc_faq: $('#inc-faq').checked ? '1' : '0', related: rel.map(function (r) { return r.id; }), related_why: JSON.stringify(rel.reduce(function (o, r) { if (r.why) { o[r.id] = r.why; } return o; }, {})), blocks: pEd.get(), extras: JSON.stringify(exGet()), block_ids: picked, no_global: $('#no-global').checked ? '1' : '0', no_social: $('#no-social').checked ? '1' : '0', status: st ? st.value : 'draft'
     }).then(function (d) {

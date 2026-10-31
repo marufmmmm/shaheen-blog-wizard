@@ -325,8 +325,8 @@ function sb_custom_result($r, $ctx = array()) {
         if (mb_strlen($r['excerpt']) > 400 || preg_match('/[?？]|নির্দেশ|বোঝাপড়া|রূপরেখা|অনুমোদন/u', $r['excerpt'])) {
             $r['excerpt'] = '';   // a chat-style note, not an excerpt
         }
-        if (mb_strlen($r['meta']) > 320) {
-            $r['meta'] = mb_substr($r['meta'], 0, 160);
+        if (mb_strlen($r['meta']) > 165) {
+            $r['meta'] = sb_meta_fit($r['meta']);
         }
         $facts = array();
         $plain = wp_strip_all_tags((string) $j['article']);
@@ -743,7 +743,8 @@ function sb_ajax_save_post() {
     if ($slug !== '') {
         wp_update_post(array('ID' => $id, 'post_name' => $slug));
     } elseif ($is_new) {
-        wp_update_post(array('ID' => $id, 'post_name' => 'post-' . $id));
+        $g = sb_slug_guess(get_the_title($id), sb_req_list('keywords', 10));
+        wp_update_post(array('ID' => $id, 'post_name' => $g !== '' ? $g : 'post-' . $id));
     }
 
     update_post_meta($id, '_sb_subtitle', sanitize_text_field(sb_req('subtitle')));
@@ -756,6 +757,8 @@ function sb_ajax_save_post() {
     update_post_meta($id, '_sb_author_name', sanitize_text_field(sb_req('author_name')));
     update_post_meta($id, '_sb_keywords', sb_req_list('keywords', 10));
     update_post_meta($id, '_sb_topic', sanitize_text_field(sb_req('topic')));
+    update_post_meta($id, '_sb_seo_title', mb_substr(sanitize_text_field(sb_req('seo_title')), 0, 70));
+    sb_seo_sync($id);
 
     $faq = array();
     $faq_raw = isset($_POST['faq']) ? wp_unslash($_POST['faq']) : array();
@@ -988,6 +991,7 @@ function sb_ajax_save_press() {
     }
     update_post_meta($id, '_sb_press_url', $url);
     update_post_meta($id, '_sb_press_paper', $paper);
+    sb_seo_sync($id);
     sb_set_post_categories($id, (int) sb_req('category', 0), array());
     $img = (int) sb_req('image_id', 0);
     if ($img && get_post_type($img) === 'attachment' && current_user_can('edit_post', $img)) {

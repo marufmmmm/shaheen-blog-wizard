@@ -776,6 +776,19 @@ function csa_seo_set( $id, $fields, $label = '' ) {
 			update_post_meta( $id, $keys[ $f ], sanitize_text_field( $v ) );
 		}
 	}
+	if ( 'sb_post' === get_post_type( $id ) ) {   // keep the Blog plugin's own fields in step, so the editor and the page show the same text
+		if ( isset( $fields['description'] ) ) {
+			update_post_meta( $id, '_sb_meta_desc', sanitize_text_field( $fields['description'] ) );
+		}
+		if ( isset( $fields['title'] ) ) {
+			update_post_meta( $id, '_sb_seo_title', mb_substr( sanitize_text_field( $fields['title'] ), 0, 70 ) );
+		}
+		if ( isset( $fields['keyword'] ) && '' !== trim( $fields['keyword'] ) ) {
+			$kws = (array) get_post_meta( $id, '_sb_keywords', true );
+			array_unshift( $kws, sanitize_text_field( $fields['keyword'] ) );
+			update_post_meta( $id, '_sb_keywords', array_slice( array_values( array_unique( array_filter( $kws ) ) ), 0, 10 ) );
+		}
+	}
 	csa_clear_cache( $id );
 	csa_log( ( $label ? $label : csa_t( 'Updated SEO fields on' ) ) . ' #' . $id . ' ' . get_the_title( $id ) . ' (' . implode( ', ', array_keys( $fields ) ) . ')', array( 'type' => 'seo', 'post' => (int) $id, 'old' => $old ) );
 	return true;

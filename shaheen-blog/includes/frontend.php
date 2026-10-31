@@ -346,24 +346,5 @@ function sb_single_content($content) {
     return ob_get_clean();
 }
 
-/* -------------------------------------------------------------- SEO tags */
+/* SEO tags: see includes/seo.php */
 add_action('wp_head', 'sb_head_meta', 5);
-function sb_head_meta() {
-    if (!is_singular('sb_post')) {
-        return;
-    }
-    $id = get_the_ID();
-    $desc = get_post_meta($id, '_sb_meta_desc', true);
-    if (!$desc) {
-        $desc = get_the_excerpt($id);
-    }
-    $img = sb_post_image($id, 'large');
-    echo "\n<meta name=\"description\" content=\"" . esc_attr(wp_strip_all_tags($desc)) . "\">\n";
-    echo '<meta property="og:type" content="article">' . "\n";
-    echo '<meta property="og:title" content="' . esc_attr(get_the_title($id)) . '">' . "\n";
-    echo '<meta property="og:description" content="' . esc_attr(wp_strip_all_tags($desc)) . '">' . "\n";
-    echo '<meta property="og:url" content="' . esc_url(get_permalink($id)) . '">' . "\n";
-    if ($img) {
-        echo '<meta property="og:image" content="' . esc_url($img) . '">' . "\n";
-    }
-}
