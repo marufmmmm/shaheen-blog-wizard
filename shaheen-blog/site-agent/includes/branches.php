@@ -58,6 +58,27 @@ function csa_br_opt( $k ) {
 
 function csa_br_set( $o ) {
 	update_option( CSA_BR_OPT, $o, false );
+	csa_br_purge();
+}
+
+/** The page is usually cached by the host (LiteSpeed etc.): clear it after every change, so a new link or text shows at once. */
+function csa_br_purge() {
+	static $done = false;
+	if ( $done ) {
+		return;
+	}
+	$done = true;
+	$lp   = function_exists( 'csa_br_pageid' ) ? csa_br_pageid() : 0;
+	if ( $lp && function_exists( 'csa_clear_cache' ) ) {
+		csa_clear_cache( $lp );
+	}
+	do_action( 'litespeed_purge_all' );
+	if ( function_exists( 'rocket_clean_domain' ) ) {
+		rocket_clean_domain();
+	}
+	if ( function_exists( 'wp_cache_clear_cache' ) ) {
+		wp_cache_clear_cache();
+	}
 }
 
 function csa_br_list() {
@@ -67,6 +88,7 @@ function csa_br_list() {
 
 function csa_br_put( $l ) {
 	update_option( CSA_BR_LIST, array_values( $l ), false );
+	csa_br_purge();
 }
 
 /** May this user change the branch page? Administrators always; others by role (Settings). */
@@ -367,7 +389,7 @@ function csa_br_page() {
 	$h .= '<div class="filter"><div class="filter-in"><label for="sbrSel">বিভাগ:</label><select class="div-sel" id="sbrSel">' . $opt . '</select><input class="sbr-q" id="sbrQ" type="search" placeholder="🔍 শাখার নাম বা ঠিকানা খুঁজুন" autocomplete="off"></div></div>';
 	$h .= '<div class="bsec" id="sbrList">' . $sections . '<div class="empty-note" id="sbrEmpty" hidden>এই নির্বাচনে কোনো শাখা পাওয়া যায়নি। অন্য বিভাগ বেছে নিন বা খোঁজার শব্দ বদলান।</div></div>';
 	if ( ! empty( $o['cta']['t'] ) ) {
-		$h .= '<div class="cta"><h3>' . esc_html( $o['cta']['t'] ) . '</h3><p>' . esc_html( $o['cta']['p'] ) . '</p>' . ( $o['cta']['bu'] ? '<a href="' . esc_url( $o['cta']['bu'] ) . '">' . esc_html( $o['cta']['bt'] ) . '</a>' : '' ) . '</div>';
+		$h .= '<div class="cta"><h3>' . esc_html( $o['cta']['t'] ) . '</h3><p>' . esc_html( $o['cta']['p'] ) . '</p>' . ( $o['cta']['bu'] ? '<a href="' . esc_url( $o['cta']['bu'] ) . '">' . esc_html( '' !== trim( (string) $o['cta']['bt'] ) ? $o['cta']['bt'] : '📄 শাখা আবেদন করুন →' ) . '</a>' : '' ) . '</div>';
 	}
 	$h .= '</div><script>window.SBR=' . wp_json_encode( $cfg, JSON_UNESCAPED_UNICODE | JSON_HEX_TAG | JSON_HEX_AMP ) . ';</script><script src="' . esc_url( CSA_URL . 'assets/branches.js?ver=' . CSA_VER ) . '" defer></script>';
 	return $h;
