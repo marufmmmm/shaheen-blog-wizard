@@ -2,13 +2,14 @@
 *{box-sizing:border-box}html,body{margin:0;background:transparent}body{font:14px "Segoe UI",Nirmala UI,Arial,sans-serif;color:#fff;overflow:hidden}#top{height:52px;background:#0f3d24;display:flex;align-items:center;gap:6px;padding:0 8px}
 button{border:0;border-radius:8px;padding:8px 11px;font:inherit;cursor:pointer;background:#1f5d3b;color:#fff}button:hover{background:#2a7a4e}button:disabled{opacity:.4;cursor:default}
 #go{flex:1;min-width:120px;border:0;border-radius:8px;padding:9px 12px;font:inherit;outline:0}
-#col{background:#f59e0b;color:#1a1200;font-weight:700}#col:hover{background:#fbbf24}
+#top .on{background:#f8fafc;color:#0f3d24;font-weight:700}#col{background:#f59e0b;color:#1a1200;font-weight:700}#col:hover{background:#fbbf24}
 #msg{position:fixed;left:0;right:0;top:52px;display:none;padding:8px 14px;font-size:13px;background:#111;color:#fff;z-index:9}
 #set{position:fixed;right:8px;top:56px;width:330px;background:#fff;color:#111;border-radius:10px;padding:14px;display:none;box-shadow:0 8px 30px rgba(0,0,0,.35);z-index:10}
 #set label{display:block;margin:8px 0 2px;font-size:12px;color:#444}#set input{width:100%;padding:8px;border:1px solid #cbd5e1;border-radius:6px;font:inherit}
 #set .r{display:flex;gap:8px;margin-top:12px}#set button{background:#0f3d24}#set p{font-size:12px;margin:8px 0 0;color:#444}
 </style></head><body>
 <div id="top"><button id="b" title="পিছনে">◀</button><button id="f" title="সামনে">▶</button><button id="r" title="রিলোড">⟳</button>
+<button id="tw" title="ওয়েব (Google, Facebook…)">🌐 ওয়েব</button><button id="tp" title="WordPress অ্যাডমিন">🅦 WordPress</button>
 <input id="go" placeholder="Google-এ খুঁজুন বা ঠিকানা লিখুন" autocomplete="off">
 <button id="col">📥 সংগ্রহ করুন</button><button id="cfg">⚙ সেটিং</button></div>
 <div id="msg"></div>
@@ -23,7 +24,8 @@ function msg(m,bad){const e=$('#msg');e.textContent=m;e.style.background=bad?'#7
 $('#b').onclick=()=>sb.back();$('#f').onclick=()=>sb.fwd();$('#r').onclick=()=>sb.reload();
 $('#go').addEventListener('keydown',e=>{if(e.key==='Enter'){sb.go($('#go').value);e.target.blur()}});
 $('#go').addEventListener('focus',e=>e.target.select());
-sb.onNav(d=>{if(document.activeElement!==$('#go'))$('#go').value=d.url;$('#b').disabled=!d.back;$('#f').disabled=!d.fwd});
+$('#tw').onclick=()=>sb.tab('web');$('#tp').onclick=()=>sb.tab('wp');
+sb.onNav(d=>{$('#tw').classList.toggle('on',d.tab!=='wp');$('#tp').classList.toggle('on',d.tab==='wp');if(document.activeElement!==$('#go'))$('#go').value=d.url;$('#b').disabled=!d.back;$('#f').disabled=!d.fwd});
 $('#col').onclick=async()=>{$('#col').disabled=true;const r=await sb.collect();$('#col').disabled=false;msg(r.msg,!r.ok)};
 $('#cfg').onclick=async()=>{const c=await sb.getCfg();$('#site').value=c.site;$('#key').value='';$('#key').placeholder=c.hasKey?'(সংরক্ষিত আছে — বদলাতে নতুন চাবি দিন)':'sbk_…';$('#sm').textContent='';$('#set').style.display='block';fit()};
 $('#x').onclick=()=>{$('#set').style.display='none';fit()};

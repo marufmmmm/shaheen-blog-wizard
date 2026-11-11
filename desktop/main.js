@@ -3,7 +3,7 @@ const path = require('path');
 const fs = require('fs');
 
 const TOOLBAR_H = 52;
-let win, bar, view;
+let win, bar, view, webV, wpV, tab = 'web';
 let barH = TOOLBAR_H;
 const cfgFile = () => path.join(app.getPath('userData'), 'settings.json');
 
@@ -31,23 +31,39 @@ function normalize(input) {
 function layout() {
   const [w, h] = win.getContentSize();
   bar.setBounds({ x: 0, y: 0, width: w, height: barH });
-  view.setBounds({ x: 0, y: TOOLBAR_H, width: w, height: Math.max(100, h - TOOLBAR_H) });
+  const vb = { x: 0, y: TOOLBAR_H, width: w, height: Math.max(100, h - TOOLBAR_H) };
+  webV.setBounds(vb); wpV.setBounds(vb);
 }
 function send(ch, data) { if (bar && !bar.webContents.isDestroyed()) bar.webContents.send(ch, data); }
+
+function showTab(t) {
+  tab = t === 'wp' ? 'wp' : 'web';
+  view = tab === 'wp' ? wpV : webV;
+  webV.setVisible(tab === 'web'); wpV.setVisible(tab === 'wp');
+  const wc = view.webContents;
+  send('nav', { url: wc.getURL(), title: wc.getTitle(), back: wc.navigationHistory.canGoBack(), fwd: wc.navigationHistory.canGoForward(), tab });
+}
 
 function createWindow() {
   win = new BaseWindow({ width: 1280, height: 860, title: 'Shaheen Browser' });
   bar = new WebContentsView({ webPreferences: { preload: path.join(__dirname, 'preload.js'), contextIsolation: true, sandbox: true } });
   bar.setBackgroundColor('#00000000');
-  view = new WebContentsView({ webPreferences: { partition: 'persist:shaheen', contextIsolation: true, sandbox: true } });
-  win.contentView.addChildView(view);
+  const mk = () => new WebContentsView({ webPreferences: { partition: 'persist:shaheen', contextIsolation: true, sandbox: true } });
+  webV = mk(); wpV = mk();
+  win.contentView.addChildView(webV);
+  win.contentView.addChildView(wpV);
   win.contentView.addChildView(bar);
   bar.webContents.loadFile(path.join(__dirname, 'ui.html'));
-  const wc = view.webContents;
-  wc.setWindowOpenHandler(({ url }) => { wc.loadURL(url); return { action: 'deny' }; });
-  const nav = () => send('nav', { url: wc.getURL(), title: wc.getTitle(), back: wc.navigationHistory.canGoBack(), fwd: wc.navigationHistory.canGoForward() });
-  wc.on('did-navigate', nav); wc.on('did-navigate-in-page', nav); wc.on('page-title-updated', nav); wc.on('did-finish-load', nav);
-  wc.loadURL('https://www.google.com/');
+  const nav = () => send('nav', { url: view.webContents.getURL(), title: view.webContents.getTitle(), back: view.webContents.navigationHistory.canGoBack(), fwd: view.webContents.navigationHistory.canGoForward(), tab });
+  [webV, wpV].forEach(v => {
+    const wc = v.webContents;
+    wc.setWindowOpenHandler(({ url }) => { wc.loadURL(url); return { action: 'deny' }; });
+    ['did-navigate', 'did-navigate-in-page', 'page-title-updated', 'did-finish-load'].forEach(ev => wc.on(ev, () => { if (v === view) nav(); }));
+  });
+  webV.webContents.loadURL('https://www.google.com/');
+  const c0 = loadCfg();
+  if (c0.site) { wpV.webContents.loadURL(c0.site + '/wp-admin/'); }
+  showTab(c0.site ? 'wp' : 'web');
   win.on('resize', layout); layout();
   win.on('closed', () => app.quit());
 }
@@ -56,6 +72,10 @@ ipcMain.handle('go', (_e, input) => { view.webContents.loadURL(normalize(input))
 ipcMain.handle('back', () => { if (view.webContents.navigationHistory.canGoBack()) view.webContents.navigationHistory.goBack(); });
 ipcMain.handle('fwd', () => { if (view.webContents.navigationHistory.canGoForward()) view.webContents.navigationHistory.goForward(); });
 ipcMain.handle('bar:h', (_e, h) => { barH = Math.max(TOOLBAR_H, Math.min(600, Math.round(Number(h) || TOOLBAR_H))); if (win) layout(); });
+ipcMain.handle('tab', (_e, t) => {
+  if (t === 'wp') { const c = loadCfg(); if (c.site && !/\/wp-admin|\/wp-login/.test(wpV.webContents.getURL())) { wpV.webContents.loadURL(c.site + '/wp-admin/'); } }
+  showTab(t);
+});
 ipcMain.handle('reload', () => view.webContents.reload());
 ipcMain.handle('cfg:get', () => { const c = loadCfg(); return { site: c.site, hasKey: !!c.key }; });
 ipcMain.handle('cfg:set', async (_e, { site, key }) => {
@@ -68,6 +88,7 @@ ipcMain.handle('cfg:set', async (_e, { site, key }) => {
     if (!r.ok) return { ok: false, msg: r.status === 401 ? 'চাবি ভুল। প্লাগইন থেকে নতুন চাবি নিন।' : 'সাইট সাড়া দেয়নি (' + r.status + ')।' };
     const j = await r.json();
     saveCfg(site, key);
+    if (!/^https?:/.test(wpV.webContents.getURL())) { wpV.webContents.loadURL(site + '/wp-admin/'); }
     return { ok: true, msg: '✅ সংযুক্ত: ' + (j.site || site) };
   } catch (e) { return { ok: false, msg: 'সংযোগ হয়নি: ' + e.message }; }
 });
