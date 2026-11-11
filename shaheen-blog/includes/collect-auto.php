@@ -15,19 +15,37 @@ if (!defined('ABSPATH')) {
 function sb_ca_cfg() {
     $c = get_option('sb_collect_auto', array());
     $c = is_array($c) ? $c : array();
-    return array_merge(array('on' => 1, 'cat' => 0, 'event' => 'spelling-star', 'kw' => 'Spelling Star|স্পেলিং স্টার', 'extra' => '', 'disc' => 1, 'q' => "স্পেলিং স্টার শাহীন শিক্ষা পরিবার\nSpelling Star Shaheen Education Family Channel i\nশাহীন শিক্ষা পরিবার", 'dlast' => 0, 'dlog' => array()), $c);
+    return array_merge(array('on' => 1, 'cat' => 0, 'event' => 'spelling-star', 'kw' => 'Spelling Star|স্পেলিং স্টার', 'extra' => '', 'disc' => 1,
+        'q' => "স্পেলিং স্টার শাহীন শিক্ষা পরিবার\nSpelling Star Shaheen Education Family Channel i\nশাহীন শিক্ষা পরিবার", 'dlast' => 0, 'dlog' => array()), $c);
 }
 
-function sb_ca_ai($item, $cfg) {
+/** topics: what to look for and where it goes. [ {id,name,kw,q,event,cat} ] */
+function sb_ca_topics() {
+    $c = sb_ca_cfg();
+    if (!empty($c['topics']) && is_array($c['topics'])) {
+        return $c['topics'];
+    }
+    return array(
+        array('id' => 't1', 'name' => 'Spelling Star', 'kw' => $c['kw'], 'q' => $c['q'], 'event' => $c['event'], 'cat' => (int) $c['cat']),
+        array('id' => 't2', 'name' => 'শাহীন কোচিং ও ক্যাডেট কোচিং', 'kw' => 'Shaheen Cadet|Shaheen Coaching|শাহীন ক্যাডেট|শাহীন কোচিং|শাহীন শিক্ষা|Shaheen Education',
+            'q' => "শাহীন ক্যাডেট কোচিং\nShaheen Cadet Coaching\nশাহীন কোচিং সংবাদ", 'event' => '', 'cat' => (int) $c['cat']),
+    );
+}
+
+function sb_ca_ai($item, $cfg, $manual = true) {
     $key = function_exists('sb_get') ? sb_get('api_key') : '';
     if ('' === (string) $key) {
         return new WP_Error('sb_ca', 'AI চাবি নেই');
     }
+    $tl = array();
+    foreach (sb_ca_topics() as $t) {
+        $tl[] = $t['id'] . ' = ' . $t['name'] . ' (keywords: ' . $t['kw'] . ')';
+    }
     $sys = 'You are the editor-in-chief gatekeeper of the news section of the website of "Shaheen Education Family" (Shaheen Cadet Coaching, Bangladesh) and of its TV competition "Spelling Star" (with Channel i). '
-        . 'A page was collected by staff. Decide whether it may be published on our site. Reply with JSON only: '
-        . '{"kind":"news|video|other","relevant":true|false,"topic":"event|other","negative":true|false,"reason":"short Bangla reason","title":"clean headline, Bangla or as in the page, max 100 chars","paper":"name of the newspaper/site in Bangla","summary":"1-2 neutral Bangla sentences in your own words","date":"YYYY-MM-DD or empty"}. '
-        . 'Rules: kind=news only for a real news article/report. relevant=true only for education news, or anything about Shaheen Education Family / Spelling Star / Channel i / Shaheen Cadet Coaching. '
-        . 'topic=event when it is about the competition "Spelling Star" ('. $cfg['kw'] . '), else other. '
+        . 'A page was collected. Decide whether it may be published on our site. Reply with JSON only: '
+        . '{"kind":"news|video|other","relevant":true|false,"topic":"topic id or none","negative":true|false,"reason":"short Bangla reason","title":"clean headline, Bangla or as in the page, max 100 chars","paper":"name of the newspaper/site in Bangla","summary":"1-2 neutral Bangla sentences in your own words","date":"YYYY-MM-DD or empty"}. '
+        . 'Topics the owner follows: ' . implode('; ', $tl) . '. topic = the id of the best matching topic, or none. '
+        . 'Rules: kind=news only for a real news article/report. relevant=true only if the page is really about one of these topics' . ($manual ? ', or is clearly education news a school/coaching site would share' : '') . '; a page that merely mentions a keyword in passing is NOT relevant. '
         . 'negative=true if the page says or implies ANYTHING bad, critical, controversial, scandalous, a complaint, fraud, accident, case, protest, political fight, unfair result, or any doubtful/sensational claim about Shaheen, Spelling Star, Channel i or their people, or is negative news in general (exam leak, crime, corruption, tragedy). When in doubt, negative=true. '
         . ($cfg['extra'] !== '' ? 'Extra instruction from the owner: ' . $cfg['extra'] . ' ' : '')
         . 'Never invent facts; date only if clearly written in the page.';
@@ -113,12 +131,12 @@ function sb_ca_bn_date($ymd) {
 }
 
 /** judge + file one collected item; returns array(status, note). status: filed|blocked|skipped|dup|error */
-function sb_ca_process($item) {
+function sb_ca_process($item, $manual = true) {
     $cfg = sb_ca_cfg();
     if (function_exists('sb_press_url_exists') && sb_press_url_exists($item['url'])) {
         return array('dup', 'এই লিংক আগেই আছে।');
     }
-    $j = sb_ca_ai($item, $cfg);
+    $j = sb_ca_ai($item, $cfg, $manual);
     if (is_wp_error($j)) {
         return array('error', $j->get_error_message() . ' — যাচাই ছাড়া কিছু বসানো হয়নি।');
     }
@@ -134,15 +152,22 @@ function sb_ca_process($item) {
     $date  = preg_match('/^\d{4}-\d{2}-\d{2}$/', (string) ($j['date'] ?? '')) ? $j['date'] : '';
     $sum   = sanitize_textarea_field((string) ($j['summary'] ?? ''));
     $img   = (string) ($item['images'][0] ?? '');
-    $id    = sb_press_make($title, $item['url'], $paper, $date, $sum, $img, (int) $cfg['cat']);
+    $tp    = null;
+    foreach (sb_ca_topics() as $t) {
+        if ((string) ($j['topic'] ?? '') === $t['id']) {
+            $tp = $t;
+        }
+    }
+    $cat   = $tp ? (int) $tp['cat'] : (int) $cfg['cat'];
+    $id    = sb_press_make($title, $item['url'], $paper, $date, $sum, $img, $cat);
     if (!$id) {
         return array('error', 'ব্লগে কার্ড বানানো যায়নি।');
     }
     $where = 'ব্লগ';
-    if (($j['topic'] ?? '') === 'event' && $cfg['event'] !== '' && sb_ca_event_line($cfg['event'], $title, $item['url'], $paper . ($date ? ' · ' . sb_ca_bn_date($date) : ''))) {
+    if ($tp && $tp['event'] !== '' && sb_ca_event_line($tp['event'], $title, $item['url'], $paper . ($date ? ' · ' . sb_ca_bn_date($date) : ''))) {
         $where = 'ব্লগ + ইভেন্ট পেজ';
     }
-    return array('filed', $where);
+    return array('filed', $where . ($tp ? ' · বিষয়: ' . $tp['name'] : ''));
 }
 
 function sb_ca_mark($id, $st, $note) {
@@ -162,16 +187,26 @@ add_action('sb_collected_new', function ($item) {
     if (empty($cfg['on'])) {
         return;
     }
-    list($st, $note) = sb_ca_process($item);
+    list($st, $note) = sb_ca_process($item, false);
     sb_ca_mark($item['id'], $st, $note);
 });
 
 /** admin: save settings / file the items that are still waiting (max 3 per call) */
 add_action('wp_ajax_sb_ca_save', function () {
     sb_ajax_guard('manage_options');
-    $c = array('on' => sb_req('on') ? 1 : 0, 'cat' => (int) sb_req('cat', 0), 'event' => sanitize_title((string) sb_req('event')),
-        'kw' => sanitize_text_field((string) sb_req('kw')), 'extra' => sanitize_text_field((string) sb_req('extra')),
-        'disc' => sb_req('disc') ? 1 : 0, 'q' => sanitize_textarea_field((string) sb_req('q')));
+    $c = array('on' => sb_req('on') ? 1 : 0, 'extra' => sanitize_text_field((string) sb_req('extra')), 'disc' => sb_req('disc') ? 1 : 0);
+    $tj = json_decode(wp_unslash((string) ($_POST['topics'] ?? '')), true);   // phpcs:ignore WordPress.Security.NonceVerification
+    if (is_array($tj)) {
+        $c['topics'] = array();
+        foreach (array_slice($tj, 0, 12) as $i => $t) {
+            $name = sanitize_text_field((string) ($t['name'] ?? ''));
+            if ($name === '') {
+                continue;
+            }
+            $c['topics'][] = array('id' => 't' . ($i + 1), 'name' => $name, 'kw' => sanitize_text_field((string) ($t['kw'] ?? '')), 'q' => sanitize_textarea_field((string) ($t['q'] ?? '')),
+                'event' => sanitize_title((string) ($t['event'] ?? '')), 'cat' => (int) ($t['cat'] ?? 0));
+        }
+    }
     $c = array_merge(sb_ca_cfg(), $c);
     update_option('sb_collect_auto', $c, false);
     wp_send_json_success(array('ok' => 1));
@@ -208,14 +243,24 @@ function sb_ca_panel() {
         <b>🤖 নিজে নিজে বসানো (AI যাচাই করে)</b>
         <p class="sba-muted" style="margin:4px 0 8px">সংগ্রহ করা প্রতিটি পেজ আগে AI দেখে। নেতিবাচক, সমালোচনা, বিতর্ক, অভিযোগ বা সন্দেহজনক কিছু থাকলে <b>আটকে দেয়</b>, কিছুই বসায় না। ভালো শিক্ষা-সংবাদ হলে ব্লগের "সংবাদপত্রে শাহীন"-এ কার্ড বানায়; Spelling Star-এর খবর হলে ইভেন্ট পেজের সংবাদ অংশেও বসায়। প্রতিটি পেজের জন্য AI-এর খরচ (প্রকৃত খরচ × ১.৭) কাটে। AI চাবি না থাকলে কিছুই বসে না।</p>
         <label><input type="checkbox" id="ca-on" <?php checked($c['on'], 1); ?>> চালু</label>
-        <p style="margin:8px 0"><label>ব্লগের ক্যাটাগরি <select id="ca-cat"><option value="0">—</option>
-            <?php if (!is_wp_error($cats)) : foreach ($cats as $t) : ?><option value="<?php echo (int) $t->term_id; ?>" <?php selected((int) $c['cat'], $t->term_id); ?>><?php echo esc_html($t->name); ?></option><?php endforeach; endif; ?></select></label>
-        &nbsp; <label>ইভেন্ট পেজ <select id="ca-ev"><option value="">(ইভেন্ট পেজে বসাবে না)</option>
-            <?php foreach ($evs as $e) : ?><option value="<?php echo esc_attr($e['slug']); ?>" <?php selected($c['event'], $e['slug']); ?>><?php echo esc_html($e['title']); ?></option><?php endforeach; ?></select></label></p>
-        <p style="margin:8px 0"><label>ইভেন্টের শব্দ (| দিয়ে আলাদা) <input type="text" id="ca-kw" value="<?php echo esc_attr($c['kw']); ?>" style="width:260px"></label></p>
+        <p style="margin:8px 0"><b>🎯 কী কী খুঁজবে (বিষয়)</b> — প্রতিটি বিষয়ের নিজের শব্দ, সার্চ আর গন্তব্য। ইভেন্ট পেজ "না" দিলে শুধু ব্লগে যাবে।</p>
+        <div id="ca-topics">
+        <?php foreach (sb_ca_topics() as $t) : ?>
+            <div class="ca-t" style="border:1px solid #cbd5e1;border-radius:6px;padding:8px;margin:6px 0;background:#fff">
+                <input type="text" class="t-name" value="<?php echo esc_attr($t['name']); ?>" placeholder="বিষয়ের নাম (যেমন: শাহীন কোচিং)" style="width:60%">
+                <button type="button" class="button t-del" style="float:right">✕ মুছুন</button>
+                <p style="margin:6px 0"><label>শব্দ (| দিয়ে আলাদা; এর কোনোটি থাকলে তবেই দেখবে) <input type="text" class="t-kw" value="<?php echo esc_attr($t['kw']); ?>" style="width:100%"></label></p>
+                <p style="margin:6px 0"><label>সার্চ (প্রতি লাইনে একটি) <textarea class="t-q" rows="3" style="width:100%"><?php echo esc_textarea($t['q']); ?></textarea></label></p>
+                <p style="margin:6px 0"><label>ইভেন্ট পেজ <select class="t-ev"><option value="">না — শুধু ব্লগ</option>
+                    <?php foreach ($evs as $e) : ?><option value="<?php echo esc_attr($e['slug']); ?>" <?php selected($t['event'], $e['slug']); ?>><?php echo esc_html($e['title']); ?></option><?php endforeach; ?></select></label>
+                &nbsp; <label>ব্লগ ক্যাটাগরি <select class="t-cat"><option value="0">—</option>
+                    <?php if (!is_wp_error($cats)) : foreach ($cats as $ct) : ?><option value="<?php echo (int) $ct->term_id; ?>" <?php selected((int) $t['cat'], $ct->term_id); ?>><?php echo esc_html($ct->name); ?></option><?php endforeach; endif; ?></select></label></p>
+            </div>
+        <?php endforeach; ?>
+        </div>
+        <p><button type="button" class="button" id="ca-addt">➕ নতুন বিষয়</button></p>
         <p style="margin:8px 0"><label>আরও নির্দেশ (ঐচ্ছিক) <input type="text" id="ca-extra" value="<?php echo esc_attr($c['extra']); ?>" style="width:100%" placeholder="যেমন: রাজনীতির খবর বাদ দাও"></label></p>
-        <p style="margin:8px 0"><label><input type="checkbox" id="ca-disc" <?php checked($c['disc'], 1); ?>> 🔎 নতুন সংবাদ <b>নিজে নিজে খুঁজুন</b> (প্রতি ৬ ঘণ্টায় একবার; খোঁজার খরচ প্রতি বার $০.০১, পাওয়া প্রতিটি পেজ AI যাচাইয়ের খরচ আলাদা)</label><br>
-            <label>যা খুঁজবে (প্রতি লাইনে একটি) <textarea id="ca-q" rows="3" style="width:100%"><?php echo esc_textarea($c['q']); ?></textarea></label></p>
+        <p style="margin:8px 0"><label><input type="checkbox" id="ca-disc" <?php checked($c['disc'], 1); ?>> 🔎 নতুন সংবাদ <b>নিজে নিজে খুঁজুন</b> (প্রতি ৬ ঘণ্টায় একবার; খোঁজার খরচ প্রতি বার $০.০১, পাওয়া প্রতিটি পেজ AI যাচাইয়ের খরচ আলাদা)</label></p>
         <?php if (!empty($c['dlog'])) : ?><p class="sba-muted" style="margin:4px 0">শেষ খোঁজা: <?php echo esc_html(wp_date('d M, H:i', (int) $c['dlast'])); ?> — <?php echo esc_html((string) $c['dlog'][0]); ?></p><?php endif; ?>
         <p><button type="button" class="button" id="ca-save">💾 সেভ</button> <button type="button" class="button" id="ca-find">🔎 এখনই খুঁজুন</button> <button type="button" class="button button-primary" id="ca-run">▶ আগে সংগ্রহ করা বাকিগুলো এখন বসান</button> <span id="ca-msg" class="sba-msg"></span></p>
     </div>
@@ -300,25 +345,27 @@ function sb_ca_discover($force = false) {
     }
     $seen  = get_option('sb_ca_seen', array());
     $seen  = is_array($seen) ? $seen : array();
-    $words = array_filter(array_map('trim', explode('|', $cfg['kw'] . '|শাহীন শিক্ষা|Shaheen Education')));
     $cand  = array();
     $looks = 0;
-    foreach (array_filter(array_map('trim', explode("\n", (string) $cfg['q']))) as $q) {
-        $res = sb_ca_search($q);
-        if (null === $res) {
-            continue;
-        }
-        $looks++;
-        foreach ($res as $r) {
-            $hay = $r[0] . ' ' . $r[2];
-            $ok  = false;
-            foreach ($words as $w) {
-                if ($w !== '' && false !== mb_stripos($hay, $w)) {
-                    $ok = true;
-                }
+    foreach (sb_ca_topics() as $t) {
+        $words = array_filter(array_map('trim', explode('|', (string) $t['kw'])));
+        foreach (array_slice(array_filter(array_map('trim', explode("\n", (string) $t['q']))), 0, 6) as $q) {
+            $res = sb_ca_search($q);
+            if (null === $res) {
+                continue;
             }
-            if ($ok && !isset($seen[md5($r[1])]) && !sb_press_url_exists($r[1])) {
-                $cand[$r[1]] = $r;
+            $looks++;
+            foreach ($res as $r) {
+                $hay = $r[0] . ' ' . $r[2];
+                $ok  = !$words;
+                foreach ($words as $w) {
+                    if (false !== mb_stripos($hay, $w)) {
+                        $ok = true;
+                    }
+                }
+                if ($ok && !isset($seen[md5($r[1])]) && !sb_press_url_exists($r[1])) {
+                    $cand[$r[1]] = $r;
+                }
             }
         }
     }
@@ -340,7 +387,7 @@ function sb_ca_discover($force = false) {
         }
         $item['id'] = substr(md5($u . microtime(true)), 0, 10);
         $item['t']  = time();
-        list($st, $note) = sb_ca_process($item);
+        list($st, $note) = sb_ca_process($item, false);
         if ('error' === $st) {   // try again next round
             $n['error']++;
             continue;
