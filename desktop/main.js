@@ -4,7 +4,7 @@ const fs = require('fs');
 
 const TOOLBAR_H = 52;
 const LOG = [];
-function log(m) { LOG.push(new Date().toLocaleTimeString('en-GB') + ' ' + String(m).replace(/\s+/g, ' ').slice(0, 300)); if (LOG.length > 600) LOG.shift(); }
+function log(m) { LOG.push(new Date().toLocaleTimeString('en-GB') + ' ' + String(m).replace(/\s+/g, ' ').slice(0, 900)); if (LOG.length > 600) LOG.shift(); }
 process.on('uncaughtException', e => log('UNCAUGHT ' + (e && e.message)));
 let win, bar, view, webV, wpV, tab = 'web';
 let barH = TOOLBAR_H;
@@ -138,6 +138,23 @@ const RESULTS = `(() => {
   if (!out.length) run([...document.querySelectorAll('a[href]')], false).forEach(x => out.push(x));
   return out.slice(0, 30);
 })()`;
+
+const DIAG = `(() => {
+  const as = [...document.querySelectorAll('a[href]')];
+  const ext = as.filter(a => { try { return !/(^|\\.)google\\./.test(new URL(a.href).hostname); } catch (e) { return false; } });
+  return JSON.stringify({ title: document.title.slice(0, 60), ready: document.readyState, a: as.length, ext: ext.length, rso: !!document.querySelector('#rso'), search: !!document.querySelector('#search'), main: !!document.querySelector('main,[role=main]'), h3: document.querySelectorAll('h3').length, text: (document.body.innerText || '').length,
+    sample: ext.slice(0, 8).map(a => a.href.slice(0, 70) + ' [' + (a.innerText || '').trim().slice(0, 25).replace(/\\s+/g, ' ') + ']'), head: (document.body.innerText || '').slice(0, 150).replace(/\\s+/g, ' ') });
+})()`;
+async function getResults(wc) {
+  let list = [];
+  for (let i = 0; i < 6; i++) {   // Google fills the page after load: poll up to ~9s
+    try { list = await wc.executeJavaScript(RESULTS); } catch (e) { list = []; }
+    if (list.length) break;
+    await new Promise(r => setTimeout(r, 1500));
+  }
+  if (!list.length) { try { log('NO RESULTS DOM ' + await wc.executeJavaScript(DIAG)); } catch (e) { log('NO RESULTS, diag failed ' + e.message); } }
+  return list;
+}
 const isResults = u => /^https?:\/\/(www\.)?google\.[a-z.]+\/search/i.test(u || '');
 
 async function postCollect(c, data) {
@@ -208,8 +225,7 @@ ipcMain.handle('hist', async (_e, { q, from, to, pages }) => {
           await waitLoad(webV.webContents, 25000);
           const cur = webV.webContents.getURL();
           if (/google\.[a-z.]+\/sorry|consent\./i.test(cur)) { histRun = false; return { ok: false, msg: '⚠ Google যাচাই (captcha) চাইছে। ওয়েব ট্যাবে সেটা মিটিয়ে আবার শুরু করুন। এ পর্যন্ত ' + got + 'টি সংগ্রহ।' }; }
-          let list = [];
-          try { list = await webV.webContents.executeJavaScript(RESULTS); } catch (e) { list = []; }
+          const list = await getResults(webV.webContents);
           searched++;
           log('HIST ' + y + ' q="' + qq.slice(0, 30) + '" page ' + (p + 1) + ' url=' + cur.slice(0, 100) + ' links=' + list.length);
           if (!list.length) { empty++; try { lastT = await webV.webContents.executeJavaScript('document.title+" | "+location.href.slice(0,90)'); } catch (e) {} break; }
@@ -231,7 +247,7 @@ ipcMain.handle('report', async () => {
   } else { ping = 'not tested (no site/key)'; }
   const tabs = []; try { tabs.push('web: ' + webV.webContents.getURL().slice(0, 110)); tabs.push('wp: ' + wpV.webContents.getURL().slice(0, 110)); } catch (e) {}
   const txt = ['=== Shaheen Browser report ===', 'time: ' + new Date().toISOString(), 'app: ' + app.getVersion() + ' electron ' + process.versions.electron + ' ' + process.platform,
-    'site: ' + (c.site || '(none)') + ' | key set: ' + !!c.key, 'ping: ' + ping, 'active tab: ' + tab, ...tabs, 'history running: ' + histRun, '--- log (' + LOG.length + ') ---', ...LOG.slice(-150)].join('\n');
+    'site: ' + (c.site || '(none)') + ' | key set: ' + !!c.key, 'ping: ' + ping, 'active tab: ' + tab, ...tabs, 'history running: ' + histRun, '--- log (' + LOG.length + ') ---', ...LOG.slice(-200)].join('\n');
   clipboard.writeText(txt);
   return { ok: true, n: LOG.length };
 });
@@ -243,7 +259,7 @@ ipcMain.handle('collect', async () => {
   /* Google results page: collect every result automatically */
   if (isResults(view.webContents.getURL())) {
     let list = [];
-    try { list = await view.webContents.executeJavaScript(RESULTS); } catch (e) { return { ok: false, msg: 'রেজাল্ট পড়া যায়নি: ' + e.message }; }
+    list = await getResults(view.webContents);
     log('COLLECT google page ' + view.webContents.getURL().slice(0, 100) + ' links found ' + list.length);
     list = list.slice(0, 10);
     if (!list.length) { let st = ''; try { st = await view.webContents.executeJavaScript("document.querySelectorAll('a[href]').length + ' লিংক, #rso=' + !!document.querySelector('#rso') + ', #search=' + !!document.querySelector('#search')"); } catch (e) {} return { ok: false, msg: 'এই পেজে কোনো রেজাল্ট লিংক পাওয়া যায়নি। (' + st + ')' }; }
