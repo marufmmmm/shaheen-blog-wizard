@@ -115,7 +115,7 @@ const EXTRACT = `(() => {
 
 const RESULTS = `(() => {
   const bad = /(^|\\.)(google|gstatic|googleusercontent|googleapis|gvt1|youtube-nocookie)\\./;
-  const norm = a => { let u = a.href; try { const x = new URL(u); if (/(^|\\.)google\\./.test(x.hostname) && x.pathname === '/url') { u = x.searchParams.get('q') || x.searchParams.get('url') || u; } } catch (e) {} return u; };
+  const norm = a => { let u = a.href; try { const x = new URL(u); if (/(^|\\.)google\\./.test(x.hostname)) { for (const v of x.searchParams.values()) { if (/^https?:\\/\\//i.test(v) && !/(^|\\.)google\\./.test(new URL(v).hostname)) { u = v; break; } } } } catch (e) {} const d = a.getAttribute('data-href') || a.getAttribute('data-url'); if (d && /^https?:\\/\\//i.test(d) && u === a.href) { u = d; } return u; };
   const ok = u => { try { const x = new URL(u); return /^https?:$/.test(x.protocol) && !bad.test(x.hostname + '.'); } catch (e) { return false; } };
   const run = (anchors, strict) => {
     const out = [], seen = new Set();
@@ -143,7 +143,7 @@ const DIAG = `(() => {
   const as = [...document.querySelectorAll('a[href]')];
   const ext = as.filter(a => { try { return !/(^|\\.)google\\./.test(new URL(a.href).hostname); } catch (e) { return false; } });
   return JSON.stringify({ title: document.title.slice(0, 60), ready: document.readyState, a: as.length, ext: ext.length, rso: !!document.querySelector('#rso'), search: !!document.querySelector('#search'), main: !!document.querySelector('main,[role=main]'), h3: document.querySelectorAll('h3').length, text: (document.body.innerText || '').length,
-    sample: ext.slice(0, 8).map(a => a.href.slice(0, 70) + ' [' + (a.innerText || '').trim().slice(0, 25).replace(/\\s+/g, ' ') + ']'), head: (document.body.innerText || '').slice(0, 150).replace(/\\s+/g, ' ') });
+    h3a: [...document.querySelectorAll('h3')].slice(0, 5).map(h => { const a = h.closest('a'); return a ? ('A raw=' + (a.getAttribute('href') || '').slice(0, 120) + ' attrs=' + a.getAttributeNames().join(',') + ' [' + h.innerText.slice(0, 25) + ']') : ('noA parent=' + h.parentElement.tagName + ' [' + h.innerText.slice(0, 25) + ']'); }), sample: ext.slice(0, 8).map(a => a.href.slice(0, 70) + ' [' + (a.innerText || '').trim().slice(0, 25).replace(/\\s+/g, ' ') + ']'), head: (document.body.innerText || '').slice(0, 150).replace(/\\s+/g, ' ') });
 })()`;
 async function getResults(wc) {
   let list = [];
