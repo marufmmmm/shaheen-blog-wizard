@@ -159,20 +159,21 @@ ipcMain.handle('collect', async () => {
     try { list = await view.webContents.executeJavaScript(RESULTS); } catch (e) { return { ok: false, msg: 'রেজাল্ট পড়া যায়নি: ' + e.message }; }
     list = list.slice(0, 10);
     if (!list.length) return { ok: false, msg: 'এই পেজে কোনো রেজাল্ট লিংক পাওয়া যায়নি।' };
-    let n = 0, bad = 0, total = 0;
+    let n = 0, bad = 0, total = 0; const T = { filed: 0, blocked: 0, skipped: 0, error: 0, dup: 0 };
     for (let i = 0; i < list.length; i++) {
       send('prog', 'সংগ্রহ চলছে… ' + (i + 1) + '/' + list.length + ' · ' + list[i].title.slice(0, 40));
       const d = await readHidden(list[i].url);
       if (!d || !(d.text || d.title)) { bad++; continue; }
-      try { const j = await postCollect(c, d); n++; total = j.count; } catch (e) { if (e.fatal) { return { ok: false, msg: e.message }; } bad++; }
+      try { const j = await postCollect(c, d); n++; total = j.count; if (j.st && T[j.st] !== undefined) T[j.st]++; } catch (e) { if (e.fatal) { return { ok: false, msg: e.message }; } bad++; }
     }
-    return { ok: n > 0, msg: '✅ রেজাল্ট থেকে ' + n + 'টি পেজ সংগ্রহ হয়েছে' + (bad ? ' (' + bad + 'টি পড়া যায়নি)' : '') + ' · মোট ' + total };
+    return { ok: n > 0, msg: '✅ ' + n + 'টি পেজ সংগ্রহ' + (bad ? ' (' + bad + 'টি পড়া যায়নি)' : '') + ' · বসানো ' + T.filed + ', ⛔ আটকানো ' + T.blocked + ', বাদ ' + (T.skipped + T.dup) + (T.error ? ', ⚠ যাচাই হয়নি ' + T.error : '') };
   }
   let data;
   try { data = await view.webContents.executeJavaScript(EXTRACT); } catch (e) { return { ok: false, msg: 'পেজ পড়া যায়নি: ' + e.message }; }
   try {
     const j = await postCollect(c, data);
-    return { ok: true, msg: '✅ সংগ্রহ হয়েছে' + (data.selected ? ' (শুধু নির্বাচিত অংশ)' : '') + ' · ছবি ' + data.images.length + ', ভিডিও ' + data.videos.length + ' · মোট ' + j.count };
+    const R = { filed: ' · ✅ বসানো হয়েছে (' + j.note + ')', blocked: ' · ⛔ আটকানো হয়েছে: ' + j.note, skipped: ' · বাদ: ' + j.note, dup: ' · আগেই ছিল', error: ' · ⚠ ' + j.note };
+    return { ok: true, msg: '✅ সংগ্রহ হয়েছে' + (data.selected ? ' (শুধু নির্বাচিত অংশ)' : '') + (R[j.st] || ' · ছবি ' + data.images.length + ', ভিডিও ' + data.videos.length + ' · মোট ' + j.count) };
   } catch (e) { return { ok: false, msg: e.fatal ? e.message : 'সংযোগ হয়নি: ' + e.message }; }
 });
 

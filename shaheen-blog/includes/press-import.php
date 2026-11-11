@@ -59,33 +59,45 @@ add_action('wp_ajax_sb_press_import', function () {
             update_option('sb_press_skip', array_slice(array_unique(array_merge((array) get_option('sb_press_skip', array()), array($u))), -200), false);
             continue;
         }
-        $paper = trim(preg_replace('/\s*[·•].*$/u', '', $v[1]));
-        $arr   = array('post_type' => 'sb_post', 'post_title' => $v[0], 'post_status' => 'publish', 'post_author' => get_current_user_id(),
-            'post_excerpt' => mb_substr((string) $row['d'], 0, 240));
-        if (!empty($row['pub'])) {
-            $arr['post_date']     = $row['pub'] . ' 12:00:00';
-            $arr['post_date_gmt'] = get_gmt_from_date($arr['post_date']);
-        }
-        $id = wp_insert_post(wp_slash($arr), true);
-        if (is_wp_error($id)) {
+        $id = sb_press_make($v[0], $u, $v[1], (string) $row['pub'], (string) $row['d'], (string) $row['img'], $cat);
+        if (!$id) {
             continue;
         }
-        wp_update_post(array('ID' => $id, 'post_name' => 'press-' . $id));
-        update_post_meta($id, '_sb_press_slugged', 1);
-        update_post_meta($id, '_sb_press_url', esc_url_raw($u));
-        update_post_meta($id, '_sb_press_paper', $paper !== '' ? $paper : wp_parse_url($u, PHP_URL_HOST));
-        sb_seo_sync($id);
-        sb_set_post_categories($id, $cat, array());
-        $img = 0;
-        if (!empty($row['img'])) {
-            $r = media_sideload_image($row['img'], $id, $v[0], 'id');
-            if (!is_wp_error($r)) {
-                $img = (int) $r;
-                set_post_thumbnail($id, $img);
-            }
-        }
+        $img = (int) get_post_thumbnail_id($id);
         $done[] = array('id' => $id, 'title' => $v[0], 'img' => $img ? 1 : 0, 'pub' => $row['pub']);
     }
     $left = count($todo) - count($done) - count($skip);
     wp_send_json_success(array('done' => $done, 'skipped' => $skip, 'left' => max(0, $left), 'total' => count($cands)));
 });
+
+
+/** make one press card (blog post of type sb_post with a press link). Returns post id or 0. */
+function sb_press_make($title, $url, $paper, $pub, $excerpt, $img_url, $cat) {
+    require_once ABSPATH . 'wp-admin/includes/file.php';
+    require_once ABSPATH . 'wp-admin/includes/media.php';
+    require_once ABSPATH . 'wp-admin/includes/image.php';
+    $paper = trim(preg_replace('/\s*[·•].*$/u', '', (string) $paper));
+    $arr   = array('post_type' => 'sb_post', 'post_title' => $title, 'post_status' => 'publish', 'post_author' => get_current_user_id() ?: 1,
+        'post_excerpt' => mb_substr(sanitize_textarea_field((string) $excerpt), 0, 240));
+    if (preg_match('/^\d{4}-\d{2}-\d{2}$/', (string) $pub) && $pub <= wp_date('Y-m-d')) {
+        $arr['post_date']     = $pub . ' 12:00:00';
+        $arr['post_date_gmt'] = get_gmt_from_date($arr['post_date']);
+    }
+    $id = wp_insert_post(wp_slash($arr), true);
+    if (is_wp_error($id) || !$id) {
+        return 0;
+    }
+    wp_update_post(array('ID' => $id, 'post_name' => 'press-' . $id));
+    update_post_meta($id, '_sb_press_slugged', 1);
+    update_post_meta($id, '_sb_press_url', esc_url_raw($url));
+    update_post_meta($id, '_sb_press_paper', $paper !== '' ? $paper : (string) wp_parse_url($url, PHP_URL_HOST));
+    sb_seo_sync($id);
+    sb_set_post_categories($id, (int) $cat, array());
+    if ($img_url !== '') {
+        $r = media_sideload_image($img_url, $id, $title, 'id');
+        if (!is_wp_error($r)) {
+            set_post_thumbnail($id, (int) $r);
+        }
+    }
+    return (int) $id;
+}

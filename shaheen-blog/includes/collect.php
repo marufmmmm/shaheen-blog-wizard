@@ -68,7 +68,15 @@ add_action('rest_api_init', function () {
         }
         array_unshift($l, $item);
         update_option('sb_collected', array_slice(array_values($l), 0, SB_COLLECT_MAX), false);
-        return array('ok' => true, 'id' => $item['id'], 'count' => min(SB_COLLECT_MAX, count($l)));
+        do_action('sb_collected_new', $item);   // auto-filing with AI vetting (collect-auto.php)
+        $st = $note = '';
+        foreach (sb_collect_items() as $x) {
+            if ($x['id'] === $item['id']) {
+                $st   = (string) ($x['st'] ?? '');
+                $note = (string) ($x['note'] ?? '');
+            }
+        }
+        return array('ok' => true, 'id' => $item['id'], 'count' => min(SB_COLLECT_MAX, count($l)), 'st' => $st, 'note' => $note);
     }));
 });
 
@@ -105,6 +113,7 @@ function sb_collect_card() {
             <p><button type="button" class="button" id="cl-key">🔑 অ্যাপের জন্য নতুন চাবি বানান</button> <span class="sba-muted">(আগের চাবি বাতিল হয়ে যাবে)</span></p>
             <p id="cl-keybox" style="display:none"><b>সাইট:</b> <code id="cl-site"></code><br><b>চাবি:</b> <code id="cl-keyv"></code><br><small>এটা একবারই দেখানো হয়। অ্যাপে বসিয়ে নিন।</small></p>
         <?php endif; ?>
+        <?php if (function_exists('sb_ca_panel')) { sb_ca_panel(); } ?>
         <p><button type="button" class="button button-primary" id="cl-load">তালিকা দেখুন</button> <button type="button" class="button" id="cl-clear">সব মুছুন</button></p>
         <div id="cl-list"></div>
         <p id="cl-msg" class="sba-msg"></p>
@@ -123,6 +132,8 @@ function sb_collect_card() {
             var d = document.createElement('div'); d.style.cssText = 'padding:10px 0;border-bottom:1px solid #e5e7eb';
             var a = document.createElement('a'); a.href = x.url; a.target = '_blank'; a.rel = 'noopener'; a.textContent = x.title || x.url; a.style.fontWeight = '600';
             var m = document.createElement('small'); m.style.display = 'block'; m.textContent = x.host + ' · ' + x.date + ' · ছবি ' + x.images.length + ' · ভিডিও ' + x.videos.length;
+            var S = { filed: ['✅ বসানো হয়েছে', '#166534'], blocked: ['⛔ আটকানো হয়েছে', '#b91c1c'], skipped: ['⏭ বাদ', '#6b7280'], dup: ['♻ আগেই ছিল', '#6b7280'], error: ['⚠ হয়নি', '#b45309'] };
+            if (x.st && S[x.st]) { var sb = document.createElement('div'); sb.style.cssText = 'font-weight:700;margin-top:3px;color:' + S[x.st][1]; sb.textContent = S[x.st][0] + (x.note ? ' — ' + x.note : ''); d.appendChild(sb); }
             var p = document.createElement('div'); p.style.cssText = 'color:#444;margin-top:4px'; p.textContent = x.text;
             var b = document.createElement('button'); b.type = 'button'; b.className = 'button-link'; b.textContent = 'মুছুন'; b.style.color = '#b32d2e';
             b.addEventListener('click', function () { call('sb_collect_del', { id: x.id }).then(function () { d.remove(); }); });
@@ -131,6 +142,8 @@ function sb_collect_card() {
     }
     function load() { call('sb_collect_list').then(function (j) { if (j.success) { draw(j.data.items); } }); }
     on('#cl-load', load);
+    on('#ca-save', function () { call('sb_ca_save', { on: $('#ca-on').checked ? 1 : 0, cat: $('#ca-cat').value, event: $('#ca-ev').value, kw: $('#ca-kw').value, extra: $('#ca-extra').value }).then(function (j) { $('#ca-msg').textContent = j.success ? 'সেভ হয়েছে ✓' : 'হয়নি'; }); });
+    on('#ca-run', function () { var b = $('#ca-run'), n = 0; b.disabled = true; (function step() { $('#ca-msg').textContent = 'যাচাই ও বসানো চলছে… ' + n + 'টি হয়েছে'; call('sb_ca_run').then(function (j) { if (!j.success) { $('#ca-msg').textContent = 'ত্রুটি'; b.disabled = false; return; } n += j.data.done; if (j.data.left > 0 && j.data.done > 0) { step(); } else { $('#ca-msg').textContent = 'শেষ: ' + n + 'টি দেখা হয়েছে'; b.disabled = false; load(); } }); })(); });
     on('#cl-clear', function () { if (!window.confirm('সংগৃহীত সব মুছবেন?')) { return; } call('sb_collect_del', { id: 'all' }).then(load); });
 })();
 </script>
