@@ -279,3 +279,4 @@
 .shm .rpv,.shm .rnx{width:44px;height:44px;border-radius:50%;background:var(--c2);color:#fff;font-size:20px;font-weight:800;box-shadow:0 6px 16px rgba(0,0,0,.2);transition:transform .2s}.shm .rpv:hover,.shm .rnx:hover{transform:scale(1.08)}
 .shm .rdt{display:flex;gap:8px;align-items:center}.shm .rdt button{width:10px;height:10px;border-radius:50%;background:#c8d6cc;padding:0;transition:all .25s}.shm .rdt button.on{width:26px;border-radius:6px;background:var(--c2)}
 @media (max-width:900px){.shm .rsc{flex-basis:88%;min-height:0;padding:26px 22px 24px}.shm .rst{gap:12px}.shm .rbr b{font-size:17px}.shm .rbg{font-size:18.5px}.shm .rpp{font-size:14.5px}}
+@media (max-width:640px){.shm .ach .nums .nm:last-child:nth-child(odd){grid-column:1/-1}}
