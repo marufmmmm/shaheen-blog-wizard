@@ -275,6 +275,7 @@ function csa_ev_card( $e, $home = true ) {
 	$u   = csa_ev_page_url( $e );
 	$bt  = $home ? csa_ev_btns( $e, true ) : array();
 	$txt = $e['card'] ? $e['card'] : $e['tagline'];
+	$txt = trim( preg_replace( '/\s*সব পর্ব, ফলাফল ও তথ্য জানতে এখানে ক্লিক করুন[।.]?/u', '', (string) $txt ) );
 	$h   = '<article class="ec rv" style="' . esc_attr( csa_ev_vars( $e ) ) . '"><div class="eh">' . csa_ev_sparkles( 6 ) . '<div class="eb">' . ( $e['logo'] ? '<span class="el">' . csa_ev_img( $e['logo'], $e['title'] ) . '</span>' : '' ) . '<div>' . ( $e['series'] ? '<small>' . esc_html( $e['series'] ) . '</small>' : '' ) . '<h3>' . esc_html( $e['title'] ) . ( $e['season'] ? ' <em>' . esc_html( $e['season'] ) . '</em>' : '' ) . '</h3></div></div>' . ( $st[0] ? ( $u ? '<a class="st lnk ' . esc_attr( $st[1] ) . '" href="' . esc_url( $u ) . '">' . esc_html( $st[0] ) . ' <i>→</i></a>' : '<span class="st ' . esc_attr( $st[1] ) . '">' . esc_html( $st[0] ) . '</span>' ) : '' ) . '</div><div class="ex">';
 	if ( $txt ) {
 		$h .= '<p>' . esc_html( $txt ) . '</p>';
@@ -325,14 +326,19 @@ function csa_ev_card( $e, $home = true ) {
 			}
 		}
 	}
-	$h .= '<div class="ecb"><div class="btns">';
+	$more = ( $u && ! empty( $e['card_more'] ) ) ? '<a class="more" href="' . esc_url( $u ) . '">সব পর্ব ও তথ্য জানতে এখানে ক্লিক করুন <i>→</i></a>' : '';
+	$prim = false;
 	foreach ( array_slice( $bt, 0, 3 ) as $b ) {
-		$h .= csa_ev_btn_html( $b );
+		if ( ! empty( $b['k'] ) && 'p' === $b['k'] ) {
+			$prim = true;
+		}
 	}
-	$h .= '</div>';
-	if ( $u && ! empty( $e['card_more'] ) ) {
-		$h .= '<a class="more" href="' . esc_url( $u ) . '">সব পর্ব ও তথ্য জানতে এখানে ক্লিক করুন <i>→</i></a>';
+	$btn = '';
+	foreach ( array_slice( $bt, 0, 3 ) as $b ) {
+		$btn .= csa_ev_btn_html( $b );
 	}
+	$btn = $btn ? '<div class="btns">' . $btn . '</div>' : '';
+	$h  .= '<div class="ecb">' . ( $prim ? $btn . $more : $more . $btn ) . '</div>';
 	return $h . '</div></div></article>';
 }
 

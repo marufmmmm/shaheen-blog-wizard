@@ -214,3 +214,27 @@
 .ecl .lg small{font-size:12px;color:#cfe3d6!important;opacity:1;font-weight:600}
 .ec a.st.lnk{text-decoration:none;cursor:pointer;transition:transform .2s,box-shadow .2s}.ec a.st.lnk i{font-style:normal;margin-left:4px}.ec a.st.lnk:hover{transform:translateY(-2px);box-shadow:0 8px 20px rgba(0,0,0,.3)}
 @media (max-width:520px){.ecl .lg{gap:12px 18px}.ecl .lg img{height:48px;max-width:140px}}
+
+/* v2.86.9 — compact phone card, button-style "more", bigger logo */
+.ec .el{padding:6px;overflow:hidden}.ec .el img{transform:scale(1.18)}
+.ecb .more{background:linear-gradient(135deg,var(--ac),#ffd166);color:#3d1f00;border:0;border-radius:999px;padding:13px 22px;font-weight:800;font-size:15.5px;justify-content:center;gap:10px;text-decoration:none;box-shadow:0 8px 20px rgba(0,0,0,.16);transition:transform .2s,box-shadow .2s}
+.ecb .more:hover{transform:translateY(-2px);box-shadow:0 12px 26px rgba(0,0,0,.22);color:#3d1f00}.ecb .more i{font-size:18px}
+.ecb{border-top:0;padding-top:4px}
+.ecb .btns{justify-content:flex-start}
+@media (max-width:760px){
+.ec .eh{padding:16px 16px 14px;gap:12px}
+.ec .eb{flex-direction:column;align-items:center;text-align:center;gap:10px}
+.ec .el{width:min(100%,280px);max-width:280px;max-height:none;padding:4px;border-radius:20px}.ec .el img{max-height:170px;width:100%;transform:scale(1.15)}
+.ec .st{align-self:center}
+.ecf{grid-template-columns:1fr;gap:8px}
+.ecf span{display:flex;flex-direction:row;flex-wrap:nowrap;align-items:center;gap:8px;padding:9px 12px}
+.ecf i{flex:none;font-size:17px}.ecf small{flex:1 1 auto;min-width:0;font-size:13px;white-space:nowrap}.ecf b{flex:0 0 auto;margin-left:auto;text-align:right;font-size:14.5px;white-space:nowrap}
+.ecl{padding:11px 12px 12px}.ecl .lt{font-size:13.5px;margin:0 0 8px}
+.ecl .lg{display:flex;flex-wrap:nowrap;justify-content:space-between;align-items:flex-end;gap:8px}
+.ecl .lg span{flex:1 1 0;min-width:0}
+.ecl .lg img{height:46px;width:100%;max-width:100%;object-fit:contain}
+.ecl .lg small{font-size:11px;line-height:1.2;text-align:center;white-space:normal}
+.ecb{align-items:stretch;gap:10px}.ecb .more{width:100%}
+.ecb .btns{flex-direction:column}.ecb .btns .b{width:100%;text-align:center;justify-content:center}
+}
+@media (max-width:760px){.ecb .more{padding:12px 12px;font-size:14.5px;gap:6px;white-space:nowrap}.ecb .more i{font-size:17px;margin:0}}

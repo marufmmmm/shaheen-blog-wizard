@@ -77,9 +77,9 @@ function csa_ev_home_defaults() {
 			't'     => 'কেন শাহীন শিক্ষা পরিবার?',
 			'p'     => '',
 			'cards' => array(
-				array( 'ic' => '❓', 'img' => '', 't' => 'কেন শাহীনে ভর্তি হবেন?', 'd' => '', 'u' => 'https://shaheen.edu.bd/%e0%a6%95%e0%a7%87%e0%a6%a8-%e0%a6%ad%e0%a6%b0%e0%a7%8d%e0%a6%a4%e0%a6%bf-%e0%a6%b9%e0%a6%ac%e0%a7%87/' ),
-				array( 'ic' => '🏛️', 'img' => '', 't' => 'আমাদের ক্যাম্পাস যেভাবে চলে', 'd' => '', 'u' => 'https://shaheen.edu.bd/%e0%a6%b8%e0%a7%8d%e0%a6%95%e0%a7%81%e0%a6%b2-%e0%a6%aa%e0%a6%b0%e0%a6%bf%e0%a6%9a%e0%a6%be%e0%a6%b2%e0%a6%a8%e0%a6%be-%e0%a6%aa%e0%a6%a6%e0%a7%8d%e0%a6%a7%e0%a6%a4%e0%a6%bf/' ),
-				array( 'ic' => '✨', 'img' => '', 't' => 'যা আমাদের আলাদা করে', 'd' => '', 'u' => 'https://shaheen.edu.bd/%e0%a6%ac%e0%a7%8d%e0%a6%af%e0%a6%a4%e0%a6%bf%e0%a6%95%e0%a7%8d%e0%a6%b0%e0%a6%ae%e0%a7%80-%e0%a6%a6%e0%a6%bf%e0%a6%95%e0%a6%b8%e0%a6%ae%e0%a7%82%e0%a6%b9%e0%a6%83/' ),
+				array( 'ic' => '❓', 'img' => '', 't' => 'কেন শাহীন শিক্ষা পরিবারে ভর্তি হবেন?', 'd' => '', 'u' => 'https://shaheen.edu.bd/%e0%a6%95%e0%a7%87%e0%a6%a8-%e0%a6%ad%e0%a6%b0%e0%a7%8d%e0%a6%a4%e0%a6%bf-%e0%a6%b9%e0%a6%ac%e0%a7%87/' ),
+				array( 'ic' => '🏛️', 'img' => '', 't' => 'আমাদের ক্যাম্পাস পরিচালনা পদ্ধতি', 'd' => '', 'u' => 'https://shaheen.edu.bd/%e0%a6%b8%e0%a7%8d%e0%a6%95%e0%a7%81%e0%a6%b2-%e0%a6%aa%e0%a6%b0%e0%a6%bf%e0%a6%9a%e0%a6%be%e0%a6%b2%e0%a6%a8%e0%a6%be-%e0%a6%aa%e0%a6%a6%e0%a7%8d%e0%a6%a7%e0%a6%a4%e0%a6%bf/' ),
+				array( 'ic' => '✨', 'img' => '', 't' => 'শাহীন স্কুল ও ক্যাডেট কোচিংয়ের ব্যতিক্রম', 'd' => '', 'u' => 'https://shaheen.edu.bd/%e0%a6%ac%e0%a7%8d%e0%a6%af%e0%a6%a4%e0%a6%bf%e0%a6%95%e0%a7%8d%e0%a6%b0%e0%a6%ae%e0%a7%80-%e0%a6%a6%e0%a6%bf%e0%a6%95%e0%a6%b8%e0%a6%ae%e0%a7%82%e0%a6%b9%e0%a6%83/' ),
 			),
 		),
 		'ideal'   => array(
@@ -865,14 +865,11 @@ function csa_ev_seed_events() {
 		'slug'    => 'spelling-star', 'title' => 'Spelling Star', 'full' => 'Shaheen Education Family Channel i Spelling Star', 'series' => 'Channel i Spelling Star', 'season' => 'Season 1',
 		'tagline' => 'বাংলাদেশ খুঁজছে তার পরবর্তী ✦ Spelling Star ✦ — হতে পারে আপনার সন্তান, আগামী দিনের সেই তারকা।',
 		'c1' => '#0d2e1c', 'c2' => '#1a6b3e', 'ac' => '#f5a623', 'font' => 'baloo', 'order' => 1, 'show_home' => 1,
-		'card'    => 'বাংলাদেশ খুঁজছে তার পরবর্তী Spelling Star। সব পর্ব, ফলাফল ও তথ্য জানতে এখানে ক্লিক করুন।',
+		'card'    => 'বাংলাদেশ খুঁজছে তার পরবর্তী Spelling Star।',
 		'foot'    => 'Spelling Star 2026 — Classroom to the World',
 		'seo'     => 'Spelling Star Season 1 — শাহীন শিক্ষা পরিবার আয়োজিত জাতীয় বানান প্রতিযোগিতা: সব পর্ব, ফলাফল, পুরস্কার ও তথ্য এক জায়গায়।',
-		'facts'   => array(
-			array( 'ic' => '🎓', 'l' => 'কারা অংশ নিতে পারে', 'v' => '৪র্থ ও ৫ম শ্রেণি, বাংলা মাধ্যম স্কুল ও মাদ্রাসা' ),
-			array( 'ic' => '💸', 'l' => 'রেজিস্ট্রেশন ফি', 'v' => 'সম্পূর্ণ বিনামূল্যে' ),
-			array( 'ic' => '📺', 'l' => 'সম্প্রচার', 'v' => 'টেলিভিশনে চলছে' ),
-		),
+		'facts'   => array(),
+
 		'miles'   => array(
 			array( 'ic' => '📝', 't' => 'রেজিস্ট্রেশন', 'd1' => '2026-07-01', 'd2' => '2026-08-14', 'note' => 'শুরু ১ জুলাই ২০২৬, শেষ ১৪ আগস্ট ২০২৬', 'st' => '', 'lbl' => '' ),
 			array( 'ic' => '🏛️', 't' => 'বিভাগীয় পর্যায়ের বাছাই', 'd1' => '2026-08-31', 'd2' => '2026-09-22', 'note' => 'দেশের ৮ বিভাগীয় সদরে ধাপে ধাপে অডিশন রাউন্ড', 'st' => '', 'lbl' => '' ),
