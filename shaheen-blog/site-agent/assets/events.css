@@ -245,3 +245,19 @@
 .ecp strong{margin-bottom:2px}
 .ecp span{display:flex;justify-content:space-between;align-items:center;gap:10px;border-radius:12px;padding:8px 14px}
 .ecp span b{white-space:nowrap}
+
+/* v2.86.10b — badges note centred, map gap, why cards with pictures */
+.shm .mpl{flex-wrap:wrap}
+.shm .bdn{flex:0 0 100%;width:100%;text-align:center;margin:0;font-weight:700;font-size:14px;color:var(--ink);white-space:nowrap}
+.shm .mps{padding-bottom:0}.shm .brs{padding-top:10px}
+.shm .wyg{display:grid;grid-template-columns:repeat(3,1fr);gap:18px}
+.shm .wc{display:flex;flex-direction:column;background:#fff;border:1px solid var(--line);border-radius:20px;overflow:hidden;box-shadow:var(--sh);text-decoration:none;color:var(--ink);transition:transform .25s,box-shadow .25s}
+.shm .wc:hover{transform:translateY(-5px);box-shadow:0 18px 40px rgba(13,46,28,.16)}
+.shm .wc .wi{display:block;aspect-ratio:16/9;background:var(--bg);overflow:hidden}.shm .wc .wi img{width:100%;height:100%;object-fit:cover;display:block;transition:transform .5s}.shm .wc:hover .wi img{transform:scale(1.05)}
+.shm .wc .wi.ph{display:flex;align-items:center;justify-content:center;font-size:44px}
+.shm .wc .wt{flex:1;display:flex;align-items:center;justify-content:center;gap:10px;text-align:center;padding:14px 16px}
+.shm .wc .wt b{font-size:16.5px;line-height:1.4;color:var(--ink)}.shm .wc .wt i{font-style:normal;color:var(--c2);font-weight:800;font-size:20px;flex:none}
+@media (max-width:900px){.shm .wyg{grid-template-columns:1fr}.shm .wc{flex-direction:column}}
+@media (max-width:520px){.shm .mpl{flex-wrap:wrap;gap:10px 8px}.shm .bdg{flex:1 1 40%}.shm .bdn{font-size:12.5px;margin-top:2px}.shm .mps{padding-bottom:0}.shm .brs{padding-top:6px}.shm .wc .wt b{font-size:15.5px}}
+.shm .wc .wi.ph{aspect-ratio:auto;padding:20px 0;font-size:40px}
+@media (max-width:520px){.shm .mpl{gap:10px 22px;padding:0 6px}.shm .bdi{width:min(100%,148px)}.shm .bdi b{font-size:36px}}

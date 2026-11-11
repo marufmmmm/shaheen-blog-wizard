@@ -77,9 +77,9 @@ function csa_ev_home_defaults() {
 			't'     => 'কেন শাহীন শিক্ষা পরিবার?',
 			'p'     => '',
 			'cards' => array(
-				array( 'ic' => '❓', 'img' => '', 't' => 'কেন শাহীন শিক্ষা পরিবারে ভর্তি হবেন?', 'd' => '', 'u' => 'https://shaheen.edu.bd/%e0%a6%95%e0%a7%87%e0%a6%a8-%e0%a6%ad%e0%a6%b0%e0%a7%8d%e0%a6%a4%e0%a6%bf-%e0%a6%b9%e0%a6%ac%e0%a7%87/' ),
-				array( 'ic' => '🏛️', 'img' => '', 't' => 'আমাদের ক্যাম্পাস পরিচালনা পদ্ধতি', 'd' => '', 'u' => 'https://shaheen.edu.bd/%e0%a6%b8%e0%a7%8d%e0%a6%95%e0%a7%81%e0%a6%b2-%e0%a6%aa%e0%a6%b0%e0%a6%bf%e0%a6%9a%e0%a6%be%e0%a6%b2%e0%a6%a8%e0%a6%be-%e0%a6%aa%e0%a6%a6%e0%a7%8d%e0%a6%a7%e0%a6%a4%e0%a6%bf/' ),
-				array( 'ic' => '✨', 'img' => '', 't' => 'শাহীন স্কুল ও ক্যাডেট কোচিংয়ের ব্যতিক্রম', 'd' => '', 'u' => 'https://shaheen.edu.bd/%e0%a6%ac%e0%a7%8d%e0%a6%af%e0%a6%a4%e0%a6%bf%e0%a6%95%e0%a7%8d%e0%a6%b0%e0%a6%ae%e0%a7%80-%e0%a6%a6%e0%a6%bf%e0%a6%95%e0%a6%b8%e0%a6%ae%e0%a7%82%e0%a6%b9%e0%a6%83/' ),
+				array( 'ic' => '❓', 'img' => '', 't' => 'শাহীন স্কুল ও ক্যাডেট কোচিংয়ে কেন ভর্তি হবেন?', 'd' => '', 'u' => 'https://shaheen.edu.bd/%e0%a6%95%e0%a7%87%e0%a6%a8-%e0%a6%ad%e0%a6%b0%e0%a7%8d%e0%a6%a4%e0%a6%bf-%e0%a6%b9%e0%a6%ac%e0%a7%87/' ),
+				array( 'ic' => '🏛️', 'img' => '', 't' => 'শাহীন স্কুল ও ক্যাডেট কোচিংয়ের ক্যাম্পাস পরিচালনা পদ্ধতি', 'd' => '', 'u' => 'https://shaheen.edu.bd/%e0%a6%b8%e0%a7%8d%e0%a6%95%e0%a7%81%e0%a6%b2-%e0%a6%aa%e0%a6%b0%e0%a6%bf%e0%a6%9a%e0%a6%be%e0%a6%b2%e0%a6%a8%e0%a6%be-%e0%a6%aa%e0%a6%a6%e0%a7%8d%e0%a6%a7%e0%a6%a4%e0%a6%bf/' ),
+				array( 'ic' => '✨', 'img' => '', 't' => 'শাহীন স্কুল ও ক্যাডেট কোচিংয়ের ব্যতিক্রমী দিকসমূহ', 'd' => '', 'u' => 'https://shaheen.edu.bd/%e0%a6%ac%e0%a7%8d%e0%a6%af%e0%a6%a4%e0%a6%bf%e0%a6%95%e0%a7%8d%e0%a6%b0%e0%a6%ae%e0%a7%80-%e0%a6%a6%e0%a6%bf%e0%a6%95%e0%a6%b8%e0%a6%ae%e0%a7%82%e0%a6%b9%e0%a6%83/' ),
 			),
 		),
 		'ideal'   => array(

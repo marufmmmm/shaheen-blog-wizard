@@ -477,7 +477,10 @@ function csa_ev_hs_map( $x ) {
 		$h .= csa_ev_badge( trim( $x['y1'] . ' – ' . $x['y2'], ' –' ), $x['yn'], $x['yl'] );
 	}
 	if ( $x['n4'] ) {
-		$h .= csa_ev_badge( $x['n4l'], $x['n4'], '', $x['n4s'] );
+		$h .= csa_ev_badge( $x['n4l'], $x['n4'], '' );
+	}
+	if ( $x['n4'] && $x['n4s'] ) {
+		$h .= '<p class="bdn rv">' . esc_html( $x['n4s'] ) . '</p>';
 	}
 	$h .= '</div><div class="mpr rv"><img src="' . esc_url( $img ) . '" alt="' . esc_attr( csa_ev_tok( $x['p'] ? $x['p'] : $x['t'] ) ) . '" loading="lazy"></div></div></div></section>';
 	return $h;
@@ -544,8 +547,47 @@ function csa_ev_hs_cadet( $x ) {
 	return $h . '</div></section>';
 }
 
+function csa_ev_page_img( $u ) {
+	if ( ! $u ) {
+		return '';
+	}
+	$k = 'csa_evpi_' . md5( $u );
+	$c = get_transient( $k );
+	if ( false !== $c ) {
+		return $c;
+	}
+	$img = '';
+	$id  = url_to_postid( $u );
+	if ( $id ) {
+		$img = (string) get_the_post_thumbnail_url( $id, 'medium_large' );
+		if ( ! $img ) {
+			$p = get_post( $id );
+			if ( $p && preg_match( '/<img[^>]+src=["\']([^"\']+)["\']/i', $p->post_content, $m ) ) {
+				$img = $m[1];
+			} elseif ( $p ) {
+				$q = get_post_meta( $id, '_elementor_data', true );
+				if ( is_string( $q ) && preg_match( '#"url":"(https?:[^"]+?\.(?:jpe?g|png|webp))"#i', $q, $m ) ) {
+					$img = stripslashes( $m[1] );
+				}
+			}
+		}
+	}
+	set_transient( $k, $img, 6 * HOUR_IN_SECONDS );
+	return $img;
+}
+
 function csa_ev_hs_why( $x ) {
-	return $x['cards'] ? '<section class="sec alt"><div class="in">' . csa_ev_head( $x['t'], $x['p'] ) . csa_ev_cards_grid( $x['cards'], 'cg c3' ) . '</div></section>' : '';
+	if ( empty( $x['cards'] ) ) {
+		return '';
+	}
+	$h = '<section class="sec alt wys"><div class="in">' . csa_ev_head( $x['t'], $x['p'] ) . '<div class="wyg">';
+	foreach ( $x['cards'] as $c ) {
+		$tag = ! empty( $c['u'] ) ? 'a' : 'div';
+		$at  = ! empty( $c['u'] ) ? csa_ev_link_attr( $c['u'] ) : '';
+		$img = ! empty( $c['img'] ) ? $c['img'] : csa_ev_page_img( $c['u'] ?? '' );
+		$h  .= '<' . $tag . ' class="wc rv"' . $at . '><span class="wi' . ( $img ? '' : ' ph' ) . '">' . ( $img ? csa_ev_img( $img, $c['t'] ) : esc_html( $c['ic'] ?? '✨' ) ) . '</span><span class="wt"><b>' . esc_html( $c['t'] ) . '</b>' . ( ! empty( $c['u'] ) ? '<i>→</i>' : '' ) . '</span></' . $tag . '>';
+	}
+	return $h . '</div></div></section>';
 }
 
 function csa_ev_hs_ideal( $x ) {
