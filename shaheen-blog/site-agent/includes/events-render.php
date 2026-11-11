@@ -164,6 +164,17 @@ function csa_ev_event_html( $e ) {
 				$cards .= '<div class="vc rv emb-c"><div class="vm">' . $em . '</div><a class="vx" href="' . esc_url( $uu ) . '" target="_blank" rel="noopener"><b>' . esc_html( $tt ) . '</b>' . ( $mm ? '<small>' . esc_html( $mm ) . '</small>' : '' ) . '</a></div>';
 				continue;
 			}
+			if ( ! $yt && ! $fb && preg_match( '#^https?://#i', $uu ) && function_exists( 'csa_ev_og_get' ) ) { // news link: picture card
+				$og = csa_ev_og_get( $uu );
+				if ( ! $og ) {
+					csa_ev_og_queue( $uu );
+				}
+				$ds = ( $og && $og['d'] ) ? ( mb_strlen( $og['d'] ) > 130 ? mb_substr( $og['d'], 0, 128 ) . '…' : $og['d'] ) : '';
+				$cards .= '<a class="vc nw rv' . ( $og && $og['img'] ? '' : ' ni' ) . '" href="' . esc_url( $uu ) . '" target="_blank" rel="noopener">'
+					. ( $og && $og['img'] ? '<span class="nwi"><img loading="lazy" decoding="async" referrerpolicy="no-referrer" src="' . esc_url( $og['img'] ) . '" alt="" onerror="this.parentNode.className+=\' x\';this.remove()"></span>' : '<span class="vp">📰</span>' )
+					. '<span class="vx"><b>' . esc_html( $tt ) . '</b>' . ( $ds ? '<em class="nwd">' . esc_html( $ds ) . '</em>' : '' ) . ( $mm ? '<small>' . esc_html( $mm ) . '</small>' : '' ) . '</span></a>';
+				continue;
+			}
 			$cards .= '<a class="vc rv" href="' . esc_url( $uu ? $uu : '#' ) . '" target="_blank" rel="noopener"' . ( $yt ? ' data-yt="' . esc_attr( $yt ) . '"' : ( $fb ? ' data-fb="' . esc_url( $uu ) . '"' : '' ) ) . '><span class="vp">▶</span><span class="vx"><b>' . esc_html( $tt ) . '</b>' . ( $mm ? '<small>' . esc_html( $mm ) . '</small>' : '' ) . '</span></a>';
 		}
 		if ( $cards ) {
