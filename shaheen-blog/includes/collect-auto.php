@@ -15,7 +15,7 @@ if (!defined('ABSPATH')) {
 function sb_ca_cfg() {
     $c = get_option('sb_collect_auto', array());
     $c = is_array($c) ? $c : array();
-    return array_merge(array('on' => 1, 'cat' => 0, 'event' => 'spelling-star', 'kw' => 'Spelling Star|স্পেলিং স্টার', 'extra' => ''), $c);
+    return array_merge(array('on' => 1, 'cat' => 0, 'event' => 'spelling-star', 'kw' => 'Spelling Star|স্পেলিং স্টার', 'extra' => '', 'disc' => 1, 'q' => "স্পেলিং স্টার শাহীন শিক্ষা পরিবার\nSpelling Star Shaheen Education Family Channel i\nশাহীন শিক্ষা পরিবার", 'dlast' => 0, 'dlog' => array()), $c);
 }
 
 function sb_ca_ai($item, $cfg) {
@@ -170,7 +170,9 @@ add_action('sb_collected_new', function ($item) {
 add_action('wp_ajax_sb_ca_save', function () {
     sb_ajax_guard('manage_options');
     $c = array('on' => sb_req('on') ? 1 : 0, 'cat' => (int) sb_req('cat', 0), 'event' => sanitize_title((string) sb_req('event')),
-        'kw' => sanitize_text_field((string) sb_req('kw')), 'extra' => sanitize_text_field((string) sb_req('extra')));
+        'kw' => sanitize_text_field((string) sb_req('kw')), 'extra' => sanitize_text_field((string) sb_req('extra')),
+        'disc' => sb_req('disc') ? 1 : 0, 'q' => sanitize_textarea_field((string) sb_req('q')));
+    $c = array_merge(sb_ca_cfg(), $c);
     update_option('sb_collect_auto', $c, false);
     wp_send_json_success(array('ok' => 1));
 });
@@ -212,7 +214,173 @@ function sb_ca_panel() {
             <?php foreach ($evs as $e) : ?><option value="<?php echo esc_attr($e['slug']); ?>" <?php selected($c['event'], $e['slug']); ?>><?php echo esc_html($e['title']); ?></option><?php endforeach; ?></select></label></p>
         <p style="margin:8px 0"><label>ইভেন্টের শব্দ (| দিয়ে আলাদা) <input type="text" id="ca-kw" value="<?php echo esc_attr($c['kw']); ?>" style="width:260px"></label></p>
         <p style="margin:8px 0"><label>আরও নির্দেশ (ঐচ্ছিক) <input type="text" id="ca-extra" value="<?php echo esc_attr($c['extra']); ?>" style="width:100%" placeholder="যেমন: রাজনীতির খবর বাদ দাও"></label></p>
-        <p><button type="button" class="button" id="ca-save">💾 সেভ</button> <button type="button" class="button button-primary" id="ca-run">▶ আগে সংগ্রহ করা বাকিগুলো এখন বসান</button> <span id="ca-msg" class="sba-msg"></span></p>
+        <p style="margin:8px 0"><label><input type="checkbox" id="ca-disc" <?php checked($c['disc'], 1); ?>> 🔎 নতুন সংবাদ <b>নিজে নিজে খুঁজুন</b> (প্রতি ৬ ঘণ্টায় একবার; খোঁজার খরচ প্রতি বার $০.০১, পাওয়া প্রতিটি পেজ AI যাচাইয়ের খরচ আলাদা)</label><br>
+            <label>যা খুঁজবে (প্রতি লাইনে একটি) <textarea id="ca-q" rows="3" style="width:100%"><?php echo esc_textarea($c['q']); ?></textarea></label></p>
+        <?php if (!empty($c['dlog'])) : ?><p class="sba-muted" style="margin:4px 0">শেষ খোঁজা: <?php echo esc_html(wp_date('d M, H:i', (int) $c['dlast'])); ?> — <?php echo esc_html((string) $c['dlog'][0]); ?></p><?php endif; ?>
+        <p><button type="button" class="button" id="ca-save">💾 সেভ</button> <button type="button" class="button" id="ca-find">🔎 এখনই খুঁজুন</button> <button type="button" class="button button-primary" id="ca-run">▶ আগে সংগ্রহ করা বাকিগুলো এখন বসান</button> <span id="ca-msg" class="sba-msg"></span></p>
     </div>
     <?php
 }
+
+
+/* ------------------------------------------------------------------ automatic discovery (no browser needed) */
+
+/** news search results from Bing News RSS (free, no key). Returns [ [title, url, desc, date], ... ] */
+function sb_ca_search($q) {
+    $r = wp_remote_get('https://www.bing.com/news/search?q=' . rawurlencode($q) . '&format=rss&setlang=bn&cc=BD', array('timeout' => 15, 'user-agent' => 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 Chrome/124.0 Safari/537.36'));
+    if (is_wp_error($r) || 200 !== (int) wp_remote_retrieve_response_code($r)) {
+        return null;
+    }
+    $prev = libxml_use_internal_errors(true);
+    $x    = simplexml_load_string((string) wp_remote_retrieve_body($r));
+    libxml_use_internal_errors($prev);
+    if (!$x || !isset($x->channel->item)) {
+        return array();
+    }
+    $out = array();
+    foreach ($x->channel->item as $it) {
+        $u = (string) $it->link;
+        $p = wp_parse_url($u);
+        if (!empty($p['query'])) {
+            parse_str($p['query'], $qq);
+            if (!empty($qq['url'])) {
+                $u = (string) $qq['url'];
+            }
+        }
+        if (!preg_match('#^https?://#i', $u)) {
+            continue;
+        }
+        $out[] = array(trim((string) $it->title), esc_url_raw($u), trim(wp_strip_all_tags((string) $it->description)), (string) $it->pubDate);
+    }
+    return $out;
+}
+
+/** open a news page on the server: title, readable text, cover picture. null when it cannot be read. */
+function sb_ca_read($url) {
+    $r = wp_remote_get($url, array('timeout' => 12, 'redirection' => 4, 'limit_response_size' => 600000,
+        'user-agent' => 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0 Safari/537.36', 'headers' => array('Accept-Language' => 'bn,en;q=0.8')));
+    if (is_wp_error($r) || 200 !== (int) wp_remote_retrieve_response_code($r)) {
+        return null;
+    }
+    $h = (string) wp_remote_retrieve_body($r);
+    $m = function_exists('csa_ev_og_meta') ? csa_ev_og_meta($h) : array();
+    $t = $m['og:title'] ?? '';
+    if ($t === '' && preg_match('#<title[^>]*>(.*?)</title>#is', $h, $tm)) {
+        $t = html_entity_decode(trim($tm[1]), ENT_QUOTES | ENT_HTML5, 'UTF-8');
+    }
+    $h2 = preg_replace('#<(script|style|noscript|nav|footer|header)\b.*?</\1>#is', ' ', $h);
+    $tx = '';
+    if (preg_match_all('#<p\b[^>]*>(.*?)</p>#is', $h2, $ps)) {
+        foreach ($ps[1] as $p) {
+            $p = trim(html_entity_decode(wp_strip_all_tags($p), ENT_QUOTES | ENT_HTML5, 'UTF-8'));
+            if (mb_strlen($p) > 30) {
+                $tx .= $p . "\n";
+            }
+            if (mb_strlen($tx) > 4000) {
+                break;
+            }
+        }
+    }
+    if ($tx === '') {
+        $tx = $m['og:description'] ?? ($m['description'] ?? '');
+    }
+    if ($t === '' && $tx === '') {
+        return null;
+    }
+    $img = $m['og:image'] ?? ($m['twitter:image'] ?? '');
+    return array('url' => esc_url_raw($url), 'host' => (string) wp_parse_url($url, PHP_URL_HOST), 'title' => sanitize_text_field($t), 'text' => sanitize_textarea_field($tx),
+        'images' => (preg_match('#^https?://#i', $img) ? array(esc_url_raw($img)) : array()), 'videos' => array());
+}
+
+/** one round of discovery. $force skips the on/off switch. Returns a short Bangla note. */
+function sb_ca_discover($force = false) {
+    $cfg = sb_ca_cfg();
+    if (!$force && (empty($cfg['on']) || empty($cfg['disc']))) {
+        return '';
+    }
+    $seen  = get_option('sb_ca_seen', array());
+    $seen  = is_array($seen) ? $seen : array();
+    $words = array_filter(array_map('trim', explode('|', $cfg['kw'] . '|শাহীন শিক্ষা|Shaheen Education')));
+    $cand  = array();
+    $looks = 0;
+    foreach (array_filter(array_map('trim', explode("\n", (string) $cfg['q']))) as $q) {
+        $res = sb_ca_search($q);
+        if (null === $res) {
+            continue;
+        }
+        $looks++;
+        foreach ($res as $r) {
+            $hay = $r[0] . ' ' . $r[2];
+            $ok  = false;
+            foreach ($words as $w) {
+                if ($w !== '' && false !== mb_stripos($hay, $w)) {
+                    $ok = true;
+                }
+            }
+            if ($ok && !isset($seen[md5($r[1])]) && !sb_press_url_exists($r[1])) {
+                $cand[$r[1]] = $r;
+            }
+        }
+    }
+    if ($looks && function_exists('sb_ledger_add') && defined('SB_YT_CHECK_FEE')) {   // fixed fee per look, no AI
+        $GLOBALS['sb_bill_override'] = SB_YT_CHECK_FEE;
+        sb_ledger_add(0, 'news_watch', max(1, (int) ceil(SB_YT_CHECK_FEE / sb_unit_billed())), 0, 0.0);
+    }
+    $n = array('filed' => 0, 'blocked' => 0, 'skipped' => 0, 'error' => 0, 'dup' => 0, 'unread' => 0);
+    $cap = 8;
+    foreach ($cand as $u => $r) {
+        if ($cap-- <= 0) {
+            break;
+        }
+        $item = sb_ca_read($u);
+        if (!$item) {
+            $n['unread']++;
+            $seen[md5($u)] = time();
+            continue;
+        }
+        $item['id'] = substr(md5($u . microtime(true)), 0, 10);
+        $item['t']  = time();
+        list($st, $note) = sb_ca_process($item);
+        if ('error' === $st) {   // try again next round
+            $n['error']++;
+            continue;
+        }
+        $seen[md5($u)] = time();
+        $n[$st] = ($n[$st] ?? 0) + 1;
+        $item['st']   = $st;
+        $item['note'] = $note;
+        $item['src']  = 'auto';
+        $l = sb_collect_items();
+        array_unshift($l, $item);
+        update_option('sb_collected', array_slice($l, 0, SB_COLLECT_MAX), false);
+    }
+    update_option('sb_ca_seen', array_slice($seen, -1500, null, true), false);
+    $msg = $looks ? ('পেলাম ' . count($cand) . 'টি নতুন · বসানো ' . $n['filed'] . ', ⛔ আটকানো ' . $n['blocked'] . ', বাদ ' . ($n['skipped'] + $n['dup'] . '') . ($n['unread'] ? ', পড়া যায়নি ' . $n['unread'] : '') . ($n['error'] ? ', ⚠ যাচাই হয়নি ' . $n['error'] : '')) : 'সার্চ সাড়া দেয়নি';
+    $c = sb_ca_cfg();
+    $c['dlast'] = time();
+    $c['dlog']  = array_slice(array_merge(array($msg), (array) $c['dlog']), 0, 5);
+    update_option('sb_collect_auto', $c, false);
+    return $msg;
+}
+
+add_filter('cron_schedules', function ($s) {
+    $s['sb_6h'] = array('interval' => 6 * HOUR_IN_SECONDS, 'display' => 'Every 6 hours');
+    return $s;
+});
+add_action('init', function () {
+    $cfg = sb_ca_cfg();
+    $on  = !empty($cfg['on']) && !empty($cfg['disc']);
+    $nx  = wp_next_scheduled('sb_ca_discover_tick');
+    if ($on && !$nx) {
+        wp_schedule_event(time() + 600, 'sb_6h', 'sb_ca_discover_tick');
+    } elseif (!$on && $nx) {
+        wp_clear_scheduled_hook('sb_ca_discover_tick');
+    }
+});
+add_action('sb_ca_discover_tick', function () {
+    sb_ca_discover(false);
+});
+add_action('wp_ajax_sb_ca_find', function () {
+    sb_ajax_guard('edit_posts');
+    wp_send_json_success(array('msg' => sb_ca_discover(true)));
+});

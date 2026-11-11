@@ -142,7 +142,8 @@ function sb_collect_card() {
     }
     function load() { call('sb_collect_list').then(function (j) { if (j.success) { draw(j.data.items); } }); }
     on('#cl-load', load);
-    on('#ca-save', function () { call('sb_ca_save', { on: $('#ca-on').checked ? 1 : 0, cat: $('#ca-cat').value, event: $('#ca-ev').value, kw: $('#ca-kw').value, extra: $('#ca-extra').value }).then(function (j) { $('#ca-msg').textContent = j.success ? 'সেভ হয়েছে ✓' : 'হয়নি'; }); });
+    on('#ca-save', function () { call('sb_ca_save', { on: $('#ca-on').checked ? 1 : 0, cat: $('#ca-cat').value, event: $('#ca-ev').value, disc: $('#ca-disc').checked ? 1 : 0, q: $('#ca-q').value, kw: $('#ca-kw').value, extra: $('#ca-extra').value }).then(function (j) { $('#ca-msg').textContent = j.success ? 'সেভ হয়েছে ✓' : 'হয়নি'; }); });
+    on('#ca-find', function () { var b = $('#ca-find'); b.disabled = true; $('#ca-msg').textContent = 'খোঁজা ও যাচাই চলছে, একটু সময় লাগবে…'; call('sb_ca_find').then(function (j) { b.disabled = false; $('#ca-msg').textContent = j.success ? (j.data.msg || '') : 'ত্রুটি'; load(); }); });
     on('#ca-run', function () { var b = $('#ca-run'), n = 0; b.disabled = true; (function step() { $('#ca-msg').textContent = 'যাচাই ও বসানো চলছে… ' + n + 'টি হয়েছে'; call('sb_ca_run').then(function (j) { if (!j.success) { $('#ca-msg').textContent = 'ত্রুটি'; b.disabled = false; return; } n += j.data.done; if (j.data.left > 0 && j.data.done > 0) { step(); } else { $('#ca-msg').textContent = 'শেষ: ' + n + 'টি দেখা হয়েছে'; b.disabled = false; load(); } }); })(); });
     on('#cl-clear', function () { if (!window.confirm('সংগৃহীত সব মুছবেন?')) { return; } call('sb_collect_del', { id: 'all' }).then(load); });
 })();

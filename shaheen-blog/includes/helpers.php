@@ -300,6 +300,7 @@ function sb_feature_labels() {
         'research'  => 'ওয়েব রিসার্চ (সার্চ)',
         'research_collect' => 'সংগৃহীত পেজ AI যাচাই ও বসানো',
         'research_yt' => 'নতুন ভিডিও সঠিক সেকশনে বসানো (AI)',
+        'news_watch' => 'নতুন সংবাদ খোঁজা (প্রতি বার)',
         'yt_watch'  => 'YouTube-এ নতুন পর্ব খোঁজা (প্রতি বার)',
         'headlines' => '৫টি শিরোনাম',
         'subtitle'  => 'সাবটাইটেল',

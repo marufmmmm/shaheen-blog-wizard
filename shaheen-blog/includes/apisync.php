@@ -152,7 +152,7 @@ function sb_ledger_fixed_bill($ym, $since = 0) {
     list($a, $b) = sb_month_range($ym);
     $a = max($a, (int) $since);
     $t = sb_ledger_table();
-    return (float) $wpdb->get_var($wpdb->prepare("SELECT SUM(bill_usd) FROM {$t} WHERE t BETWEEN %d AND %d AND feature = %s", $a, $b, 'yt_watch'));
+    return (float) $wpdb->get_var($wpdb->prepare("SELECT SUM(bill_usd) FROM {$t} WHERE t BETWEEN %d AND %d AND feature IN ('yt_watch','news_watch')", $a, $b));
 }
 
 function sb_ledger_other_bill($ym, $since = 0) {
