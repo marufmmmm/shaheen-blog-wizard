@@ -16,6 +16,9 @@ const SB_RAW_USD_PER_CREDIT = 0.0002;
 /** Shown price = real provider cost x this number. Fixed here in the code, never shown in any screen. */
 const SB_BILL_MULT = 2;
 
+/** Web research (Research page): real cost x 1.7, profit included. Never shown on a client screen. */
+const SB_RESEARCH_MULT = 1.7;
+
 function sb_mult() {
     return SB_BILL_MULT;
 }
@@ -195,7 +198,7 @@ function sb_ledger_add($user_id, $feature, $credits, $post_id = 0, $real_usd = n
         'post_id'  => (int) $post_id,
         'credits'  => $credits,
         'raw_usd'  => $real_usd !== null ? (float) $real_usd : $credits * SB_RAW_USD_PER_CREDIT,
-        'bill_usd' => isset($GLOBALS['sb_bill_override']) ? (float) $GLOBALS['sb_bill_override'] : ($real_usd !== null ? (float) $real_usd : $credits * SB_RAW_USD_PER_CREDIT) * SB_BILL_MULT,
+        'bill_usd' => isset($GLOBALS['sb_bill_override']) ? (float) $GLOBALS['sb_bill_override'] : ($real_usd !== null ? (float) $real_usd : $credits * SB_RAW_USD_PER_CREDIT) * (0 === strpos((string) $feature, 'research') ? SB_RESEARCH_MULT : SB_BILL_MULT),
     ));
 }
 
@@ -253,7 +256,7 @@ function sb_ledger_month($ym) {
     if ($api) {
         $base   = sb_api_base();
         $first  = $base['ym'] === $ym;
-        $target = sb_api_bill_from((float) $api['text'], (float) $api['image']) + sb_ledger_other_bill($ym, $first ? (int) $base['t0'] : 0) + ($first ? sb_api_carry() : 0);
+        $target = sb_api_bill_from((float) $api['text'], (float) $api['image'], sb_research_raw($ym, $first ? (int) $base['t0'] : 0)) + sb_ledger_other_bill($ym, $first ? (int) $base['t0'] : 0) + ($first ? sb_api_carry() : 0);
         $adj    = round($target - $out['bill'], 4);
         if (abs($adj) >= 0.005) {
             $out['by_feature']['api_adjust'] = array('n' => 0, 'bill' => $adj);

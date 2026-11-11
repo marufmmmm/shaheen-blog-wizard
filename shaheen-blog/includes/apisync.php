@@ -36,8 +36,9 @@ add_action('init', function () {
 add_action('sb_api_sync_tick', 'sb_api_sync');
 
 /** What the client is billed for one month from the provider's cost lines. [text real, image real, bill] */
-function sb_api_bill_from($text, $image) {
-    $bill = round($text * SB_BILL_MULT, 4) + ceil(($image / (1 - SB_IMG_MARGIN)) * 10000 - 1e-9) / 10000;
+function sb_api_bill_from($text, $image, $research = 0.0) {
+    $research = max(0.0, min((float) $text, (float) $research));   // web research is part of the provider's text cost, but is billed at x1.7 instead of x2
+    $bill = round(($text - $research) * SB_BILL_MULT + $research * SB_RESEARCH_MULT, 4) + ceil(($image / (1 - SB_IMG_MARGIN)) * 10000 - 1e-9) / 10000;
     return round($bill, 4);
 }
 
@@ -136,6 +137,15 @@ function sb_api_fail($msg) {
 }
 
 /** Sum of billed dollars of ledger rows that came from other providers (Claude, Kimi): the OpenAI cost page does not contain them. */
+/** Real cost of web-research uses in a month (from the ledger), to bill them at their own multiplier. */
+function sb_research_raw($ym, $since = 0) {
+    global $wpdb;
+    list($a, $b) = sb_month_range($ym);
+    $a = max($a, (int) $since);
+    $t = sb_ledger_table();
+    return (float) $wpdb->get_var($wpdb->prepare("SELECT SUM(raw_usd) FROM {$t} WHERE t BETWEEN %d AND %d AND feature LIKE %s AND model LIKE %s", $a, $b, 'research%', 'gpt%'));
+}
+
 function sb_ledger_other_bill($ym, $since = 0) {
     global $wpdb;
     list($a, $b) = sb_month_range($ym);

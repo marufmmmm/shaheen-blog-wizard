@@ -297,6 +297,7 @@ function sb_related_items($post_id, $min = 3, $max = 5) {
 function sb_feature_labels() {
     return array(
         'api_adjust' => 'হিসাব সমন্বয়',
+        'research'  => 'ওয়েব রিসার্চ (সার্চ)',
         'headlines' => '৫টি শিরোনাম',
         'subtitle'  => 'সাবটাইটেল',
         'meta'      => 'মেটা বর্ণনা (SEO)',
