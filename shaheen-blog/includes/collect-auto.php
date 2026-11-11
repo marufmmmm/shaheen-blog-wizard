@@ -261,6 +261,10 @@ function sb_ca_panel() {
         <p><button type="button" class="button" id="ca-addt">➕ নতুন বিষয়</button></p>
         <p style="margin:8px 0"><label>আরও নির্দেশ (ঐচ্ছিক) <input type="text" id="ca-extra" value="<?php echo esc_attr($c['extra']); ?>" style="width:100%" placeholder="যেমন: রাজনীতির খবর বাদ দাও"></label></p>
         <p style="margin:8px 0"><label><input type="checkbox" id="ca-disc" <?php checked($c['disc'], 1); ?>> 🔎 নতুন সংবাদ <b>নিজে নিজে খুঁজুন</b> (প্রতি ৬ ঘণ্টায় একবার; খোঁজার খরচ প্রতি বার $০.০১, পাওয়া প্রতিটি পেজ AI যাচাইয়ের খরচ আলাদা)</label></p>
+        <p style="margin:8px 0;padding:8px;background:#fffbeb;border:1px solid #fcd34d;border-radius:6px"><b>📚 পুরনো সংবাদ খুঁজুন (ইতিহাস)</b><br>
+            <span class="sba-muted">প্রতিটি বিষয় × প্রতিটি বছর ধরে ধরে সার্চ করে। একটু একটু করে চলে, কোথায় থামল মনে রাখে। প্রতিটি পেজে AI যাচাইয়ের খরচ কাটে।</span><br>
+            <label>শুরুর বছর <input type="number" id="ca-bfrom" value="<?php echo (int) (get_option('sb_ca_bf', array())['from'] ?? 2010); ?>" min="2000" max="2026" style="width:80px"></label>
+            <button type="button" class="button" id="ca-bf">▶ শুরু / আবার প্রথম থেকে</button> <button type="button" class="button" id="ca-bfstop">⏸ থামান</button> <span id="ca-bfmsg" class="sba-msg"></span></p>
         <?php if (!empty($c['dlog'])) : ?><p class="sba-muted" style="margin:4px 0">শেষ খোঁজা: <?php echo esc_html(wp_date('d M, H:i', (int) $c['dlast'])); ?> — <?php echo esc_html((string) $c['dlog'][0]); ?></p><?php endif; ?>
         <p><button type="button" class="button" id="ca-save">💾 সেভ</button> <button type="button" class="button" id="ca-find">🔎 এখনই খুঁজুন</button> <button type="button" class="button button-primary" id="ca-run">▶ আগে সংগ্রহ করা বাকিগুলো এখন বসান</button> <span id="ca-msg" class="sba-msg"></span></p>
     </div>
@@ -271,8 +275,8 @@ function sb_ca_panel() {
 /* ------------------------------------------------------------------ automatic discovery (no browser needed) */
 
 /** news search results from Bing News RSS (free, no key). Returns [ [title, url, desc, date], ... ] */
-function sb_ca_search($q) {
-    $r = wp_remote_get('https://www.bing.com/news/search?q=' . rawurlencode($q) . '&format=rss&setlang=bn&cc=BD', array('timeout' => 15, 'user-agent' => 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 Chrome/124.0 Safari/537.36'));
+function sb_ca_search($q, $web = false) {
+    $r = wp_remote_get('https://www.bing.com/' . ($web ? 'search' : 'news/search') . '?q=' . rawurlencode($q) . '&format=rss&setlang=bn&cc=BD' . ($web ? '&count=30' : ''), array('timeout' => 15, 'user-agent' => 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 Chrome/124.0 Safari/537.36'));
     if (is_wp_error($r) || 200 !== (int) wp_remote_retrieve_response_code($r)) {
         return null;
     }
@@ -337,6 +341,39 @@ function sb_ca_read($url) {
         'images' => (preg_match('#^https?://#i', $img) ? array(esc_url_raw($img)) : array()), 'videos' => array());
 }
 
+/** read, judge and file candidate pages. $seen is updated by reference. Returns counters. */
+function sb_ca_file($cand, $cap, &$seen) {
+    $n = array('filed' => 0, 'blocked' => 0, 'skipped' => 0, 'error' => 0, 'dup' => 0, 'unread' => 0);
+    foreach ($cand as $u => $r) {
+        if ($cap-- <= 0) {
+            break;
+        }
+        $item = sb_ca_read($u);
+        if (!$item) {
+            $n['unread']++;
+            $seen[md5($u)] = time();
+            continue;
+        }
+        $item['id'] = substr(md5($u . microtime(true)), 0, 10);
+        $item['t']  = time();
+        list($st, $note) = sb_ca_process($item, false);
+        if ('error' === $st) {   // try again next round
+            $n['error']++;
+            continue;
+        }
+        $seen[md5($u)] = time();
+        $n[$st] = ($n[$st] ?? 0) + 1;
+        $item['st']   = $st;
+        $item['note'] = $note;
+        $item['src']  = 'auto';
+        $l = sb_collect_items();
+        array_unshift($l, $item);
+        update_option('sb_collected', array_slice($l, 0, SB_COLLECT_MAX), false);
+    }
+    update_option('sb_ca_seen', array_slice($seen, -3000, null, true), false);
+    return $n;
+}
+
 /** one round of discovery. $force skips the on/off switch. Returns a short Bangla note. */
 function sb_ca_discover($force = false) {
     $cfg = sb_ca_cfg();
@@ -373,35 +410,7 @@ function sb_ca_discover($force = false) {
         $GLOBALS['sb_bill_override'] = SB_YT_CHECK_FEE;
         sb_ledger_add(0, 'news_watch', max(1, (int) ceil(SB_YT_CHECK_FEE / sb_unit_billed())), 0, 0.0);
     }
-    $n = array('filed' => 0, 'blocked' => 0, 'skipped' => 0, 'error' => 0, 'dup' => 0, 'unread' => 0);
-    $cap = 8;
-    foreach ($cand as $u => $r) {
-        if ($cap-- <= 0) {
-            break;
-        }
-        $item = sb_ca_read($u);
-        if (!$item) {
-            $n['unread']++;
-            $seen[md5($u)] = time();
-            continue;
-        }
-        $item['id'] = substr(md5($u . microtime(true)), 0, 10);
-        $item['t']  = time();
-        list($st, $note) = sb_ca_process($item, false);
-        if ('error' === $st) {   // try again next round
-            $n['error']++;
-            continue;
-        }
-        $seen[md5($u)] = time();
-        $n[$st] = ($n[$st] ?? 0) + 1;
-        $item['st']   = $st;
-        $item['note'] = $note;
-        $item['src']  = 'auto';
-        $l = sb_collect_items();
-        array_unshift($l, $item);
-        update_option('sb_collected', array_slice($l, 0, SB_COLLECT_MAX), false);
-    }
-    update_option('sb_ca_seen', array_slice($seen, -1500, null, true), false);
+    $n = sb_ca_file($cand, 8, $seen);
     $msg = $looks ? ('পেলাম ' . count($cand) . 'টি নতুন · বসানো ' . $n['filed'] . ', ⛔ আটকানো ' . $n['blocked'] . ', বাদ ' . ($n['skipped'] + $n['dup'] . '') . ($n['unread'] ? ', পড়া যায়নি ' . $n['unread'] : '') . ($n['error'] ? ', ⚠ যাচাই হয়নি ' . $n['error'] : '')) : 'সার্চ সাড়া দেয়নি';
     $c = sb_ca_cfg();
     $c['dlast'] = time();
@@ -409,6 +418,81 @@ function sb_ca_discover($force = false) {
     update_option('sb_collect_auto', $c, false);
     return $msg;
 }
+
+
+/** history backfill: topic x year web searches, a few per call, progress is remembered. */
+function sb_ca_backfill($reset = false) {
+    $st = get_option('sb_ca_bf', array());
+    $st = is_array($st) ? $st : array();
+    $from = max(2000, (int) ($st['from'] ?? 2010));
+    $to   = (int) wp_date('Y');
+    if ($reset || empty($st['y'])) {
+        $st = array('from' => $from, 'y' => $from, 'ti' => 0, 'qi' => 0, 'done' => 0, 'found' => 0, 'filed' => 0, 'blocked' => 0);
+    }
+    $topics = sb_ca_topics();
+    $seen   = get_option('sb_ca_seen', array());
+    $seen   = is_array($seen) ? $seen : array();
+    $cand   = array();
+    $steps  = 0;
+    $looks  = 0;
+    while ($steps < 4 && $st['y'] <= $to) {
+        $t = $topics[$st['ti']] ?? null;
+        if ($t) {
+            $qs = array_values(array_filter(array_map('trim', explode("\n", (string) $t['q']))));
+            $q  = $qs[$st['qi']] ?? null;
+            if ($q) {
+                $words = array_filter(array_map('trim', explode('|', (string) $t['kw'])));
+                $res   = sb_ca_search($q . ' ' . $st['y'], true);
+                $looks++;
+                foreach ((array) $res as $r) {
+                    $hay = $r[0] . ' ' . $r[2];
+                    $ok  = !$words;
+                    foreach ($words as $w) {
+                        if (false !== mb_stripos($hay, $w)) {
+                            $ok = true;
+                        }
+                    }
+                    if ($ok && !isset($seen[md5($r[1])]) && !sb_press_url_exists($r[1])) {
+                        $cand[$r[1]] = $r;
+                    }
+                }
+                $steps++;
+            }
+        }
+        $st['qi']++;      // next query -> next topic -> next year
+        if (!$t || $st['qi'] >= max(1, count(array_filter(array_map('trim', explode("\n", (string) ($t['q'] ?? ''))))))) {
+            $st['qi'] = 0;
+            $st['ti']++;
+            if ($st['ti'] >= count($topics)) {
+                $st['ti'] = 0;
+                $st['y']++;
+            }
+        }
+    }
+    if ($looks && function_exists('sb_ledger_add') && defined('SB_YT_CHECK_FEE')) {
+        $GLOBALS['sb_bill_override'] = SB_YT_CHECK_FEE;
+        sb_ledger_add(0, 'news_watch', max(1, (int) ceil(SB_YT_CHECK_FEE / sb_unit_billed())), 0, 0.0);
+    }
+    $n = sb_ca_file(array_slice($cand, 0, 6, true), 6, $seen);
+    $st['found']   += count($cand);
+    $st['filed']   += $n['filed'];
+    $st['blocked'] += $n['blocked'];
+    $fin = $st['y'] > $to;
+    $st['finished'] = $fin;
+    update_option('sb_ca_bf', $st, false);
+    return array('year' => min($st['y'], $to), 'to' => $to, 'from' => $st['from'], 'finished' => $fin, 'found' => $st['found'], 'filed' => $st['filed'], 'blocked' => $st['blocked']);
+}
+add_action('wp_ajax_sb_ca_bf', function () {
+    sb_ajax_guard('manage_options');
+    $from = (int) sb_req('from', 0);
+    if ($from) {
+        $st = get_option('sb_ca_bf', array());
+        $st = is_array($st) ? $st : array();
+        $st['from'] = max(2000, min(2026, $from));
+        update_option('sb_ca_bf', $st, false);
+    }
+    wp_send_json_success(sb_ca_backfill((bool) sb_req('reset')));
+});
 
 add_filter('cron_schedules', function ($s) {
     $s['sb_6h'] = array('interval' => 6 * HOUR_IN_SECONDS, 'display' => 'Every 6 hours');
