@@ -176,6 +176,7 @@ ipcMain.handle('hist', async (_e, { q, from, to, pages }) => {
   from = Math.max(2000, Math.min(2026, +from || 2010)); to = Math.max(from, Math.min(2026, +to || 2026)); pages = Math.max(1, Math.min(5, +pages || 2));
   if (!qs.length) return { ok: false, msg: 'কী খুঁজব লিখুন।' };
   histRun = true; stopHist = false;
+  showTab('web');
   const T = { filed: 0, blocked: 0, skipped: 0, error: 0, dup: 0 }; let got = 0, years = 0, searched = 0, empty = 0, lastT = '';
   try {
     outer: for (let y = from; y <= to; y++) {
@@ -184,14 +185,14 @@ ipcMain.handle('hist', async (_e, { q, from, to, pages }) => {
           if (stopHist) break outer;
           const u = 'https://www.google.com/search?hl=bn&num=10&start=' + (p * 10) + '&q=' + encodeURIComponent(qq) + '&tbs=' + encodeURIComponent('cdr:1,cd_min:1/1/' + y + ',cd_max:12/31/' + y);
           send('prog', '📚 ' + y + ' সাল · "' + qq.slice(0, 25) + '" · পেজ ' + (p + 1) + ' খোলা হচ্ছে…');
-          view.webContents.loadURL(u).catch(() => {});
-          await waitLoad(view.webContents, 25000);
-          const cur = view.webContents.getURL();
+          webV.webContents.loadURL(u).catch(() => {});
+          await waitLoad(webV.webContents, 25000);
+          const cur = webV.webContents.getURL();
           if (/google\.[a-z.]+\/sorry|consent\./i.test(cur)) { histRun = false; return { ok: false, msg: '⚠ Google যাচাই (captcha) চাইছে। ওয়েব ট্যাবে সেটা মিটিয়ে আবার শুরু করুন। এ পর্যন্ত ' + got + 'টি সংগ্রহ।' }; }
           let list = [];
-          try { list = await view.webContents.executeJavaScript(RESULTS); } catch (e) { list = []; }
+          try { list = await webV.webContents.executeJavaScript(RESULTS); } catch (e) { list = []; }
           searched++;
-          if (!list.length) { empty++; try { lastT = await view.webContents.executeJavaScript('document.title+" | "+location.href.slice(0,90)'); } catch (e) {} break; }
+          if (!list.length) { empty++; try { lastT = await webV.webContents.executeJavaScript('document.title+" | "+location.href.slice(0,90)'); } catch (e) {} break; }
           const r = await collectList(c, list, '📚 ' + y + ' · ', T);
           if (r.msg && r.ok === false && !r.n && /চাবি|পাঠানো/.test(r.msg)) { histRun = false; return r; }
           got += r.n || 0;
