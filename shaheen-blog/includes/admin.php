@@ -9,7 +9,11 @@ function sb_admin_menu() {
     add_submenu_page('sb-dashboard', 'Dashboard', 'Dashboard', 'edit_posts', 'sb-dashboard', 'sb_page_dashboard');
     add_submenu_page('sb-dashboard', 'New Post', 'New Post', 'edit_posts', 'sb-new', 'sb_page_new');
     add_submenu_page('sb-dashboard', 'Rewrite Post', '🔁 Rewrite Post', 'edit_posts', 'sb-rewrite', 'sb_page_rewrite');
-    add_submenu_page('sb-dashboard', 'Research', '🔎 Research', 'edit_posts', 'sb-research', 'sb_page_research');
+    if ('1' === (string) get_option('sb_research_menu', '0')) { // hidden for now; page still opens at ?page=sb-research
+        add_submenu_page('sb-dashboard', 'Research', '🔎 Research', 'edit_posts', 'sb-research', 'sb_page_research');
+    } else {
+        add_submenu_page(null, 'Research', 'Research', 'edit_posts', 'sb-research', 'sb_page_research');
+    }
     add_submenu_page('sb-dashboard', 'Social Media', '🌐 Social Media', 'manage_options', 'sb-social', 'sb_page_social');
     add_submenu_page('sb-dashboard', 'Press', '📰 Press', 'edit_posts', 'sb-press', 'sb_page_press');
     add_submenu_page('sb-dashboard', 'Block Library', '📚 Block Library', 'manage_options', 'sb-blocks', 'sb_page_blocks');

@@ -46,6 +46,7 @@ function csa_ev_screen() {
 		'sections' => array( 'hero' => 'ওপরের হিরো ও সংখ্যা', 'events' => 'ইভেন্ট সারি', 'notice' => 'নোটিশ বোর্ড', 'act' => 'আমাদের কার্যক্রম', 'branch' => 'কাছের শাখা খুঁজুন', 'ach' => 'গৌরবোজ্জ্বল অর্জন', 'cadet' => 'ক্যাডেট প্রস্তুতি (বই ও অনলাইন)', 'why' => 'কেন শাহীন (তিনটি কার্ড)', 'ideal' => 'শিক্ষার্থী-অভিভাবক-শিক্ষক', 'blog' => 'সর্বশেষ ব্লগ', 'cta' => 'নিচের ভর্তি ও যোগাযোগ ব্যান্ড' ),
 	) );
 	echo '<div class="wrap" id="csa-ev"><h1>🎪 ইভেন্ট ও নতুন হোম পেজ</h1><div id="ev-app"><p>লোড হচ্ছে…</p></div></div>';
+	csa_ev_yt_card();
 }
 
 add_action( 'wp_ajax_csa_ev_op', function () {
