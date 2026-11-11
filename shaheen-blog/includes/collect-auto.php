@@ -261,10 +261,7 @@ function sb_ca_panel() {
         <p><button type="button" class="button" id="ca-addt">➕ নতুন বিষয়</button></p>
         <p style="margin:8px 0"><label>আরও নির্দেশ (ঐচ্ছিক) <input type="text" id="ca-extra" value="<?php echo esc_attr($c['extra']); ?>" style="width:100%" placeholder="যেমন: রাজনীতির খবর বাদ দাও"></label></p>
         <p style="margin:8px 0"><label><input type="checkbox" id="ca-disc" <?php checked($c['disc'], 1); ?>> 🔎 নতুন সংবাদ <b>নিজে নিজে খুঁজুন</b> (প্রতি ৬ ঘণ্টায় একবার; খোঁজার খরচ প্রতি বার $০.০১, পাওয়া প্রতিটি পেজ AI যাচাইয়ের খরচ আলাদা)</label></p>
-        <p style="margin:8px 0;padding:8px;background:#fffbeb;border:1px solid #fcd34d;border-radius:6px"><b>📚 পুরনো সংবাদ খুঁজুন (ইতিহাস)</b><br>
-            <span class="sba-muted">প্রতিটি বিষয় × প্রতিটি বছর ধরে ধরে সার্চ করে। একটু একটু করে চলে, কোথায় থামল মনে রাখে। প্রতিটি পেজে AI যাচাইয়ের খরচ কাটে।</span><br>
-            <label>শুরুর বছর <input type="number" id="ca-bfrom" value="<?php echo (int) (get_option('sb_ca_bf', array())['from'] ?? 2010); ?>" min="2000" max="2026" style="width:80px"></label>
-            <button type="button" class="button" id="ca-bf">▶ শুরু / আবার প্রথম থেকে</button> <button type="button" class="button" id="ca-bfstop">⏸ থামান</button> <span id="ca-bfmsg" class="sba-msg"></span></p>
+        <?php /* history backfill UI hidden: Bing web RSS returns nothing now (checked live) */ ?>
         <?php if (!empty($c['dlog'])) : ?><p class="sba-muted" style="margin:4px 0">শেষ খোঁজা: <?php echo esc_html(wp_date('d M, H:i', (int) $c['dlast'])); ?> — <?php echo esc_html((string) $c['dlog'][0]); ?></p><?php endif; ?>
         <p><button type="button" class="button" id="ca-save">💾 সেভ</button> <button type="button" class="button" id="ca-find">🔎 এখনই খুঁজুন</button> <button type="button" class="button button-primary" id="ca-run">▶ আগে সংগ্রহ করা বাকিগুলো এখন বসান</button> <span id="ca-msg" class="sba-msg"></span></p>
     </div>
