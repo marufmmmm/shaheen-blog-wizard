@@ -28,9 +28,32 @@ function sb_press_import_candidates() {
     return $out;
 }
 
+/** same article written differently (www or not, http/https, trailing slash, tracking query) */
+function sb_url_variants($url) {
+    $p = wp_parse_url($url);
+    if (empty($p['host'])) {
+        return array($url);
+    }
+    $h    = preg_replace('/^www\./i', '', strtolower($p['host']));
+    $path = rtrim((string) ($p['path'] ?? ''), '/');
+    $q    = isset($p['query']) && $p['query'] !== '' ? '?' . $p['query'] : '';
+    $out  = array();
+    foreach (array('https', 'http') as $sc) {
+        foreach (array($h, 'www.' . $h) as $hh) {
+            foreach (array($path, $path . '/') as $pp) {
+                $out[] = $sc . '://' . $hh . $pp . $q;
+                if ($q !== '') {
+                    $out[] = $sc . '://' . $hh . $pp;
+                }
+            }
+        }
+    }
+    return array_values(array_unique(array_merge(array($url), $out)));
+}
+
 function sb_press_url_exists($url) {
     $q = get_posts(array('post_type' => 'sb_post', 'post_status' => 'any', 'numberposts' => 1, 'fields' => 'ids',
-        'meta_key' => '_sb_press_url', 'meta_value' => $url));
+        'meta_query' => array(array('key' => '_sb_press_url', 'value' => sb_url_variants($url), 'compare' => 'IN'))));
     return !empty($q);
 }
 
