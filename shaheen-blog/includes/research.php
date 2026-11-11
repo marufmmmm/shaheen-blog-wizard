@@ -155,6 +155,7 @@ function sb_page_research() {
         <p class="sba-muted" id="rs-cost"></p>
         <p><button type="button" class="button" id="rs-copy">📋 উত্তর কপি করুন</button></p>
     </div>
+    <?php sb_collect_card(); ?>
     <?php sb_fb_card(); ?>
 </div>
 <script>

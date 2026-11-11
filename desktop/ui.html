@@ -1,0 +1,30 @@
+<!doctype html><html lang="bn"><head><meta charset="utf-8"><style>
+*{box-sizing:border-box}body{margin:0;height:52px;background:#0f3d24;font:14px "Segoe UI",Nirmala UI,Arial,sans-serif;color:#fff;display:flex;align-items:center;gap:6px;padding:0 8px;overflow:hidden}
+button{border:0;border-radius:8px;padding:8px 11px;font:inherit;cursor:pointer;background:#1f5d3b;color:#fff}button:hover{background:#2a7a4e}button:disabled{opacity:.4;cursor:default}
+#go{flex:1;min-width:120px;border:0;border-radius:8px;padding:9px 12px;font:inherit;outline:0}
+#col{background:#f59e0b;color:#1a1200;font-weight:700}#col:hover{background:#fbbf24}
+#msg{position:fixed;left:0;right:0;top:52px;display:none;padding:8px 14px;font-size:13px;background:#111;color:#fff;z-index:9}
+#set{position:fixed;right:8px;top:56px;width:330px;background:#fff;color:#111;border-radius:10px;padding:14px;display:none;box-shadow:0 8px 30px rgba(0,0,0,.35);z-index:10}
+#set label{display:block;margin:8px 0 2px;font-size:12px;color:#444}#set input{width:100%;padding:8px;border:1px solid #cbd5e1;border-radius:6px;font:inherit}
+#set .r{display:flex;gap:8px;margin-top:12px}#set button{background:#0f3d24}#set p{font-size:12px;margin:8px 0 0;color:#444}
+</style></head><body>
+<button id="b" title="পিছনে">◀</button><button id="f" title="সামনে">▶</button><button id="r" title="রিলোড">⟳</button>
+<input id="go" placeholder="Google-এ খুঁজুন বা ঠিকানা লিখুন" autocomplete="off">
+<button id="col">📥 সংগ্রহ করুন</button><button id="cfg">⚙ সেটিং</button>
+<div id="msg"></div>
+<div id="set"><b>প্লাগইনের সাথে সংযোগ</b>
+<label>সাইটের ঠিকানা</label><input id="site" placeholder="https://shaheen.edu.bd">
+<label>চাবি (Research পেজ → 🔑 নতুন চাবি বানান)</label><input id="key" type="password" placeholder="sbk_…" autocomplete="off">
+<div class="r"><button id="save">সংযুক্ত করুন</button><button id="x" style="background:#64748b">বন্ধ</button></div><p id="sm"></p></div>
+<script>
+const $=s=>document.querySelector(s);let t;
+function msg(m,bad){const e=$('#msg');e.textContent=m;e.style.background=bad?'#7f1d1d':'#14532d';e.style.display='block';clearTimeout(t);t=setTimeout(()=>e.style.display='none',6000)}
+$('#b').onclick=()=>sb.back();$('#f').onclick=()=>sb.fwd();$('#r').onclick=()=>sb.reload();
+$('#go').addEventListener('keydown',e=>{if(e.key==='Enter'){sb.go($('#go').value);e.target.blur()}});
+$('#go').addEventListener('focus',e=>e.target.select());
+sb.onNav(d=>{if(document.activeElement!==$('#go'))$('#go').value=d.url;$('#b').disabled=!d.back;$('#f').disabled=!d.fwd});
+$('#col').onclick=async()=>{$('#col').disabled=true;const r=await sb.collect();$('#col').disabled=false;msg(r.msg,!r.ok)};
+$('#cfg').onclick=async()=>{const c=await sb.getCfg();$('#site').value=c.site;$('#key').value='';$('#key').placeholder=c.hasKey?'(সংরক্ষিত আছে — বদলাতে নতুন চাবি দিন)':'sbk_…';$('#sm').textContent='';$('#set').style.display='block'};
+$('#x').onclick=()=>$('#set').style.display='none';
+$('#save').onclick=async()=>{$('#sm').textContent='পরীক্ষা করছি…';const r=await sb.setCfg({site:$('#site').value,key:$('#key').value});$('#sm').textContent=r.msg;if(r.ok)setTimeout(()=>$('#set').style.display='none',1200)};
+</script></body></html>
