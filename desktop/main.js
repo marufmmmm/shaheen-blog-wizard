@@ -111,17 +111,29 @@ const EXTRACT = `(() => {
 })()`;
 
 const RESULTS = `(() => {
-  const out = [], seen = new Set();
-  const root = document.querySelector('#rso') || document.querySelector('#search') || document.body;
-  root.querySelectorAll('a[href]').forEach(a => {
-    const h = a.querySelector('h3,[role="heading"]');
-    if (!h) return;
-    let u = a.href;
-    try { const x = new URL(u); if (/(^|\\.)google\\./.test(x.hostname) && x.pathname === '/url') { u = x.searchParams.get('q') || x.searchParams.get('url') || u; } } catch (e) {}
-    try { const x = new URL(u); if (!/^https?:$/.test(x.protocol) || /(^|\\.)google\\./.test(x.hostname) || /(^|\\.)gstatic\\./.test(x.hostname)) return; } catch (e) { return; }
-    if (seen.has(u)) return; seen.add(u); out.push({ url: u, title: (h.innerText || '').trim() || u });
-  });
-  return out;
+  const bad = /(^|\\.)(google|gstatic|googleusercontent|googleapis|gvt1|youtube-nocookie)\\./;
+  const norm = a => { let u = a.href; try { const x = new URL(u); if (/(^|\\.)google\\./.test(x.hostname) && x.pathname === '/url') { u = x.searchParams.get('q') || x.searchParams.get('url') || u; } } catch (e) {} return u; };
+  const ok = u => { try { const x = new URL(u); return /^https?:$/.test(x.protocol) && !bad.test(x.hostname + '.'); } catch (e) { return false; } };
+  const run = (anchors, strict) => {
+    const out = [], seen = new Set();
+    anchors.forEach(a => {
+      const u = norm(a); if (!ok(u) || seen.has(u)) return;
+      const h = a.querySelector('h3,[role="heading"]');
+      let t = h ? (h.innerText || '').trim() : '';
+      if (!t && !strict) { t = (a.getAttribute('aria-label') || a.innerText || '').trim(); if (t.length < 20) return; }
+      if (!t) return;
+      seen.add(u); out.push({ url: u, title: t.slice(0, 160) });
+    });
+    return out;
+  };
+  const roots = [...document.querySelectorAll('#rso,#search,#center_col,[role="main"],main')];
+  const scope = roots.length ? roots : [document.body];
+  const anchors = []; scope.forEach(r => r.querySelectorAll('a[href]').forEach(a => { if (!anchors.includes(a)) anchors.push(a); }));
+  let out = run(anchors, true);
+  const have = new Set(out.map(x => x.url));
+  run(anchors, false).forEach(x => { if (!have.has(x.url)) { have.add(x.url); out.push(x); } });
+  if (!out.length) run([...document.querySelectorAll('a[href]')], false).forEach(x => out.push(x));
+  return out.slice(0, 30);
 })()`;
 const isResults = u => /^https?:\/\/(www\.)?google\.[a-z.]+\/search/i.test(u || '');
 
@@ -213,7 +225,7 @@ ipcMain.handle('collect', async () => {
     let list = [];
     try { list = await view.webContents.executeJavaScript(RESULTS); } catch (e) { return { ok: false, msg: 'রেজাল্ট পড়া যায়নি: ' + e.message }; }
     list = list.slice(0, 10);
-    if (!list.length) return { ok: false, msg: 'এই পেজে কোনো রেজাল্ট লিংক পাওয়া যায়নি।' };
+    if (!list.length) { let st = ''; try { st = await view.webContents.executeJavaScript("document.querySelectorAll('a[href]').length + ' লিংক, #rso=' + !!document.querySelector('#rso') + ', #search=' + !!document.querySelector('#search')"); } catch (e) {} return { ok: false, msg: 'এই পেজে কোনো রেজাল্ট লিংক পাওয়া যায়নি। (' + st + ')' }; }
     return await collectList(c, list, '');
   }
   let data;
