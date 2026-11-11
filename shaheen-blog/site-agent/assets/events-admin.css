@@ -1,0 +1,36 @@
+#csa-ev{max-width:1100px}
+#csa-ev .ev-body{background:#fff;border:1px solid #dcdcde;border-top:0;padding:16px}
+#csa-ev .ev-bar{display:flex;gap:10px;flex-wrap:wrap;margin-bottom:16px}
+#csa-ev .ev-empty{text-align:center;padding:40px 10px;color:#555}
+#csa-ev .ev-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(330px,1fr));gap:16px}
+#csa-ev .ev-card{border:1px solid #dcdcde;border-radius:12px;overflow:hidden;background:#fff}
+#csa-ev .ev-card .hd{display:flex;gap:12px;align-items:center;padding:14px;background:linear-gradient(135deg,var(--c1),var(--c2));color:#fff}
+#csa-ev .ev-card .hd b{font-size:17px;color:#fff}#csa-ev .ev-card .hd em{font-style:normal;color:#ffd166}#csa-ev .ev-card .hd small{display:block;opacity:.85}
+#csa-ev .ev-card .lg{width:52px;height:52px;border-radius:12px;background:#fff;display:flex;align-items:center;justify-content:center;font-size:24px;flex:none;overflow:hidden}#csa-ev .ev-card .lg img{width:100%;height:100%;object-fit:contain}
+#csa-ev .ev-card .bd{padding:12px 14px}#csa-ev .ev-card .bd p{margin:6px 0}
+#csa-ev .tg{display:inline-block;font-size:11.5px;padding:2px 9px;border-radius:10px;background:#eef1ee;color:#44524a;margin:1px 0}
+#csa-ev .tg.ok{background:#e3f6ea;color:#1a6b3e}#csa-ev .tg.wn{background:#fff3d9;color:#8a5a00}
+#csa-ev .ev-tabs{display:flex;gap:4px;flex-wrap:wrap;border-bottom:2px solid #e2f5eb;margin-bottom:14px}
+#csa-ev .ev-tabs .et{padding:8px 14px;border-radius:8px 8px 0 0;text-decoration:none;color:#1a6b3e;font-weight:600;background:#f4faf6}
+#csa-ev .ev-tabs .et.on{background:#1a6b3e;color:#fff}
+#csa-ev .fl{display:flex;flex-wrap:wrap;gap:10px 14px}
+#csa-ev .f{flex:1 1 100%;min-width:0}#csa-ev .f.half{flex:0 1 calc(50% - 7px);min-width:180px}
+#csa-ev .f>label,#csa-ev .f .lt{display:block;font-weight:600;margin-bottom:3px}#csa-ev label.chk{font-weight:500;display:flex;gap:6px;align-items:center}
+#csa-ev .f input[type=text],#csa-ev .f input[type=number],#csa-ev .f input[type=date],#csa-ev .f select,#csa-ev .f textarea{width:100%}
+#csa-ev .f input[type=color]{width:70px;height:36px;padding:2px}
+#csa-ev .im{display:flex;gap:8px;align-items:center;flex-wrap:wrap}#csa-ev .im .v{flex:1;min-width:180px}
+#csa-ev .im .pv{width:48px;height:48px;border:1px solid #dcdcde;border-radius:8px;display:flex;align-items:center;justify-content:center;background:#f6f7f7;overflow:hidden;flex:none}#csa-ev .im .pv img{width:100%;height:100%;object-fit:contain}
+#csa-ev fieldset.g{border:1px solid #dcdcde;border-radius:8px;padding:8px 12px 12px}#csa-ev fieldset.g legend{font-weight:700;padding:0 6px}#csa-ev .gb{display:flex;flex-wrap:wrap;gap:10px 14px}
+#csa-ev .lst{border:1px dashed #b9d9c6;border-radius:10px;padding:10px;background:#fafdfb}
+#csa-ev .li{border:1px solid #dcdcde;border-radius:8px;background:#fff;margin-bottom:10px}
+#csa-ev .li .lh{display:flex;justify-content:space-between;align-items:center;padding:6px 10px;background:#f0faf4;border-radius:8px 8px 0 0;gap:8px}
+#csa-ev .li .lb{display:flex;flex-wrap:wrap;gap:10px 14px;padding:10px}
+#csa-ev .evl{display:flex;flex-direction:column;gap:6px;margin:6px 0 10px}
+#csa-ev .ev-save{position:sticky;bottom:0;background:#fff;padding:10px 0;border-top:1px solid #eee;margin-top:16px;z-index:5}
+#csa-ev .ev-live{display:flex;justify-content:space-between;gap:14px;align-items:center;flex-wrap:wrap;border:2px solid #f5a623;background:#fff8e8;border-radius:12px;padding:14px 16px;margin-bottom:16px}
+#csa-ev .ev-live.on{border-color:#1a6b3e;background:#eefaf2}#csa-ev .ev-live p{margin:4px 0 0}#csa-ev .ev-live .ac{display:flex;gap:8px;flex-wrap:wrap}
+#csa-ev .ev-ord{max-width:520px;margin:0 0 18px;padding:0;list-style:none}
+#csa-ev .ev-ord li{display:flex;justify-content:space-between;align-items:center;padding:6px 10px;border:1px solid #dcdcde;border-radius:8px;margin-bottom:6px;background:#fff}
+#csa-ev details.hs{border:1px solid #dcdcde;border-radius:10px;margin-bottom:10px;background:#fff}
+#csa-ev details.hs>summary{padding:11px 14px;cursor:pointer;font-weight:700;background:#f0faf4;border-radius:10px}
+#csa-ev details.hs[open]>summary{border-bottom:1px solid #dcdcde;border-radius:10px 10px 0 0}#csa-ev details.hs>.fl{padding:14px}
