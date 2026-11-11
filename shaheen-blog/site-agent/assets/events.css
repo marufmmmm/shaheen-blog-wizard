@@ -191,3 +191,17 @@
 .ecb{flex-direction:row;flex-wrap:wrap;align-items:center;justify-content:space-between;gap:12px;border-top:1px dashed var(--line);padding-top:14px;margin-top:auto}
 .ecb .more{border:0;padding:0;margin:0;display:inline-flex;gap:10px;font-size:15px}
 @media (max-width:760px){.ec .eh{flex:none;flex-direction:column;padding:20px}.ec .el img{max-height:120px}.ecb{flex-direction:column;align-items:stretch}.ecb .more{justify-content:space-between}}
+
+/* v2.86.6 — phone polish */
+@media (max-width:900px){.shm .ga:last-child:nth-child(odd){grid-column:1/-1}.shm .mpl{gap:14px 10px}}
+@media (max-width:520px){
+.shm .ag{gap:10px}.shm .ga{padding:16px 10px}.shm .ga .ic{width:48px;height:48px;font-size:24px}.shm .ga b{font-size:15.5px}.shm .ga small{font-size:12.5px}
+.shm .mpl{flex-wrap:nowrap;justify-content:center;gap:8px}.shm .bdg{flex:1 1 0;min-width:0}
+.shm .bdi{width:min(100%,160px);height:auto;aspect-ratio:1;margin:0 auto}.shm .bdi b{font-size:38px}.shm .bdi small{font-size:13.5px;padding:0 6px;text-align:center;line-height:1.2}.shm .bdi em{font-size:13px}
+.shm .bdi:before,.shm .bdi:after{font-size:30px}.shm .bdi:before{left:-14px}.shm .bdi:after{right:-14px}
+.shm .bdg>span{font-size:12px;max-width:none}
+.shm .mp{gap:12px}.shm .mpr{border-radius:14px}
+.shm .sec{padding:38px 0}.shm .in{padding-left:16px;padding-right:16px}
+.shm .b,.sev .b{min-height:44px}
+.shm .stats{gap:10px}.shm .stt b{font-size:30px}
+}
