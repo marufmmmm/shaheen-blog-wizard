@@ -12,7 +12,7 @@ button{border:0;border-radius:8px;padding:8px 11px;font:inherit;cursor:pointer;b
 <div id="top"><button id="b" title="পিছনে">◀</button><button id="f" title="সামনে">▶</button><button id="r" title="রিলোড">⟳</button>
 <button id="tw" title="ওয়েব (Google, Facebook…)">🌐 ওয়েব</button><button id="tp" title="WordPress অ্যাডমিন">🅦 WordPress</button>
 <input id="go" placeholder="Google-এ খুঁজুন বা ঠিকানা লিখুন" autocomplete="off">
-<button id="col" title="কোনো লেখার পেজে: সেই পেজ সংগ্রহ। Google সার্চ রেজাল্টে: প্রথম ১০টি রেজাল্ট নিজে নিজে খুলে সংগ্রহ।">📥 সংগ্রহ করুন</button><button id="hb" title="Google-এ বছর ধরে ধরে পুরনো সংবাদ খুঁজে সংগ্রহ">📚 ইতিহাস</button><button id="cfg">⚙ সেটিং</button></div>
+<button id="col" title="কোনো লেখার পেজে: সেই পেজ সংগ্রহ। Google সার্চ রেজাল্টে: প্রথম ১০টি রেজাল্ট নিজে নিজে খুলে সংগ্রহ।">📥 সংগ্রহ করুন</button><button id="hb" title="Google-এ বছর ধরে ধরে পুরনো সংবাদ খুঁজে সংগ্রহ">📚 ইতিহাস</button><button id="rp" title="কী হয়েছে তার রিপোর্ট কপি হবে — Claude-কে পেস্ট করুন">📋 রিপোর্ট</button><button id="cfg">⚙ সেটিং</button></div>
 <div id="msg"></div>
 <div id="set"><b>প্লাগইনের সাথে সংযোগ</b>
 <label>সাইটের ঠিকানা</label><input id="site" placeholder="https://shaheen.edu.bd">
@@ -37,6 +37,7 @@ sb.onProg(m=>{const e=$('#msg');e.textContent=m;e.style.background='#1e3a8a';e.s
 sb.onNav(d=>{$('#tw').classList.toggle('on',d.tab!=='wp');$('#tp').classList.toggle('on',d.tab==='wp');if(document.activeElement!==$('#go'))$('#go').value=d.url;$('#b').disabled=!d.back;$('#f').disabled=!d.fwd});
 $('#col').onclick=async()=>{$('#col').disabled=true;const r=await sb.collect();$('#col').disabled=false;msg(r.msg,!r.ok)};
 $('#cfg').onclick=async()=>{$('#hs').style.display='none';const c=await sb.getCfg();$('#site').value=c.site;$('#key').value='';$('#key').placeholder=c.hasKey?'(সংরক্ষিত আছে — বদলাতে নতুন চাবি দিন)':'sbk_…';$('#sm').textContent='';$('#set').style.display='block';fit()};
+$('#rp').onclick=async()=>{$('#rp').disabled=true;const r=await sb.report();$('#rp').disabled=false;msg('📋 রিপোর্ট কপি হয়েছে ('+r.n+' লাইন লগ)। এখন চ্যাটে Ctrl+V দিয়ে পেস্ট করুন।')};
 $('#hb').onclick=()=>{$('#set').style.display='none';$('#hs').style.display=$('#hs').style.display==='block'?'none':'block';fit()};
 $('#hx').onclick=()=>{$('#hs').style.display='none';fit()};
 $('#hstop').onclick=()=>sb.histStop();

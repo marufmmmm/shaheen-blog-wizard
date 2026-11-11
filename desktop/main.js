@@ -1,8 +1,11 @@
-const { app, BaseWindow, WebContentsView, ipcMain, net, shell, safeStorage } = require('electron');
+const { app, BaseWindow, WebContentsView, ipcMain, net, shell, safeStorage, clipboard } = require('electron');
 const path = require('path');
 const fs = require('fs');
 
 const TOOLBAR_H = 52;
+const LOG = [];
+function log(m) { LOG.push(new Date().toLocaleTimeString('en-GB') + ' ' + String(m).replace(/\s+/g, ' ').slice(0, 300)); if (LOG.length > 600) LOG.shift(); }
+process.on('uncaughtException', e => log('UNCAUGHT ' + (e && e.message)));
 let win, bar, view, webV, wpV, tab = 'web';
 let barH = TOOLBAR_H;
 const cfgFile = () => path.join(app.getPath('userData'), 'settings.json');
@@ -139,6 +142,8 @@ const isResults = u => /^https?:\/\/(www\.)?google\.[a-z.]+\/search/i.test(u || 
 
 async function postCollect(c, data) {
   const r = await net.fetch(c.site + '/wp-json/sb/v1/collect', { method: 'POST', headers: { 'Content-Type': 'application/json', 'X-SB-Key': c.key }, body: JSON.stringify(data) });
+  let snip = ''; try { snip = (await r.clone().text()).slice(0, 160); } catch (e) {}
+  log('SEND ' + (data && data.url ? data.url.slice(0, 80) : '?') + ' -> HTTP ' + r.status + ' ' + snip);
   if (!r.ok) { const e = new Error(r.status === 401 ? 'চাবি ভুল বা বাতিল হয়েছে।' : 'পাঠানো যায়নি (' + r.status + ')।'); e.fatal = true; throw e; }
   return r.json();
 }
@@ -154,6 +159,7 @@ function readHidden(url) {
       if (done) return; done = true;
       let d = null;
       if (ok && status < 400) { try { await new Promise(r => setTimeout(r, 1500)); d = await wc.executeJavaScript(EXTRACT); } catch (e) { d = null; } }
+      log('READ ' + url.slice(0, 80) + ' -> status ' + status + (ok ? '' : ' (load failed)') + (d ? ', text ' + (d.text || '').length + ' chars, title: ' + (d.title || '').slice(0, 40) : ', nothing read'));
       try { wc.close(); } catch (e) {}
       resolve(d);
     };
@@ -188,6 +194,7 @@ ipcMain.handle('hist', async (_e, { q, from, to, pages }) => {
   from = Math.max(2000, Math.min(2026, +from || 2010)); to = Math.max(from, Math.min(2026, +to || 2026)); pages = Math.max(1, Math.min(5, +pages || 2));
   if (!qs.length) return { ok: false, msg: 'কী খুঁজব লিখুন।' };
   histRun = true; stopHist = false;
+  log('HIST start q=' + JSON.stringify(qs) + ' ' + from + '-' + to + ' pages ' + pages);
   showTab('web');
   const T = { filed: 0, blocked: 0, skipped: 0, error: 0, dup: 0 }; let got = 0, years = 0, searched = 0, empty = 0, lastT = '';
   try {
@@ -204,6 +211,7 @@ ipcMain.handle('hist', async (_e, { q, from, to, pages }) => {
           let list = [];
           try { list = await webV.webContents.executeJavaScript(RESULTS); } catch (e) { list = []; }
           searched++;
+          log('HIST ' + y + ' q="' + qq.slice(0, 30) + '" page ' + (p + 1) + ' url=' + cur.slice(0, 100) + ' links=' + list.length);
           if (!list.length) { empty++; try { lastT = await webV.webContents.executeJavaScript('document.title+" | "+location.href.slice(0,90)'); } catch (e) {} break; }
           const r = await collectList(c, list, '📚 ' + y + ' · ', T);
           if (r.msg && r.ok === false && !r.n && /চাবি|পাঠানো/.test(r.msg)) { histRun = false; return r; }
@@ -216,6 +224,18 @@ ipcMain.handle('hist', async (_e, { q, from, to, pages }) => {
   return { ok: true, msg: (stopHist ? '⏸ থামানো হয়েছে' : '✅ শেষ') + ' · ' + years + ' বছর · ' + got + 'টি পেজ সংগ্রহ · বসানো ' + T.filed + ', ⛔ আটকানো ' + T.blocked + ', বাদ ' + (T.skipped + T.dup) + (T.error ? ', ⚠ যাচাই হয়নি ' + T.error : '') + (empty ? ' · ' + searched + 'টি সার্চের ' + empty + 'টিতে রেজাল্ট পাওয়া যায়নি' + (lastT ? ' [' + lastT + ']' : '') : '') };
 });
 
+ipcMain.handle('report', async () => {
+  const c = loadCfg(); let ping = '';
+  if (c.site && c.key) {
+    try { const r = await net.fetch(c.site + '/wp-json/sb/v1/ping', { headers: { 'X-SB-Key': c.key } }); ping = 'HTTP ' + r.status + ' ' + (await r.text()).slice(0, 200); } catch (e) { ping = 'FAILED ' + e.message; }
+  } else { ping = 'not tested (no site/key)'; }
+  const tabs = []; try { tabs.push('web: ' + webV.webContents.getURL().slice(0, 110)); tabs.push('wp: ' + wpV.webContents.getURL().slice(0, 110)); } catch (e) {}
+  const txt = ['=== Shaheen Browser report ===', 'time: ' + new Date().toISOString(), 'app: ' + app.getVersion() + ' electron ' + process.versions.electron + ' ' + process.platform,
+    'site: ' + (c.site || '(none)') + ' | key set: ' + !!c.key, 'ping: ' + ping, 'active tab: ' + tab, ...tabs, 'history running: ' + histRun, '--- log (' + LOG.length + ') ---', ...LOG.slice(-150)].join('\n');
+  clipboard.writeText(txt);
+  return { ok: true, n: LOG.length };
+});
+
 ipcMain.handle('collect', async () => {
   stopHist = false;
   const c = loadCfg();
@@ -224,6 +244,7 @@ ipcMain.handle('collect', async () => {
   if (isResults(view.webContents.getURL())) {
     let list = [];
     try { list = await view.webContents.executeJavaScript(RESULTS); } catch (e) { return { ok: false, msg: 'রেজাল্ট পড়া যায়নি: ' + e.message }; }
+    log('COLLECT google page ' + view.webContents.getURL().slice(0, 100) + ' links found ' + list.length);
     list = list.slice(0, 10);
     if (!list.length) { let st = ''; try { st = await view.webContents.executeJavaScript("document.querySelectorAll('a[href]').length + ' লিংক, #rso=' + !!document.querySelector('#rso') + ', #search=' + !!document.querySelector('#search')"); } catch (e) {} return { ok: false, msg: 'এই পেজে কোনো রেজাল্ট লিংক পাওয়া যায়নি। (' + st + ')' }; }
     return await collectList(c, list, '');
