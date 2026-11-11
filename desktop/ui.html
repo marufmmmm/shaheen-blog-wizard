@@ -11,7 +11,7 @@ button{border:0;border-radius:8px;padding:8px 11px;font:inherit;cursor:pointer;b
 <div id="top"><button id="b" title="পিছনে">◀</button><button id="f" title="সামনে">▶</button><button id="r" title="রিলোড">⟳</button>
 <button id="tw" title="ওয়েব (Google, Facebook…)">🌐 ওয়েব</button><button id="tp" title="WordPress অ্যাডমিন">🅦 WordPress</button>
 <input id="go" placeholder="Google-এ খুঁজুন বা ঠিকানা লিখুন" autocomplete="off">
-<button id="col">📥 সংগ্রহ করুন</button><button id="cfg">⚙ সেটিং</button></div>
+<button id="col" title="কোনো লেখার পেজে: সেই পেজ সংগ্রহ। Google সার্চ রেজাল্টে: প্রথম ১০টি রেজাল্ট নিজে নিজে খুলে সংগ্রহ।">📥 সংগ্রহ করুন</button><button id="cfg">⚙ সেটিং</button></div>
 <div id="msg"></div>
 <div id="set"><b>প্লাগইনের সাথে সংযোগ</b>
 <label>সাইটের ঠিকানা</label><input id="site" placeholder="https://shaheen.edu.bd">
@@ -25,6 +25,7 @@ $('#b').onclick=()=>sb.back();$('#f').onclick=()=>sb.fwd();$('#r').onclick=()=>s
 $('#go').addEventListener('keydown',e=>{if(e.key==='Enter'){sb.go($('#go').value);e.target.blur()}});
 $('#go').addEventListener('focus',e=>e.target.select());
 $('#tw').onclick=()=>sb.tab('web');$('#tp').onclick=()=>sb.tab('wp');
+sb.onProg(m=>{const e=$('#msg');e.textContent=m;e.style.background='#1e3a8a';e.style.display='block';fit();clearTimeout(t)});
 sb.onNav(d=>{$('#tw').classList.toggle('on',d.tab!=='wp');$('#tp').classList.toggle('on',d.tab==='wp');if(document.activeElement!==$('#go'))$('#go').value=d.url;$('#b').disabled=!d.back;$('#f').disabled=!d.fwd});
 $('#col').onclick=async()=>{$('#col').disabled=true;const r=await sb.collect();$('#col').disabled=false;msg(r.msg,!r.ok)};
 $('#cfg').onclick=async()=>{const c=await sb.getCfg();$('#site').value=c.site;$('#key').value='';$('#key').placeholder=c.hasKey?'(সংরক্ষিত আছে — বদলাতে নতুন চাবি দিন)':'sbk_…';$('#sm').textContent='';$('#set').style.display='block';fit()};

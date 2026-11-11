@@ -110,17 +110,70 @@ const EXTRACT = `(() => {
   return { url: location.href, title: meta('og:title') || document.title, text: text.slice(0, 8000), images: [...imgs].slice(0, 8), videos: [...vids].slice(0, 8), selected: !!sel };
 })()`;
 
+const RESULTS = `(() => {
+  const out = [], seen = new Set();
+  document.querySelectorAll('a[href]').forEach(a => {
+    const h = a.querySelector('h3'); if (!h) return;
+    let u = a.href;
+    try { const x = new URL(u); if (/(^|\\.)google\\./.test(x.hostname) && x.pathname === '/url') { u = x.searchParams.get('q') || x.searchParams.get('url') || u; } } catch (e) {}
+    try { const x = new URL(u); if (!/^https?:$/.test(x.protocol) || /(^|\\.)google\\./.test(x.hostname) || /(^|\\.)gstatic\\./.test(x.hostname)) return; } catch (e) { return; }
+    if (seen.has(u)) return; seen.add(u); out.push({ url: u, title: h.innerText });
+  });
+  return out;
+})()`;
+const isResults = u => /^https?:\/\/(www\.)?google\.[a-z.]+\/search/i.test(u || '');
+
+async function postCollect(c, data) {
+  const r = await net.fetch(c.site + '/wp-json/sb/v1/collect', { method: 'POST', headers: { 'Content-Type': 'application/json', 'X-SB-Key': c.key }, body: JSON.stringify(data) });
+  if (!r.ok) { const e = new Error(r.status === 401 ? 'চাবি ভুল বা বাতিল হয়েছে।' : 'পাঠানো যায়নি (' + r.status + ')।'); e.fatal = true; throw e; }
+  return r.json();
+}
+
+/* open a link in a hidden tab of the same profile (keeps Facebook/Google logins), read it, close it */
+function readHidden(url) {
+  return new Promise(resolve => {
+    const v = new WebContentsView({ webPreferences: { partition: 'persist:shaheen', contextIsolation: true, sandbox: true } });
+    const wc = v.webContents;
+    let done = false, status = 200;
+    wc.on('did-navigate', (_e, _u, code) => { if (code) status = code; });
+    const fin = async ok => {
+      if (done) return; done = true;
+      let d = null;
+      if (ok && status < 400) { try { await new Promise(r => setTimeout(r, 1500)); d = await wc.executeJavaScript(EXTRACT); } catch (e) { d = null; } }
+      try { wc.close(); } catch (e) {}
+      resolve(d);
+    };
+    wc.once('did-finish-load', () => fin(true));
+    wc.on('did-fail-load', (_e, code, _d, _u, isMain) => { if (isMain !== false && code !== -3) fin(false); });
+    setTimeout(() => fin(true), 20000);
+    wc.loadURL(url).catch(() => {});
+  });
+}
+
 ipcMain.handle('collect', async () => {
   const c = loadCfg();
   if (!c.site || !c.key) return { ok: false, msg: 'আগে ⚙ সেটিং-এ সাইট ও চাবি দিন।' };
+  /* Google results page: collect every result automatically */
+  if (isResults(view.webContents.getURL())) {
+    let list = [];
+    try { list = await view.webContents.executeJavaScript(RESULTS); } catch (e) { return { ok: false, msg: 'রেজাল্ট পড়া যায়নি: ' + e.message }; }
+    list = list.slice(0, 10);
+    if (!list.length) return { ok: false, msg: 'এই পেজে কোনো রেজাল্ট লিংক পাওয়া যায়নি।' };
+    let n = 0, bad = 0, total = 0;
+    for (let i = 0; i < list.length; i++) {
+      send('prog', 'সংগ্রহ চলছে… ' + (i + 1) + '/' + list.length + ' · ' + list[i].title.slice(0, 40));
+      const d = await readHidden(list[i].url);
+      if (!d || !(d.text || d.title)) { bad++; continue; }
+      try { const j = await postCollect(c, d); n++; total = j.count; } catch (e) { if (e.fatal) { return { ok: false, msg: e.message }; } bad++; }
+    }
+    return { ok: n > 0, msg: '✅ রেজাল্ট থেকে ' + n + 'টি পেজ সংগ্রহ হয়েছে' + (bad ? ' (' + bad + 'টি পড়া যায়নি)' : '') + ' · মোট ' + total };
+  }
   let data;
   try { data = await view.webContents.executeJavaScript(EXTRACT); } catch (e) { return { ok: false, msg: 'পেজ পড়া যায়নি: ' + e.message }; }
   try {
-    const r = await net.fetch(c.site + '/wp-json/sb/v1/collect', { method: 'POST', headers: { 'Content-Type': 'application/json', 'X-SB-Key': c.key }, body: JSON.stringify(data) });
-    if (!r.ok) return { ok: false, msg: r.status === 401 ? 'চাবি ভুল বা বাতিল হয়েছে।' : 'পাঠানো যায়নি (' + r.status + ')।' };
-    const j = await r.json();
+    const j = await postCollect(c, data);
     return { ok: true, msg: '✅ সংগ্রহ হয়েছে' + (data.selected ? ' (শুধু নির্বাচিত অংশ)' : '') + ' · ছবি ' + data.images.length + ', ভিডিও ' + data.videos.length + ' · মোট ' + j.count };
-  } catch (e) { return { ok: false, msg: 'সংযোগ হয়নি: ' + e.message }; }
+  } catch (e) { return { ok: false, msg: e.fatal ? e.message : 'সংযোগ হয়নি: ' + e.message }; }
 });
 
 app.whenReady().then(createWindow);
