@@ -298,6 +298,8 @@ function sb_feature_labels() {
     return array(
         'api_adjust' => 'হিসাব সমন্বয়',
         'research'  => 'ওয়েব রিসার্চ (সার্চ)',
+        'research_yt' => 'নতুন ভিডিও সঠিক সেকশনে বসানো (AI)',
+        'yt_watch'  => 'YouTube-এ নতুন পর্ব খোঁজা (প্রতি বার)',
         'headlines' => '৫টি শিরোনাম',
         'subtitle'  => 'সাবটাইটেল',
         'meta'      => 'মেটা বর্ণনা (SEO)',

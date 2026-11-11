@@ -19,6 +19,9 @@ const SB_BILL_MULT = 2;
 /** Web research (Research page): real cost x 1.7, profit included. Never shown on a client screen. */
 const SB_RESEARCH_MULT = 1.7;
 
+/** Automatic YouTube episode look (no AI used): fixed fee per look, USD. If AI is used in that look, real cost x 1.7 is billed instead. */
+const SB_YT_CHECK_FEE = 0.02;
+
 function sb_mult() {
     return SB_BILL_MULT;
 }
@@ -256,7 +259,7 @@ function sb_ledger_month($ym) {
     if ($api) {
         $base   = sb_api_base();
         $first  = $base['ym'] === $ym;
-        $target = sb_api_bill_from((float) $api['text'], (float) $api['image'], sb_research_raw($ym, $first ? (int) $base['t0'] : 0)) + sb_ledger_other_bill($ym, $first ? (int) $base['t0'] : 0) + ($first ? sb_api_carry() : 0);
+        $target = sb_api_bill_from((float) $api['text'], (float) $api['image'], sb_research_raw($ym, $first ? (int) $base['t0'] : 0)) + sb_ledger_other_bill($ym, $first ? (int) $base['t0'] : 0) + sb_ledger_fixed_bill($ym, $first ? (int) $base['t0'] : 0) + ($first ? sb_api_carry() : 0);
         $adj    = round($target - $out['bill'], 4);
         if (abs($adj) >= 0.005) {
             $out['by_feature']['api_adjust'] = array('n' => 0, 'bill' => $adj);
@@ -302,7 +305,7 @@ function sb_voucher_make($ym) {
     $users = array();
     foreach ($m['by_user'] as $uid => $r) {
         $u = get_userdata($uid);
-        $users[] = array('name' => $u ? $u->display_name : ('#' . $uid), 'n' => $r['n'], 'bill' => round($r['bill'], 4));
+        $users[] = array('name' => $u ? $u->display_name : (0 === (int) $uid ? 'স্বয়ংক্রিয় (সাইট)' : '#' . $uid), 'n' => $r['n'], 'bill' => round($r['bill'], 4));
     }
     $all[$id] = array(
         'id'      => $id,

@@ -25,6 +25,8 @@ function csa_ev_yt_cfg() {
 		'done'     => 0,
 		'last'     => 0,
 		'log'      => array(),
+		'mail'     => 'mosiur@shaheen.edu.bd',
+		'adds'     => array(),
 	), $c );
 }
 
@@ -134,10 +136,68 @@ function csa_ev_yt_num( $s ) {
 	return preg_match( '/(?:পর্ব|episode|ep)\.?[\s\-–:#.]*0*(\d{1,3})/iu', $s, $m ) ? (int) $m[1] : 0;
 }
 
-/** Look at the feeds; add new matching videos to the event. Returns a message. */
+/** AI picks the right section for a video that is not an episode. Returns array(index, meta) or WP_Error. Billed: real cost x 1.7. */
+function csa_ev_yt_ai_section( $ev, $title ) {
+	$key = function_exists( 'sb_get' ) ? sb_get( 'api_key' ) : '';
+	if ( '' === (string) $key ) {
+		return new WP_Error( 'csa_yt', 'AI চাবি নেই।' );
+	}
+	$secs = array();
+	foreach ( (array) $ev['vsec'] as $i => $v ) {
+		$secs[] = $i . ': ' . trim( $v['ic'] . ' ' . $v['t'] ) . ( $v['p'] ? ' — ' . $v['p'] : '' );
+	}
+	if ( ! $secs ) {
+		return new WP_Error( 'csa_yt', 'কোনো ভিডিও সেকশন নেই।' );
+	}
+	$model = function_exists( 'sb_model_for' ) ? sb_model_for( 'headlines' ) : 'gpt-6.1-terra';
+	$body  = array(
+		'model' => $model,
+		'input' => array(
+			array( 'role' => 'system', 'content' => 'You file a new video into one section of a website page. Reply with JSON only: {"section": <number from the list, or -1 if none fits>, "meta": "<2-5 word Bangla label>"}.' ),
+			array( 'role' => 'user', 'content' => "Sections:\n" . implode( "\n", $secs ) . "\n\nVideo title: " . $title ),
+		),
+		'max_output_tokens' => 400,
+	);
+	if ( preg_match( '/^(gpt-[5-9]|o\d)/i', $model ) ) {
+		$body['reasoning'] = array( 'effort' => 'low' );
+	}
+	if ( function_exists( 'sb_meter_take' ) ) {
+		sb_meter_take();
+	}
+	$r = wp_remote_post( 'https://api.openai.com/v1/responses', array( 'timeout' => 60, 'headers' => array( 'Authorization' => 'Bearer ' . $key, 'Content-Type' => 'application/json' ), 'body' => wp_json_encode( $body ) ) );
+	if ( is_wp_error( $r ) ) {
+		return $r;
+	}
+	$d = json_decode( wp_remote_retrieve_body( $r ), true );
+	if ( 200 !== (int) wp_remote_retrieve_response_code( $r ) || ! is_array( $d ) ) {
+		if ( function_exists( 'sb_meter_take' ) ) {
+			sb_meter_take();
+		}
+		return new WP_Error( 'csa_yt', 'AI উত্তর দেয়নি।' );
+	}
+	$txt = '';
+	foreach ( (array) ( $d['output'] ?? array() ) as $it ) {
+		foreach ( (array) ( $it['content'] ?? array() ) as $c ) {
+			$txt .= $c['text'] ?? '';
+		}
+	}
+	$real = function_exists( 'sb_meter_take' ) ? sb_meter_take() : 0.0;
+	if ( $real > 0 && function_exists( 'sb_ledger_add' ) ) {
+		$GLOBALS['sb_ledger_model'] = $model;
+		sb_ledger_add( 0, 'research_yt', max( 1, (int) ceil( $real * SB_RESEARCH_MULT / sb_unit_billed() ) ), 0, $real );   // AI used: real cost x 1.7
+		$GLOBALS['csa_yt_ai_billed'] = true;
+	}
+	$j = json_decode( preg_replace( '/^```[a-z]*\s*|\s*```$/i', '', trim( $txt ) ), true );
+	if ( ! is_array( $j ) || ! isset( $j['section'] ) || (int) $j['section'] < 0 || ! isset( $ev['vsec'][ (int) $j['section'] ] ) ) {
+		return new WP_Error( 'csa_yt', 'কোন সেকশনে যাবে বোঝা যায়নি।' );
+	}
+	return array( (int) $j['section'], sanitize_text_field( (string) ( $j['meta'] ?? '' ) ) );
+}
+
+/** Look at the feeds; add new matching videos to the event (episodes to the episode list, others to the right section by AI). Returns array(count, message, added[], fetched). */
 function csa_ev_yt_check( &$c, $since ) {
 	if ( empty( $c['channels'] ) ) {
-		return array( 0, 'কোনো চ্যানেল দেওয়া নেই।' );
+		return array( 0, 'কোনো চ্যানেল দেওয়া নেই।', array(), false );
 	}
 	$list = csa_ev_list();
 	$idx  = -1;
@@ -147,62 +207,106 @@ function csa_ev_yt_check( &$c, $since ) {
 		}
 	}
 	if ( $idx < 0 ) {
-		return array( 0, 'ইভেন্ট পাওয়া যায়নি: ' . $c['event'] );
+		return array( 0, 'ইভেন্ট পাওয়া যায়নি: ' . $c['event'], array(), false );
 	}
-	$ev    = $list[ $idx ];
-	$found = array();
-	$errs  = array();
+	$ev      = $list[ $idx ];
+	$found   = array();
+	$errs    = array();
+	$fetched = false;
 	foreach ( $c['channels'] as $ch ) {
 		$f = csa_ev_yt_feed( $ch['id'] );
 		if ( is_wp_error( $f ) ) {
 			$errs[] = $ch['name'] . ': ' . $f->get_error_message();
 			continue;
 		}
+		$fetched = true;
 		foreach ( $f['entries'] as $v ) {
-			if ( $v['published'] < $since || csa_ev_yt_has( $ev, $v['id'] ) ) {
+			if ( $v['published'] < $since || csa_ev_yt_has( $ev, $v['id'] ) || csa_ev_yt_has_line( $ev, $v['id'] ) ) {
 				continue;
 			}
-			$ok = '' === trim( $c['match'] ) || preg_match( '/(' . str_replace( '/', '\/', $c['match'] ) . ')/iu', $v['title'] );
-			$no = '' !== trim( $c['exclude'] ) && preg_match( '/(' . str_replace( '/', '\/', $c['exclude'] ) . ')/iu', $v['title'] );
-			if ( $ok && ! $no ) {
+			if ( '' === trim( $c['match'] ) || preg_match( '/(' . str_replace( '/', '\/', $c['match'] ) . ')/iu', $v['title'] ) ) {
 				$found[ $v['id'] ] = $v;
 			}
 		}
 	}
 	if ( ! $found ) {
-		return array( 0, 'নতুন পর্ব পাওয়া যায়নি।' . ( $errs ? ' (' . implode( '; ', $errs ) . ')' : '' ) );
+		return array( 0, 'নতুন পর্ব/ভিডিও পাওয়া যায়নি।' . ( $errs ? ' (' . implode( '; ', $errs ) . ')' : '' ), array(), $fetched );
 	}
 	usort( $found, function ( $a, $b ) { return $a['published'] <=> $b['published']; } );
-	$names = array();
+	$added = array();
+	$notes = array();
 	foreach ( $found as $v ) {
-		$max = 0;
-		foreach ( $ev['eps'] as $p ) {
-			$max = max( $max, csa_ev_yt_num( $p['n'] ) );
-		}
-		$num = csa_ev_yt_num( $v['title'] ) ?: $max + 1;
-		$row = array(
-			'n'   => 'পর্ব ' . csa_ev_bn( sprintf( '%02d', $num ) ),
-			't'   => $v['title'],
-			'u'   => 'https://www.youtube.com/watch?v=' . $v['id'],
-			'd'   => gmdate( 'Y-m-d', $v['published'] + 6 * HOUR_IN_SECONDS ),
-			'img' => '',
-		);
-		$rep = -1;
-		foreach ( $ev['eps'] as $i => $p ) {
-			if ( csa_ev_yt_num( $p['n'] ) === $num ) {   // e.g. the promo of this episode: the full episode takes its place
-				$rep = $i;
+		$num = csa_ev_yt_num( $v['title'] );
+		$no  = '' !== trim( $c['exclude'] ) && preg_match( '/(' . str_replace( '/', '\/', $c['exclude'] ) . ')/iu', $v['title'] );
+		$url = 'https://www.youtube.com/watch?v=' . $v['id'];
+		if ( $num > 0 && ! $no ) {   // an episode
+			$row = array( 'n' => 'পর্ব ' . csa_ev_bn( sprintf( '%02d', $num ) ), 't' => $v['title'], 'u' => $url, 'd' => gmdate( 'Y-m-d', $v['published'] + 6 * HOUR_IN_SECONDS ), 'img' => '' );
+			$rep = -1;
+			foreach ( $ev['eps'] as $i => $p ) {
+				if ( csa_ev_yt_num( $p['n'] ) === $num ) {   // e.g. the promo of this episode: the full episode takes its place
+					$rep = $i;
+				}
 			}
+			if ( $rep >= 0 ) {
+				$ev['eps'][ $rep ] = $row;
+			} else {
+				$ev['eps'][] = $row;
+			}
+			$added[] = array( 'type' => 'পর্ব', 'where' => 'পর্ব অনুযায়ী দেখুন — ' . $row['n'], 'title' => $v['title'], 'url' => $url );
+			continue;
 		}
-		if ( $rep >= 0 ) {
-			$ev['eps'][ $rep ] = $row;
-		} else {
-			$ev['eps'][] = $row;
+		$ai = csa_ev_yt_ai_section( $ev, $v['title'] );   // not an episode: AI chooses the section
+		if ( is_wp_error( $ai ) ) {
+			$notes[] = 'বসানো হয়নি (' . $ai->get_error_message() . '): ' . $v['title'];
+			continue;
 		}
-		$names[] = $row['n'] . ' — ' . $v['title'];
+		$meta = $ai[1] ? $ai[1] : csa_ev_date( gmdate( 'Y-m-d', $v['published'] + 6 * HOUR_IN_SECONDS ) );
+		$ev['vsec'][ $ai[0] ]['lines'] = rtrim( (string) $ev['vsec'][ $ai[0] ]['lines'] ) . "\n" . str_replace( '|', '-', $v['title'] ) . ' | ' . $url . ' | ' . $meta;
+		$added[] = array( 'type' => 'ভিডিও', 'where' => trim( $ev['vsec'][ $ai[0] ]['ic'] . ' ' . $ev['vsec'][ $ai[0] ]['t'] ), 'title' => $v['title'], 'url' => $url );
 	}
-	$list[ $idx ] = $ev;
-	csa_ev_put( $list );
-	return array( count( $found ), '✅ যোগ হয়েছে: ' . implode( ' | ', $names ) );
+	if ( $added ) {
+		$list[ $idx ] = $ev;
+		csa_ev_put( $list );
+	}
+	$msg = $added ? '✅ যোগ হয়েছে: ' . implode( ' | ', array_map( function ( $a ) { return $a['where'] . ' ← ' . $a['title']; }, $added ) ) : 'কিছু বসানো যায়নি।';
+	return array( count( $added ), $msg . ( $notes ? ' · ' . implode( ' · ', $notes ) : '' ), $added, $fetched );
+}
+
+function csa_ev_yt_has_line( $e, $vid ) {
+	foreach ( (array) $e['vsec'] as $v ) {
+		if ( false !== strpos( (string) $v['lines'], $vid ) ) {
+			return true;
+		}
+	}
+	return false;
+}
+
+/** Mail the people who watch this: what was added now and in the last 24 hours. */
+function csa_ev_yt_mail( &$c, $added, $event ) {
+	foreach ( $added as $a ) {
+		$c['adds'][] = array( 't' => time(), 'type' => $a['type'], 'where' => $a['where'], 'title' => $a['title'], 'url' => $a['url'] );
+	}
+	$c['adds'] = array_values( array_filter( $c['adds'], function ( $x ) { return $x['t'] > time() - 7 * DAY_IN_SECONDS; } ) );
+	$to = array_filter( array_map( 'sanitize_email', preg_split( '/[\s,;]+/', (string) $c['mail'] ) ) );
+	if ( ! $to ) {
+		return;
+	}
+	$lines = array( 'এই মুহূর্তে বসানো হয়েছে:' );
+	foreach ( $added as $a ) {
+		$lines[] = '• [' . $a['type'] . '] ' . $a['title'] . "\n  কোথায়: " . $a['where'] . "\n  লিংক: " . $a['url'];
+	}
+	$lines[] = '';
+	$lines[] = 'গত ২৪ ঘণ্টায় মোট যা বসেছে:';
+	$n = 0;
+	foreach ( $c['adds'] as $x ) {
+		if ( $x['t'] >= time() - DAY_IN_SECONDS ) {
+			$lines[] = '• ' . wp_date( 'j M, H:i', $x['t'] ) . ' — [' . $x['type'] . '] ' . $x['title'] . ' → ' . $x['where'] . "\n  " . $x['url'];
+			$n++;
+		}
+	}
+	$lines[] = '';
+	$lines[] = 'পেজ: ' . home_url( '/' . $event . '/' );
+	wp_mail( $to, '[' . get_bloginfo( 'name' ) . '] ' . count( $added ) . 'টি নতুন ভিডিও/লিংক বসানো হয়েছে (গত ২৪ ঘণ্টায় ' . $n . 'টি)', implode( "\n", $lines ) );
 }
 
 /** Hourly: decide whether this is a time to look. */
@@ -222,9 +326,20 @@ function csa_ev_yt_tick( $force = false ) {
 		$since = $w - 4 * HOUR_IN_SECONDS;
 	}
 	$c['last'] = $now;
-	list( $n, $msg ) = csa_ev_yt_check( $c, $since );
-	if ( $n > 0 && $w && ! $force ) {
-		$c['done'] = $w;   // found: stop until the next window
+	$GLOBALS['csa_yt_ai_billed'] = false;
+	list( $n, $msg, $added, $fetched ) = csa_ev_yt_check( $c, $since );
+	if ( $fetched && empty( $GLOBALS['csa_yt_ai_billed'] ) && function_exists( 'sb_ledger_add' ) && defined( 'SB_YT_CHECK_FEE' ) ) {
+		// no AI used in this look: a fixed fee per search
+		$GLOBALS['sb_bill_override'] = SB_YT_CHECK_FEE;
+		$GLOBALS['sb_ledger_model']  = '';
+		sb_ledger_add( 0, 'yt_watch', max( 1, (int) ceil( SB_YT_CHECK_FEE / sb_unit_billed() ) ), 0, 0.0 );
+		unset( $GLOBALS['sb_bill_override'] );
+	}
+	if ( $n > 0 ) {
+		csa_ev_yt_mail( $c, $added, $c['event'] );
+		if ( $w && ! $force ) {
+			$c['done'] = $w;   // found: stop until the next window
+		}
 	}
 	csa_ev_yt_log( $c, ( $force ? '[এখনই দেখা] ' : '' ) . $msg );
 	csa_ev_yt_save( $c );
@@ -261,6 +376,7 @@ add_action( 'wp_ajax_csa_ev_yt_op', function () {
 		$c['event']   = sanitize_title( wp_unslash( $_POST['event'] ?? 'spelling-star' ) ) ?: 'spelling-star'; // phpcs:ignore
 		$c['match']   = sanitize_text_field( wp_unslash( $_POST['match'] ?? '' ) ); // phpcs:ignore
 		$c['exclude'] = sanitize_text_field( wp_unslash( $_POST['exclude'] ?? '' ) ); // phpcs:ignore
+		$c['mail']    = sanitize_text_field( wp_unslash( $_POST['mail'] ?? '' ) ); // phpcs:ignore
 		$new          = array();
 		$errs         = array();
 		foreach ( preg_split( '/[\r\n,]+/', (string) wp_unslash( $_POST['channels'] ?? '' ), -1, PREG_SPLIT_NO_EMPTY ) as $line ) { // phpcs:ignore
@@ -305,7 +421,7 @@ function csa_ev_yt_view() {
 		$log[] = wp_date( 'j M, H:i', $l['t'] ) . ' — ' . $l['m'];
 	}
 	return array(
-		'on' => (int) $c['on'], 'event' => $c['event'], 'match' => $c['match'], 'exclude' => $c['exclude'],
+		'on' => (int) $c['on'], 'mail' => $c['mail'], 'event' => $c['event'], 'match' => $c['match'], 'exclude' => $c['exclude'],
 		'channels' => implode( "\n", array_map( function ( $ch ) { return $ch['src'] ?? $ch['id']; }, $c['channels'] ) ),
 		'names' => array_map( function ( $ch ) { return $ch['name']; }, $c['channels'] ),
 		'state' => ! $c['on'] ? 'অটো বন্ধ' : ( $w ? ( (int) $c['done'] === $w ? 'এই সপ্তাহের পর্ব পাওয়া গেছে, পরের শুক্র/রবি রাত ৮টায় আবার শুরু' : 'পর্বের জন্য দেখা চলছে (প্রতি ৩ ঘণ্টা পর পর)' ) : 'অপেক্ষা: পরের শুক্র/রবি রাত ৮টা' ),
@@ -317,12 +433,13 @@ function csa_ev_yt_card() {
 	?>
 	<div class="wrap" id="csa-evyt" style="max-width:900px;background:#fff;border:1px solid #dcdcde;border-radius:8px;padding:16px 20px;margin-top:20px">
 		<h2 style="margin-top:0">▶ YouTube থেকে নতুন পর্ব নিজে নিজে বসানো</h2>
-		<p>প্রতি শুক্র ও রবিবার রাত ৮টা থেকে পরের ২ দিন, প্রতি ৩ ঘণ্টা পর পর নিচের চ্যানেলে নতুন পর্ব দেখা হয়। পেলে পর্ব-তালিকায় বসে যায় ও দেখা বন্ধ হয়; না পেলে পরের শুক্র/রবি আবার শুরু হয়।</p>
+		<p>প্রতি শুক্র ও রবিবার রাত ৮টা থেকে পরের ২ দিন, প্রতি ৩ ঘণ্টা পর পর নিচের চ্যানেলে নতুন পর্ব দেখা হয়। পর্ব পেলে পর্ব-তালিকায় বসে যায় ও দেখা বন্ধ হয়; না পেলে পরের শুক্র/রবি আবার শুরু হয়। পর্ব ছাড়া অন্য ভিডিও পেলে AI ঠিক সেকশন বেছে সেখানে বসায়। প্রতিবার বসানোর পর ইমেইল যায়।</p>
 		<p><label><input type="checkbox" id="yt-on"> অটো চালু</label> &nbsp; <b id="yt-state"></b></p>
 		<p><label>ইভেন্ট (slug)<br><input type="text" id="yt-event" style="width:260px"></label></p>
 		<p><label>YouTube চ্যানেল (প্রতি লাইনে একটি: চ্যানেলের লিংক বা @নাম)<br><textarea id="yt-ch" rows="3" style="width:100%" placeholder="https://www.youtube.com/@channeli"></textarea></label></p>
 		<p><label>শিরোনামে থাকতে হবে (| দিয়ে আলাদা)<br><input type="text" id="yt-match" style="width:100%"></label></p>
 		<p><label>শিরোনামে থাকলে বাদ (প্রোমো ইত্যাদি)<br><input type="text" id="yt-ex" style="width:100%"></label></p>
+		<p><label>নতুন কিছু বসলে ইমেইল যাবে (কমা দিয়ে একাধিক)<br><input type="text" id="yt-mail" style="width:100%"></label></p>
 		<p><button type="button" class="button button-primary" id="yt-save">সংরক্ষণ</button> <button type="button" class="button" id="yt-now">এখনই দেখুন (গত ৭ দিন)</button> <span id="yt-msg"></span></p>
 		<p id="yt-names" class="description"></p>
 		<details><summary>সর্বশেষ দেখার হিসাব</summary><ul id="yt-log"></ul></details>
@@ -331,11 +448,11 @@ function csa_ev_yt_card() {
 	(function(){
 		var nonce=<?php echo wp_json_encode( wp_create_nonce( 'csa_ev' ) ); ?>,ajax=<?php echo wp_json_encode( admin_url( 'admin-ajax.php' ) ); ?>,V=<?php echo wp_json_encode( csa_ev_yt_view() ); ?>;
 		var $=function(s){return document.querySelector(s);};
-		function fill(v){$('#yt-on').checked=!!v.on;$('#yt-event').value=v.event;$('#yt-ch').value=v.channels;$('#yt-match').value=v.match;$('#yt-ex').value=v.exclude;$('#yt-state').textContent=v.state;
+		function fill(v){$('#yt-on').checked=!!v.on;$('#yt-event').value=v.event;$('#yt-ch').value=v.channels;$('#yt-match').value=v.match;$('#yt-ex').value=v.exclude;$('#yt-mail').value=v.mail;$('#yt-state').textContent=v.state;
 			$('#yt-names').textContent=v.names.length?'চেনা চ্যানেল: '+v.names.join(', '):'';var u=$('#yt-log');u.innerHTML='';v.log.forEach(function(t){var l=document.createElement('li');l.textContent=t;u.appendChild(l);});}
 		function msg(t,bad){var m=$('#yt-msg');m.textContent=t;m.style.color=bad?'#b32d2e':'#1a6b3e';}
 		function call(op,extra){msg('…');return fetch(ajax,{method:'POST',credentials:'same-origin',body:new URLSearchParams(Object.assign({action:'csa_ev_yt_op',nonce:nonce,op:op},extra||{}))}).then(function(r){return r.json();}).then(function(j){if(j.success){msg(j.data.msg);fill(j.data.cfg);}else{msg(j.data,true);}});}
-		$('#yt-save').onclick=function(){call('save',{on:$('#yt-on').checked?'1':'0',event:$('#yt-event').value,channels:$('#yt-ch').value,match:$('#yt-match').value,exclude:$('#yt-ex').value});};
+		$('#yt-save').onclick=function(){call('save',{on:$('#yt-on').checked?'1':'0',event:$('#yt-event').value,channels:$('#yt-ch').value,match:$('#yt-match').value,exclude:$('#yt-ex').value,mail:$('#yt-mail').value});};
 		$('#yt-now').onclick=function(){call('now');};
 		fill(V);
 	})();

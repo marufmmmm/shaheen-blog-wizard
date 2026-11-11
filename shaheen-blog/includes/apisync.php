@@ -146,6 +146,15 @@ function sb_research_raw($ym, $since = 0) {
     return (float) $wpdb->get_var($wpdb->prepare("SELECT SUM(raw_usd) FROM {$t} WHERE t BETWEEN %d AND %d AND feature LIKE %s AND model LIKE %s", $a, $b, 'research%', 'gpt%'));
 }
 
+/** Fixed-fee lines (automatic YouTube looks) are not in the provider's cost page: add them on top. */
+function sb_ledger_fixed_bill($ym, $since = 0) {
+    global $wpdb;
+    list($a, $b) = sb_month_range($ym);
+    $a = max($a, (int) $since);
+    $t = sb_ledger_table();
+    return (float) $wpdb->get_var($wpdb->prepare("SELECT SUM(bill_usd) FROM {$t} WHERE t BETWEEN %d AND %d AND feature = %s", $a, $b, 'yt_watch'));
+}
+
 function sb_ledger_other_bill($ym, $since = 0) {
     global $wpdb;
     list($a, $b) = sb_month_range($ym);
