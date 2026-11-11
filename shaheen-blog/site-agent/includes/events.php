@@ -22,11 +22,11 @@ function csa_ev_home_defaults() {
 			'kicker' => '🏫 বাংলাদেশের বিশ্বস্ত শিক্ষা পরিবার',
 			'h1a'    => 'মেধা বিকাশে শাহীন শিক্ষা পরিবার —',
 			'h1b'    => 'বাংলাদেশের শ্রেষ্ঠ শিক্ষা প্রতিষ্ঠান',
-			'sub'    => '৮টি বিভাগীয় শহরসহ ৩৪টি জেলায় ১৫০টি ক্যাম্পাসে আধুনিক ও মানসম্মত শিক্ষার আলো জ্বালিয়ে যাচ্ছে শাহীন শিক্ষা পরিবার।',
+			'sub'    => '৮টি বিভাগীয় শহরসহ ৩৪টি জেলায় {branches}টি ক্যাম্পাসে আধুনিক ও মানসম্মত শিক্ষার আলো জ্বালিয়ে যাচ্ছে শাহীন শিক্ষা পরিবার।',
 			'b1'     => array( 't' => 'ভর্তি বিষয়ক তথ্য', 'u' => '/branch/' ),
 			'b2'     => array( 't' => 'ক্যাডেট / প্রি-ক্যাডেট কোচিং অনলাইন', 'u' => '/cadet-online/' ),
 			'img'    => '',
-			'stats'  => array( array( 'n' => '১৫০+', 'l' => 'ক্যাম্পাস' ), array( 'n' => '৩৪', 'l' => 'জেলায় উপস্থিতি' ), array( 'n' => '৩৩৬', 'l' => 'ক্যাডেট ভর্তি ২৬' ), array( 'n' => '৩৪', 'l' => 'বছরের অভিজ্ঞতা' ) ),
+			'stats'  => array( array( 'n' => '{branches}', 'l' => 'শাখা / ক্যাম্পাস' ), array( 'n' => '৩৪', 'l' => 'জেলায় উপস্থিতি' ), array( 'n' => '৩৩৬', 'l' => 'ক্যাডেট ভর্তি ২৬' ), array( 'n' => '৩৪', 'l' => 'বছরের অভিজ্ঞতা' ) ),
 		),
 		'events'  => array( 't' => '🎪 এখন চলছে আমাদের বিশেষ আয়োজন', 'p' => 'প্রতিটি আয়োজনের সব তথ্য, সময়সূচি ও ভিডিও আলাদা পেজে', 'max' => 6 ),
 		'notice'  => array( 't' => '🔔 সর্বশেষ নোটিশ', 'p' => '', 'n' => 5, 'bt' => 'সব নোটিশ দেখুন →', 'bu' => '' ),
@@ -43,7 +43,7 @@ function csa_ev_home_defaults() {
 				array( 'ic' => '🔤', 'img' => '', 't' => 'School (English Version)', 'd' => 'Comprehensive English education for modern learners', 'u' => '/school-english-version/', 'tag' => '' ),
 			),
 		),
-		'branch'  => array( 't' => '📍 আপনার কাছের শাখা খুঁজুন', 'p' => '৮টি বিভাগীয় শহরসহ ৩৫টি জেলায় ১৫০টি ক্যাম্পাসে আমাদের কার্যক্রম চলছে', 'bt' => 'শাখা সমূহ দেখুন →', 'bu' => '/branch/' ),
+		'branch'  => array( 't' => '📍 আপনার কাছের শাখা খুঁজুন', 'p' => '৮টি বিভাগীয় শহরসহ ৩৫টি জেলায় {branches}টি ক্যাম্পাসে আমাদের কার্যক্রম চলছে', 'bt' => 'শাখা সমূহ দেখুন →', 'bu' => '/branch/' ),
 		'ach'     => array(
 			't'     => 'আমাদের গৌরবোজ্জ্বল অর্জন',
 			'p'     => '৩৪ বছরের পথচলায় সাফল্যের ধারাবাহিকতা',
@@ -59,8 +59,11 @@ function csa_ev_home_defaults() {
 			'bu'    => '/cadet-result-new/',
 		),
 		'cadet'   => array(
-			't'     => 'ক্যাডেট কলেজ প্রস্তুতি',
-			'p'     => 'বই ও অনলাইন কোচিং — এক জায়গায়',
+			't'     => 'ক্যাডেট কোচিং ও সেরা সাফল্য',
+			'p'     => 'এক বছরের কোচিংয়ে ক্যাডেট কলেজে চূড়ান্ত চান্স — বই ও অনলাইন কোচিং এক জায়গায়',
+			'nums'  => array( array( 'n' => '৩৩৬', 'l' => '২০২৬ সালে ক্যাডেট কলেজে চান্স' ), array( 'n' => '৩১২', 'l' => '২০২৫ সালে লিখিত চান্স' ) ),
+			'bt'    => 'ক্যাডেট ফলাফল দেখুন →',
+			'bu'    => '/cadet-result-new/',
 			'cards' => array(
 				array( 'ic' => '📚', 'img' => '', 't' => 'ক্যাডেট কলেজ ভর্তি গাইড', 'd' => 'শাহীন শিক্ষা পরিবারের নিজস্ব প্রকাশনীর ক্যাডেট কলেজ ভর্তি গাইড সংগ্রহ করুন', 'bt' => 'বুক স্টোরে যান →', 'u' => 'https://store.shaheen.edu.bd/' ),
 				array( 'ic' => '💻', 'img' => '', 't' => 'ক্যাডেট কোচিং (অনলাইন প্রোগ্রাম)', 'd' => 'শাহীন শিক্ষা পরিবারের ক্যাডেট কোচিং অনলাইন প্রোগ্রামে যোগদান করুন', 'bt' => 'ভর্তি হোন →', 'u' => 'https://cadetcoaching.shaheen.edu.bd/signup' ),
@@ -85,6 +88,7 @@ function csa_ev_home_defaults() {
 			),
 		),
 		'blog'    => array( 't' => '📰 সর্বশেষ লেখা', 'p' => 'শিক্ষা, ভর্তি ও প্রস্তুতি নিয়ে আমাদের ব্লগ', 'n' => 3, 'bt' => 'সব লেখা দেখুন →', 'bu' => '' ),
+		'seo'     => array( 't' => 'শাহীন শিক্ষা পরিবার | ক্যাডেট কোচিং, স্কুল ও বৃত্তি প্রস্তুতি — বাংলাদেশ', 'd' => '৩৪ বছরের অভিজ্ঞতা, দেশজুড়ে {branches}টি ক্যাম্পাস। ক্যাডেট কলেজ ভর্তি কোচিং (২০২৬ সালে ৩৩৬ জনের চান্স), স্কুল, প্রি-ক্যাডেট ও অনলাইন কোচিং। Spelling Star ও ক্ষুদে স্টারের আয়োজক।', 'k' => 'ক্যাডেট কোচিং' ),
 		'cta'     => array( 't' => 'আপনার সন্তানের সোনালি ভবিষ্যৎ শুরু হোক আজই', 'p' => 'কাছের শাখায় যোগাযোগ করুন অথবা অনলাইনে ভর্তি হোন', 'b1' => array( 't' => '📍 শাখা খুঁজুন', 'u' => '/branch/' ), 'b2' => array( 't' => '💻 অনলাইনে ভর্তি হোন', 'u' => 'https://cadetcoaching.shaheen.edu.bd/signup' ), 'phone' => '+880 1622-222111', 'mail' => 'corporate@shaheen.edu.bd' ),
 	);
 }
@@ -256,7 +260,7 @@ function csa_ev_is_fb( $u ) {
 function csa_ev_blank() {
 	return array(
 		'id' => 0, 'slug' => '', 'page' => 0, 'ext' => '',
-		'title' => '', 'series' => '', 'season' => '', 'tagline' => '', 'badge' => '', 'card' => '',
+		'title' => '', 'full' => '', 'card_more' => 1, 'series' => '', 'season' => '', 'tagline' => '', 'badge' => '', 'card' => '',
 		'logo' => '', 'cover' => '', 'c1' => '#0d2e1c', 'c2' => '#1a6b3e', 'ac' => '#f5a623', 'font' => 'baloo',
 		'show_home' => 1, 'order' => 10, 'home_from' => '', 'home_to' => '',
 		'facts' => array(), 'blocks' => array(),
@@ -275,7 +279,7 @@ function csa_ev_clean( $in, $keep = null ) {
 	$e['slug']      = sanitize_title( (string) ( $in['slug'] ?? '' ) );
 	$e['page']      = (int) ( $in['page'] ?? ( $keep['page'] ?? 0 ) );
 	$e['ext']       = csa_ev_clean_url( $in['ext'] ?? '' );
-	foreach ( array( 'title', 'series', 'season', 'tagline', 'badge', 'card', 'nq', 'foot', 'seo' ) as $k ) {
+	foreach ( array( 'title', 'full', 'series', 'season', 'tagline', 'badge', 'card', 'nq', 'foot', 'seo' ) as $k ) {
 		$e[ $k ] = csa_ev_txt( $in[ $k ] ?? '' );
 	}
 	$e['logo']      = esc_url_raw( (string) ( $in['logo'] ?? '' ) );
@@ -285,6 +289,7 @@ function csa_ev_clean( $in, $keep = null ) {
 	$e['ac']        = csa_ev_hex( $in['ac'] ?? '', $b['ac'] );
 	$e['font']      = ( ! empty( $in['font'] ) && function_exists( 'csa_font' ) && csa_font( sanitize_key( $in['font'] ) ) ) ? sanitize_key( $in['font'] ) : 'baloo';
 	$e['show_home'] = empty( $in['show_home'] ) ? 0 : 1;
+	$e['card_more'] = empty( $in['card_more'] ) ? 0 : 1;
 	$e['order']     = (int) ( $in['order'] ?? 10 );
 	$e['home_from'] = csa_ev_ymd( $in['home_from'] ?? '' );
 	$e['home_to']   = csa_ev_ymd( $in['home_to'] ?? '' );
@@ -425,6 +430,20 @@ function csa_ev_btns( $e, $home = false ) {
 }
 
 /* ---------- Event pages ---------- */
+/** Full name of an event: the owner's own full name, else title + season. */
+function csa_ev_fullname( $e ) {
+	return '' !== trim( (string) ( $e['full'] ?? '' ) ) ? $e['full'] : trim( $e['title'] . ( $e['season'] ? ' ' . $e['season'] : '' ) );
+}
+
+/** {branches} in any text becomes the live number of branches (Bangla digits). */
+function csa_ev_tok( $t ) {
+	if ( false === strpos( (string) $t, '{branches}' ) ) {
+		return $t;
+	}
+	$n = function_exists( 'csa_br_list' ) ? count( csa_br_list() ) : 0;
+	return str_replace( '{branches}', csa_ev_bn( $n ? $n : 150 ), $t );
+}
+
 function csa_ev_page_url( $e ) {
 	if ( $e['ext'] ) {
 		return csa_ev_url( $e['ext'] );
@@ -452,7 +471,7 @@ function csa_ev_ensure_page( &$e ) {
 	}
 	$pid = (int) $e['page'];
 	if ( $pid && get_post( $pid ) && 'trash' !== get_post_status( $pid ) ) {
-		wp_update_post( array( 'ID' => $pid, 'post_title' => $e['title'] . ( $e['season'] ? ' ' . $e['season'] : '' ), 'post_content' => '[shaheen_event id="' . (int) $e['id'] . '"]' ) );
+		wp_update_post( array( 'ID' => $pid, 'post_title' => csa_ev_fullname( $e ), 'post_content' => '[shaheen_event id="' . (int) $e['id'] . '"]' ) );
 		update_post_meta( $pid, '_csa_ev', (int) $e['id'] );
 		return;
 	}
@@ -463,7 +482,7 @@ function csa_ev_ensure_page( &$e ) {
 	$pid = wp_insert_post( array(
 		'post_type'    => 'page',
 		'post_status'  => 'draft',
-		'post_title'   => $e['title'] . ( $e['season'] ? ' ' . $e['season'] : '' ),
+		'post_title'   => csa_ev_fullname( $e ),
 		'post_name'    => wp_unique_post_slug( $slug, 0, 'draft', 'page', 0 ),
 		'post_content' => '[shaheen_event id="' . (int) $e['id'] . '"]',
 	) );
@@ -546,6 +565,96 @@ add_action( 'wp_head', function () {
 	$ev = csa_ev_page_event_id( get_queried_object_id() );
 	if ( $ev && ( $e = csa_ev_get( $ev ) ) && ! empty( $e['seo'] ) && ! defined( 'WPSEO_VERSION' ) ) {
 		echo '<meta name="description" content="' . esc_attr( $e['seo'] ) . '">' . "\n";
+	}
+}, 6 );
+
+
+/* ---------- SEO: structured data (Event / Organization) + home title & description ---------- */
+function csa_ev_jsonld( $d ) {
+	echo '<script type="application/ld+json">' . wp_json_encode( $d, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES ) . "</script>\n";
+}
+
+add_action( 'wp_head', function () {
+	if ( ! is_page() ) {
+		return;
+	}
+	$id = (int) get_queried_object_id();
+	$ev = csa_ev_page_event_id( $id );
+	if ( $ev && ( $e = csa_ev_get( $ev ) ) ) {
+		$e     = csa_ev_full( $e );
+		$dates = array();
+		foreach ( (array) $e['miles'] as $m ) {
+			foreach ( array( 'd1', 'd2' ) as $k ) {
+				if ( ! empty( $m[ $k ] ) ) {
+					$dates[] = $m[ $k ];
+				}
+			}
+		}
+		sort( $dates );
+		$d = array(
+			'@context'            => 'https://schema.org',
+			'@type'               => 'Event',
+			'name'                => csa_ev_fullname( $e ),
+			'description'         => $e['seo'] ? $e['seo'] : ( $e['tagline'] ? $e['tagline'] : csa_ev_fullname( $e ) ),
+			'url'                 => get_permalink( $id ),
+			'eventAttendanceMode' => 'https://schema.org/MixedEventAttendanceMode',
+			'eventStatus'         => 'https://schema.org/EventScheduled',
+			'location'            => array( '@type' => 'VirtualLocation', 'url' => get_permalink( $id ) ),
+			'organizer'           => array( '@type' => 'Organization', 'name' => ! empty( $e['org']['name'] ) ? $e['org']['name'] : 'শাহীন শিক্ষা পরিবার', 'url' => home_url( '/' ) ),
+		);
+		if ( $dates ) {
+			$d['startDate'] = $dates[0];
+			$d['endDate']   = end( $dates );
+		}
+		if ( $e['logo'] ) {
+			$d['image'] = $e['logo'];
+		}
+		if ( $dates ) {
+			csa_ev_jsonld( $d );
+		}
+	} elseif ( csa_ev_is_home_page( $id ) ) {
+		csa_ev_jsonld( array(
+			'@context'    => 'https://schema.org',
+			'@type'       => 'EducationalOrganization',
+			'name'        => 'শাহীন শিক্ষা পরিবার',
+			'alternateName' => 'Shaheen Education Family',
+			'url'         => home_url( '/' ),
+		) );
+	}
+}, 7 );
+
+/** The home page's own title and description (set in the panel) — also pushed into Yoast fields. */
+function csa_ev_home_seo() {
+	$o = csa_ev_opts();
+	$x = (array) ( $o['home']['seo'] ?? array() );
+	return array( 't' => csa_ev_tok( $x['t'] ?? '' ), 'd' => csa_ev_tok( $x['d'] ?? '' ), 'k' => $x['k'] ?? '' );
+}
+
+function csa_ev_home_seo_sync() {
+	$pid = (int) csa_ev_opt( 'home_id' );
+	if ( ! $pid || ! get_post( $pid ) ) {
+		return;
+	}
+	$x = csa_ev_home_seo();
+	update_post_meta( $pid, '_yoast_wpseo_title', $x['t'] );
+	update_post_meta( $pid, '_yoast_wpseo_metadesc', $x['d'] );
+	update_post_meta( $pid, '_yoast_wpseo_focuskw', $x['k'] );
+}
+
+add_filter( 'pre_get_document_title', function ( $t ) {
+	if ( is_page() && csa_ev_is_home_page( get_queried_object_id() ) && ! defined( 'WPSEO_VERSION' ) ) {
+		$x = csa_ev_home_seo();
+		return $x['t'] ? $x['t'] : $t;
+	}
+	return $t;
+}, 20 );
+
+add_action( 'wp_head', function () {
+	if ( is_page() && csa_ev_is_home_page( get_queried_object_id() ) && ! defined( 'WPSEO_VERSION' ) ) {
+		$x = csa_ev_home_seo();
+		if ( $x['d'] ) {
+			echo '<meta name="description" content="' . esc_attr( $x['d'] ) . '">' . "\n";
+		}
 	}
 }, 6 );
 
@@ -716,7 +825,13 @@ function csa_ev_clean_home( $in ) {
 	}
 	$h['ach']  = array( 't' => csa_ev_txt( $x['t'] ?? '' ), 'p' => csa_ev_txt( $x['p'] ?? '' ), 'nums' => $nums, 'items' => $cards( $x['items'] ?? array(), array( 'ic' => 's', 't' => 's', 'd' => 'a' ) ), 'bt' => csa_ev_txt( $x['bt'] ?? '' ), 'bu' => csa_ev_clean_url( $x['bu'] ?? '' ) );
 	$x         = (array) ( $in['cadet'] ?? array() );
-	$h['cadet'] = array( 't' => csa_ev_txt( $x['t'] ?? '' ), 'p' => csa_ev_txt( $x['p'] ?? '' ), 'cards' => $cards( $x['cards'] ?? array(), array( 'ic' => 's', 'img' => 'i', 't' => 's', 'd' => 's', 'bt' => 's', 'u' => 'u' ) ) );
+	$cn = array();
+	foreach ( (array) ( $x['nums'] ?? array() ) as $q ) {
+		if ( is_array( $q ) && '' !== trim( ( $q['n'] ?? '' ) . ( $q['l'] ?? '' ) ) ) {
+			$cn[] = array( 'n' => csa_ev_txt( $q['n'] ?? '' ), 'l' => csa_ev_txt( $q['l'] ?? '' ) );
+		}
+	}
+	$h['cadet'] = array( 'nums' => $cn, 'bt' => csa_ev_txt( $x['bt'] ?? '' ), 'bu' => csa_ev_clean_url( $x['bu'] ?? '' ), 't' => csa_ev_txt( $x['t'] ?? '' ), 'p' => csa_ev_txt( $x['p'] ?? '' ), 'cards' => $cards( $x['cards'] ?? array(), array( 'ic' => 's', 'img' => 'i', 't' => 's', 'd' => 's', 'bt' => 's', 'u' => 'u' ) ) );
 	foreach ( array( 'why', 'ideal' ) as $k ) {
 		$x       = (array) ( $in[ $k ] ?? array() );
 		$h[ $k ] = array( 't' => csa_ev_txt( $x['t'] ?? '' ), 'p' => csa_ev_txt( $x['p'] ?? '' ), 'cards' => $cards( $x['cards'] ?? array(), array( 'ic' => 's', 'img' => 'i', 't' => 's', 'd' => 's', 'u' => 'u' ) ) );
@@ -725,6 +840,8 @@ function csa_ev_clean_home( $in ) {
 	$h['blog'] = array( 't' => csa_ev_txt( $x['t'] ?? '' ), 'p' => csa_ev_txt( $x['p'] ?? '' ), 'n' => max( 1, min( 9, (int) ( $x['n'] ?? 3 ) ) ), 'bt' => csa_ev_txt( $x['bt'] ?? '' ), 'bu' => csa_ev_clean_url( $x['bu'] ?? '' ) );
 	$x         = (array) ( $in['cta'] ?? array() );
 	$h['cta']  = array( 't' => csa_ev_txt( $x['t'] ?? '' ), 'p' => csa_ev_txt( $x['p'] ?? '' ), 'b1' => $lnk( (array) ( $x['b1'] ?? array() ) ), 'b2' => $lnk( (array) ( $x['b2'] ?? array() ) ), 'phone' => csa_ev_txt( $x['phone'] ?? '' ), 'mail' => sanitize_email( $x['mail'] ?? '' ) );
+	$x        = (array) ( $in['seo'] ?? array() );
+	$h['seo'] = array( 't' => csa_ev_txt( $x['t'] ?? '' ), 'd' => csa_ev_txt( $x['d'] ?? '' ), 'k' => csa_ev_txt( $x['k'] ?? '' ) );
 	unset( $sec );
 	return $h;
 }
@@ -732,7 +849,7 @@ function csa_ev_clean_home( $in ) {
 /* ---------- Seed: Spelling Star Season 1 and Khude Star, from the live home page ---------- */
 function csa_ev_seed_events() {
 	$ss = array_merge( csa_ev_blank(), array(
-		'slug'    => 'spelling-star', 'title' => 'Spelling Star', 'series' => 'Channel i Spelling Star', 'season' => 'Season 1',
+		'slug'    => 'spelling-star', 'title' => 'Spelling Star', 'full' => 'Shaheen Education Family Channel i Spelling Star', 'series' => 'Channel i Spelling Star', 'season' => 'Season 1',
 		'tagline' => 'বাংলাদেশ খুঁজছে তার পরবর্তী ✦ Spelling Star ✦ — হতে পারে আপনার সন্তান, আগামী দিনের সেই তারকা।',
 		'c1' => '#0d2e1c', 'c2' => '#1a6b3e', 'ac' => '#f5a623', 'font' => 'baloo', 'order' => 1, 'show_home' => 1,
 		'card'    => 'বাংলাদেশ খুঁজছে তার পরবর্তী Spelling Star। সব পর্ব, ফলাফল ও তথ্য জানতে এখানে ক্লিক করুন।',
@@ -749,7 +866,6 @@ function csa_ev_seed_events() {
 			array( 'ic' => '📺', 't' => 'টিভিতে সম্প্রচার', 'd1' => '', 'd2' => '', 'note' => '', 'st' => 'live', 'lbl' => 'টিভিতে সম্প্রচার চলছে' ),
 		),
 		'btns'    => array(
-			array( 't' => '🔑 লগ ইন করুন', 'u' => 'https://spellingstar.shaheen.edu.bd/login', 'k' => 'p', 'until' => '', 'home' => 1 ),
 			array( 't' => 'বিভাগীয় ফলাফল দেখুন', 'u' => '/spl-result-division/', 'k' => 's', 'until' => '', 'home' => 1 ),
 			array( 't' => 'কেন্দ্রভিত্তিক ফলাফল দেখুন', 'u' => '/spl-result-centre/', 'k' => 's', 'until' => '', 'home' => 0 ),
 			array( 't' => 'Spelling Star ওয়েবসাইট', 'u' => 'https://spellingstar.shaheen.edu.bd/', 'k' => 'g', 'until' => '', 'home' => 0 ),

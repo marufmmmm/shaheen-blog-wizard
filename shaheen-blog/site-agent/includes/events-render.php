@@ -279,15 +279,41 @@ function csa_ev_card( $e, $home = true ) {
 	if ( $txt ) {
 		$h .= '<p>' . esc_html( $txt ) . '</p>';
 	}
-	$h .= '<div class="btns">';
-	foreach ( array_slice( $bt, 0, 2 ) as $b ) {
+	if ( ! empty( $e['facts'] ) && $home ) {
+		$h .= '<div class="ecf">';
+		foreach ( array_slice( $e['facts'], 0, 4 ) as $f ) {
+			$h .= '<span><i>' . esc_html( $f['ic'] ) . '</i><small>' . esc_html( $f['l'] ) . '</small><b>' . esc_html( $f['v'] ) . '</b></span>';
+		}
+		$h .= '</div>';
+	}
+	if ( $home && ! empty( $e['prizes']['on'] ) && ! empty( $e['prizes']['items'] ) ) {
+		$h .= '<div class="ecp"><strong>🏆 পুরস্কার</strong>';
+		foreach ( array_slice( $e['prizes']['items'], 0, 3 ) as $i => $p ) {
+			$h .= '<span>' . ( 0 === $i ? '🥇' : ( 1 === $i ? '🥈' : '🥉' ) ) . ' ' . esc_html( $p['l'] ) . ' <b>' . esc_html( $p['v'] ) . '</b></span>';
+		}
+		$h .= '</div>';
+	}
+	$by = array();
+	if ( ! empty( $e['org']['name'] ) ) {
+		$by[] = 'আয়োজক: ' . $e['org']['name'];
+	}
+	foreach ( (array) $e['partners'] as $pt ) {
+		if ( ! empty( $pt['name'] ) ) {
+			$by[] = ( ! empty( $pt['role'] ) ? $pt['role'] : 'সহযোগী' ) . ': ' . $pt['name'];
+		}
+	}
+	if ( $home && $by ) {
+		$h .= '<p class="ecy">' . esc_html( implode( ' • ', $by ) ) . '</p>';
+	}
+	$h .= '<div class="ecb"><div class="btns">';
+	foreach ( array_slice( $bt, 0, 3 ) as $b ) {
 		$h .= csa_ev_btn_html( $b );
 	}
 	$h .= '</div>';
-	if ( $u ) {
+	if ( $u && ! empty( $e['card_more'] ) ) {
 		$h .= '<a class="more" href="' . esc_url( $u ) . '">সব পর্ব ও তথ্য জানতে এখানে ক্লিক করুন <i>→</i></a>';
 	}
-	return $h . '</div></article>';
+	return $h . '</div></div></article>';
 }
 
 function csa_ev_events_strip( $max, $ctx ) {
@@ -336,7 +362,7 @@ function csa_ev_home_html() {
 
 function csa_ev_hs_hero( $x ) {
 	$bg = $x['img'] ? ' style="background-image:linear-gradient(160deg,#0d2e1ce6,#0f3524d9 45%,#091a2ee6),url(' . esc_url( $x['img'] ) . ')"' : '';
-	$h  = '<section class="hh"' . $bg . '>' . csa_ev_sparkles( 16 ) . '<div class="in">' . ( $x['kicker'] ? '<span class="kick rv">' . esc_html( $x['kicker'] ) . '</span>' : '' ) . '<h1 class="rv">' . esc_html( $x['h1a'] ) . ( $x['h1b'] ? '<br><em>' . esc_html( $x['h1b'] ) . '</em>' : '' ) . '</h1>' . ( $x['sub'] ? '<p class="rv">' . esc_html( $x['sub'] ) . '</p>' : '' ) . '<div class="btns rv">';
+	$h  = '<section class="hh"' . $bg . '>' . csa_ev_sparkles( 16 ) . '<div class="in">' . ( $x['kicker'] ? '<span class="kick rv">' . esc_html( $x['kicker'] ) . '</span>' : '' ) . '<h1 class="rv">' . esc_html( $x['h1a'] ) . ( $x['h1b'] ? '<br><em>' . esc_html( $x['h1b'] ) . '</em>' : '' ) . '</h1>' . ( $x['sub'] ? '<p class="rv">' . esc_html( csa_ev_tok( $x['sub'] ) ) . '</p>' : '' ) . '<div class="btns rv">';
 	foreach ( array( 'b1' => 'p', 'b2' => 's' ) as $k => $c ) {
 		if ( ! empty( $x[ $k ]['t'] ) && ! empty( $x[ $k ]['u'] ) ) {
 			$h .= '<a class="b ' . $c . '"' . csa_ev_link_attr( $x[ $k ]['u'] ) . '>' . esc_html( $x[ $k ]['t'] ) . '</a>';
@@ -346,7 +372,7 @@ function csa_ev_hs_hero( $x ) {
 	if ( $x['stats'] ) {
 		$h .= '<div class="stats">';
 		foreach ( $x['stats'] as $s ) {
-			$h .= '<div class="stt rv"><b>' . esc_html( $s['n'] ) . '</b><small>' . esc_html( $s['l'] ) . '</small></div>';
+			$h .= '<div class="stt rv"><b>' . esc_html( csa_ev_tok( $s['n'] ) ) . '</b><small>' . esc_html( $s['l'] ) . '</small></div>';
 		}
 		$h .= '</div>';
 	}
@@ -401,7 +427,7 @@ function csa_ev_hs_branch( $x ) {
 	if ( function_exists( 'csa_br_opt' ) ) {
 		$dv = array_slice( (array) csa_br_opt( 'div_order' ), 0, 8 );
 	}
-	$h = '<section class="sec brs"><div class="in"><div class="bx rv"><div class="bt"><h2>' . esc_html( $x['t'] ) . '</h2>' . ( $x['p'] ? '<p>' . esc_html( $x['p'] ) . '</p>' : '' ) . ( $n ? '<span class="chip">' . esc_html( csa_ev_bn( $n ) ) . 'টি শাখার তালিকা</span>' : '' ) . '</div>';
+	$h = '<section class="sec brs"><div class="in"><div class="bx rv"><div class="bt"><h2>' . esc_html( $x['t'] ) . '</h2>' . ( $x['p'] ? '<p>' . esc_html( csa_ev_tok( $x['p'] ) ) . '</p>' : '' ) . ( $n ? '<span class="chip">' . esc_html( csa_ev_bn( $n ) ) . 'টি শাখার তালিকা</span>' : '' ) . '</div>';
 	if ( $dv ) {
 		$h .= '<div class="dvs">';
 		foreach ( $dv as $d ) {
@@ -437,11 +463,23 @@ function csa_ev_hs_cadet( $x ) {
 	if ( ! $x['cards'] ) {
 		return '';
 	}
-	$h = '<section class="sec cad" id="cadet"><div class="in">' . csa_ev_head( $x['t'], $x['p'], true ) . '<div class="cd2">';
+	$h = '<section class="sec cad" id="cadet"><div class="in">' . csa_ev_head( $x['t'], $x['p'], true );
+	if ( ! empty( $x['nums'] ) ) {
+		$h .= '<div class="nums cn">';
+		foreach ( $x['nums'] as $n ) {
+			$h .= '<div class="nm rv"><b>' . esc_html( $n['n'] ) . '</b><small>' . esc_html( $n['l'] ) . '</small></div>';
+		}
+		$h .= '</div>';
+	}
+	$h .= '<div class="cd2">';
 	foreach ( $x['cards'] as $c ) {
 		$h .= '<div class="cb rv">' . csa_ev_icon( $c['img'], $c['ic'], $c['t'] ) . '<h3>' . esc_html( $c['t'] ) . '</h3><p>' . esc_html( $c['d'] ) . '</p>' . ( $c['u'] ? '<a class="b p"' . csa_ev_link_attr( $c['u'] ) . '>' . esc_html( $c['bt'] ? $c['bt'] : 'বিস্তারিত →' ) . '</a>' : '' ) . '</div>';
 	}
-	return $h . '</div></div></section>';
+	$h .= '</div>';
+	if ( ! empty( $x['bu'] ) && ! empty( $x['bt'] ) ) {
+		$h .= '<p class="mr rv"><a class="b p"' . csa_ev_link_attr( $x['bu'] ) . '>' . esc_html( $x['bt'] ) . '</a></p>';
+	}
+	return $h . '</div></section>';
 }
 
 function csa_ev_hs_why( $x ) {

@@ -124,11 +124,13 @@ add_action( 'wp_ajax_csa_ev_op', function () {
 			$o['home'] = csa_ev_clean_home( $data );
 			csa_ev_set( $o );
 			csa_ev_home_ensure();
+			csa_ev_home_seo_sync();
 			$msg = 'হোম পেজ সংরক্ষিত ✓';
 			break;
 		case 'home_reset':
 			$o['home'] = csa_ev_home_defaults();
 			csa_ev_set( $o );
+			csa_ev_home_seo_sync();
 			$msg = 'হোম পেজের লেখা আসল অবস্থায় ফিরেছে।';
 			break;
 		case 'home_make':
