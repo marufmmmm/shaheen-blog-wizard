@@ -155,6 +155,7 @@ function sb_page_research() {
         <p class="sba-muted" id="rs-cost"></p>
         <p><button type="button" class="button" id="rs-copy">📋 উত্তর কপি করুন</button></p>
     </div>
+    <?php sb_fb_card(); ?>
 </div>
 <script>
 (function(){
@@ -185,6 +186,173 @@ function sb_page_research() {
     $('#rs-copy').addEventListener('click', function () {
         var t = $('#rs-text').textContent; try { navigator.clipboard.writeText(t); msg('কপি হয়েছে'); } catch (e) { msg('কপি করা যায়নি', true); }
     });
+})();
+</script>
+    <?php
+}
+
+
+/* ---------------------------------------------------------------- Facebook Page (official Graph API, no credits: it is the page's own data) */
+function sb_fb_cfg() {
+    $c = get_option('sb_fb', array());
+    return is_array($c) ? $c : array();
+}
+
+function sb_fb_get($path, $args, $token) {
+    $args['access_token'] = $token;
+    $r = wp_remote_get('https://graph.facebook.com/' . ltrim($path, '/') . '?' . http_build_query($args), array('timeout' => 30));
+    if (is_wp_error($r)) {
+        return new WP_Error('sb_fb', 'Facebook-এ সংযোগ হয়নি: ' . $r->get_error_message());
+    }
+    $d = json_decode(wp_remote_retrieve_body($r), true);
+    if (!is_array($d) || !empty($d['error'])) {
+        return new WP_Error('sb_fb', 'Facebook: ' . (isset($d['error']['message']) ? $d['error']['message'] : 'HTTP ' . wp_remote_retrieve_response_code($r)));
+    }
+    return $d;
+}
+
+/** One-time connect: short user token + app id/secret -> long-lived user token -> never-expiring Page token. Secret and user token are not kept. */
+add_action('wp_ajax_sb_fb_connect', function () {
+    sb_ajax_guard('manage_options');
+    $app = sanitize_text_field((string) sb_req('app_id'));
+    $sec = trim((string) sb_req('app_secret'));
+    $tok = trim((string) sb_req('user_token'));
+    $pid = preg_replace('/\D/', '', (string) sb_req('page_id'));
+    if ($app === '' || $sec === '' || $tok === '') {
+        wp_send_json_error(array('message' => 'App ID, App Secret ও টোকেন তিনটিই দিন।'));
+    }
+    $ex = sb_fb_get('oauth/access_token', array('grant_type' => 'fb_exchange_token', 'client_id' => $app, 'client_secret' => $sec, 'fb_exchange_token' => $tok), $tok);
+    if (is_wp_error($ex) || empty($ex['access_token'])) {
+        wp_send_json_error(array('message' => is_wp_error($ex) ? $ex->get_error_message() : 'টোকেন বদলানো যায়নি।'));
+    }
+    $acc = sb_fb_get('me/accounts', array('fields' => 'id,name,access_token', 'limit' => 100), $ex['access_token']);
+    if (is_wp_error($acc)) {
+        wp_send_json_error(array('message' => $acc->get_error_message()));
+    }
+    $pick = null;
+    foreach (isset($acc['data']) ? $acc['data'] : array() as $pg) {
+        if ($pid === '' || (string) $pg['id'] === $pid) {
+            $pick = $pg;
+            break;
+        }
+    }
+    if (!$pick || empty($pick['access_token'])) {
+        $names = array();
+        foreach (isset($acc['data']) ? $acc['data'] : array() as $pg) {
+            $names[] = $pg['name'] . ' (' . $pg['id'] . ')';
+        }
+        wp_send_json_error(array('message' => 'এই অ্যাকাউন্টে পেজ পাওয়া যায়নি। পাওয়া গেছে: ' . ($names ? implode(', ', $names) : 'কিছু নেই') . '। টোকেন নেওয়ার সময় পেজটি বেছে নিয়েছেন কিনা দেখুন।'));
+    }
+    update_option('sb_fb', array('page_id' => $pick['id'], 'page_name' => sanitize_text_field($pick['name']), 'token' => $pick['access_token'], 't' => time()), false);
+    wp_send_json_success(array('message' => '✅ সংযুক্ত হয়েছে: ' . $pick['name']));
+});
+
+add_action('wp_ajax_sb_fb_disconnect', function () {
+    sb_ajax_guard('manage_options');
+    delete_option('sb_fb');
+    delete_transient('sb_fb_feed');
+    wp_send_json_success(array('message' => 'সংযোগ মুছে ফেলা হয়েছে।'));
+});
+
+/** Posts and videos of the connected Page (10-minute cache). */
+add_action('wp_ajax_sb_fb_fetch', function () {
+    sb_ajax_guard('edit_posts');
+    $c = sb_fb_cfg();
+    if (empty($c['token'])) {
+        wp_send_json_error(array('message' => 'Facebook পেজ এখনো সংযুক্ত নয়।'));
+    }
+    $force = '1' === (string) sb_req('force');
+    $out   = $force ? false : get_transient('sb_fb_feed');
+    if (!is_array($out)) {
+        $posts  = sb_fb_get($c['page_id'] . '/posts', array('fields' => 'id,message,created_time,permalink_url,full_picture', 'limit' => 40), $c['token']);
+        $videos = sb_fb_get($c['page_id'] . '/videos', array('fields' => 'id,title,description,created_time,permalink_url,picture,length', 'limit' => 40), $c['token']);
+        if (is_wp_error($posts) && is_wp_error($videos)) {
+            wp_send_json_error(array('message' => $posts->get_error_message() . ' (টোকেন মেয়াদ শেষ বা অনুমতি কম হলে আবার সংযুক্ত করুন)'));
+        }
+        $out = array('posts' => array(), 'videos' => array());
+        foreach (is_wp_error($posts) || empty($posts['data']) ? array() : $posts['data'] as $p) {
+            $out['posts'][] = array('id' => $p['id'], 'text' => isset($p['message']) ? wp_strip_all_tags($p['message']) : '', 'date' => isset($p['created_time']) ? substr($p['created_time'], 0, 10) : '', 'url' => isset($p['permalink_url']) ? esc_url_raw($p['permalink_url']) : '', 'img' => isset($p['full_picture']) ? esc_url_raw($p['full_picture']) : '');
+        }
+        foreach (is_wp_error($videos) || empty($videos['data']) ? array() : $videos['data'] as $v) {
+            $u = isset($v['permalink_url']) ? $v['permalink_url'] : '';
+            $out['videos'][] = array('id' => $v['id'], 'text' => trim((isset($v['title']) ? $v['title'] : '') . ' ' . (isset($v['description']) ? $v['description'] : '')), 'date' => isset($v['created_time']) ? substr($v['created_time'], 0, 10) : '', 'url' => $u ? esc_url_raw(0 === strpos($u, 'http') ? $u : 'https://www.facebook.com' . $u) : '', 'img' => isset($v['picture']) ? esc_url_raw($v['picture']) : '', 'len' => isset($v['length']) ? (int) $v['length'] : 0);
+        }
+        set_transient('sb_fb_feed', $out, 600);
+    }
+    wp_send_json_success($out);
+});
+
+function sb_fb_card() {
+    $c  = sb_fb_cfg();
+    $on = !empty($c['token']);
+    ?>
+    <div class="sba-card sba-form" id="fb-card" style="max-width:860px;margin-top:16px">
+        <h2>📘 Facebook পেজ</h2>
+        <?php if ($on) : ?>
+            <p>সংযুক্ত: <b><?php echo esc_html($c['page_name']); ?></b> · এই তথ্য আনতে ক্রেডিট কাটে না (আপনার নিজের পেজের তথ্য)।</p>
+            <p>
+                <button type="button" class="button button-primary" id="fb-load">পেজের পোস্ট ও ভিডিও আনুন</button>
+                <button type="button" class="button" id="fb-reload">🔄 নতুন করে আনুন</button>
+                <?php if (current_user_can('manage_options')) : ?><button type="button" class="button" id="fb-off">সংযোগ মুছুন</button><?php endif; ?>
+            </p>
+            <div id="fb-list"></div>
+        <?php elseif (current_user_can('manage_options')) : ?>
+            <p class="sba-muted">একবার সংযুক্ত করলে পেজের পোস্ট ও ভিডিও এখানে আসবে। টোকেন কীভাবে নেবেন তা নিচে লেখা।</p>
+            <label>App ID<input type="text" id="fb-app" autocomplete="off"></label>
+            <label>App Secret<input type="password" id="fb-sec" autocomplete="off"></label>
+            <label>টোকেন (Graph API Explorer থেকে)<input type="password" id="fb-tok" autocomplete="off"></label>
+            <label>পেজ আইডি <small>(ফাঁকা রাখলে প্রথম পেজ)</small><input type="text" id="fb-pid" autocomplete="off"></label>
+            <p><button type="button" class="button button-primary" id="fb-go">সংযুক্ত করুন</button></p>
+            <details><summary>টোকেন কীভাবে নেবেন</summary>
+                <ol>
+                    <li><b>developers.facebook.com</b> → My Apps → Create App (টাইপ: Business বা Other)।</li>
+                    <li>Tools → <b>Graph API Explorer</b>। উপরে আপনার App বেছে নিন।</li>
+                    <li>User or Page → <b>Get User Access Token</b>। অনুমতির তালিকায় <code>pages_show_list</code> ও <code>pages_read_engagement</code> টিক দিন। Generate চাপুন, Facebook-এ আপনার পেজটি বেছে নিন (আপনাকে পেজের অ্যাডমিন হতে হবে)।</li>
+                    <li>যে টোকেন আসবে সেটা উপরের "টোকেন" ঘরে বসান। App ID ও App Secret পাবেন App Settings → Basic থেকে।</li>
+                    <li>সংযুক্ত করুন চাপুন। প্লাগইন নিজে মেয়াদহীন পেজ-টোকেন বানিয়ে রাখবে। App Secret ও আপনার টোকেন সংরক্ষণ হবে না।</li>
+                </ol>
+            </details>
+        <?php else : ?>
+            <p class="sba-muted">Facebook পেজ এখনো সংযুক্ত হয়নি। অ্যাডমিন সংযুক্ত করবেন।</p>
+        <?php endif; ?>
+        <p id="fb-msg" class="sba-msg"></p>
+    </div>
+<script>
+(function(){
+    var nonce = <?php echo wp_json_encode(wp_create_nonce('sb_admin')); ?>, ajax = <?php echo wp_json_encode(admin_url('admin-ajax.php')); ?>;
+    var $ = function (s) { return document.querySelector(s); };
+    function msg(t, bad) { var m = $('#fb-msg'); m.textContent = t || ''; m.style.color = bad ? '#b32d2e' : '#1a6b3e'; }
+    function call(op, data) { return fetch(ajax, { method: 'POST', credentials: 'same-origin', body: new URLSearchParams(Object.assign({ action: op, nonce: nonce }, data || {})) }).then(function (r) { return r.json(); }); }
+    function on(id, fn) { var e = $(id); if (e) { e.addEventListener('click', fn); } }
+    on('#fb-go', function () {
+        msg('সংযুক্ত করছি…');
+        call('sb_fb_connect', { app_id: $('#fb-app').value, app_secret: $('#fb-sec').value, user_token: $('#fb-tok').value, page_id: $('#fb-pid').value }).then(function (j) {
+            if (!j.success) { msg(j.data.message, true); return; } msg(j.data.message); setTimeout(function () { location.reload(); }, 900);
+        });
+    });
+    on('#fb-off', function () { call('sb_fb_disconnect').then(function () { location.reload(); }); });
+    function row(x, kind) {
+        var d = document.createElement('div'); d.style.cssText = 'display:flex;gap:10px;padding:8px 0;border-bottom:1px solid #e5e7eb';
+        if (x.img) { var i = document.createElement('img'); i.src = x.img; i.alt = ''; i.style.cssText = 'width:84px;height:60px;object-fit:cover;border-radius:6px;flex:none'; d.appendChild(i); }
+        var t = document.createElement('div'); t.style.minWidth = '0';
+        var a = document.createElement('a'); a.href = x.url; a.target = '_blank'; a.rel = 'noopener'; a.textContent = (kind === 'v' ? '🎬 ' : '📝 ') + (x.text ? x.text.slice(0, 140) : '(লেখা নেই)');
+        var s = document.createElement('small'); s.style.display = 'block'; s.textContent = x.date + (x.len ? ' · ' + Math.round(x.len / 60) + ' মিনিট' : '');
+        t.appendChild(a); t.appendChild(s); d.appendChild(t); return d;
+    }
+    function load(force) {
+        msg('আনছি…');
+        call('sb_fb_fetch', { force: force ? '1' : '0' }).then(function (j) {
+            if (!j.success) { msg(j.data.message, true); return; }
+            msg('');
+            var L = $('#fb-list'); L.innerHTML = '';
+            [['ভিডিও', j.data.videos, 'v'], ['পোস্ট', j.data.posts, 'p']].forEach(function (g) {
+                var h = document.createElement('h3'); h.textContent = g[0] + ' (' + g[1].length + ')'; L.appendChild(h);
+                g[1].forEach(function (x) { L.appendChild(row(x, g[2])); });
+            });
+        });
+    }
+    on('#fb-load', function () { load(false); });
+    on('#fb-reload', function () { load(true); });
 })();
 </script>
     <?php
