@@ -35,7 +35,7 @@ $items = get_posts(array('post_type' => 'sb_post', 'post_status' => 'any', 'numb
     fetch(SB.ajax||ajaxurl,{method:'POST',body:fd,credentials:'same-origin'}).then(function(r){return r.json();}).then(function(j){
     if(!j.success){m.textContent='ত্রুটি হয়েছে';b.disabled=false;return;}
     n+=j.data.done.length;sk+=j.data.skipped.length;m.textContent=n+'টি এসেছে'+(sk?', '+sk+'টি বাদ':'')+(j.data.left?' … চলছে':'');
-    if(j.data.left>0&&(j.data.done.length||j.data.skipped.length)){step();}else{m.textContent='শেষ: '+n+'টি নতুন সংবাদ এসেছে'+(sk?', '+sk+'টি বাদ গেছে':'')+'।';b.disabled=false;if(n){setTimeout(function(){location.reload();},1200);}}
+    if(j.data.left>0&&(j.data.done.length||j.data.skipped.length)){step();}else{m.textContent=n?('শেষ: '+n+'টি নতুন সংবাদ এসেছে'+(sk?', '+sk+'টি বাদ গেছে':'')+'।'):('নতুন কিছু আনার নেই। ইভেন্ট পেজের সব সংবাদ আগেই এখানে আনা হয়েছে (নিচের তালিকা দেখুন)'+(sk?'; '+sk+'টি লিংক পড়া যায়নি তাই বাদ।':'।'));b.disabled=false;if(n){setTimeout(function(){location.reload();},1200);}}
     }).catch(function(){m.textContent='সংযোগে সমস্যা';b.disabled=false;});})();});})();
     </script>
 
