@@ -238,3 +238,10 @@
 .ecb .btns{flex-direction:column}.ecb .btns .b{width:100%;text-align:center;justify-content:center}
 }
 @media (max-width:760px){.ecb .more{padding:12px 12px;font-size:14.5px;gap:6px;white-space:nowrap}.ecb .more i{font-size:17px;margin:0}}
+
+/* v2.86.10 — gap between events, prizes in 3 lines */
+.evs{gap:34px}
+.ecp{display:flex;flex-direction:column;align-items:stretch;gap:8px}
+.ecp strong{margin-bottom:2px}
+.ecp span{display:flex;justify-content:space-between;align-items:center;gap:10px;border-radius:12px;padding:8px 14px}
+.ecp span b{white-space:nowrap}

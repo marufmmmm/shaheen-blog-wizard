@@ -326,7 +326,7 @@ function csa_ev_card( $e, $home = true ) {
 			}
 		}
 	}
-	$more = ( $u && ! empty( $e['card_more'] ) ) ? '<a class="more" href="' . esc_url( $u ) . '">সব পর্ব ও তথ্য জানতে এখানে ক্লিক করুন <i>→</i></a>' : '';
+	$more = ( $u && ! empty( $e['card_more'] ) ) ? '<a class="more" href="' . esc_url( $u ) . '">তথ্য জানতে এখানে ক্লিক করুন <i>→</i></a>' : '';
 	$prim = false;
 	foreach ( array_slice( $bt, 0, 3 ) as $b ) {
 		if ( ! empty( $b['k'] ) && 'p' === $b['k'] ) {
@@ -338,7 +338,7 @@ function csa_ev_card( $e, $home = true ) {
 		$btn .= csa_ev_btn_html( $b );
 	}
 	$btn = $btn ? '<div class="btns">' . $btn . '</div>' : '';
-	$h  .= '<div class="ecb">' . ( $prim ? $btn . $more : $more . $btn ) . '</div>';
+	$h  .= '<div class="ecb">' . ( $prim ? $btn . $more : $more . $btn );
 	return $h . '</div></div></article>';
 }
 
