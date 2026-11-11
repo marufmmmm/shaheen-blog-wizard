@@ -112,12 +112,14 @@ const EXTRACT = `(() => {
 
 const RESULTS = `(() => {
   const out = [], seen = new Set();
-  document.querySelectorAll('a[href]').forEach(a => {
-    const h = a.querySelector('h3'); if (!h) return;
+  const root = document.querySelector('#rso') || document.querySelector('#search') || document.body;
+  root.querySelectorAll('a[href]').forEach(a => {
+    const h = a.querySelector('h3,[role="heading"]');
+    if (!h) return;
     let u = a.href;
     try { const x = new URL(u); if (/(^|\\.)google\\./.test(x.hostname) && x.pathname === '/url') { u = x.searchParams.get('q') || x.searchParams.get('url') || u; } } catch (e) {}
     try { const x = new URL(u); if (!/^https?:$/.test(x.protocol) || /(^|\\.)google\\./.test(x.hostname) || /(^|\\.)gstatic\\./.test(x.hostname)) return; } catch (e) { return; }
-    if (seen.has(u)) return; seen.add(u); out.push({ url: u, title: h.innerText });
+    if (seen.has(u)) return; seen.add(u); out.push({ url: u, title: (h.innerText || '').trim() || u });
   });
   return out;
 })()`;
@@ -174,7 +176,7 @@ ipcMain.handle('hist', async (_e, { q, from, to, pages }) => {
   from = Math.max(2000, Math.min(2026, +from || 2010)); to = Math.max(from, Math.min(2026, +to || 2026)); pages = Math.max(1, Math.min(5, +pages || 2));
   if (!qs.length) return { ok: false, msg: 'কী খুঁজব লিখুন।' };
   histRun = true; stopHist = false;
-  const T = { filed: 0, blocked: 0, skipped: 0, error: 0, dup: 0 }; let got = 0, years = 0;
+  const T = { filed: 0, blocked: 0, skipped: 0, error: 0, dup: 0 }; let got = 0, years = 0, searched = 0, empty = 0, lastT = '';
   try {
     outer: for (let y = from; y <= to; y++) {
       for (const qq of qs) {
@@ -188,7 +190,8 @@ ipcMain.handle('hist', async (_e, { q, from, to, pages }) => {
           if (/google\.[a-z.]+\/sorry|consent\./i.test(cur)) { histRun = false; return { ok: false, msg: '⚠ Google যাচাই (captcha) চাইছে। ওয়েব ট্যাবে সেটা মিটিয়ে আবার শুরু করুন। এ পর্যন্ত ' + got + 'টি সংগ্রহ।' }; }
           let list = [];
           try { list = await view.webContents.executeJavaScript(RESULTS); } catch (e) { list = []; }
-          if (!list.length) break;   // no more pages for this year/query
+          searched++;
+          if (!list.length) { empty++; try { lastT = await view.webContents.executeJavaScript('document.title+" | "+location.href.slice(0,90)'); } catch (e) {} break; }
           const r = await collectList(c, list, '📚 ' + y + ' · ', T);
           if (r.msg && r.ok === false && !r.n && /চাবি|পাঠানো/.test(r.msg)) { histRun = false; return r; }
           got += r.n || 0;
@@ -197,7 +200,7 @@ ipcMain.handle('hist', async (_e, { q, from, to, pages }) => {
       years++;
     }
   } finally { histRun = false; }
-  return { ok: true, msg: (stopHist ? '⏸ থামানো হয়েছে' : '✅ শেষ') + ' · ' + years + ' বছর · ' + got + 'টি পেজ সংগ্রহ · বসানো ' + T.filed + ', ⛔ আটকানো ' + T.blocked + ', বাদ ' + (T.skipped + T.dup) + (T.error ? ', ⚠ যাচাই হয়নি ' + T.error : '') };
+  return { ok: true, msg: (stopHist ? '⏸ থামানো হয়েছে' : '✅ শেষ') + ' · ' + years + ' বছর · ' + got + 'টি পেজ সংগ্রহ · বসানো ' + T.filed + ', ⛔ আটকানো ' + T.blocked + ', বাদ ' + (T.skipped + T.dup) + (T.error ? ', ⚠ যাচাই হয়নি ' + T.error : '') + (empty ? ' · ' + searched + 'টি সার্চের ' + empty + 'টিতে রেজাল্ট পাওয়া যায়নি' + (lastT ? ' [' + lastT + ']' : '') : '') };
 });
 
 ipcMain.handle('collect', async () => {
