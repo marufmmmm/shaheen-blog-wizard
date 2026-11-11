@@ -304,9 +304,9 @@ function csa_ev_card( $e, $home = true ) {
 			}
 		}
 		if ( $lg ) {
-			$h .= '<div class="ecl">';
+			$h .= '<div class="ecl"><small>আয়োজক ও সহযোগী</small>';
 			foreach ( $lg as $g ) {
-				$h .= '<span><small>' . esc_html( $g['l'] ) . '</small>' . csa_ev_img( $g['i'], $g['n'] ) . '</span>';
+				$h .= '<span title="' . esc_attr( $g['l'] . ': ' . $g['n'] ) . '">' . csa_ev_img( $g['i'], $g['n'] ) . '</span>';
 			}
 			$h .= '</div>';
 		} else {

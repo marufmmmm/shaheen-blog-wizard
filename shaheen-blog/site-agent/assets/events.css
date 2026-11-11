@@ -174,3 +174,20 @@
 .shm .mpr{overflow:hidden;border-radius:18px}.shm .mpr img{width:147%;max-width:none;margin-left:-47%;height:auto;display:block}
 @media (max-width:900px){.shm .ag{grid-template-columns:1fr 1fr}.shm .ga:last-child:nth-child(4n+3){grid-column:auto}.shm .bars{grid-template-columns:1fr}.shm .mp{grid-template-columns:1fr}.shm .mpl{flex-direction:row;flex-wrap:wrap;justify-content:center}}
 @media (max-width:520px){.shm .ag{grid-template-columns:1fr 1fr;gap:10px}.shm .bdi{width:180px;height:180px}.shm .bdi b{font-size:46px}.shm .bdi:before{left:-26px}.shm .bdi:after{right:-26px}}
+
+/* v2.86.4 — calmer wide card */
+.ec .eh{flex:0 0 31%;min-height:0;padding:26px 24px;justify-content:flex-start;gap:16px;align-items:stretch}
+.ec .eb{flex-direction:column;align-items:center;text-align:center;gap:14px;width:100%}
+.ec .el{width:100%;max-width:100%;max-height:none;padding:14px;border-radius:22px}.ec .el img{max-height:170px}
+.ec .eb>div{width:100%}.ec .eb small{margin-bottom:4px}
+.ec h3{font-size:clamp(22px,2.4vw,30px);line-height:1.25}.ec h3 em{white-space:nowrap}
+.ec .st{align-self:center;order:3}
+.ec .ex{padding:24px 28px;gap:16px}
+.ecf{display:grid;grid-template-columns:repeat(auto-fit,minmax(170px,1fr));gap:10px}.ecf span{min-width:0;flex-direction:row;flex-wrap:wrap;align-items:center;gap:2px 10px;padding:10px 14px}.ecf i{order:0}.ecf small{flex:1 1 60%}.ecf b{flex:1 0 100%;font-size:15px}
+.ecp{padding:10px 14px}
+.ecl{display:flex;flex-wrap:wrap;align-items:center;gap:10px;background:linear-gradient(135deg,#0d2e1c,#0f2a40);border-radius:16px;padding:10px 16px}
+.ecl small{color:#b9d3c3!important;font-size:12.5px;margin-right:6px}
+.ecl span{display:flex;align-items:center;background:none;border:0;padding:0;min-width:0}.ecl img{height:34px;max-width:130px}
+.ecb{flex-direction:row;flex-wrap:wrap;align-items:center;justify-content:space-between;gap:12px;border-top:1px dashed var(--line);padding-top:14px;margin-top:auto}
+.ecb .more{border:0;padding:0;margin:0;display:inline-flex;gap:10px;font-size:15px}
+@media (max-width:760px){.ec .eh{flex:none;flex-direction:column;padding:20px}.ec .el img{max-height:120px}.ecb{flex-direction:column;align-items:stretch}.ecb .more{justify-content:space-between}}
