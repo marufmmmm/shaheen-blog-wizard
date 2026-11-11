@@ -193,7 +193,7 @@
 		L.slice().sort(function (a, b) { return a.order - b.order; }).forEach(function (e) {
 			h += '<div class="ev-card" style="--c1:' + at(e.c1) + ';--c2:' + at(e.c2) + '"><div class="hd"><span class="lg">' + (e.logo ? '<img src="' + at(e.logo) + '" alt="">' : '🎪') + '</span><div><b>' + esc(e.title) + (e.season ? ' <em>' + esc(e.season) + '</em>' : '') + '</b><small>' + esc(e.series || '') + '</small></div></div><div class="bd">';
 			h += '<p><span class="tg">' + (e._stage ? esc(e._stage) : 'সময়রেখা নেই') + '</span> ' + (e._live ? '<span class="tg ok">পেজ চালু</span>' : '<span class="tg wn">পেজ ড্রাফট</span>') + ' ' + (e._home ? '<span class="tg ok">হোমে দেখাচ্ছে</span>' : '<span class="tg">হোমে নেই</span>') + (e.ext ? ' <span class="tg">পুরোনো পেজে লিংক</span>' : '') + '</p>';
-			h += '<p class="ac"><button class="button button-primary" data-act="edit" data-id="' + e.id + '">✏️ সম্পাদনা</button>' + (e._url ? ' <a class="button" href="' + at(e._url) + '" target="_blank">👁 দেখুন ↗</a>' : '');
+			h += '<p class="ac"><button class="button button-primary" data-act="edit" data-id="' + e.id + '">✏️ সম্পাদনা</button>' + (e._url ? ' <a class="button" href="' + at(e._url) + '" target="_blank">👁 দেখুন ↗</a> <button class="button" data-act="mob" data-u="' + at(e._url) + '">📱 মোবাইল ভিউ</button>' : '');
 			if (e.page && !e.ext) { h += e._live ? ' <button class="button" data-act="draft" data-id="' + e.id + '">ড্রাফটে নিন</button>' : ' <button class="button button-primary" data-act="pub" data-id="' + e.id + '">🚀 প্রকাশ করুন</button>'; }
 			h += ' <button class="button-link-delete" data-act="del" data-id="' + e.id + '">মুছুন</button></p></div></div>';
 		});
@@ -226,7 +226,7 @@
 		var h = '<div class="ev-live ' + (hs.live ? 'on' : '') + '"><div><b>' + (hs.live ? '✅ নতুন হোম পেজ এখন সবার জন্য চালু' : '📝 নতুন হোম পেজ এখনো খসড়া — দর্শক পুরোনো হোম পেজই দেখছে') + '</b><p>এখন চালু হোম পেজ: <b>' + esc(hs.curt || 'কিছু নেই') + '</b>' + (hs.old && hs.oldt ? ' · আগের হোম পেজ: <b>' + esc(hs.oldt) + '</b> (একটুও বদলানো হয়নি)' : '') + '</p></div><div class="ac">';
 		if (!hs.exists) { h += '<button class="button button-primary" data-act="hmake">নতুন হোম পেজের খসড়া বানান</button>'; }
 		else {
-			h += '<a class="button button-large" href="' + at(hs.preview) + '" target="_blank">👁 প্রিভিউ দেখুন ↗</a>';
+			h += '<a class="button button-large" href="' + at(hs.preview) + '" target="_blank">👁 প্রিভিউ দেখুন ↗</a> <button class="button button-large" data-act="mob" data-u="' + at(hs.preview) + '">📱 মোবাইল ভিউ</button>';
 			if (EV.isAdmin) {
 				h += hs.live ? ' <button class="button button-large" data-act="hback">↩ পুরোনো হোম পেজ ফিরিয়ে আনুন</button>' : ' <button class="button button-primary button-large" data-act="hlive">🚀 নতুন হোম পেজ চালু করুন</button>';
 			}
@@ -256,6 +256,36 @@
 	}
 
 	/* ---------------- actions ---------------- */
+	/* phone / tablet preview of any page (same site, so it loads in a frame) */
+	function mobView(u) {
+		if (!u) { return; }
+		var o = document.createElement('div');
+		o.className = 'ev-mob';
+		o.innerHTML = '<div class="mb"><div class="mt"><button data-w="390" class="on">📱 ফোন</button><button data-w="768">📟 ট্যাবলেট</button><button data-w="1200">🖥 ডেস্কটপ</button><a href="' + at(u) + '" target="_blank">নতুন ট্যাবে ↗</a><button class="x" aria-label="বন্ধ">×</button></div><div class="mw"><iframe src="' + at(u) + '" title="প্রিভিউ"></iframe></div></div>';
+		var f = o.querySelector('iframe'), w = o.querySelector('.mw');
+		function fit(px) {
+			var avail = Math.max(280, w.clientWidth - 8), sc = Math.min(1, avail / px);
+			f.style.width = px + 'px'; f.style.height = (w.clientHeight / sc) + 'px';
+			f.style.transform = 'scale(' + sc + ')'; f.style.transformOrigin = 'top left';
+			w.style.justifyContent = sc < 1 ? 'flex-start' : 'center';
+		}
+		function close() { document.body.removeChild(o); document.removeEventListener('keydown', key); }
+		function key(ev) { if (ev.key === 'Escape') { close(); } }
+		o.addEventListener('click', function (ev) {
+			var b = ev.target.closest('button');
+			if (ev.target === o || (b && b.classList.contains('x'))) { close(); return; }
+			if (b && b.getAttribute('data-w')) {
+				[].forEach.call(o.querySelectorAll('.mt button[data-w]'), function (x) { x.classList.toggle('on', x === b); });
+				w.className = 'mw w' + b.getAttribute('data-w');
+				fit(+b.getAttribute('data-w'));
+			}
+		});
+		document.addEventListener('keydown', key);
+		document.body.appendChild(o);
+		w.className = 'mw w390';
+		fit(390);
+	}
+
 	app.addEventListener('click', function (e) {
 		var t = e.target.closest('button,a');
 		if (!t) { return; }
@@ -268,7 +298,8 @@
 		if ((t.classList.contains('up') || t.classList.contains('dn')) && t.closest('#ev-ord li')) { return move(t.closest('li'), t.classList.contains('up') ? -1 : 1); }
 		if (!act) { return; }
 		e.preventDefault();
-		if (act === 'new') { S.ed = 'new'; S.etab = 'main'; S.msg = ''; draw(); }
+		if (act === 'mob') { mobView(t.getAttribute('data-u')); }
+		else if (act === 'new') { S.ed = 'new'; S.etab = 'main'; S.msg = ''; draw(); }
 		else if (act === 'edit') { S.ed = id; S.etab = 'main'; S.msg = ''; draw(); }
 		else if (act === 'back') { S.ed = null; draw(); }
 		else if (act === 'save') { run(post('save', readEvent()), function () { S.ed = null; }); }

@@ -275,7 +275,7 @@ function csa_ev_card( $e, $home = true ) {
 	$u   = csa_ev_page_url( $e );
 	$bt  = $home ? csa_ev_btns( $e, true ) : array();
 	$txt = $e['card'] ? $e['card'] : $e['tagline'];
-	$h   = '<article class="ec rv" style="' . esc_attr( csa_ev_vars( $e ) ) . '"><div class="eh">' . csa_ev_sparkles( 6 ) . '<div class="eb">' . ( $e['logo'] ? '<span class="el">' . csa_ev_img( $e['logo'], $e['title'] ) . '</span>' : '' ) . '<div>' . ( $e['series'] ? '<small>' . esc_html( $e['series'] ) . '</small>' : '' ) . '<h3>' . esc_html( $e['title'] ) . ( $e['season'] ? ' <em>' . esc_html( $e['season'] ) . '</em>' : '' ) . '</h3></div></div>' . ( $st[0] ? '<span class="st ' . esc_attr( $st[1] ) . '">' . esc_html( $st[0] ) . '</span>' : '' ) . '</div><div class="ex">';
+	$h   = '<article class="ec rv" style="' . esc_attr( csa_ev_vars( $e ) ) . '"><div class="eh">' . csa_ev_sparkles( 6 ) . '<div class="eb">' . ( $e['logo'] ? '<span class="el">' . csa_ev_img( $e['logo'], $e['title'] ) . '</span>' : '' ) . '<div>' . ( $e['series'] ? '<small>' . esc_html( $e['series'] ) . '</small>' : '' ) . '<h3>' . esc_html( $e['title'] ) . ( $e['season'] ? ' <em>' . esc_html( $e['season'] ) . '</em>' : '' ) . '</h3></div></div>' . ( $st[0] ? ( $u ? '<a class="st lnk ' . esc_attr( $st[1] ) . '" href="' . esc_url( $u ) . '">' . esc_html( $st[0] ) . ' <i>→</i></a>' : '<span class="st ' . esc_attr( $st[1] ) . '">' . esc_html( $st[0] ) . '</span>' ) : '' ) . '</div><div class="ex">';
 	if ( $txt ) {
 		$h .= '<p>' . esc_html( $txt ) . '</p>';
 	}
@@ -304,10 +304,11 @@ function csa_ev_card( $e, $home = true ) {
 			}
 		}
 		if ( $lg ) {
-			$h .= '<div class="ecl"><small>আয়োজক ও সহযোগী</small>';
+			$h .= '<div class="ecl"><small class="lt">আয়োজক ও সহযোগী</small><div class="lg">';
 			foreach ( $lg as $g ) {
-				$h .= '<span title="' . esc_attr( $g['l'] . ': ' . $g['n'] ) . '">' . csa_ev_img( $g['i'], $g['n'] ) . '</span>';
+				$h .= '<span title="' . esc_attr( $g['n'] ) . '">' . csa_ev_img( $g['i'], $g['n'] ) . '<small>' . esc_html( $g['l'] ) . '</small></span>';
 			}
+			$h .= '</div>';
 			$h .= '</div>';
 		} else {
 			$by = array();
