@@ -515,11 +515,24 @@ function csa_ev_hs_ach( $x ) {
 		$h .= '</div>';
 	}
 	if ( $x['items'] ) {
-		$h .= '<div class="ai">';
+		$logo = home_url( '/wp-content/uploads/2026/06/SEF-Logo.png' );
+		$h   .= '<div class="rsl rv" data-rs><div class="rst">';
 		foreach ( $x['items'] as $i ) {
-			$h .= '<div class="ac rv"><span class="ic">' . esc_html( $i['ic'] ) . '</span><div><h3>' . esc_html( $i['t'] ) . '</h3><p>' . esc_html( $i['d'] ) . '</p></div></div>';
+			$big = ! empty( $i['big'] ) ? $i['big'] : '';
+			$bg  = ! empty( $i['img'] ) ? ' has-img" style="--rb:url(' . esc_url( $i['img'] ) . ')' : '';
+			$hl  = function ( $t ) {
+				return preg_replace( '/([০-৯][০-৯,.]*)/u', '<mark>$1</mark>', esc_html( $t ) );
+			};
+			$h .= '<article class="rsc' . $bg . '"><i class="rd1"></i><i class="rd2"></i><div class="rbr"><img src="' . esc_url( $logo ) . '" alt="" loading="lazy"><b>শাহীন শিক্ষা পরিবার</b></div><span class="rtg">' . esc_html( $i['t'] ) . '</span>';
+			if ( $big ) {
+				$h .= '<p class="rbg">' . $hl( $big ) . '</p>';
+			}
+			if ( ! empty( $i['d'] ) ) {
+				$h .= '<p class="rpp">' . $hl( $i['d'] ) . '</p>';
+			}
+			$h .= '</article>';
 		}
-		$h .= '</div>';
+		$h .= '</div><div class="rnv"><button type="button" class="rpv" aria-label="আগেরটি">←</button><span class="rdt"></span><button type="button" class="rnx" aria-label="পরেরটি">→</button></div></div>';
 	}
 	return $h . ( $x['bu'] && $x['bt'] ? '<p class="mr rv"><a class="b p"' . csa_ev_link_attr( $x['bu'] ) . '>' . esc_html( $x['bt'] ) . '</a></p>' : '' ) . '</div></section>';
 }

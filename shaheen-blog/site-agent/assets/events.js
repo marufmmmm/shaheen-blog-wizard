@@ -38,6 +38,38 @@
 		rv.forEach(function (el) { el.classList.add('vis'); });
 	}
 
+	/* result slider */
+	[].slice.call(document.querySelectorAll('[data-rs]')).forEach(function (rs) {
+		var tr = rs.querySelector('.rst'), cs = [].slice.call(tr.children), dt = rs.querySelector('.rdt'), cur = 0, timer, hold = false, busy = 0;
+		cs.forEach(function (c, i) { var b = document.createElement('button'); b.type = 'button'; b.setAttribute('aria-label', 'কার্ড ' + (i + 1)); b.addEventListener('click', function () { go(i); }); dt.appendChild(b); });
+		function per() { return window.innerWidth > 900 ? 2 : 1; }
+		function go(i) {
+			var max = Math.max(0, cs.length - per());
+			cur = i > max ? 0 : (i < 0 ? max : i);
+			busy = Date.now() + 900;
+			tr.scrollTo({ left: cs[cur].offsetLeft - cs[0].offsetLeft, behavior: 'smooth' });
+			mark();
+		}
+		function mark() { var mx = Math.max(0, cs.length - per()); [].slice.call(dt.children).forEach(function (b, i) { b.className = i === cur ? 'on' : ''; b.hidden = i > mx; }); }
+		window.addEventListener('resize', mark);
+		var st;
+		tr.addEventListener('scroll', function () {
+			clearTimeout(st);
+			st = setTimeout(function () {
+				if (Date.now() < busy) { return; }
+				var best = 0, d = 1e9;
+				cs.forEach(function (c, i) { var x = Math.abs(c.offsetLeft - cs[0].offsetLeft - tr.scrollLeft); if (x < d) { d = x; best = i; } });
+				cur = best; mark();
+			}, 80);
+		}, { passive: true });
+		rs.querySelector('.rpv').addEventListener('click', function () { go(cur - 1); });
+		rs.querySelector('.rnx').addEventListener('click', function () { go(cur + 1); });
+		function play() { clearInterval(timer); timer = setInterval(function () { if (!hold && !document.hidden) { go(cur + 1); } }, 5500); }
+		['mouseenter', 'touchstart', 'focusin'].forEach(function (e) { rs.addEventListener(e, function () { hold = true; }, { passive: true }); });
+		['mouseleave', 'touchend', 'focusout'].forEach(function (e) { rs.addEventListener(e, function () { setTimeout(function () { hold = false; }, 2500); }, { passive: true }); });
+		mark(); play();
+	});
+
 	/* countdown */
 	function bn(n) { return String(n).replace(/[0-9]/g, function (d) { return '০১২৩৪৫৬৭৮৯'.charAt(+d); }); }
 	[].slice.call(document.querySelectorAll('.sev .cd[data-until]')).forEach(function (c) {
