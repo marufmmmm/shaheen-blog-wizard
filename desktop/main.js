@@ -4,6 +4,7 @@ const fs = require('fs');
 
 const TOOLBAR_H = 52;
 let win, bar, view;
+let barH = TOOLBAR_H;
 const cfgFile = () => path.join(app.getPath('userData'), 'settings.json');
 
 function loadCfg() {
@@ -29,7 +30,7 @@ function normalize(input) {
 
 function layout() {
   const [w, h] = win.getContentSize();
-  bar.setBounds({ x: 0, y: 0, width: w, height: TOOLBAR_H });
+  bar.setBounds({ x: 0, y: 0, width: w, height: barH });
   view.setBounds({ x: 0, y: TOOLBAR_H, width: w, height: Math.max(100, h - TOOLBAR_H) });
 }
 function send(ch, data) { if (bar && !bar.webContents.isDestroyed()) bar.webContents.send(ch, data); }
@@ -37,6 +38,7 @@ function send(ch, data) { if (bar && !bar.webContents.isDestroyed()) bar.webCont
 function createWindow() {
   win = new BaseWindow({ width: 1280, height: 860, title: 'Shaheen Browser' });
   bar = new WebContentsView({ webPreferences: { preload: path.join(__dirname, 'preload.js'), contextIsolation: true, sandbox: true } });
+  bar.setBackgroundColor('#00000000');
   view = new WebContentsView({ webPreferences: { partition: 'persist:shaheen', contextIsolation: true, sandbox: true } });
   win.contentView.addChildView(view);
   win.contentView.addChildView(bar);
@@ -53,6 +55,7 @@ function createWindow() {
 ipcMain.handle('go', (_e, input) => { view.webContents.loadURL(normalize(input)); });
 ipcMain.handle('back', () => { if (view.webContents.navigationHistory.canGoBack()) view.webContents.navigationHistory.goBack(); });
 ipcMain.handle('fwd', () => { if (view.webContents.navigationHistory.canGoForward()) view.webContents.navigationHistory.goForward(); });
+ipcMain.handle('bar:h', (_e, h) => { barH = Math.max(TOOLBAR_H, Math.min(600, Math.round(Number(h) || TOOLBAR_H))); if (win) layout(); });
 ipcMain.handle('reload', () => view.webContents.reload());
 ipcMain.handle('cfg:get', () => { const c = loadCfg(); return { site: c.site, hasKey: !!c.key }; });
 ipcMain.handle('cfg:set', async (_e, { site, key }) => {
