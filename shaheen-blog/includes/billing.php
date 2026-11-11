@@ -20,7 +20,7 @@ const SB_BILL_MULT = 2;
 const SB_RESEARCH_MULT = 1.7;
 
 /** Automatic YouTube episode look (no AI used): fixed fee per look, USD. If AI is used in that look, real cost x 1.7 is billed instead. */
-const SB_YT_CHECK_FEE = 0.02;
+const SB_YT_CHECK_FEE = 0.01;
 
 function sb_mult() {
     return SB_BILL_MULT;
