@@ -150,7 +150,58 @@ function readHidden(url) {
   });
 }
 
+async function collectList(c, list, label, T0) {
+  let n = 0, bad = 0; const T = T0 || { filed: 0, blocked: 0, skipped: 0, error: 0, dup: 0 };
+  for (let i = 0; i < list.length; i++) {
+    if (stopHist) break;
+    send('prog', label + 'সংগ্রহ চলছে… ' + (i + 1) + '/' + list.length + ' · ' + list[i].title.slice(0, 40));
+    const d = await readHidden(list[i].url);
+    if (!d || !(d.text || d.title)) { bad++; continue; }
+    try { const j = await postCollect(c, d); n++; if (j.st && T[j.st] !== undefined) T[j.st]++; } catch (e) { if (e.fatal) { return { ok: false, msg: e.message }; } bad++; }
+  }
+  return { ok: n > 0, n, bad, T, msg: '✅ ' + n + 'টি পেজ সংগ্রহ' + (bad ? ' (' + bad + 'টি পড়া যায়নি)' : '') + ' · বসানো ' + T.filed + ', ⛔ আটকানো ' + T.blocked + ', বাদ ' + (T.skipped + T.dup) + (T.error ? ', ⚠ যাচাই হয়নি ' + T.error : '') };
+}
+
+/* history: one Google search per query x year (date range), several pages each, every result collected */
+let stopHist = false, histRun = false;
+function waitLoad(wc, ms) { return new Promise(r => { let d = false; const f = () => { if (!d) { d = true; r(); } }; wc.once('did-finish-load', () => setTimeout(f, 1500)); wc.once('did-fail-load', f); setTimeout(f, ms); }); }
+ipcMain.handle('hist:stop', () => { stopHist = true; });
+ipcMain.handle('hist', async (_e, { q, from, to, pages }) => {
+  const c = loadCfg();
+  if (!c.site || !c.key) return { ok: false, msg: 'আগে ⚙ সেটিং-এ সাইট ও চাবি দিন।' };
+  if (histRun) return { ok: false, msg: 'ইতিহাস খোঁজা আগে থেকেই চলছে।' };
+  const qs = String(q || '').split('\n').map(x => x.trim()).filter(Boolean);
+  from = Math.max(2000, Math.min(2026, +from || 2010)); to = Math.max(from, Math.min(2026, +to || 2026)); pages = Math.max(1, Math.min(5, +pages || 2));
+  if (!qs.length) return { ok: false, msg: 'কী খুঁজব লিখুন।' };
+  histRun = true; stopHist = false;
+  const T = { filed: 0, blocked: 0, skipped: 0, error: 0, dup: 0 }; let got = 0, years = 0;
+  try {
+    outer: for (let y = from; y <= to; y++) {
+      for (const qq of qs) {
+        for (let p = 0; p < pages; p++) {
+          if (stopHist) break outer;
+          const u = 'https://www.google.com/search?hl=bn&num=10&start=' + (p * 10) + '&q=' + encodeURIComponent(qq) + '&tbs=' + encodeURIComponent('cdr:1,cd_min:1/1/' + y + ',cd_max:12/31/' + y);
+          send('prog', '📚 ' + y + ' সাল · "' + qq.slice(0, 25) + '" · পেজ ' + (p + 1) + ' খোলা হচ্ছে…');
+          view.webContents.loadURL(u).catch(() => {});
+          await waitLoad(view.webContents, 25000);
+          const cur = view.webContents.getURL();
+          if (/google\.[a-z.]+\/sorry|consent\./i.test(cur)) { histRun = false; return { ok: false, msg: '⚠ Google যাচাই (captcha) চাইছে। ওয়েব ট্যাবে সেটা মিটিয়ে আবার শুরু করুন। এ পর্যন্ত ' + got + 'টি সংগ্রহ।' }; }
+          let list = [];
+          try { list = await view.webContents.executeJavaScript(RESULTS); } catch (e) { list = []; }
+          if (!list.length) break;   // no more pages for this year/query
+          const r = await collectList(c, list, '📚 ' + y + ' · ', T);
+          if (r.msg && r.ok === false && !r.n && /চাবি|পাঠানো/.test(r.msg)) { histRun = false; return r; }
+          got += r.n || 0;
+        }
+      }
+      years++;
+    }
+  } finally { histRun = false; }
+  return { ok: true, msg: (stopHist ? '⏸ থামানো হয়েছে' : '✅ শেষ') + ' · ' + years + ' বছর · ' + got + 'টি পেজ সংগ্রহ · বসানো ' + T.filed + ', ⛔ আটকানো ' + T.blocked + ', বাদ ' + (T.skipped + T.dup) + (T.error ? ', ⚠ যাচাই হয়নি ' + T.error : '') };
+});
+
 ipcMain.handle('collect', async () => {
+  stopHist = false;
   const c = loadCfg();
   if (!c.site || !c.key) return { ok: false, msg: 'আগে ⚙ সেটিং-এ সাইট ও চাবি দিন।' };
   /* Google results page: collect every result automatically */
@@ -159,14 +210,7 @@ ipcMain.handle('collect', async () => {
     try { list = await view.webContents.executeJavaScript(RESULTS); } catch (e) { return { ok: false, msg: 'রেজাল্ট পড়া যায়নি: ' + e.message }; }
     list = list.slice(0, 10);
     if (!list.length) return { ok: false, msg: 'এই পেজে কোনো রেজাল্ট লিংক পাওয়া যায়নি।' };
-    let n = 0, bad = 0, total = 0; const T = { filed: 0, blocked: 0, skipped: 0, error: 0, dup: 0 };
-    for (let i = 0; i < list.length; i++) {
-      send('prog', 'সংগ্রহ চলছে… ' + (i + 1) + '/' + list.length + ' · ' + list[i].title.slice(0, 40));
-      const d = await readHidden(list[i].url);
-      if (!d || !(d.text || d.title)) { bad++; continue; }
-      try { const j = await postCollect(c, d); n++; total = j.count; if (j.st && T[j.st] !== undefined) T[j.st]++; } catch (e) { if (e.fatal) { return { ok: false, msg: e.message }; } bad++; }
-    }
-    return { ok: n > 0, msg: '✅ ' + n + 'টি পেজ সংগ্রহ' + (bad ? ' (' + bad + 'টি পড়া যায়নি)' : '') + ' · বসানো ' + T.filed + ', ⛔ আটকানো ' + T.blocked + ', বাদ ' + (T.skipped + T.dup) + (T.error ? ', ⚠ যাচাই হয়নি ' + T.error : '') };
+    return await collectList(c, list, '');
   }
   let data;
   try { data = await view.webContents.executeJavaScript(EXTRACT); } catch (e) { return { ok: false, msg: 'পেজ পড়া যায়নি: ' + e.message }; }

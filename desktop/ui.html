@@ -5,21 +5,29 @@ button{border:0;border-radius:8px;padding:8px 11px;font:inherit;cursor:pointer;b
 #top .on{background:#f8fafc;color:#0f3d24;font-weight:700}#col{background:#f59e0b;color:#1a1200;font-weight:700}#col:hover{background:#fbbf24}
 #msg{position:fixed;left:0;right:0;top:52px;display:none;padding:8px 14px;font-size:13px;background:#111;color:#fff;z-index:9}
 #set{position:fixed;right:8px;top:56px;width:330px;background:#fff;color:#111;border-radius:10px;padding:14px;display:none;box-shadow:0 8px 30px rgba(0,0,0,.35);z-index:10}
+#hs{position:fixed;right:8px;top:56px;width:340px;background:#fff;color:#111;border-radius:10px;padding:14px;display:none;box-shadow:0 8px 30px rgba(0,0,0,.35);z-index:10}#hs label{display:block;margin:8px 0 2px;font-size:12px;color:#444}#hs input,#hs textarea{width:100%;padding:8px;border:1px solid #cbd5e1;border-radius:6px;font:inherit}#hs .r{display:flex;gap:8px;margin-top:12px}#hs button{background:#0f3d24}#hs p{font-size:12px;margin:8px 0 0;color:#444}
 #set label{display:block;margin:8px 0 2px;font-size:12px;color:#444}#set input{width:100%;padding:8px;border:1px solid #cbd5e1;border-radius:6px;font:inherit}
 #set .r{display:flex;gap:8px;margin-top:12px}#set button{background:#0f3d24}#set p{font-size:12px;margin:8px 0 0;color:#444}
 </style></head><body>
 <div id="top"><button id="b" title="পিছনে">◀</button><button id="f" title="সামনে">▶</button><button id="r" title="রিলোড">⟳</button>
 <button id="tw" title="ওয়েব (Google, Facebook…)">🌐 ওয়েব</button><button id="tp" title="WordPress অ্যাডমিন">🅦 WordPress</button>
 <input id="go" placeholder="Google-এ খুঁজুন বা ঠিকানা লিখুন" autocomplete="off">
-<button id="col" title="কোনো লেখার পেজে: সেই পেজ সংগ্রহ। Google সার্চ রেজাল্টে: প্রথম ১০টি রেজাল্ট নিজে নিজে খুলে সংগ্রহ।">📥 সংগ্রহ করুন</button><button id="cfg">⚙ সেটিং</button></div>
+<button id="col" title="কোনো লেখার পেজে: সেই পেজ সংগ্রহ। Google সার্চ রেজাল্টে: প্রথম ১০টি রেজাল্ট নিজে নিজে খুলে সংগ্রহ।">📥 সংগ্রহ করুন</button><button id="hb" title="Google-এ বছর ধরে ধরে পুরনো সংবাদ খুঁজে সংগ্রহ">📚 ইতিহাস</button><button id="cfg">⚙ সেটিং</button></div>
 <div id="msg"></div>
 <div id="set"><b>প্লাগইনের সাথে সংযোগ</b>
 <label>সাইটের ঠিকানা</label><input id="site" placeholder="https://shaheen.edu.bd">
 <label>চাবি (Research পেজ → 🔑 নতুন চাবি বানান)</label><input id="key" type="password" placeholder="sbk_…" autocomplete="off">
 <div class="r"><button id="save">সংযুক্ত করুন</button><button id="x" style="background:#64748b">বন্ধ</button></div><p id="sm"></p></div>
+<div id="hs"><b>📚 পুরনো সংবাদ খোঁজা</b>
+<label>কী খুঁজব (প্রতি লাইনে একটি)</label><textarea id="hq" rows="3">শাহীন ক্যাডেট কোচিং
+Spelling Star শাহীন শিক্ষা পরিবার</textarea>
+<label>শুরুর সাল ও শেষ সাল</label><div class="r" style="margin:0"><input id="hf" type="number" value="2010" min="2000" max="2026"><input id="ht" type="number" value="2026" min="2000" max="2026"></div>
+<label>প্রতি সালে কয়টি Google পেজ (১০টি রেজাল্ট/পেজ)</label><input id="hp" type="number" value="2" min="1" max="5">
+<div class="r"><button id="hgo">▶ শুরু</button><button id="hstop" style="background:#b45309">⏸ থামান</button><button id="hx" style="background:#64748b">বন্ধ</button></div>
+<p>ওয়েব ট্যাব নিজে নিজে চলবে, বন্ধ করবেন না। Google captcha দিলে নিজে মিটিয়ে আবার শুরু করুন। শুধু সংখ্যা ও যাচাই AI-র খরচ কাটে।</p></div>
 <script>
 const $=s=>document.querySelector(s);let t;
-function fit(){const h=52+($('#set').style.display==='block'?($('#set').offsetHeight+14):0)+($('#msg').style.display==='block'?40:0);sb.barH(Math.ceil(h))}
+function fit(){const h=52+($('#hs').style.display==='block'?($('#hs').offsetHeight+14):0)+($('#set').style.display==='block'?($('#set').offsetHeight+14):0)+($('#msg').style.display==='block'?40:0);sb.barH(Math.ceil(h))}
 function msg(m,bad){const e=$('#msg');e.textContent=m;e.style.background=bad?'#7f1d1d':'#14532d';e.style.display='block';fit();clearTimeout(t);t=setTimeout(()=>{e.style.display='none';fit()},6000)}
 $('#b').onclick=()=>sb.back();$('#f').onclick=()=>sb.fwd();$('#r').onclick=()=>sb.reload();
 $('#go').addEventListener('keydown',e=>{if(e.key==='Enter'){sb.go($('#go').value);e.target.blur()}});
@@ -28,7 +36,11 @@ $('#tw').onclick=()=>sb.tab('web');$('#tp').onclick=()=>sb.tab('wp');
 sb.onProg(m=>{const e=$('#msg');e.textContent=m;e.style.background='#1e3a8a';e.style.display='block';fit();clearTimeout(t)});
 sb.onNav(d=>{$('#tw').classList.toggle('on',d.tab!=='wp');$('#tp').classList.toggle('on',d.tab==='wp');if(document.activeElement!==$('#go'))$('#go').value=d.url;$('#b').disabled=!d.back;$('#f').disabled=!d.fwd});
 $('#col').onclick=async()=>{$('#col').disabled=true;const r=await sb.collect();$('#col').disabled=false;msg(r.msg,!r.ok)};
-$('#cfg').onclick=async()=>{const c=await sb.getCfg();$('#site').value=c.site;$('#key').value='';$('#key').placeholder=c.hasKey?'(সংরক্ষিত আছে — বদলাতে নতুন চাবি দিন)':'sbk_…';$('#sm').textContent='';$('#set').style.display='block';fit()};
+$('#cfg').onclick=async()=>{$('#hs').style.display='none';const c=await sb.getCfg();$('#site').value=c.site;$('#key').value='';$('#key').placeholder=c.hasKey?'(সংরক্ষিত আছে — বদলাতে নতুন চাবি দিন)':'sbk_…';$('#sm').textContent='';$('#set').style.display='block';fit()};
+$('#hb').onclick=()=>{$('#set').style.display='none';$('#hs').style.display=$('#hs').style.display==='block'?'none':'block';fit()};
+$('#hx').onclick=()=>{$('#hs').style.display='none';fit()};
+$('#hstop').onclick=()=>sb.histStop();
+$('#hgo').onclick=async()=>{$('#hs').style.display='none';fit();$('#hgo').disabled=true;const r=await sb.hist({q:$('#hq').value,from:$('#hf').value,to:$('#ht').value,pages:$('#hp').value});$('#hgo').disabled=false;msg(r.msg,!r.ok)};
 $('#x').onclick=()=>{$('#set').style.display='none';fit()};
 $('#save').onclick=async()=>{$('#sm').textContent='পরীক্ষা করছি…';const r=await sb.setCfg({site:$('#site').value,key:$('#key').value});$('#sm').textContent=r.msg;fit();if(r.ok)setTimeout(()=>{$('#set').style.display='none';fit()},1500)};
 </script></body></html>
