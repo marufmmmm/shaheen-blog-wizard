@@ -33,6 +33,10 @@ function csa_ev_home_defaults() {
 		'act'     => array(
 			't'     => 'আমাদের কার্যক্রমসমূহ',
 			'p'     => 'মেধা তৈরিতে, মেধা বিকাশে — শাহীন শিক্ষা পরিবার',
+			'bars'  => array(
+				array( 'ic' => '📚', 't' => 'শাহীন শিক্ষা পরিবারের নিজস্ব প্রকাশনীর ক্যাডেট কলেজ ভর্তি গাইড সংগ্রহ করতে এখানে ক্লিক করুন', 'u' => 'https://store.shaheen.edu.bd/', 'c' => 'g' ),
+				array( 'ic' => '💻', 't' => 'শাহীন শিক্ষা পরিবারের ক্যাডেট কোচিং (অনলাইন প্রোগ্রাম)-এ যোগদান করতে এখানে ক্লিক করুন', 'u' => 'https://cadetcoaching.shaheen.edu.bd/signup', 'c' => 'y' ),
+			),
 			'cards' => array(
 				array( 'ic' => '🏫', 'img' => '', 't' => 'স্কুল (প্লে–১০ম)', 'd' => 'একাডেমিক শিক্ষার পাশাপাশি চিত্রাংকন ও বিতর্ক', 'u' => '/school/', 'tag' => '' ),
 				array( 'ic' => '🎖️', 'img' => '', 't' => 'ক্যাডেট কোচিং', 'd' => '২০২৬ সালেই ৩৩৬ জনের চান্সপ্রাপ্তি', 'u' => '/cadet/', 'tag' => '★ সেরা' ),
@@ -43,7 +47,7 @@ function csa_ev_home_defaults() {
 				array( 'ic' => '🔤', 'img' => '', 't' => 'School (English Version)', 'd' => 'Comprehensive English education for modern learners', 'u' => '/school-english-version/', 'tag' => '' ),
 			),
 		),
-		'branch'  => array( 't' => '📍 আপনার কাছের শাখা খুঁজুন', 'p' => '৮টি বিভাগীয় শহরসহ ৩৫টি জেলায় {branches}টি ক্যাম্পাসে আমাদের কার্যক্রম চলছে', 'bt' => 'শাখা সমূহ দেখুন →', 'bu' => '/branch/' ),
+		'branch'  => array( 't' => '📍 আপনার কাছের শাখা খুঁজুন', 'p' => '৮টি বিভাগীয় শহরসহ ৩৫টি জেলায় {branches}টি ক্যাম্পাসে আমাদের কার্যক্রম চলছে', 'bt' => 'শাখা সমূহ দেখুন →', 'bu' => '/branch/', 'map' => '/wp-content/uploads/2026/11/Map-2026-4.png', 'y1' => '১৯৯২', 'y2' => '২০২৭', 'yn' => '৩৫', 'yl' => 'বছরের সাফল্য', 'n4' => '৪ বার', 'n4l' => 'জাতীয় পর্যায়ে প্রথম', 'n4s' => 'প্রাথমিক সমাপনী — ২০০৪, ২০০৮, ২০০৯ ও ২০১০' ),
 		'ach'     => array(
 			't'     => 'আমাদের গৌরবোজ্জ্বল অর্জন',
 			'p'     => '৩৪ বছরের পথচলায় সাফল্যের ধারাবাহিকতা',
@@ -813,9 +817,18 @@ function csa_ev_clean_home( $in ) {
 	$x         = (array) ( $in['notice'] ?? array() );
 	$h['notice'] = array( 't' => csa_ev_txt( $x['t'] ?? '' ), 'p' => csa_ev_txt( $x['p'] ?? '' ), 'n' => max( 1, min( 12, (int) ( $x['n'] ?? 5 ) ) ), 'bt' => csa_ev_txt( $x['bt'] ?? '' ), 'bu' => csa_ev_clean_url( $x['bu'] ?? '' ) );
 	$x         = (array) ( $in['act'] ?? array() );
-	$h['act']  = array( 't' => csa_ev_txt( $x['t'] ?? '' ), 'p' => csa_ev_txt( $x['p'] ?? '' ), 'cards' => $cards( $x['cards'] ?? array(), array( 'ic' => 's', 'img' => 'i', 't' => 's', 'd' => 's', 'u' => 'u', 'tag' => 's' ) ) );
+	$bars = array();
+	foreach ( (array) ( $x['bars'] ?? array() ) as $q ) {
+		if ( is_array( $q ) && '' !== trim( (string) ( $q['t'] ?? '' ) ) ) {
+			$bars[] = array( 'ic' => csa_ev_txt( $q['ic'] ?? '' ), 't' => csa_ev_txt( $q['t'] ?? '' ), 'u' => csa_ev_clean_url( $q['u'] ?? '' ), 'c' => 'y' === ( $q['c'] ?? '' ) ? 'y' : 'g' );
+		}
+	}
+	$h['act']  = array( 'bars' => $bars, 't' => csa_ev_txt( $x['t'] ?? '' ), 'p' => csa_ev_txt( $x['p'] ?? '' ), 'cards' => $cards( $x['cards'] ?? array(), array( 'ic' => 's', 'img' => 'i', 't' => 's', 'd' => 's', 'u' => 'u', 'tag' => 's' ) ) );
 	$x         = (array) ( $in['branch'] ?? array() );
-	$h['branch'] = array( 't' => csa_ev_txt( $x['t'] ?? '' ), 'p' => csa_ev_txt( $x['p'] ?? '' ), 'bt' => csa_ev_txt( $x['bt'] ?? '' ), 'bu' => csa_ev_clean_url( $x['bu'] ?? '' ) );
+	$h['branch'] = array( 't' => csa_ev_txt( $x['t'] ?? '' ), 'p' => csa_ev_txt( $x['p'] ?? '' ), 'bt' => csa_ev_txt( $x['bt'] ?? '' ), 'bu' => csa_ev_clean_url( $x['bu'] ?? '' ), 'map' => csa_ev_clean_url( $x['map'] ?? '' ) );
+	foreach ( array( 'y1', 'y2', 'yn', 'yl', 'n4', 'n4l', 'n4s' ) as $k ) {
+		$h['branch'][ $k ] = csa_ev_txt( $x[ $k ] ?? '' );
+	}
 	$x         = (array) ( $in['ach'] ?? array() );
 	$nums      = array();
 	foreach ( (array) ( $x['nums'] ?? array() ) as $s ) {

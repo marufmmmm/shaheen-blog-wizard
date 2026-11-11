@@ -293,17 +293,36 @@ function csa_ev_card( $e, $home = true ) {
 		}
 		$h .= '</div>';
 	}
-	$by = array();
-	if ( ! empty( $e['org']['name'] ) ) {
-		$by[] = 'আয়োজক: ' . $e['org']['name'];
-	}
-	foreach ( (array) $e['partners'] as $pt ) {
-		if ( ! empty( $pt['name'] ) ) {
-			$by[] = ( ! empty( $pt['role'] ) ? $pt['role'] : 'সহযোগী' ) . ': ' . $pt['name'];
+	if ( $home ) {
+		$lg = array();
+		if ( ! empty( $e['org']['logo'] ) ) {
+			$lg[] = array( 'l' => 'আয়োজক', 'i' => $e['org']['logo'], 'n' => $e['org']['name'] ?? '' );
 		}
-	}
-	if ( $home && $by ) {
-		$h .= '<p class="ecy">' . esc_html( implode( ' • ', $by ) ) . '</p>';
+		foreach ( (array) $e['partners'] as $pt ) {
+			if ( ! empty( $pt['logo'] ) ) {
+				$lg[] = array( 'l' => ! empty( $pt['role'] ) ? $pt['role'] : 'সহযোগী', 'i' => $pt['logo'], 'n' => $pt['name'] ?? '' );
+			}
+		}
+		if ( $lg ) {
+			$h .= '<div class="ecl">';
+			foreach ( $lg as $g ) {
+				$h .= '<span><small>' . esc_html( $g['l'] ) . '</small>' . csa_ev_img( $g['i'], $g['n'] ) . '</span>';
+			}
+			$h .= '</div>';
+		} else {
+			$by = array();
+			if ( ! empty( $e['org']['name'] ) ) {
+				$by[] = 'আয়োজক: ' . $e['org']['name'];
+			}
+			foreach ( (array) $e['partners'] as $pt ) {
+				if ( ! empty( $pt['name'] ) ) {
+					$by[] = ( ! empty( $pt['role'] ) ? $pt['role'] : 'সহযোগী' ) . ': ' . $pt['name'];
+				}
+			}
+			if ( $by ) {
+				$h .= '<p class="ecy">' . esc_html( implode( ' • ', $by ) ) . '</p>';
+			}
+		}
 	}
 	$h .= '<div class="ecb"><div class="btns">';
 	foreach ( array_slice( $bt, 0, 3 ) as $b ) {
@@ -418,7 +437,43 @@ function csa_ev_hs_act( $x ) {
 	if ( ! $x['cards'] ) {
 		return '';
 	}
-	return '<section class="sec" id="programs"><div class="in">' . csa_ev_head( $x['t'], $x['p'] ) . csa_ev_cards_grid( $x['cards'] ) . '</div></section>';
+	$h = '<section class="sec act" id="programs">' . csa_ev_sparkles( 12 ) . '<div class="in">' . csa_ev_head( $x['t'], $x['p'], true ) . '<div class="ag">';
+	foreach ( $x['cards'] as $c ) {
+		$tag = ! empty( $c['u'] ) ? 'a' : 'div';
+		$at  = ! empty( $c['u'] ) ? csa_ev_link_attr( $c['u'] ) : '';
+		$h  .= '<' . $tag . ' class="ga rv"' . $at . '>' . ( ! empty( $c['tag'] ) ? '<span class="tg">' . esc_html( $c['tag'] ) . '</span>' : '' ) . csa_ev_icon( $c['img'] ?? '', $c['ic'] ?? '', $c['t'] ) . '<b>' . esc_html( $c['t'] ) . '</b>' . ( ! empty( $c['d'] ) ? '<small>' . esc_html( $c['d'] ) . '</small>' : '' ) . '</' . $tag . '>';
+	}
+	$h .= '</div>';
+	if ( ! empty( $x['bars'] ) ) {
+		$h .= '<div class="bars">';
+		foreach ( $x['bars'] as $q ) {
+			$h .= '<a class="bar rv ' . esc_attr( $q['c'] ) . '"' . ( $q['u'] ? csa_ev_link_attr( $q['u'] ) : '' ) . '><span class="bi">' . esc_html( $q['ic'] ) . '</span><b>' . esc_html( $q['t'] ) . '</b><i>→</i></a>';
+		}
+		$h .= '</div>';
+	}
+	return $h . '</div></section>';
+}
+
+/** Gold laurel badge (years / national firsts) — same look as the old map graphic. */
+function csa_ev_badge( $top, $big, $bot, $sub = '' ) {
+	return '<div class="bdg rv"><div class="bdi"><small>' . esc_html( $top ) . '</small><b>' . esc_html( $big ) . '</b><em>' . esc_html( $bot ) . '</em></div>' . ( $sub ? '<span>' . esc_html( $sub ) . '</span>' : '' ) . '</div>';
+}
+
+function csa_ev_hs_map( $x ) {
+	if ( empty( $x['map'] ) ) {
+		return '';
+	}
+	$img = preg_match( '#^https?://#', $x['map'] ) ? $x['map'] : home_url( $x['map'] );
+	$h   = '<section class="sec mps" id="map"><div class="in"><div class="mp">';
+	$h  .= '<div class="mpl">';
+	if ( $x['y1'] || $x['yn'] ) {
+		$h .= csa_ev_badge( trim( $x['y1'] . ' – ' . $x['y2'], ' –' ), $x['yn'], $x['yl'] );
+	}
+	if ( $x['n4'] ) {
+		$h .= csa_ev_badge( $x['n4l'], $x['n4'], '', $x['n4s'] );
+	}
+	$h .= '</div><div class="mpr rv"><img src="' . esc_url( $img ) . '" alt="' . esc_attr( csa_ev_tok( $x['p'] ? $x['p'] : $x['t'] ) ) . '" loading="lazy"></div></div></div></section>';
+	return $h;
 }
 
 function csa_ev_hs_branch( $x ) {
@@ -427,7 +482,7 @@ function csa_ev_hs_branch( $x ) {
 	if ( function_exists( 'csa_br_opt' ) ) {
 		$dv = array_slice( (array) csa_br_opt( 'div_order' ), 0, 8 );
 	}
-	$h = '<section class="sec brs"><div class="in"><div class="bx rv"><div class="bt"><h2>' . esc_html( $x['t'] ) . '</h2>' . ( $x['p'] ? '<p>' . esc_html( csa_ev_tok( $x['p'] ) ) . '</p>' : '' ) . ( $n ? '<span class="chip">' . esc_html( csa_ev_bn( $n ) ) . 'টি শাখার তালিকা</span>' : '' ) . '</div>';
+	$h = csa_ev_hs_map( $x ) . '<section class="sec brs"><div class="in"><div class="bx rv"><div class="bt"><h2>' . esc_html( $x['t'] ) . '</h2>' . ( $x['p'] ? '<p>' . esc_html( csa_ev_tok( $x['p'] ) ) . '</p>' : '' ) . ( $n ? '<span class="chip">' . esc_html( csa_ev_bn( $n ) ) . 'টি শাখার তালিকা</span>' : '' ) . '</div>';
 	if ( $dv ) {
 		$h .= '<div class="dvs">';
 		foreach ( $dv as $d ) {
