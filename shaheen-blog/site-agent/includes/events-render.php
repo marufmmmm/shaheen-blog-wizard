@@ -90,14 +90,17 @@ function csa_ev_event_html( $e ) {
 
 	/* sub navigation (built from what exists) */
 	$sections = array();
+	if ( $e['eps'] ) {
+		$sections['sev-eps'] = '🎬 পর্বসমূহ';
+	}
+	foreach ( (array) $e['vsec'] as $vi => $vs ) {
+		$sections[ 'sev-v' . (int) $vi ] = trim( ( $vs['ic'] ? $vs['ic'] . ' ' : '' ) . $vs['t'] );
+	}
 	if ( $ms ) {
 		$sections['sev-miles'] = '🗓️ সময়সূচি';
 	}
 	if ( $e['tv']['on'] ) {
 		$sections['sev-tv'] = '📺 সম্প্রচার';
-	}
-	if ( $e['eps'] ) {
-		$sections['sev-eps'] = '🎬 পর্বসমূহ';
 	}
 	if ( $e['blocks'] || ( $e['prizes']['on'] && $e['prizes']['items'] ) ) {
 		$sections['sev-info'] = '📋 তথ্য ও পুরস্কার';
@@ -120,6 +123,43 @@ function csa_ev_event_html( $e ) {
 		$h .= '</div></nav>';
 	}
 
+	/* episodes */
+	if ( $e['eps'] ) {
+		$h .= '<section class="sec" id="sev-eps"><div class="in">' . csa_ev_head( 'পর্ব অনুযায়ী দেখুন', 'পর্বে ক্লিক করলেই এখানেই ভিডিও চলবে' ) . '<div class="eps">';
+		foreach ( $e['eps'] as $p ) {
+			$yt   = csa_ev_yt( $p['u'] );
+			$img  = $p['img'] ? $p['img'] : ( $yt ? 'https://i.ytimg.com/vi/' . $yt . '/hqdefault.jpg' : '' );
+			$fb   = csa_ev_is_fb( $p['u'] );
+			$h   .= '<a class="ep rv" href="' . esc_url( $p['u'] ) . '" target="_blank" rel="noopener"' . ( $yt ? ' data-yt="' . esc_attr( $yt ) . '"' : ( $fb ? ' data-fb="' . esc_url( $p['u'] ) . '"' : '' ) ) . '><span class="th' . ( $img ? '' : ' ph' ) . '">' . ( $img ? csa_ev_img( $img, $p['t'] ) : '' ) . '<i class="play">▶</i>' . ( $fb ? '<em>Facebook</em>' : ( $yt ? '<em>YouTube</em>' : '' ) ) . '</span><span class="tx">' . ( $p['n'] ? '<small>' . esc_html( $p['n'] ) . '</small>' : '' ) . '<b>' . esc_html( $p['t'] ) . '</b>' . ( $p['d'] ? '<time>' . esc_html( csa_ev_date( $p['d'] ) ) . '</time>' : '' ) . '</span></a>';
+		}
+		$h .= '</div></div></section>';
+	}
+
+
+	/* content sections (videos grouped by topic) */
+	foreach ( (array) $e['vsec'] as $vi => $vs ) {
+		$cards = '';
+		foreach ( preg_split( '/\r?\n/', (string) $vs['lines'] ) as $ln ) {
+			$ln = trim( $ln );
+			if ( '' === $ln ) {
+				continue;
+			}
+			$pt = array_map( 'trim', explode( '|', $ln ) );
+			$tt = $pt[0] ?? '';
+			$uu = $pt[1] ?? '';
+			$mm = $pt[2] ?? '';
+			if ( '' === $tt ) {
+				continue;
+			}
+			$yt = csa_ev_yt( $uu );
+			$fb = csa_ev_is_fb( $uu );
+			$cards .= '<a class="vc rv" href="' . esc_url( $uu ? $uu : '#' ) . '" target="_blank" rel="noopener"' . ( $yt ? ' data-yt="' . esc_attr( $yt ) . '"' : ( $fb ? ' data-fb="' . esc_url( $uu ) . '"' : '' ) ) . '><span class="vp">▶</span><span class="vx"><b>' . esc_html( $tt ) . '</b>' . ( $mm ? '<small>' . esc_html( $mm ) . '</small>' : '' ) . '</span></a>';
+		}
+		if ( $cards ) {
+			$h .= '<section class="sec' . ( 0 === $vi % 2 ? ' alt' : '' ) . '" id="sev-v' . (int) $vi . '"><div class="in">' . csa_ev_head( trim( ( $vs['ic'] ? $vs['ic'] . ' ' : '' ) . $vs['t'] ), $vs['p'] ) . '<div class="vcs">' . $cards . '</div></div></section>';
+		}
+	}
+
 	/* timeline */
 	if ( $ms ) {
 		$h .= '<section class="sec" id="sev-miles"><div class="in">' . csa_ev_head( 'সময়সূচি ও ধাপসমূহ', 'কোন ধাপ শেষ, কোনটি চলছে, কোনটি আসছে' ) . '<ol class="tl">';
@@ -133,18 +173,6 @@ function csa_ev_event_html( $e ) {
 	/* TV */
 	if ( $e['tv']['on'] ) {
 		$h .= '<section class="sec alt" id="sev-tv"><div class="in"><div class="tv rv">' . ( $e['tv']['img'] ? '<div class="tvi">' . csa_ev_img( $e['tv']['img'], $e['tv']['t'] ) . '</div>' : '<div class="tvi ph">📺</div>' ) . '<div class="tvt">' . ( $e['tv']['ch'] ? '<span class="chip">' . esc_html( $e['tv']['ch'] ) . '</span>' : '' ) . '<h2>' . esc_html( $e['tv']['t'] ) . '</h2>' . ( $e['tv']['p'] ? '<p>' . nl2br( esc_html( $e['tv']['p'] ) ) . '</p>' : '' ) . '</div></div></div></section>';
-	}
-
-	/* episodes */
-	if ( $e['eps'] ) {
-		$h .= '<section class="sec" id="sev-eps"><div class="in">' . csa_ev_head( 'সব পর্ব', 'ভিডিওতে ক্লিক করে দেখুন' ) . '<div class="eps">';
-		foreach ( $e['eps'] as $p ) {
-			$yt   = csa_ev_yt( $p['u'] );
-			$img  = $p['img'] ? $p['img'] : ( $yt ? 'https://i.ytimg.com/vi/' . $yt . '/hqdefault.jpg' : '' );
-			$fb   = csa_ev_is_fb( $p['u'] );
-			$h   .= '<a class="ep rv" href="' . esc_url( $p['u'] ) . '" target="_blank" rel="noopener"' . ( $yt ? ' data-yt="' . esc_attr( $yt ) . '"' : '' ) . '><span class="th' . ( $img ? '' : ' ph' ) . '">' . ( $img ? csa_ev_img( $img, $p['t'] ) : '' ) . '<i class="play">▶</i>' . ( $fb ? '<em>Facebook</em>' : ( $yt ? '<em>YouTube</em>' : '' ) ) . '</span><span class="tx">' . ( $p['n'] ? '<small>' . esc_html( $p['n'] ) . '</small>' : '' ) . '<b>' . esc_html( $p['t'] ) . '</b>' . ( $p['d'] ? '<time>' . esc_html( csa_ev_date( $p['d'] ) ) . '</time>' : '' ) . '</span></a>';
-		}
-		$h .= '</div></div></section>';
 	}
 
 	/* info blocks + prizes */

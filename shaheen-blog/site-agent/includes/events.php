@@ -272,7 +272,7 @@ function csa_ev_blank() {
 		'prizes' => array( 'on' => 0, 't' => 'পুরস্কারসমূহ', 'items' => array(), 'note' => '' ),
 		'tv' => array( 'on' => 0, 't' => '', 'p' => '', 'ch' => '', 'img' => '' ),
 		'org' => array( 'name' => '', 'logo' => '', 'url' => '' ),
-		'partners' => array(), 'miles' => array(), 'btns' => array(), 'eps' => array(), 'gal' => array(),
+		'partners' => array(), 'miles' => array(), 'btns' => array(), 'eps' => array(), 'vsec' => array(), 'gal' => array(),
 		'nq' => '', 'links' => array(), 'seo' => '', 'foot' => '',
 	);
 }
@@ -344,6 +344,12 @@ function csa_ev_clean( $in, $keep = null ) {
 	foreach ( (array) ( $in['eps'] ?? array() ) as $f ) {
 		if ( is_array( $f ) && '' !== trim( ( $f['t'] ?? '' ) . ( $f['u'] ?? '' ) ) ) {
 			$e['eps'][] = array( 'n' => csa_ev_txt( $f['n'] ?? '' ), 't' => csa_ev_txt( $f['t'] ?? '' ), 'u' => esc_url_raw( (string) ( $f['u'] ?? '' ) ), 'd' => csa_ev_ymd( $f['d'] ?? '' ), 'img' => esc_url_raw( (string) ( $f['img'] ?? '' ) ) );
+		}
+	}
+	$e['vsec'] = array();
+	foreach ( (array) ( $in['vsec'] ?? array() ) as $f ) {
+		if ( is_array( $f ) && '' !== trim( ( $f['t'] ?? '' ) . ( $f['lines'] ?? '' ) ) ) {
+			$e['vsec'][] = array( 'ic' => csa_ev_txt( $f['ic'] ?? '' ), 't' => csa_ev_txt( $f['t'] ?? '' ), 'p' => csa_ev_txt( $f['p'] ?? '' ), 'lines' => csa_ev_area( $f['lines'] ?? '' ) );
 		}
 	}
 	$e['gal'] = array();

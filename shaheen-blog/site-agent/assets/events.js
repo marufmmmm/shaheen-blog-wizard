@@ -111,9 +111,14 @@
 		document.body.appendChild(o);
 	}
 	document.addEventListener('click', function (e) {
-		var a = e.target.closest('.sev .ep[data-yt],.sev .gi[data-yt],.sev .gi[data-full]');
+		var a = e.target.closest('.sev .ep[data-yt],.sev .gi[data-yt],.sev .gi[data-full],.sev .ep[data-fb],.sev .vc[data-fb],.sev .vc[data-yt]');
 		if (!a || e.metaKey || e.ctrlKey) { return; }
-		var yt = a.getAttribute('data-yt'), full = a.getAttribute('data-full');
+		var yt = a.getAttribute('data-yt'), full = a.getAttribute('data-full'), fb = a.getAttribute('data-fb');
+		if (fb && !yt) {
+			e.preventDefault();
+			lb('<div class="fr fbv"><iframe src="https://www.facebook.com/plugins/video.php?show_text=false&autoplay=true&width=560&href=' + encodeURIComponent(fb) + '" allow="autoplay; clipboard-write; encrypted-media; picture-in-picture; web-share" allowfullscreen></iframe></div><a class="lbo" href="' + fb + '" target="_blank" rel="noopener">ভিডিও না চললে Facebook-এ দেখুন ↗</a>');
+			return;
+		}
 		if (yt) {
 			e.preventDefault();
 			lb('<div class="fr"><iframe src="https://www.youtube-nocookie.com/embed/' + encodeURIComponent(yt) + '?autoplay=1&rel=0" allow="autoplay; encrypted-media; picture-in-picture" allowfullscreen></iframe></div><a href="' + a.href + '" target="_blank" rel="noopener">YouTube-এ খুলুন ↗</a>');
