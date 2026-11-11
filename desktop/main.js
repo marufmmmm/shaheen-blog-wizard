@@ -115,8 +115,9 @@ const EXTRACT = `(() => {
 
 const RESULTS = `(() => {
   const bad = /(^|\\.)(google|gstatic|googleusercontent|googleapis|gvt1|youtube-nocookie)\\./;
-  const norm = a => { let u = a.href; try { const x = new URL(u); if (/(^|\\.)google\\./.test(x.hostname)) { for (const v of x.searchParams.values()) { if (/^https?:\\/\\//i.test(v) && !/(^|\\.)google\\./.test(new URL(v).hostname)) { u = v; break; } } } } catch (e) {} const d = a.getAttribute('data-href') || a.getAttribute('data-url'); if (d && /^https?:\\/\\//i.test(d) && u === a.href) { u = d; } return u; };
-  const ok = u => { try { const x = new URL(u); return /^https?:$/.test(x.protocol) && !bad.test(x.hostname + '.'); } catch (e) { return false; } };
+  const norm = a => { let u = a.href; try { const x = new URL(u); if (/(^|\\.)google\\./.test(x.hostname)) { for (const v of x.searchParams.values()) { if (/^https?:\\/\\//i.test(v) && !/(^|\\.)google\\./.test(new URL(v).hostname)) { u = v; break; } } } } catch (e) {} const pg = a.getAttribute('ping'); if (pg && u === a.href) { try { const px = new URL(pg, location.href); for (const v of px.searchParams.values()) { if (/^https?:\\/\\//i.test(v) && !/(^|\\.)google\\./.test(new URL(v).hostname)) { u = v; break; } } } catch (e) {} }
+    const d = a.getAttribute('data-href') || a.getAttribute('data-url'); if (d && /^https?:\\/\\//i.test(d) && u === a.href) { u = d; } return u; };
+  const ok = u => { try { const x = new URL(u); return /^https?:$/.test(x.protocol) && (!bad.test(x.hostname + '.') || (/(^|\\.)google\\./.test(x.hostname) && x.pathname === '/goto')); } catch (e) { return false; } };
   const run = (anchors, strict) => {
     const out = [], seen = new Set();
     anchors.forEach(a => {
