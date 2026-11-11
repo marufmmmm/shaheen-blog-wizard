@@ -142,3 +142,8 @@
 		Object.keys(map).forEach(function (k) { so.observe(document.getElementById(k)); });
 	}
 })();
+/* v2.87.1 lazy-load embedded videos */
+(function(){var f=[].slice.call(document.querySelectorAll('iframe.emb[data-src]'));if(!f.length){return;}
+function ld(i){if(i.getAttribute('data-src')){i.src=i.getAttribute('data-src');i.removeAttribute('data-src');}}
+if(!('IntersectionObserver' in window)){f.forEach(ld);return;}
+var o=new IntersectionObserver(function(es){es.forEach(function(e){if(e.isIntersecting){ld(e.target);o.unobserve(e.target);}});},{rootMargin:'300px'});f.forEach(function(i){o.observe(i);});})();

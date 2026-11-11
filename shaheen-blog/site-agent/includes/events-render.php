@@ -130,6 +130,12 @@ function csa_ev_event_html( $e ) {
 			$yt   = csa_ev_yt( $p['u'] );
 			$img  = $p['img'] ? $p['img'] : ( $yt ? 'https://i.ytimg.com/vi/' . $yt . '/hqdefault.jpg' : '' );
 			$fb   = csa_ev_is_fb( $p['u'] );
+			$em   = csa_ev_embed( $p['u'], $yt, $fb, $p['t'] );
+			$tx   = ( $p['n'] ? '<small>' . esc_html( $p['n'] ) . '</small>' : '' ) . '<b>' . esc_html( $p['t'] ) . '</b>' . ( $p['d'] ? '<time>' . esc_html( csa_ev_date( $p['d'] ) ) . '</time>' : '' );
+			if ( $em ) {
+				$h .= '<div class="ep rv emb-c"><div class="th">' . $em . '</div><a class="tx" href="' . esc_url( $p['u'] ) . '" target="_blank" rel="noopener">' . $tx . '</a></div>';
+				continue;
+			}
 			$h   .= '<a class="ep rv" href="' . esc_url( $p['u'] ) . '" target="_blank" rel="noopener"' . ( $yt ? ' data-yt="' . esc_attr( $yt ) . '"' : ( $fb ? ' data-fb="' . esc_url( $p['u'] ) . '"' : '' ) ) . '><span class="th' . ( $img ? '' : ' ph' ) . '">' . ( $img ? csa_ev_img( $img, $p['t'] ) : '' ) . '<i class="play">▶</i>' . ( $fb ? '<em>Facebook</em>' : ( $yt ? '<em>YouTube</em>' : '' ) ) . '</span><span class="tx">' . ( $p['n'] ? '<small>' . esc_html( $p['n'] ) . '</small>' : '' ) . '<b>' . esc_html( $p['t'] ) . '</b>' . ( $p['d'] ? '<time>' . esc_html( csa_ev_date( $p['d'] ) ) . '</time>' : '' ) . '</span></a>';
 		}
 		$h .= '</div></div></section>';
@@ -153,6 +159,11 @@ function csa_ev_event_html( $e ) {
 			}
 			$yt = csa_ev_yt( $uu );
 			$fb = csa_ev_is_fb( $uu );
+			$em = csa_ev_embed( $uu, $yt, $fb, $tt );
+			if ( $em ) {
+				$cards .= '<div class="vc rv emb-c"><div class="vm">' . $em . '</div><a class="vx" href="' . esc_url( $uu ) . '" target="_blank" rel="noopener"><b>' . esc_html( $tt ) . '</b>' . ( $mm ? '<small>' . esc_html( $mm ) . '</small>' : '' ) . '</a></div>';
+				continue;
+			}
 			$cards .= '<a class="vc rv" href="' . esc_url( $uu ? $uu : '#' ) . '" target="_blank" rel="noopener"' . ( $yt ? ' data-yt="' . esc_attr( $yt ) . '"' : ( $fb ? ' data-fb="' . esc_url( $uu ) . '"' : '' ) ) . '><span class="vp">▶</span><span class="vx"><b>' . esc_html( $tt ) . '</b>' . ( $mm ? '<small>' . esc_html( $mm ) . '</small>' : '' ) . '</span></a>';
 		}
 		if ( $cards ) {
@@ -296,6 +307,16 @@ function csa_ev_visible_home( $e ) {
 		return false;
 	}
 	return csa_ev_page_live( $e ) || csa_ev_can();
+}
+
+function csa_ev_embed( $u, $yt, $fb, $t ) {
+	if ( $yt ) {
+		return '<iframe class="emb" loading="lazy" title="' . esc_attr( $t ) . '" data-src="https://www.youtube-nocookie.com/embed/' . esc_attr( $yt ) . '?rel=0" allow="autoplay; encrypted-media; picture-in-picture; fullscreen" allowfullscreen></iframe>';
+	}
+	if ( $fb ) {
+		return '<iframe class="emb" loading="lazy" title="' . esc_attr( $t ) . '" data-src="https://www.facebook.com/plugins/video.php?show_text=false&amp;width=560&amp;href=' . rawurlencode( $u ) . '" allow="autoplay; clipboard-write; encrypted-media; picture-in-picture; web-share" allowfullscreen></iframe>';
+	}
+	return '';
 }
 
 function csa_ev_card( $e, $home = true ) {
