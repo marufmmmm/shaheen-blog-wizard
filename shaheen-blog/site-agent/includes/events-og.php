@@ -23,6 +23,12 @@ function csa_ev_og_get( $url ) {
 	return ( isset( $o[ $k ] ) && ! empty( $o[ $k ]['ok'] ) ) ? $o[ $k ] : null;
 }
 
+/** cached row even if the look failed (has http code) */
+function csa_ev_og_row( $url ) {
+	$o = csa_ev_og_all();
+	return $o[ md5( $url ) ] ?? null;
+}
+
 function csa_ev_og_meta( $html ) {
 	$m = array();
 	if ( preg_match_all( '/<meta\s[^>]*>/i', $html, $tags ) ) {
@@ -40,7 +46,7 @@ function csa_ev_og_meta( $html ) {
 
 /** fetch + store one link's preview; returns the stored row */
 function csa_ev_og_fetch( $url ) {
-	$row = array( 'ok' => 0, 'img' => '', 't' => '', 'd' => '', 'at' => time() );
+	$row = array( 'ok' => 0, 'img' => '', 't' => '', 'd' => '', 'pub' => '', 'code' => 0, 'at' => time() );
 	$r   = wp_remote_get( $url, array(
 		'timeout'             => 8,
 		'redirection'         => 4,
@@ -48,8 +54,16 @@ function csa_ev_og_fetch( $url ) {
 		'user-agent'          => 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0 Safari/537.36',
 		'headers'             => array( 'Accept-Language' => 'bn,en;q=0.8' ),
 	) );
-	if ( ! is_wp_error( $r ) && 200 === (int) wp_remote_retrieve_response_code( $r ) ) {
-		$m   = csa_ev_og_meta( (string) wp_remote_retrieve_body( $r ) );
+	$row['code'] = is_wp_error( $r ) ? -1 : (int) wp_remote_retrieve_response_code( $r );
+	if ( 200 === $row['code'] ) {
+		$body = (string) wp_remote_retrieve_body( $r );
+		$m    = csa_ev_og_meta( $body );
+		$pb   = $m['article:published_time'] ?? ( $m['og:published_time'] ?? ( $m['datepublished'] ?? '' ) );
+		if ( ! $pb && preg_match( '/"datePublished"\s*:\s*"([^"]+)"/', $body, $dm ) ) {
+			$pb = $dm[1];
+		}
+		$pt          = $pb ? strtotime( $pb ) : 0;
+		$row['pub']  = ( $pt && $pt < time() + DAY_IN_SECONDS ) ? wp_date( 'Y-m-d', $pt ) : '';
 		$img = $m['og:image'] ?? ( $m['og:image:url'] ?? ( $m['twitter:image'] ?? '' ) );
 		if ( $img && 0 === strpos( $img, '//' ) ) {
 			$img = 'https:' . $img;
@@ -134,7 +148,7 @@ add_action( 'wp_ajax_csa_ev_og_op', function () {
 	$res  = array();
 	foreach ( array_slice( $urls, 0, 5 ) as $u ) {
 		$r     = csa_ev_og_fetch( $u );
-		$res[] = array( 'u' => $u, 'ok' => (int) $r['ok'], 'img' => $r['img'] ? 1 : 0 );
+		$res[] = array( 'u' => $u, 'ok' => (int) $r['ok'], 'img' => $r['img'] ? 1 : 0, 'code' => (int) $r['code'], 'pub' => $r['pub'] );
 	}
 	if ( $res && function_exists( 'csa_ev_purge' ) ) {
 		csa_ev_purge();

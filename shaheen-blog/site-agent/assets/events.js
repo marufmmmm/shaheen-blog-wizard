@@ -110,6 +110,18 @@
 		document.addEventListener('keydown', key);
 		document.body.appendChild(o);
 	}
+	/* big player for embedded video cards */
+	document.addEventListener('click', function (e) {
+		var b = e.target.closest('.sev .bigv');
+		if (!b) { return; }
+		e.preventDefault();
+		var u = b.getAttribute('data-big') || '', m = u.match(/(?:youtu\.be\/|v=|embed\/|shorts\/|live\/)([\w-]{11})/);
+		if (m) {
+			lb('<div class="fr"><iframe src="https://www.youtube-nocookie.com/embed/' + m[1] + '?autoplay=1&rel=0" allow="autoplay; encrypted-media; picture-in-picture; fullscreen" allowfullscreen></iframe></div><a href="' + u + '" target="_blank" rel="noopener">YouTube-এ খুলুন ↗</a>');
+		} else {
+			lb('<div class="fr fbv"><iframe src="https://www.facebook.com/plugins/video.php?show_text=false&autoplay=true&width=560&href=' + encodeURIComponent(u) + '" allow="autoplay; clipboard-write; encrypted-media; picture-in-picture; web-share; fullscreen" allowfullscreen></iframe></div><a class="lbo" href="' + u + '" target="_blank" rel="noopener">ভিডিও না চললে Facebook-এ দেখুন ↗</a>');
+		}
+	});
 	document.addEventListener('click', function (e) {
 		var a = e.target.closest('.sev .ep[data-yt],.sev .gi[data-yt],.sev .gi[data-full],.sev .ep[data-fb],.sev .vc[data-fb],.sev .vc[data-yt]');
 		if (!a || e.metaKey || e.ctrlKey) { return; }
@@ -121,7 +133,7 @@
 		}
 		if (yt) {
 			e.preventDefault();
-			lb('<div class="fr"><iframe src="https://www.youtube-nocookie.com/embed/' + encodeURIComponent(yt) + '?autoplay=1&rel=0" allow="autoplay; encrypted-media; picture-in-picture" allowfullscreen></iframe></div><a href="' + a.href + '" target="_blank" rel="noopener">YouTube-এ খুলুন ↗</a>');
+			lb('<div class="fr"><iframe src="https://www.youtube-nocookie.com/embed/' + encodeURIComponent(yt) + '?autoplay=1&rel=0" allow="autoplay; encrypted-media; picture-in-picture; fullscreen" allowfullscreen></iframe></div><a href="' + a.href + '" target="_blank" rel="noopener">YouTube-এ খুলুন ↗</a>');
 		} else if (full) {
 			e.preventDefault();
 			var im = document.createElement('img');

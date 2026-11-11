@@ -133,7 +133,7 @@ function csa_ev_event_html( $e ) {
 			$em   = csa_ev_embed( $p['u'], $yt, $fb, $p['t'] );
 			$tx   = ( $p['n'] ? '<small>' . esc_html( $p['n'] ) . '</small>' : '' ) . '<b>' . esc_html( $p['t'] ) . '</b>' . ( $p['d'] ? '<time>' . esc_html( csa_ev_date( $p['d'] ) ) . '</time>' : '' );
 			if ( $em ) {
-				$h .= '<div class="ep rv emb-c"><div class="th">' . $em . '</div><a class="tx" href="' . esc_url( $p['u'] ) . '" target="_blank" rel="noopener">' . $tx . '</a></div>';
+				$h .= '<div class="ep rv emb-c"><div class="th">' . $em . csa_ev_bigbtn( $p['u'] ) . '</div><a class="tx" href="' . esc_url( $p['u'] ) . '" target="_blank" rel="noopener">' . $tx . '</a></div>';
 				continue;
 			}
 			$h   .= '<a class="ep rv" href="' . esc_url( $p['u'] ) . '" target="_blank" rel="noopener"' . ( $yt ? ' data-yt="' . esc_attr( $yt ) . '"' : ( $fb ? ' data-fb="' . esc_url( $p['u'] ) . '"' : '' ) ) . '><span class="th' . ( $img ? '' : ' ph' ) . '">' . ( $img ? csa_ev_img( $img, $p['t'] ) : '' ) . '<i class="play">▶</i>' . ( $fb ? '<em>Facebook</em>' : ( $yt ? '<em>YouTube</em>' : '' ) ) . '</span><span class="tx">' . ( $p['n'] ? '<small>' . esc_html( $p['n'] ) . '</small>' : '' ) . '<b>' . esc_html( $p['t'] ) . '</b>' . ( $p['d'] ? '<time>' . esc_html( csa_ev_date( $p['d'] ) ) . '</time>' : '' ) . '</span></a>';
@@ -161,7 +161,7 @@ function csa_ev_event_html( $e ) {
 			$fb = csa_ev_is_fb( $uu );
 			$em = csa_ev_embed( $uu, $yt, $fb, $tt );
 			if ( $em ) {
-				$cards .= '<div class="vc rv emb-c"><div class="vm">' . $em . '</div><a class="vx" href="' . esc_url( $uu ) . '" target="_blank" rel="noopener"><b>' . esc_html( $tt ) . '</b>' . ( $mm ? '<small>' . esc_html( $mm ) . '</small>' : '' ) . '</a></div>';
+				$cards .= '<div class="vc rv emb-c"><div class="vm">' . $em . csa_ev_bigbtn( $uu ) . '</div><a class="vx" href="' . esc_url( $uu ) . '" target="_blank" rel="noopener"><b>' . esc_html( $tt ) . '</b>' . ( $mm ? '<small>' . esc_html( $mm ) . '</small>' : '' ) . '</a></div>';
 				continue;
 			}
 			if ( ! $yt && ! $fb && preg_match( '#^https?://#i', $uu ) && function_exists( 'csa_ev_og_get' ) ) { // news link: picture card
@@ -318,6 +318,11 @@ function csa_ev_visible_home( $e ) {
 		return false;
 	}
 	return csa_ev_page_live( $e ) || csa_ev_can();
+}
+
+/** "watch big" pill on an embedded video (opens the in-page big player) */
+function csa_ev_bigbtn( $u ) {
+	return '<button type="button" class="bigv" data-big="' . esc_url( $u ) . '" title="বড় পর্দায় দেখুন">⛶ বড় করে দেখুন</button>';
 }
 
 function csa_ev_embed( $u, $yt, $fb, $t ) {

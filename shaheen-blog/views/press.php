@@ -20,6 +20,25 @@ $items = get_posts(array('post_type' => 'sb_post', 'post_status' => 'any', 'numb
     <h1>📰 সংবাদপত্রে শাহীন</h1>
     <p class="sba-muted">বিভিন্ন পত্রিকায় প্রকাশিত আমাদের সংবাদের শিরোনাম ও লিংক এখানে দিন। এগুলো ব্লগ পেজে নির্বাচিত ক্যাটাগরিতে কার্ড হিসেবে দেখাবে; ক্লিক করলে পত্রিকার লিংক নতুন ট্যাবে খুলবে। (খরচ লাগে না)</p>
 
+
+    <div class="sba-card" style="margin:0 0 16px">
+        <h2>📥 ইভেন্ট পেজের সংবাদ এখানে আনুন</h2>
+        <p class="sba-muted">ইভেন্ট পেজে (যেমন Spelling Star) যে সংবাদের লিংক আছে, সেগুলো থেকে শিরোনাম, পত্রিকার নাম, আসল প্রকাশের তারিখ, ছোট বর্ণনা ও সংবাদের ছবি এনে এখানে কার্ড বানাবে। যেগুলো এখানে আগেই আছে সেগুলো বাদ যাবে; যে লিংকে পড়ার মতো সংবাদ পাওয়া যায় না সেটিও বাদ যাবে। (খরচ লাগে না)</p>
+        <p><select id="pi-cat"><option value="0">— ক্যাটাগরি বেছে নিন —</option>
+            <?php if (!is_wp_error($cats)) : foreach ($cats as $t) : ?><option value="<?php echo (int) $t->term_id; ?>"><?php echo esc_html($t->name); ?></option><?php endforeach; endif; ?></select>
+            <button type="button" class="button button-primary" id="pi-go">📥 সংবাদ আনুন</button> <span id="pi-msg" class="sba-msg"></span></p>
+    </div>
+    <script>
+    (function(){var b=document.getElementById('pi-go'),m=document.getElementById('pi-msg');if(!b||typeof SB==='undefined'){return;}
+    b.addEventListener('click',function(){b.disabled=true;var n=0,sk=0;m.textContent='আনা হচ্ছে…';
+    (function step(){var fd=new FormData();fd.append('action','sb_press_import');fd.append('nonce',SB.nonce);fd.append('category',document.getElementById('pi-cat').value);
+    fetch(SB.ajax||ajaxurl,{method:'POST',body:fd,credentials:'same-origin'}).then(function(r){return r.json();}).then(function(j){
+    if(!j.success){m.textContent='ত্রুটি হয়েছে';b.disabled=false;return;}
+    n+=j.data.done.length;sk+=j.data.skipped.length;m.textContent=n+'টি এসেছে'+(sk?', '+sk+'টি বাদ':'')+(j.data.left?' … চলছে':'');
+    if(j.data.left>0&&(j.data.done.length||j.data.skipped.length)){step();}else{m.textContent='শেষ: '+n+'টি নতুন সংবাদ এসেছে'+(sk?', '+sk+'টি বাদ গেছে':'')+'।';b.disabled=false;if(n){setTimeout(function(){location.reload();},1200);}}
+    }).catch(function(){m.textContent='সংযোগে সমস্যা';b.disabled=false;});})();});})();
+    </script>
+
     <div class="sba-grid sba-grid--2">
         <div class="sba-card sba-form">
             <h2><?php echo $e['id'] ? 'সংবাদ এডিট' : 'নতুন সংবাদ যোগ করুন'; ?></h2>
