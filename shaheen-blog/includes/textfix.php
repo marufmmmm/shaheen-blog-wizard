@@ -242,6 +242,10 @@ function sb_tf_fact_pairs(&$node, $d, &$samples) {
         if (!is_string($v) || !preg_match('/^\s*([0-9০-৯]{1,5})\s*(\+|টি)?\s*$/u', $v, $nm)) {
             continue;
         }
+        // design settings (font-weight, size, width, gap ...) are never facts
+        if (is_string($k) && preg_match('/weight|size|width|height|spacing|gap|padding|margin|radius|index|offset|font|line|speed|duration|delay|opacity|color|border|shadow|column|_id$|^id$|typography|position|rotate|scale|top|left|right|bottom/i', $k)) {
+            continue;
+        }
         $cat = '';
         $txt = '';
         foreach ($node as $k2 => $v2) {
