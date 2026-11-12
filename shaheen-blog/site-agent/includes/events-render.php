@@ -112,6 +112,9 @@ function csa_ev_event_html( $e ) {
 	if ( $notices && $notices->have_posts() ) {
 		$sections['sev-notice'] = '🔔 নোটিশ';
 	}
+	if ( csa_ev_faq_pairs( $e ) ) {
+		$sections['sev-faq'] = '❓ প্রশ্নোত্তর';
+	}
 	if ( $e['org']['name'] || $e['partners'] ) {
 		$sections['sev-by'] = '🤝 আয়োজক';
 	}
@@ -172,7 +175,7 @@ function csa_ev_event_html( $e ) {
 				}
 				$ds = ( $og && $og['d'] ) ? ( mb_strlen( $og['d'] ) > 130 ? mb_substr( $og['d'], 0, 128 ) . '…' : $og['d'] ) : '';
 				$cards .= '<a class="vc nw rv' . ( $og && $og['img'] ? '' : ' ni' ) . '" href="' . esc_url( $uu ) . '" target="_blank" rel="noopener">'
-					. ( $og && $og['img'] ? '<span class="nwi"><img loading="lazy" decoding="async" referrerpolicy="no-referrer" src="' . esc_url( $og['img'] ) . '" alt="" onerror="this.parentNode.className+=\' x\';this.remove()"></span>' : '<span class="vp">📰</span>' )
+					. ( $og && $og['img'] ? '<span class="nwi"><img loading="lazy" decoding="async" referrerpolicy="no-referrer" src="' . esc_url( $og['img'] ) . '" alt="' . esc_attr( $tt ) . '" onerror="this.parentNode.className+=\' x\';this.remove()"></span>' : '<span class="vp">📰</span>' )
 					. '<span class="vx"><b>' . esc_html( $tt ) . '</b>' . ( $ds ? '<em class="nwd">' . esc_html( $ds ) . '</em>' : '' ) . ( $mm ? '<small>' . esc_html( $mm ) . '</small>' : '' ) . '</span></a>';
 				continue;
 			}
@@ -256,6 +259,16 @@ function csa_ev_event_html( $e ) {
 		$h .= '<section class="sec alt" id="sev-notice"><div class="in">' . csa_ev_head( 'এই আয়োজনের নোটিশ' ) . '<div class="nts">';
 		foreach ( $notices->posts as $p ) {
 			$h .= csa_ev_notice_row( $p );
+		}
+		$h .= '</div></div></section>';
+	}
+
+	/* FAQ (also feeds FAQPage structured data) */
+	$faqs = csa_ev_faq_pairs( $e );
+	if ( $faqs ) {
+		$h .= '<section class="sec alt" id="sev-faq"><div class="in">' . csa_ev_head( 'সাধারণ প্রশ্ন ও উত্তর' ) . '<div class="faq">';
+		foreach ( $faqs as $i => $f ) {
+			$h .= '<details class="fq rv"' . ( 0 === $i ? ' open' : '' ) . '><summary>' . esc_html( $f[0] ) . '</summary><p>' . esc_html( $f[1] ) . '</p></details>';
 		}
 		$h .= '</div></div></section>';
 	}

@@ -337,3 +337,6 @@
 .shm .mpl .bdg>span{max-width:none;font-size:13px}
 @media (max-width:900px){.shm .mpl{flex-direction:row;flex-wrap:wrap;gap:12px}.shm .mpl .bdg{flex:1 1 0;max-width:none}.shm .mpl .bdn{flex:0 0 100%;text-align:center;margin:0}}
 @media (max-width:520px){.shm .mpl{gap:10px;padding:0}.shm .mpl .bdi{padding:14px 8px 16px;border-radius:16px}.shm .mpl .bdi b{font-size:38px}.shm .mpl .bdi small{font-size:12px}.shm .mpl .bdi em{font-size:13px}}
+
+/* 3.2.0 FAQ */
+.sev .faq{display:grid;gap:10px;max-width:820px;margin:0 auto}.sev .fq{background:#fff;border:1px solid rgba(13,46,28,.14);border-radius:14px;padding:0;overflow:hidden}.sev .fq summary{cursor:pointer;list-style:none;padding:14px 18px;font-weight:700;color:#0d2e1c;display:flex;justify-content:space-between;gap:12px}.sev .fq summary::-webkit-details-marker{display:none}.sev .fq summary::after{content:'+';font-weight:800;color:#1a6b3e}.sev .fq[open] summary::after{content:'−'}.sev .fq p{margin:0;padding:0 18px 16px;line-height:1.75;color:#1f3d2d}

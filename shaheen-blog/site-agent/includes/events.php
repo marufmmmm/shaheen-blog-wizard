@@ -273,7 +273,7 @@ function csa_ev_blank() {
 		'tv' => array( 'on' => 0, 't' => '', 'p' => '', 'ch' => '', 'img' => '' ),
 		'org' => array( 'name' => '', 'logo' => '', 'url' => '' ),
 		'partners' => array(), 'miles' => array(), 'btns' => array(), 'eps' => array(), 'vsec' => array(), 'gal' => array(),
-		'nq' => '', 'links' => array(), 'seo' => '', 'foot' => '',
+		'nq' => '', 'links' => array(), 'seo' => '', 'foot' => '', 'seot' => '', 'ogi' => '', 'faq' => '',
 	);
 }
 
@@ -284,9 +284,11 @@ function csa_ev_clean( $in, $keep = null ) {
 	$e['slug']      = sanitize_title( (string) ( $in['slug'] ?? '' ) );
 	$e['page']      = (int) ( $in['page'] ?? ( $keep['page'] ?? 0 ) );
 	$e['ext']       = csa_ev_clean_url( $in['ext'] ?? '' );
-	foreach ( array( 'title', 'full', 'series', 'season', 'tagline', 'badge', 'card', 'nq', 'foot', 'seo' ) as $k ) {
+	foreach ( array( 'title', 'full', 'series', 'season', 'tagline', 'badge', 'card', 'nq', 'foot', 'seo', 'seot' ) as $k ) {
 		$e[ $k ] = csa_ev_txt( $in[ $k ] ?? '' );
 	}
+	$e['ogi'] = esc_url_raw( (string) ( $in['ogi'] ?? '' ) );
+	$e['faq'] = csa_ev_area( $in['faq'] ?? '' );
 	$e['logo']      = esc_url_raw( (string) ( $in['logo'] ?? '' ) );
 	$e['cover']     = esc_url_raw( (string) ( $in['cover'] ?? '' ) );
 	$e['c1']        = csa_ev_hex( $in['c1'] ?? '', $b['c1'] );
@@ -663,9 +665,11 @@ add_action( 'wp_head', function () {
 			$d['startDate'] = $dates[0];
 			$d['endDate']   = end( $dates );
 		}
-		if ( $e['logo'] ) {
-			$d['image'] = $e['logo'];
+		$img = ! empty( $e['ogi'] ) ? $e['ogi'] : ( $e['cover'] ? $e['cover'] : $e['logo'] );
+		if ( $img ) {
+			$d['image'] = $img;
 		}
+		$d['inLanguage'] = 'bn-BD';
 		if ( $dates ) {
 			csa_ev_jsonld( $d );
 		}
