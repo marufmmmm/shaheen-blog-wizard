@@ -438,6 +438,11 @@ function csa_ev_link_attr( $u ) {
 function csa_ev_home_html() {
 	$o   = csa_ev_opts();
 	$H   = $o['home'];
+	array_walk_recursive( $H, function ( &$v, $k ) {
+		if ( is_string( $v ) && 'u' !== $k && 'order' !== $k ) {
+			$v = csa_ev_tok( $v );
+		}
+	} );
 	$out = '';
 	foreach ( $H['order'] as $k ) {
 		if ( in_array( $k, (array) $H['off'], true ) ) {

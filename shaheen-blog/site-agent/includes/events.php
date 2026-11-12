@@ -447,12 +447,58 @@ function csa_ev_fullname( $e ) {
 }
 
 /** {branches} in any text becomes the live number of branches (Bangla digits). */
+/** Result figures the owner updates in one place (Text Fix → ফলাফল আপডেট); used as {tokens} in home text. */
+function csa_res_groups() {
+	return array(
+		array( 'id' => 'schol', 'label' => 'প্রাথমিক / ৫ম শ্রেণি বৃত্তি', 'fields' => array(
+			array( 'sch_y', 'পরীক্ষার বছর', '২০২৫' ), array( 'sch_tp', 'ট্যালেন্টপুল (জন)', '৪১১' ), array( 'sch_gen', 'সাধারণ গ্রেড (জন)', '৪৫৭' ), array( 'sch_tot', 'মোট বৃত্তিপ্রাপ্ত (জন)', '৮৬৮' ),
+		) ),
+		array( 'id' => 'cadet', 'label' => 'ক্যাডেট কলেজ (লিখিত কৃতকার্য)', 'fields' => array(
+			array( 'cad_y', 'বছর', '২০২৬' ), array( 'cad_n', 'সংখ্যা (জন)', '৩৩৬' ),
+		) ),
+		array( 'id' => 'ssc', 'label' => 'এসএসসি (টাঙ্গাইলে A+)', 'fields' => array(
+			array( 'ssc_n', 'এ পর্যন্ত A+ (জন)', '১৩৫০+' ),
+		) ),
+		array( 'id' => 'jsc', 'label' => 'জেএসসি', 'fields' => array(
+			array( 'jsc_y', 'বছর', '২০১৮' ), array( 'jsc_n', 'A+ (জন)', '৩০৬' ),
+		) ),
+		array( 'id' => 'firsts', 'label' => 'শীর্ষ অর্জন', 'fields' => array(
+			array( 'tg_n', 'টাঙ্গাইলে প্রথম (বার)', '১৯' ), array( 'nat_n', 'প্রাথমিক শিক্ষায় জাতীয় ১ম (বার)', '৪' ),
+		) ),
+	);
+}
+
+function csa_res_vals() {
+	$v = array();
+	foreach ( csa_res_groups() as $g ) {
+		foreach ( $g['fields'] as $f ) {
+			$v[ $f[0] ] = $f[2];
+		}
+	}
+	$o = get_option( 'csa_res', array() );
+	if ( is_array( $o ) ) {
+		foreach ( $o as $k => $x ) {
+			if ( isset( $v[ $k ] ) && '' !== trim( (string) $x ) ) {
+				$v[ $k ] = (string) $x;
+			}
+		}
+	}
+	return $v;
+}
+
 function csa_ev_tok( $t ) {
-	if ( false === strpos( (string) $t, '{branches}' ) ) {
+	if ( ! is_string( $t ) || false === strpos( $t, '{' ) ) {
 		return $t;
 	}
-	$n = function_exists( 'csa_br_list' ) ? count( csa_br_list() ) : 0;
-	return str_replace( '{branches}', csa_ev_bn( $n ? $n : 150 ), $t );
+	if ( false !== strpos( $t, '{branches}' ) ) {
+		$n = function_exists( 'csa_br_list' ) ? count( csa_br_list() ) : 0;
+		$t = str_replace( '{branches}', csa_ev_bn( $n ? $n : 150 ), $t );
+	}
+	$rv = csa_res_vals();
+	foreach ( $rv as $k => $x ) {
+		$t = str_replace( '{' . $k . '}', $x, $t );
+	}
+	return $t;
 }
 
 function csa_ev_page_url( $e ) {
