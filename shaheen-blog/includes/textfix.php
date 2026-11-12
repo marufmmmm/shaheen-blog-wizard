@@ -181,17 +181,35 @@ function sb_tf_fact_note($d, $cat, $val, $text) {
 
 /** inline "১৫০+ ক্যাম্পাস" inside one string (tags between number and unit allowed) */
 function sb_tf_fact_str($s, $d) {
-    // skip <style>/<script> blocks (CSS like font-weight:600 is not a fact)
-    $parts = preg_split('~(<(style|script)\b[^>]*>.*?</\2>)~is', (string) $s, -1, PREG_SPLIT_DELIM_CAPTURE);
-    if (count($parts) > 1) {
-        $out = ''; $tot = 0;
-        for ($i = 0; $i < count($parts); $i += 3) {
-            list($o, $c) = sb_tf_fact_str_in($parts[$i], $d);
-            $out .= $o . ($parts[$i + 1] ?? ''); $tot += $c;
-        }
-        return array($out, $tot);
+    // skip <style>/<script> blocks (CSS like font-weight:600 is not a fact); plain string search, no big regex
+    $s = (string) $s;
+    if (false === stripos($s, '<style') && false === stripos($s, '<script')) {
+        return sb_tf_fact_str_in($s, $d);
     }
-    return sb_tf_fact_str_in($s, $d);
+    $out = '';
+    $tot = 0;
+    $pos = 0;
+    $len = strlen($s);
+    while ($pos < $len) {
+        $a1 = stripos($s, '<style', $pos);
+        $a2 = stripos($s, '<script', $pos);
+        $st = false === $a1 ? $a2 : (false === $a2 ? $a1 : min($a1, $a2));
+        if (false === $st) {
+            list($o, $c) = sb_tf_fact_str_in(substr($s, $pos), $d);
+            $out .= $o;
+            $tot += $c;
+            break;
+        }
+        list($o, $c) = sb_tf_fact_str_in(substr($s, $pos, $st - $pos), $d);
+        $out .= $o;
+        $tot += $c;
+        $close = (0 === strncasecmp(substr($s, $st, 6), '<style', 6)) ? '</style>' : '</script>';
+        $en = stripos($s, $close, $st);
+        $en = false === $en ? $len : $en + strlen($close);
+        $out .= substr($s, $st, $en - $st);
+        $pos = $en;
+    }
+    return array($out, $tot);
 }
 function sb_tf_fact_str_in($s, $d) {
     $all = implode('|', sb_tf_units());
