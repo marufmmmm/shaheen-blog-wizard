@@ -159,3 +159,11 @@
 function ld(i){if(i.getAttribute('data-src')){i.src=i.getAttribute('data-src');i.removeAttribute('data-src');}}
 if(!('IntersectionObserver' in window)){f.forEach(ld);return;}
 var o=new IntersectionObserver(function(es){es.forEach(function(e){if(e.isIntersecting){ld(e.target);o.unobserve(e.target);}});},{rootMargin:'300px'});f.forEach(function(i){o.observe(i);});})();
+
+/* v3.1.5 partner logos: a mostly white logo goes on a dark card so it stays readable */
+(function(){var L=[].slice.call(document.querySelectorAll('.sev .pl:not(.ph) img'));
+function chk(i){try{if(!i.naturalWidth||i.naturalWidth<8||/^data:/.test(i.currentSrc||i.src)){return;}
+var c=document.createElement('canvas'),w=c.width=48,h=c.height=Math.max(8,Math.round(48*i.naturalHeight/i.naturalWidth));c.height=h;var x=c.getContext('2d');x.drawImage(i,0,0,w,h);
+var d=x.getImageData(0,0,w,h).data,n=0,sum=0;for(var k=0;k<d.length;k+=4){if(d[k+3]>40){n++;sum+=(d[k]*299+d[k+1]*587+d[k+2]*114)/1000;}}
+if(n>20&&sum/n>200){i.parentNode.classList.add('lt');}else{i.parentNode.classList.remove('lt');}}catch(e){}}
+L.forEach(function(i){i.addEventListener('load',function(){chk(i);});chk(i);});})();
