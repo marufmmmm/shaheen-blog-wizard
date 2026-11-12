@@ -181,12 +181,25 @@ function sb_tf_fact_note($d, $cat, $val, $text) {
 
 /** inline "১৫০+ ক্যাম্পাস" inside one string (tags between number and unit allowed) */
 function sb_tf_fact_str($s, $d) {
+    // skip <style>/<script> blocks (CSS like font-weight:600 is not a fact)
+    $parts = preg_split('~(<(style|script)\b[^>]*>.*?</\2>)~is', (string) $s, -1, PREG_SPLIT_DELIM_CAPTURE);
+    if (count($parts) > 1) {
+        $out = ''; $tot = 0;
+        for ($i = 0; $i < count($parts); $i += 3) {
+            list($o, $c) = sb_tf_fact_str_in($parts[$i], $d);
+            $out .= $o . ($parts[$i + 1] ?? ''); $tot += $c;
+        }
+        return array($out, $tot);
+    }
+    return sb_tf_fact_str_in($s, $d);
+}
+function sb_tf_fact_str_in($s, $d) {
     $all = implode('|', sb_tf_units());
     $cnt = 0;
     $o   = preg_replace_callback('~(?<![0-9০-৯])([0-9০-৯]{1,5})(\+|টি)?((?:\s|<[^>]*>)*)(' . $all . ')~iu', function ($m) use ($d, &$cnt) {
         $cat = sb_tf_cat_of($m[4]);
         $val = sb_tf_en($m[1]);
-        if ('' === $cat) {
+        if ('' === $cat || ('' === $m[3] && preg_match('/^[a-z]/i', $m[4]))) {
             return $m[0];
         }
         if (array_key_exists('new', $d) && null !== $d['new']) {
