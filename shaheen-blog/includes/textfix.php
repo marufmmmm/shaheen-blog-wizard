@@ -38,6 +38,22 @@ function sb_tf_str($s, $pat, $rep) {
     return null === $o ? array($s, 0) : array($o, $n);
 }
 
+/** short before -> after context around the first difference of two strings (tags stripped) */
+function sb_tf_diff_sample($a, $b) {
+    $a = (string) $a;
+    $b = (string) $b;
+    $n = min(strlen($a), strlen($b));
+    $i = 0;
+    while ($i < $n && $a[$i] === $b[$i]) {
+        $i++;
+    }
+    $st = max(0, (int) mb_strlen(substr($a, 0, $i)) - 28);
+    $cl = function ($x) {
+        return trim(preg_replace('/\s+/u', ' ', wp_strip_all_tags($x)));
+    };
+    return $cl(mb_substr($a, $st, 80)) . ' → ' . $cl(mb_substr($b, $st, 80 + mb_strlen($b) - mb_strlen($a)));
+}
+
 /** walk a decoded Elementor tree; modifies strings in place, returns the number of changes */
 function sb_tf_walk(&$node, $pat, $rep, &$samples) {
     $c = 0;
@@ -45,6 +61,9 @@ function sb_tf_walk(&$node, $pat, $rep, &$samples) {
         if ('' !== $node && !preg_match('~^(https?:)?//|^#[0-9a-f]{3,8}$~i', $node)) {
             list($o, $n) = sb_tf_str($node, $pat, $rep);
             if ($n) {
+                if (count($samples) < 3 && is_array($pat) && array_key_exists('new', $pat) && null !== $pat['new']) {
+                    $samples[] = sb_tf_diff_sample($node, $o);
+                }
                 if (count($samples) < 3 && !is_array($pat)) {
                     if (preg_match($pat, $node, $m, PREG_OFFSET_CAPTURE)) {
                         $st = max(0, (int) mb_strlen(substr($node, 0, $m[0][1])) - 25);
@@ -81,6 +100,9 @@ function sb_tf_item($id, $pat, $rep) {
         if ($n) {
             $count += $n;
             $ch['post'][$f] = array((string) $p->$f, $o);
+            if (is_array($pat) && array_key_exists('new', $pat) && null !== $pat['new'] && count($samples) < 3) {
+                $samples[] = sb_tf_diff_sample((string) $p->$f, $o);
+            }
             if (!is_array($pat) && preg_match($pat, (string) $p->$f, $mm, PREG_OFFSET_CAPTURE)) {
                 $st0 = max(0, (int) mb_strlen(substr((string) $p->$f, 0, $mm[0][1])) - 25);
                 $samples[] = trim(preg_replace('/\s+/u', ' ', wp_strip_all_tags(mb_substr((string) $p->$f, $st0, 70)))) . ' → ' . trim(preg_replace('/\s+/u', ' ', wp_strip_all_tags(mb_substr($o, $st0, 70 + mb_strlen($o) - mb_strlen((string) $p->$f)))));
@@ -136,10 +158,10 @@ function sb_tf_item($id, $pat, $rep) {
 /* ------------------------------------------------------------------ facts: numbers with units (years, campuses, students) */
 
 function sb_tf_units() {
-    return array('years' => 'বছর|years?|yrs', 'campus' => 'ক্যাম্পাস|শাখা|campuses|campus|branches|branch', 'students' => 'শিক্ষার্থী|ছাত্র-ছাত্রী|ছাত্র|students?');
+    return array('years' => 'বছর|years?|yrs', 'campus' => 'ক্যাম্পাস|শাখা|campuses|campus|branches|branch', 'students' => 'শিক্ষার্থী|ছাত্র-ছাত্রী|ছাত্র|students?', 'districts' => 'জেলা|districts?');
 }
 function sb_tf_min() {
-    return array('years' => 20, 'campus' => 20, 'students' => 100);
+    return array('years' => 20, 'campus' => 20, 'students' => 100, 'districts' => 20);
 }
 function sb_tf_cat_of($word) {
     foreach (sb_tf_units() as $cat => $re) {
@@ -150,7 +172,7 @@ function sb_tf_cat_of($word) {
     return '';
 }
 function sb_tf_max() {
-    return array('years' => 99, 'campus' => 999, 'students' => 200000);
+    return array('years' => 99, 'campus' => 999, 'students' => 200000, 'districts' => 64);
 }
 function sb_tf_en($s) {
     return (int) strtr((string) $s, array('০' => '0', '১' => '1', '২' => '2', '৩' => '3', '৪' => '4', '৫' => '5', '৬' => '6', '৭' => '7', '৮' => '8', '৯' => '9'));
@@ -214,7 +236,7 @@ function sb_tf_fact_str($s, $d) {
 function sb_tf_fact_str_in($s, $d) {
     $all = implode('|', sb_tf_units());
     $cnt = 0;
-    $o   = preg_replace_callback('~(?<![0-9০-৯])([0-9০-৯]{1,5})(\+|টি)?((?:\s|<[^>]*>)*)(' . $all . ')(?!\s*(?:পরিচালক|পরিচালনা|সমূহ|প্রধান))~iu', function ($m) use ($d, &$cnt) {
+    $o   = preg_replace_callback('~(?<![0-9০-৯])([0-9০-৯]{1,5})(\+|টি)?((?:\s|<[^>]*>)*)(' . $all . ')(?!\p{M}*\s*(?:পরিচালক|পরিচালনা|সমূহ|প্রধান|পদার্পণ))~iu', function ($m) use ($d, &$cnt) {
         $cat = sb_tf_cat_of($m[4]);
         $val = sb_tf_en($m[1]);
         if ('' === $cat || ('' === $m[3] && preg_match('/^[a-z]/i', $m[4]))) {
@@ -224,7 +246,7 @@ function sb_tf_fact_str_in($s, $d) {
             list($nv, $sf) = sb_tf_split_new($d['new']);
             if ($cat === $d['cat'] && $val === (int) $d['old'] && null !== $nv) {
                 $cnt++;
-                return sb_tf_script($nv, $m[1]) . $sf . $m[3] . $m[4];
+                return sb_tf_script($nv, $m[1]) . ('' === $sf && 'টি' === $m[2] ? 'টি' : $sf) . $m[3] . $m[4];
             }
             return $m[0];
         }
@@ -644,7 +666,7 @@ function sb_page_textfix() {
     /* ---- tabs + facts ---- */
     function tab(w) { $('#pane-ai').style.display = w === 'ai' ? '' : 'none'; $('#pane-man').style.display = w === 'man' ? '' : 'none'; $('#tab-ai').classList.toggle('nav-tab-active', w === 'ai'); $('#tab-man').classList.toggle('nav-tab-active', w === 'man'); }
     $('#tab-ai').onclick = function (e) { e.preventDefault(); tab('ai'); }; $('#tab-man').onclick = function (e) { e.preventDefault(); tab('man'); };
-    var CAT = { campus: 'ক্যাম্পাস / শাখার সংখ্যা', years: 'অভিজ্ঞতার বছর', students: 'শিক্ষার্থীর সংখ্যা' };
+    var CAT = { campus: 'ক্যাম্পাস / শাখার সংখ্যা', years: 'অভিজ্ঞতার বছর', students: 'শিক্ষার্থীর সংখ্যা', districts: 'জেলার সংখ্যা' };
     var FACTS = null, HINT = null, SUG = {}, EST = 0;
     function bn(n, like) { return /[০-৯]/.test(like || '') ? String(n).replace(/\d/g, function (d) { return '০১২৩৪৫৬৭৮৯'[d]; }) : String(n); }
     function topVal(rows) { return rows.length ? rows[0].v : ''; }
@@ -661,7 +683,7 @@ function sb_page_textfix() {
                 var like = (r.s && r.s[0]) || '';
                 var pre = sg ? sg.suggest : (rows[0].v !== r.v ? bn(rows[0].v, like) : '');
                 var isSg = sg && parseInt(String(sg.suggest).replace(/[০-৯]/g, function (d) { return '০১২৩৪৫৬৭৮৯'.indexOf(d); }), 10) === r.v;
-                h += '<div class="fv" data-old="' + r.v + '"><b>' + esc(bn(r.v, like)) + '</b> — ' + r.pages + 'টি পেজ/জায়গায় (' + r.n + 'বার) <small class="sba-muted">' + esc((r.s || []).join(' | ')) + '<br>' + esc((r.p || []).join(', ')) + '</small><br>' +
+                h += '<div class="fv" data-old="' + r.v + '"><b style="font-size:16px">' + esc(bn(r.v, like)) + '</b> — সাইটে ' + r.pages + 'টি পেজ/সেটিংয়ে মোট ' + r.n + ' বার লেখা আছে<br><small class="sba-muted">লেখা আছে এভাবে: «' + esc((r.s || []).join('» «')) + '»<br>যেসব জায়গায়: ' + esc((r.p || []).join(', ')) + (r.pages > (r.p || []).length ? ' … আরও ' + (r.pages - r.p.length) + 'টি' : '') + '</small><br>' +
                     (isSg ? '<span style="color:#15803d">✓ এটাই ঠিক মান (পরামর্শ অনুযায়ী)</span></div>' : 'বদলে হবে: <input type="text" class="nv" style="width:90px" value="' + esc(pre) + '" placeholder="নতুন মান"> <button type="button" class="button v-scan">🔎 কোথায় বদলাবে দেখুন</button> <button type="button" class="button button-primary v-apply" disabled>✅ প্রয়োগ</button> <button type="button" class="button v-undo">↩ ফেরান</button> <span class="sba-msg vm"></span><div class="tfo"></div></div>');
             });
             if (rows.length > 4) { h += '</details>'; }
