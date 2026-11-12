@@ -376,13 +376,37 @@ add_action('wp_ajax_sb_tf_res', function () {
         if (is_array($map) && is_array($o) && isset($o['home'])) {
             update_option('csa_ev_bak_res', $o, false);
             $n = 0;
-            array_walk_recursive($o['home'], function (&$v, $k) use ($map, &$n) {
-                if (is_string($v) && 'u' !== $k) {
-                    $nv = strtr($v, $map);
-                    if ($nv !== $v) {
-                        $v = $nv;
+            $exact = array();
+            $lit   = array();
+            foreach ($map as $f => $t) {
+                if (0 === strpos($f, '=')) {
+                    $exact[substr($f, 1)] = $t;
+                } elseif (0 === strpos($f, '@')) {
+                    $exact['@' . substr($f, 1)] = $t;
+                } else {
+                    $lit[$f] = $t;
+                }
+            }
+            array_walk_recursive($o['home'], function (&$v, $k) use ($lit, $exact, &$n) {
+                if (!is_string($v)) {
+                    return;
+                }
+                if ('u' === $k) {
+                    if (isset($exact['@' . $v])) {
+                        $v = $exact['@' . $v];
                         $n++;
                     }
+                    return;
+                }
+                if (isset($exact[$v])) {
+                    $v = $exact[$v];
+                    $n++;
+                    return;
+                }
+                $nv = $lit ? strtr($v, $lit) : $v;
+                if ($nv !== $v) {
+                    $v = $nv;
+                    $n++;
                 }
             });
             csa_ev_set($o);
