@@ -216,7 +216,7 @@ function sb_tf_fact_pairs(&$node, $d, &$samples) {
         foreach ($node as $k2 => $v2) {
             if ($k2 !== $k && is_string($v2)) {
                 $plain = trim(wp_strip_all_tags($v2));
-                if (preg_match('~^(?:\S+\s+){0,2}?(' . $all . ')~iu', $plain, $um)) {
+                if (preg_match('~^(?:(?:মোট|আমাদের|সর্বমোট|total|our|all)\s+){0,2}(' . $all . ')~iu', $plain, $um)) {
                     $cat = sb_tf_cat_of($um[1]);
                     $txt = $plain;
                     break;
@@ -621,13 +621,15 @@ function sb_page_textfix() {
             var card = document.createElement('div'); card.className = 'fc' + (multi ? ' bad' : ''); card.dataset.cat = cat;
             var h = '<b>' + CAT[cat] + '</b> ' + (multi ? '<span style="color:#b45309">⚠ ' + rows.length + ' রকম মান পাওয়া গেছে</span>' : '<span style="color:#15803d">✓ সব জায়গায় একই</span>');
             if (sg) { h += '<div class="fai">🤖 <b>পরামর্শ: ' + esc(sg.suggest) + '</b> — ' + esc(sg.reason || '') + ' <i>(' + esc(sg.confidence || '') + ')</i>' + (sg.needs_input ? ' · <b>⚠ প্রমাণ কম, আপনি নিশ্চিত করুন</b>' : '') + '</div>'; }
-            rows.forEach(function (r) {
+            rows.forEach(function (r, ri) {
+                if (ri === 4) { h += '<details><summary class="sba-muted">আরও ' + (rows.length - 4) + 'টি কম-ব্যবহৃত মান দেখুন</summary>'; }
                 var like = (r.s && r.s[0]) || '';
                 var pre = sg ? sg.suggest : (rows[0].v !== r.v ? bn(rows[0].v, like) : '');
                 var isSg = sg && parseInt(String(sg.suggest).replace(/[০-৯]/g, function (d) { return '০১২৩৪৫৬৭৮৯'.indexOf(d); }), 10) === r.v;
                 h += '<div class="fv" data-old="' + r.v + '"><b>' + esc(bn(r.v, like)) + '</b> — ' + r.pages + 'টি পেজ/জায়গায় (' + r.n + 'বার) <small class="sba-muted">' + esc((r.s || []).join(' | ')) + '<br>' + esc((r.p || []).join(', ')) + '</small><br>' +
                     (isSg ? '<span style="color:#15803d">✓ এটাই ঠিক মান (পরামর্শ অনুযায়ী)</span></div>' : 'বদলে হবে: <input type="text" class="nv" style="width:90px" value="' + esc(pre) + '" placeholder="নতুন মান"> <button type="button" class="button v-scan">🔎 কোথায় বদলাবে দেখুন</button> <button type="button" class="button button-primary v-apply" disabled>✅ প্রয়োগ</button> <button type="button" class="button v-undo">↩ ফেরান</button> <span class="sba-msg vm"></span><div class="tfo"></div></div>');
             });
+            if (rows.length > 4) { h += '</details>'; }
             card.innerHTML = h; out.appendChild(card);
         });
         if (!out.children.length) { out.innerHTML = '<p>এই ধরনের কোনো সংখ্যা-তথ্য পাওয়া যায়নি।</p>'; }
