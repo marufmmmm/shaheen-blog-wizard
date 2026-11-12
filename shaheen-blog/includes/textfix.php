@@ -214,7 +214,7 @@ function sb_tf_fact_str($s, $d) {
 function sb_tf_fact_str_in($s, $d) {
     $all = implode('|', sb_tf_units());
     $cnt = 0;
-    $o   = preg_replace_callback('~(?<![0-9০-৯])([0-9০-৯]{1,5})(\+|টি)?((?:\s|<[^>]*>)*)(' . $all . ')~iu', function ($m) use ($d, &$cnt) {
+    $o   = preg_replace_callback('~(?<![0-9০-৯])([0-9০-৯]{1,5})(\+|টি)?((?:\s|<[^>]*>)*)(' . $all . ')(?!\s*(?:পরিচালক|পরিচালনা|সমূহ|প্রধান))~iu', function ($m) use ($d, &$cnt) {
         $cat = sb_tf_cat_of($m[4]);
         $val = sb_tf_en($m[1]);
         if ('' === $cat || ('' === $m[3] && preg_match('/^[a-z]/i', $m[4]))) {
