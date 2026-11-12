@@ -49,7 +49,7 @@ function sb_tf_diff_sample($a, $b) {
     }
     $st = max(0, (int) mb_strlen(substr($a, 0, $i)) - 28);
     $cl = function ($x) {
-        return trim(preg_replace('/\s+/u', ' ', wp_strip_all_tags($x)));
+        return trim(preg_replace('/\s+/u', ' ', wp_strip_all_tags(preg_replace('/<[^>]*>/', ' ', $x))));
     };
     return $cl(mb_substr($a, $st, 80)) . ' → ' . $cl(mb_substr($b, $st, 80 + mb_strlen($b) - mb_strlen($a)));
 }
@@ -250,7 +250,7 @@ function sb_tf_fact_str_in($s, $d) {
             }
             return $m[0];
         }
-        sb_tf_fact_note($d, $cat, $val, trim(wp_strip_all_tags($m[0])));
+        sb_tf_fact_note($d, $cat, $val, trim(preg_replace('/\s+/u', ' ', wp_strip_all_tags(preg_replace('/<[^>]*>/', ' ', $m[0])))));
         return $m[0];
     }, $s);
     return array(null === $o ? $s : $o, $cnt);
@@ -342,6 +342,23 @@ add_action('wp_ajax_sb_tf_facts', function () {
         $hint['home_meta_description'] = (string) get_post_meta($fp, '_yoast_wpseo_metadesc', true);
     }
     wp_send_json_success(array('facts' => $f, 'est' => $est, 'hint' => $hint));
+});
+
+add_action('wp_ajax_sb_tf_truth', function () {
+    sb_ajax_guard('manage_options');
+    $def = array('campus' => '177', 'districts' => '36', 'years' => '35', 'students' => '');
+    if (isset($_POST['save'])) { // phpcs:ignore WordPress.Security.NonceVerification
+        $in = json_decode((string) wp_unslash($_POST['save']), true); // phpcs:ignore WordPress.Security.NonceVerification
+        $o  = array();
+        foreach ($def as $k => $v) {
+            $raw   = is_array($in) && isset($in[$k]) ? (string) $in[$k] : '';
+            $raw   = strtr($raw, array('০' => '0', '১' => '1', '২' => '2', '৩' => '3', '৪' => '4', '৫' => '5', '৬' => '6', '৭' => '7', '৮' => '8', '৯' => '9'));
+            $o[$k] = substr(preg_replace('/[^0-9]/', '', $raw), 0, 6);
+        }
+        update_option('sb_tf_truth', $o, false);
+    }
+    $t = get_option('sb_tf_truth', null);
+    wp_send_json_success(array('truth' => is_array($t) ? array_merge($def, $t) : $def));
 });
 
 add_action('wp_ajax_sb_tf_fact_scan', function () {
@@ -621,8 +638,21 @@ function sb_page_textfix() {
 <div class="wrap sba" id="sb-tf">
     <h1>✏️ লেখা বদল (পুরো সাইটে)</h1>
     <p class="sba-muted">প্রতিটি বদল আলাদা লাইনে লিখুন: কী খুঁজবেন → কী বসাবেন। প্রতিটির নিজস্ব <b>দেখুন</b> (কোথায় কোথায় আছে ও আগে → পরে কেমন হবে), <b>বদলান</b> ও <b>ফেরান</b> বোতাম। একটি বদল অন্যটিকে ছোঁয় না। পেজ, পোস্ট, টেমপ্লেট, হেডার-ফুটার, SEO ও হোম সেটিং সব জায়গায় খোঁজে।</p>
-    <h2 class="nav-tab-wrapper" style="margin:14px 0"><a href="#" class="nav-tab nav-tab-active" id="tab-ai">🤖 তথ্য মিলিয়ে দেখুন (AI পরামর্শ)</a><a href="#" class="nav-tab" id="tab-man">✏️ হাতে বদল</a></h2>
-    <div id="pane-ai">
+    <h2 class="nav-tab-wrapper" style="margin:14px 0"><a href="#" class="nav-tab nav-tab-active" id="tab-fix">✅ সঠিক তথ্য মেলান</a><a href="#" class="nav-tab" id="tab-man">✏️ হাতে বদল</a><a href="#" class="nav-tab" id="tab-ai">🔬 সব সংখ্যা (বিস্তারিত)</a></h2>
+    <div id="pane-fix">
+        <p class="sba-muted" style="max-width:900px">আপনার <b>সঠিক তথ্য</b> একবার লিখুন। প্লাগইন পুরো সাইটে খুঁজে দেখাবে কোথায় কোথায় ভুল সংখ্যা লেখা আছে, তারপর আপনি চাপলে ঠিক করে দেবে। দেখা ফ্রি।</p>
+        <div style="background:#fff;border:1px solid #d1d5db;border-radius:8px;padding:12px;max-width:760px">
+            <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:10px">
+                <label>🏫 ক্যাম্পাস / শাখা<br><input type="text" id="tr-campus" style="width:100%"></label>
+                <label>🗺 জেলা<br><input type="text" id="tr-districts" style="width:100%"></label>
+                <label>📅 প্রতিষ্ঠানের বয়স (বছর)<br><input type="text" id="tr-years" style="width:100%"></label>
+                <label>🎓 শিক্ষার্থী (ঐচ্ছিক)<br><input type="text" id="tr-students" style="width:100%" placeholder="ফাঁকা = মেলাবে না"></label>
+            </div>
+            <p style="margin:10px 0 0"><button type="button" class="button button-primary" id="fx-scan">🔍 ভুল খুঁজুন (ফ্রি)</button> <span id="fx-msg" class="sba-msg"></span></p>
+        </div>
+        <div id="fx-out"></div>
+    </div>
+    <div id="pane-ai" style="display:none">
         <p class="sba-muted" style="max-width:900px">সাইটে যত সংখ্যা-তথ্য আছে (ক্যাম্পাস, বছর, শিক্ষার্থী) ধরে ধরে মিলিয়ে দেখায়। একই তথ্য দুই রকম থাকলে ⚠ দেয়। <b>দেখা ফ্রি।</b> AI শুধু "কোনটা ঠিক হতে পারে" পরামর্শ দেয়, নিজে কিছু বদলায় না। বদল হয় আপনি ✅ চাপলে, প্রতিটি আলাদা, ফেরানো যায়।</p>
         <p><button type="button" class="button button-primary" id="ai-scan">🔍 সাইটের তথ্য দেখুন (ফ্রি)</button> <button type="button" class="button" id="ai-ask" disabled>🤖 AI-র পরামর্শ নিন</button> <span id="ai-msg" class="sba-msg"></span></p>
         <div id="ai-out"></div>
@@ -664,8 +694,8 @@ function sb_page_textfix() {
     function save() { var rows = [].map.call(list.children, function (el) { return { id: el.dataset.id, f: $('.f', el).value, r: $('.r', el).value, re: $('.re', el).checked ? 1 : 0, done: el.classList.contains('tfd') ? 1 : 0 }; }); return post('sb_tf_rows', { rows: JSON.stringify(rows) }); }
 
     /* ---- tabs + facts ---- */
-    function tab(w) { $('#pane-ai').style.display = w === 'ai' ? '' : 'none'; $('#pane-man').style.display = w === 'man' ? '' : 'none'; $('#tab-ai').classList.toggle('nav-tab-active', w === 'ai'); $('#tab-man').classList.toggle('nav-tab-active', w === 'man'); }
-    $('#tab-ai').onclick = function (e) { e.preventDefault(); tab('ai'); }; $('#tab-man').onclick = function (e) { e.preventDefault(); tab('man'); };
+    function tab(w) { ['fix', 'ai', 'man'].forEach(function (k) { $('#pane-' + k).style.display = w === k ? '' : 'none'; $('#tab-' + k).classList.toggle('nav-tab-active', w === k); }); }
+    ['fix', 'ai', 'man'].forEach(function (k) { $('#tab-' + k).onclick = function (e) { e.preventDefault(); tab(k); }; });
     var CAT = { campus: 'ক্যাম্পাস / শাখার সংখ্যা', years: 'অভিজ্ঞতার বছর', students: 'শিক্ষার্থীর সংখ্যা', districts: 'জেলার সংখ্যা' };
     var FACTS = null, HINT = null, SUG = {}, EST = 0;
     function bn(n, like) { return /[০-৯]/.test(like || '') ? String(n).replace(/\d/g, function (d) { return '০১২৩৪৫৬৭৮৯'[d]; }) : String(n); }
@@ -719,6 +749,70 @@ function sb_page_textfix() {
         } else if (b.classList.contains('v-undo')) {
             post('sb_tf_undo', { rid: rid }).then(function (j) { m.textContent = j.success ? '↩ ফেরানো হয়েছে (' + j.data.items + 'টি)।' : ((j.data && j.data.message) || 'ত্রুটি'); });
         }
+    });
+
+    /* ---- simple tab: type the correct facts once, find the wrong ones, fix with one click ---- */
+    var TR = { campus: 'ক্যাম্পাস / শাখা', districts: 'জেলা', years: 'প্রতিষ্ঠানের বয়স', students: 'শিক্ষার্থী' }, TRUTH = {}, FXROWS = [];
+    var BNUM = function (n) { return String(n).replace(/\d/g, function (d) { return '০১২৩৪৫৬৭৮৯'[d]; }); };
+    function trRead() { var o = {}; Object.keys(TR).forEach(function (k) { o[k] = $('#tr-' + k).value.trim(); }); return o; }
+    post('sb_tf_truth').then(function (j) { if (j.success) { TRUTH = j.data.truth; Object.keys(TR).forEach(function (k) { $('#tr-' + k).value = TRUTH[k] ? BNUM(TRUTH[k]) : ''; }); } });
+    $('#fx-scan').onclick = function () {
+        $('#fx-msg').textContent = 'সাইট পড়া হচ্ছে… (আধ মিনিট লাগতে পারে)'; $('#fx-scan').disabled = true; $('#fx-out').innerHTML = '';
+        post('sb_tf_truth', { save: JSON.stringify(trRead()) }).then(function (t) {
+            TRUTH = (t.data && t.data.truth) || {};
+            return post('sb_tf_facts');
+        }).then(function (j) {
+            $('#fx-scan').disabled = false;
+            if (!j.success) { $('#fx-msg').textContent = 'ত্রুটি হয়েছে, আবার চেষ্টা করুন।'; return; }
+            $('#fx-msg').textContent = 'হয়ে গেছে।';
+            drawFix(j.data.facts);
+        });
+    };
+    function drawFix(facts) {
+        var out = $('#fx-out'), h = '', bad = 0; FXROWS = [];
+        Object.keys(TR).forEach(function (cat) {
+            var T = parseInt(TRUTH[cat], 10); if (!T) { return; }
+            var rows = facts[cat] || [], ok = 0, wrong = [], other = [];
+            var tol = cat === 'years' ? 0.12 : 0.2;
+            rows.forEach(function (r) { if (r.v === T) { ok += r.n; } else if (Math.abs(r.v - T) / T <= tol) { wrong.push(r); } else { other.push(r); } });
+            h += '<div class="fc' + (wrong.length ? ' bad' : '') + '"><b style="font-size:15px">' + TR[cat] + ' — সঠিক: ' + BNUM(T) + '</b> ' + (wrong.length ? '<span style="color:#b45309">⚠ ভুল সংখ্যা পাওয়া গেছে</span>' : '<span style="color:#15803d">✓ সব ঠিক আছে</span>') + '<br><small class="sba-muted">ঠিক লেখা আছে ' + ok + ' জায়গায়।</small>';
+            wrong.forEach(function (r) {
+                bad++; var key = cat + '|' + r.v; FXROWS.push({ cat: cat, old: r.v, nw: T, key: key });
+                h += '<div class="fv" data-cat="' + cat + '" data-old="' + r.v + '" data-new="' + T + '"><span style="color:#b91c1c;font-size:16px"><b>❌ ' + BNUM(r.v) + '</b></span> লেখা আছে <b>' + r.n + ' জায়গায়</b> (' + r.pages + 'টি পেজ/সেটিংয়ে) → হবে <b style="color:#15803d">' + BNUM(T) + '</b><br>' +
+                    '<small class="sba-muted">যেমন: «' + esc((r.s || []).join('» «')) + '»<br>কোন কোন পেজে: ' + esc((r.p || []).join(', ')) + (r.pages > (r.p || []).length ? ' … আরও ' + (r.pages - r.p.length) + 'টি' : '') + '</small><br>' +
+                    '<button type="button" class="button fx-view">👁 কোথায় কোথায় বদলাবে দেখুন</button> <button type="button" class="button button-primary fx-go">✅ এটা ঠিক করুন</button> <button type="button" class="button fx-undo">↩ ফেরান</button> <span class="sba-msg fm"></span><div class="tfo"></div></div>';
+            });
+            if (other.length) { h += '<details style="margin-top:6px"><summary class="sba-muted">অন্য সংখ্যা (' + other.map(function (r) { return BNUM(r.v); }).join(', ') + ') — এগুলো সম্ভবত অন্য জিনিস (যেমন বিভাগ/জেলা ভিত্তিক শাখা), তাই ধরছি না</summary><small>' + other.map(function (r) { return BNUM(r.v) + ': ' + esc((r.s || []).slice(0, 1).join('') + ' — ' + (r.p || []).slice(0, 2).join(', ')); }).join('<br>') + '</small></details>'; }
+            h += '</div>';
+        });
+        if (bad) { h = '<p><button type="button" class="button button-primary" id="fx-all">✅ সবগুলো ভুল একসাথে ঠিক করুন (' + bad + 'টি সংখ্যা)</button> <span class="sba-msg" id="fx-allm"></span></p>' + h; } else { h = '<p style="color:#15803d"><b>✓ আপনার দেওয়া তথ্যের সাথে সাইটে কোনো ভুল সংখ্যা পাওয়া যায়নি।</b></p>' + h; }
+        out.innerHTML = h || '<p>সঠিক তথ্য লিখে আবার চাপুন।</p>';
+    }
+    function fxScan(v) { return post('sb_tf_fact_scan', { cat: v.dataset.cat, old: v.dataset.old, new: v.dataset.new }); }
+    function fxDo(v, ask) {
+        var m = $('.fm', v); m.textContent = 'খোঁজা হচ্ছে…';
+        return fxScan(v).then(function (j) {
+            if (!j.success) { m.textContent = (j.data && j.data.message) || 'ত্রুটি'; return 0; }
+            var ids = j.data.rows.map(function (r) { return r.id; }).join(','); if (!ids) { m.textContent = 'কিছু বদলানোর নেই।'; return 0; }
+            if (ask && !confirm(j.data.total + 'টি জায়গায় ' + BNUM(v.dataset.old) + ' → ' + BNUM(v.dataset.new) + ' হবে। ঠিক আছে?')) { m.textContent = 'বাতিল।'; return 0; }
+            m.textContent = 'বদলানো হচ্ছে…';
+            return post('sb_tf_fact_apply', { cat: v.dataset.cat, old: v.dataset.old, new: v.dataset.new, ids: ids, rid: 'f' + v.dataset.cat + v.dataset.old }).then(function (a) {
+                m.textContent = a.success ? '✅ হয়েছে: ' + a.data.changes + 'টি বদল। (আবার ভুল খুঁজলে নতুন অবস্থা দেখবেন)' : 'ত্রুটি'; if (a.success) { v.style.opacity = '.55'; $('.tfo', v).innerHTML = ''; } return a.success ? 1 : 0;
+            });
+        });
+    }
+    $('#fx-out').addEventListener('click', function (e) {
+        var b = e.target.closest('button'); if (!b) { return; }
+        if (b.id === 'fx-all') {
+            var vs = [].slice.call(document.querySelectorAll('#fx-out .fv')); if (!confirm(vs.length + 'টি ভুল সংখ্যা সাইটজুড়ে ঠিক করা হবে (প্রতিটি পরে ফেরানো যাবে)। শুরু করব?')) { return; }
+            b.disabled = true; var i = 0; (function nx() { if (i >= vs.length) { $('#fx-allm').textContent = '✅ সব শেষ। আবার "ভুল খুঁজুন" চেপে যাচাই করুন।'; return; } $('#fx-allm').textContent = (i + 1) + '/' + vs.length + ' হচ্ছে…'; fxDo(vs[i++], false).then(nx); })(); return;
+        }
+        var v = b.closest('.fv'); if (!v) { return; }
+        if (b.classList.contains('fx-view')) {
+            var m = $('.fm', v), out = $('.tfo', v); m.textContent = 'খোঁজা হচ্ছে…';
+            fxScan(v).then(function (j) { if (!j.success) { m.textContent = 'ত্রুটি'; return; } m.textContent = j.data.rows.length + 'টি পেজ/জায়গায় (মোট ' + j.data.total + 'টি)।'; out.innerHTML = j.data.rows.map(function (r) { return '<p><b>' + esc(r.title || '#' + r.id) + '</b> <span class="sba-muted">(' + r.n + ' জায়গা)</span>' + (r.s && r.s.length ? '<br><small>' + r.s.map(esc).join('<br>') + '</small>' : '') + '</p>'; }).join(''); });
+        } else if (b.classList.contains('fx-go')) { fxDo(v, true); }
+        else if (b.classList.contains('fx-undo')) { var mm = $('.fm', v); post('sb_tf_undo', { rid: 'f' + v.dataset.cat + v.dataset.old }).then(function (j) { mm.textContent = j.success ? '↩ ফেরানো হয়েছে (' + j.data.items + 'টি)।' : ((j.data && j.data.message) || 'ত্রুটি'); if (j.success) { v.style.opacity = ''; } }); }
     });
     (A.rows.length ? A.rows : [null]).forEach(function (d) { row(d); });
     $('#tf-add').onclick = function () { var e = row(); $('.f', e).focus(); save(); };
