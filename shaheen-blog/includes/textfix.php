@@ -45,7 +45,8 @@ function sb_tf_walk(&$node, $pat, $rep, &$samples) {
                 if (count($samples) < 3) {
                     if (preg_match($pat, $node, $m, PREG_OFFSET_CAPTURE)) {
                         $st = max(0, (int) mb_strlen(substr($node, 0, $m[0][1])) - 25);
-                        $samples[] = trim(preg_replace('/\s+/u', ' ', wp_strip_all_tags(mb_substr($node, $st, 70))));
+                        $bf = trim(preg_replace('/\s+/u', ' ', wp_strip_all_tags(mb_substr($node, $st, 70))));
+                        $samples[] = $bf . ' → ' . trim(preg_replace('/\s+/u', ' ', wp_strip_all_tags(mb_substr($o, $st, 70 + mb_strlen($o) - mb_strlen($node)))));
                     }
                 }
                 $node = $o;
@@ -74,7 +75,8 @@ function sb_tf_item($id, $pat, $rep) {
             $count += $n;
             $ch['post'][$f] = array((string) $p->$f, $o);
             if (preg_match($pat, (string) $p->$f, $mm, PREG_OFFSET_CAPTURE)) {
-                $samples[] = trim(preg_replace('/\s+/u', ' ', wp_strip_all_tags(mb_substr((string) $p->$f, max(0, (int) mb_strlen(substr((string) $p->$f, 0, $mm[0][1])) - 25), 70))));
+                $st0 = max(0, (int) mb_strlen(substr((string) $p->$f, 0, $mm[0][1])) - 25);
+                $samples[] = trim(preg_replace('/\s+/u', ' ', wp_strip_all_tags(mb_substr((string) $p->$f, $st0, 70)))) . ' → ' . trim(preg_replace('/\s+/u', ' ', wp_strip_all_tags(mb_substr($o, $st0, 70 + mb_strlen($o) - mb_strlen((string) $p->$f)))));
             }
         }
     }
@@ -115,7 +117,7 @@ function sb_tf_item($id, $pat, $rep) {
             if ($n) {
                 $count += $n;
                 $ch['meta'][$k] = array($v, $o);
-                $samples[]      = 'SEO: ' . mb_substr($v, 0, 80);
+                $samples[]      = 'SEO: ' . mb_substr($v, 0, 70) . ' → ' . mb_substr($o, 0, 70);
             }
         }
     }
@@ -238,8 +240,8 @@ add_action('wp_ajax_sb_tf_apply', function () {
     }
     $log = get_option('sb_tf_backup', array());
     $log = is_array($log) ? $log : array();
-    array_unshift($log, array('t' => time(), 'find' => (string) wp_unslash($_POST['find'] ?? ''), 'rep' => $rep, 'items' => $bk)); // phpcs:ignore WordPress.Security.NonceVerification
-    update_option('sb_tf_backup', array_slice($log, 0, 5), false);
+    array_unshift($log, array('rid' => sanitize_key((string) ($_POST['rid'] ?? '')), 't' => time(), 'find' => (string) wp_unslash($_POST['find'] ?? ''), 'rep' => $rep, 'items' => $bk)); // phpcs:ignore WordPress.Security.NonceVerification
+    update_option('sb_tf_backup', array_slice($log, 0, 40), false);
     sb_tf_flush();
     wp_send_json_success(array('items' => $done, 'changes' => $total));
 });
@@ -247,10 +249,20 @@ add_action('wp_ajax_sb_tf_apply', function () {
 add_action('wp_ajax_sb_tf_undo', function () {
     sb_ajax_guard('manage_options');
     $log = get_option('sb_tf_backup', array());
-    if (empty($log[0]['items'])) {
+    $rid = sanitize_key((string) ($_POST['rid'] ?? '')); // phpcs:ignore WordPress.Security.NonceVerification
+    $pos = null;
+    foreach ((array) $log as $i => $r) {
+        if (!empty($r['items']) && ('' === $rid || ($r['rid'] ?? '') === $rid)) {
+            $pos = $i;
+            break;
+        }
+    }
+    if (null === $pos) {
         wp_send_json_error(array('message' => 'ফেরানোর কিছু নেই।'));
     }
-    $run = array_shift($log);
+    $run = $log[$pos];
+    unset($log[$pos]);
+    $log = array_values($log);
     foreach ($run['items'] as $id => $b) {
         if (isset($b['opt'])) {
             update_option(substr((string) $id, 4), $b['opt']);
@@ -275,6 +287,17 @@ add_action('wp_ajax_sb_tf_undo', function () {
     wp_send_json_success(array('items' => count($run['items'])));
 });
 
+add_action('wp_ajax_sb_tf_rows', function () {
+    sb_ajax_guard('manage_options');
+    $rows = json_decode(wp_unslash((string) ($_POST['rows'] ?? '[]')), true); // phpcs:ignore WordPress.Security.NonceVerification
+    $out  = array();
+    foreach (array_slice((array) $rows, 0, 60) as $r) {
+        $out[] = array('id' => sanitize_key((string) ($r['id'] ?? uniqid('r'))), 'f' => (string) ($r['f'] ?? ''), 'r' => (string) ($r['r'] ?? ''), 're' => !empty($r['re']) ? 1 : 0, 'done' => !empty($r['done']) ? 1 : 0);
+    }
+    update_option('sb_tf_rows', $out, false);
+    wp_send_json_success(array('n' => count($out)));
+});
+
 function sb_tf_flush() {
     if (class_exists('\Elementor\Plugin') && isset(\Elementor\Plugin::$instance->files_manager)) {
         \Elementor\Plugin::$instance->files_manager->clear_cache();
@@ -286,49 +309,66 @@ function sb_tf_flush() {
 }
 
 function sb_page_textfix() {
-    $last = get_option('sb_tf_backup', array());
+    $rows = get_option('sb_tf_rows', array());
+    $rows = is_array($rows) ? $rows : array();
     ?>
 <div class="wrap sba" id="sb-tf">
     <h1>✏️ লেখা বদল (পুরো সাইটে)</h1>
-    <p class="sba-muted">একটি শব্দ বা বাক্য পুরো সাইটের সব পেজ, পোস্ট, টেমপ্লেট, হেডার-ফুটার ও SEO টাইটেল/বিবরণে খুঁজে একসাথে বদলায়। আগে "দেখুন" দিয়ে কোথায় কোথায় আছে দেখুন, তারপর "বদলান"। প্রতিবার ব্যাকআপ থাকে, "শেষ বদল ফেরান" দিয়ে ফেরানো যায়।</p>
-    <div class="sba-card sba-form" style="max-width:860px">
-        <label>যা খুঁজবেন <input type="text" id="tf-find" placeholder="যেমন: ৩৫ বছরের"></label>
-        <label>যা বসাবেন <input type="text" id="tf-rep" placeholder="যেমন: ৩৬ বছরের"></label>
-        <label><input type="checkbox" id="tf-re"> উন্নত (regex) — শুধু জানলে</label>
-        <p><button type="button" class="button" id="tf-scan">🔎 দেখুন</button>
-        <button type="button" class="button button-primary" id="tf-apply" disabled>✅ সব বদলান</button>
-        <button type="button" class="button" id="tf-undo"<?php echo empty($last[0]['items']) ? ' disabled' : ''; ?>>↩ শেষ বদল ফেরান</button>
-        <span id="tf-msg" class="sba-msg"></span></p>
-        <div id="tf-out"></div>
-    </div>
+    <p class="sba-muted">প্রতিটি বদল আলাদা লাইনে লিখুন: কী খুঁজবেন → কী বসাবেন। প্রতিটির নিজস্ব <b>দেখুন</b> (কোথায় কোথায় আছে ও আগে → পরে কেমন হবে), <b>বদলান</b> ও <b>ফেরান</b> বোতাম। একটি বদল অন্যটিকে ছোঁয় না। পেজ, পোস্ট, টেমপ্লেট, হেডার-ফুটার, SEO ও হোম সেটিং সব জায়গায় খোঁজে।</p>
+    <div id="tf-list"></div>
+    <p><button type="button" class="button" id="tf-add">➕ আরেকটি বদল</button> <span id="tf-msg" class="sba-msg"></span></p>
 </div>
+<style>
+#sb-tf .tfr{background:#fff;border:1px solid #d1d5db;border-radius:8px;padding:10px 12px;margin:10px 0;max-width:980px}
+#sb-tf .tfr input[type=text]{width:100%;padding:7px;border:1px solid #cbd5e1;border-radius:6px}
+#sb-tf .tfg{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+#sb-tf .tfo{margin-top:8px;font-size:13px}#sb-tf .tfo p{margin:6px 0;padding:6px;background:#f8fafc;border-radius:6px}
+#sb-tf .tfd{opacity:.6}
+@media(max-width:700px){#sb-tf .tfg{grid-template-columns:1fr}}
+</style>
 <script>
 (function () {
-    var A = <?php echo wp_json_encode(array('ajax' => admin_url('admin-ajax.php'), 'nonce' => wp_create_nonce('sb_admin'))); ?>;
-    var $ = function (s) { return document.querySelector(s); };
-    function call(action, extra) {
-        var fd = new FormData(); fd.append('action', action); fd.append('nonce', A.nonce);
-        fd.append('find', $('#tf-find').value); fd.append('rep', $('#tf-rep').value); fd.append('mode', $('#tf-re').checked ? 'regex' : 'plain');
-        Object.keys(extra || {}).forEach(function (k) { fd.append(k, extra[k]); });
-        return fetch(A.ajax, { method: 'POST', body: fd, credentials: 'same-origin' }).then(function (r) { return r.json(); });
-    }
+    var A = <?php echo wp_json_encode(array('ajax' => admin_url('admin-ajax.php'), 'nonce' => wp_create_nonce('sb_admin'), 'rows' => $rows)); ?>;
+    var $ = function (s, r) { return (r || document).querySelector(s); };
+    var list = $('#tf-list');
     function esc(s) { return String(s).replace(/[&<>"]/g, function (c) { return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]; }); }
-    $('#tf-scan').onclick = function () {
-        $('#tf-msg').textContent = 'খোঁজা হচ্ছে…'; $('#tf-apply').disabled = true;
-        call('sb_tf_scan').then(function (j) {
-            if (!j.success) { $('#tf-msg').textContent = (j.data && j.data.message) || 'ত্রুটি'; return; }
-            var d = j.data; $('#tf-msg').textContent = d.rows.length + 'টি পেজ/পোস্টে মোট ' + d.total + ' জায়গায় পাওয়া গেছে।';
-            $('#tf-out').innerHTML = d.rows.map(function (r) { return '<p><label><input type="checkbox" class="tf-id" value="' + r.id + '" checked> <b>' + esc(r.title || '#' + r.id) + '</b> <span class="sba-muted">(' + esc(r.type) + ' #' + r.id + ', ' + r.n + ' জায়গা)</span></label><br><small>' + r.s.map(esc).join(' … ') + '</small></p>'; }).join('');
-            $('#tf-apply').disabled = !d.rows.length;
-        });
-    };
-    $('#tf-apply').onclick = function () {
-        var ids = [].slice.call(document.querySelectorAll('.tf-id:checked')).map(function (x) { return x.value; }).join(',');
-        if (!ids) { return; }
-        $('#tf-msg').textContent = 'বদলানো হচ্ছে…'; $('#tf-apply').disabled = true;
-        call('sb_tf_apply', { ids: ids }).then(function (j) { $('#tf-msg').textContent = j.success ? 'শেষ: ' + j.data.items + 'টি পেজ/পোস্ট, ' + j.data.changes + ' জায়গা বদলেছে।' : 'ত্রুটি'; $('#tf-undo').disabled = false; });
-    };
-    $('#tf-undo').onclick = function () { call('sb_tf_undo').then(function (j) { $('#tf-msg').textContent = j.success ? 'ফেরানো হয়েছে (' + j.data.items + 'টি)।' : ((j.data && j.data.message) || 'ত্রুটি'); }); };
+    function post(action, o) { var fd = new FormData(); fd.append('action', action); fd.append('nonce', A.nonce); Object.keys(o || {}).forEach(function (k) { fd.append(k, o[k]); }); return fetch(A.ajax, { method: 'POST', body: fd, credentials: 'same-origin' }).then(function (r) { return r.json(); }); }
+    function rid() { return 'r' + Math.random().toString(36).slice(2, 9); }
+    function row(d) {
+        d = d || { id: rid(), f: '', r: '', re: 0, done: 0 };
+        var el = document.createElement('div'); el.className = 'tfr' + (d.done ? ' tfd' : ''); el.dataset.id = d.id;
+        el.innerHTML = '<div class="tfg"><label>খুঁজবেন<input type="text" class="f" value="' + esc(d.f) + '" placeholder="যেমন: ১৫০+ ক্যাম্পাস"></label><label>বসাবেন<input type="text" class="r" value="' + esc(d.r) + '" placeholder="যেমন: ১৭৭টি ক্যাম্পাস"></label></div>' +
+            '<p style="margin:8px 0 0"><label><input type="checkbox" class="re"' + (d.re ? ' checked' : '') + '> উন্নত (regex)</label> &nbsp; ' +
+            '<button type="button" class="button b-scan">🔎 দেখুন</button> <button type="button" class="button button-primary b-apply" disabled>✅ বদলান</button> <button type="button" class="button b-undo">↩ ফেরান</button> <button type="button" class="button b-del">🗑 লাইন মুছুন</button> <span class="sba-msg m"></span></p><div class="tfo"></div>';
+        list.appendChild(el); return el;
+    }
+    function data(el) { return { f: $('.f', el).value, r: $('.r', el).value, mode: $('.re', el).checked ? 'regex' : 'plain', rid: el.dataset.id }; }
+    function save() { var rows = [].map.call(list.children, function (el) { return { id: el.dataset.id, f: $('.f', el).value, r: $('.r', el).value, re: $('.re', el).checked ? 1 : 0, done: el.classList.contains('tfd') ? 1 : 0 }; }); return post('sb_tf_rows', { rows: JSON.stringify(rows) }); }
+    (A.rows.length ? A.rows : [null]).forEach(function (d) { row(d); });
+    $('#tf-add').onclick = function () { var e = row(); $('.f', e).focus(); save(); };
+    list.addEventListener('change', save);
+    list.addEventListener('click', function (e) {
+        var b = e.target.closest('button'); if (!b) { return; }
+        var el = b.closest('.tfr'), m = $('.m', el), out = $('.tfo', el), d = data(el);
+        if (b.classList.contains('b-del')) { el.remove(); save(); return; }
+        if (b.classList.contains('b-scan')) {
+            if (!d.f) { m.textContent = 'খোঁজার লেখা দিন।'; return; }
+            m.textContent = 'খোঁজা হচ্ছে…'; $('.b-apply', el).disabled = true; save();
+            post('sb_tf_scan', { find: d.f, rep: d.r, mode: d.mode }).then(function (j) {
+                if (!j.success) { m.textContent = (j.data && j.data.message) || 'ত্রুটি'; return; }
+                var x = j.data; m.textContent = x.rows.length + 'টি জায়গায় (মোট ' + x.total + 'টি) পাওয়া গেছে।';
+                out.innerHTML = x.rows.map(function (r) { return '<p><label><input type="checkbox" class="tf-id" value="' + esc(r.id) + '" checked> <b>' + esc(r.title || '#' + r.id) + '</b> <span class="sba-muted">(' + esc(r.type) + ', ' + r.n + ' জায়গা)</span></label><br><small>' + r.s.map(esc).join('<br>') + '</small></p>'; }).join('');
+                $('.b-apply', el).disabled = !x.rows.length;
+            });
+        } else if (b.classList.contains('b-apply')) {
+            var ids = [].map.call(el.querySelectorAll('.tf-id:checked'), function (x) { return x.value; }).join(',');
+            if (!ids) { return; }
+            m.textContent = 'বদলানো হচ্ছে…'; b.disabled = true;
+            post('sb_tf_apply', { find: d.f, rep: d.r, mode: d.mode, ids: ids, rid: d.rid }).then(function (j) { m.textContent = j.success ? '✅ শেষ: ' + j.data.items + 'টি জায়গা, ' + j.data.changes + 'টি বদল।' : 'ত্রুটি'; if (j.success) { el.classList.add('tfd'); out.innerHTML = ''; save(); } });
+        } else if (b.classList.contains('b-undo')) {
+            post('sb_tf_undo', { rid: d.rid }).then(function (j) { m.textContent = j.success ? '↩ ফেরানো হয়েছে (' + j.data.items + 'টি)।' : ((j.data && j.data.message) || 'ত্রুটি'); if (j.success) { el.classList.remove('tfd'); save(); } });
+        }
+    });
 })();
 </script>
     <?php
