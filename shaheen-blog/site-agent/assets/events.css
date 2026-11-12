@@ -171,7 +171,7 @@
 .shm .bdi:before,.shm .bdi:after{content:'🌾';position:absolute;top:50%;font-size:46px;transform:translateY(-50%)}.shm .bdi:before{left:-34px;transform:translateY(-50%) scaleX(-1)}.shm .bdi:after{right:-34px}
 .shm .bdi small{font-size:19px;font-weight:800;color:#7a1f00;letter-spacing:.5px}.shm .bdi b{font-family:var(--hf);font-size:58px;line-height:1.05;color:#b3120f;text-shadow:0 2px 0 #fff}.shm .bdi em{font-style:normal;font-weight:800;font-size:17px;color:#7a1f00}
 .shm .bdg>span{display:block;margin-top:10px;font-weight:700;font-size:14px;color:var(--ink);max-width:240px}
-.shm .mpr{overflow:hidden;border-radius:18px}.shm .mpr img{width:147%;max-width:none;margin-left:-47%;height:auto;display:block}
+.shm .mpr{overflow:hidden;border-radius:18px;display:flex;justify-content:center;background:#fff}.shm .mpr img{width:auto;max-width:100%;max-height:620px;margin:0;height:auto;display:block}@media (max-width:520px){.shm .mpr img{width:100%;max-height:none}}
 @media (max-width:900px){.shm .ag{grid-template-columns:1fr 1fr}.shm .ga:last-child:nth-child(4n+3){grid-column:auto}.shm .bars{grid-template-columns:1fr}.shm .mp{grid-template-columns:1fr}.shm .mpl{flex-direction:row;flex-wrap:wrap;justify-content:center}}
 @media (max-width:520px){.shm .ag{grid-template-columns:1fr 1fr;gap:10px}.shm .bdi{width:180px;height:180px}.shm .bdi b{font-size:46px}.shm .bdi:before{left:-26px}.shm .bdi:after{right:-26px}}
 
