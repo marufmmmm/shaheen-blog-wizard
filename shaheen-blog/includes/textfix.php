@@ -89,6 +89,25 @@ function sb_tf_item($id, $pat, $rep) {
             }
         }
     }
+    $jl = get_post_meta($id, '_csa_jsonld', true);
+    if (is_array($jl) && $jl) {
+        $newjl = $jl;
+        $nj    = 0;
+        foreach ($jl as $i => $js) {
+            $dj = is_string($js) ? json_decode($js, true) : null;
+            if (is_array($dj)) {
+                $n = sb_tf_walk($dj, $pat, $rep, $samples);
+                if ($n) {
+                    $nj += $n;
+                    $newjl[$i] = wp_json_encode($dj, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES);
+                }
+            }
+        }
+        if ($nj) {
+            $count += $nj;
+            $ch['jl'] = array($jl, $newjl);
+        }
+    }
     foreach (array('_yoast_wpseo_title', '_yoast_wpseo_metadesc', '_yoast_wpseo_opengraph-title', '_yoast_wpseo_opengraph-description', '_yoast_wpseo_twitter-title', '_yoast_wpseo_twitter-description') as $k) {
         $v = get_post_meta($id, $k, true);
         if (is_string($v) && '' !== $v) {
@@ -101,6 +120,36 @@ function sb_tf_item($id, $pat, $rep) {
         }
     }
     return array($count, array_slice($samples, 0, 3), $ch);
+}
+
+
+/** plugin options that hold visible site text (home sections, schema …) */
+function sb_tf_opts() {
+    global $wpdb;
+    $names = $wpdb->get_col("SELECT option_name FROM {$wpdb->options} WHERE option_name LIKE 'csa\\_%'"); // phpcs:ignore WordPress.DB.DirectDatabaseQuery
+    return array_values(array_filter((array) $names, function ($n) {
+        return !preg_match('~key|token|secret|log|backup|chat|mem|cache|_og$|hist|queue|seen|job|usage|ledger|cost|nonce|transient|undo|activity|plan~i', $n);
+    }));
+}
+
+/** one option: returns array(count, samples, newValue|null) */
+function sb_tf_opt($name, $pat, $rep) {
+    $v = get_option($name, null);
+    if (!is_array($v) && !is_string($v)) {
+        return array(0, array(), null);
+    }
+    $n       = 0;
+    $samples = array();
+    if (is_string($v)) {
+        list($o, $n) = sb_tf_str($v, $pat, $rep);
+        $v = $o;
+        if ($n) {
+            $samples[] = mb_substr($o, 0, 60);
+        }
+    } else {
+        $n = sb_tf_walk($v, $pat, $rep, $samples);
+    }
+    return array($n, array_slice($samples, 0, 3), $n ? $v : null);
 }
 
 add_action('wp_ajax_sb_tf_scan', function () {
@@ -119,6 +168,13 @@ add_action('wp_ajax_sb_tf_scan', function () {
             $rows[] = array('id' => $id, 'title' => get_the_title($id), 'type' => get_post_type($id), 'n' => $c, 's' => $s, 'url' => get_permalink($id));
         }
     }
+    foreach (sb_tf_opts() as $on) {
+        list($c, $sm) = sb_tf_opt($on, $pat, $rep);
+        if ($c) {
+            $total += $c;
+            $rows[] = array('id' => 'opt:' . $on, 'title' => 'সেটিং: ' . $on, 'type' => 'option', 'n' => $c, 's' => $sm, 'url' => '');
+        }
+    }
     wp_send_json_success(array('rows' => $rows, 'total' => $total));
 });
 
@@ -126,7 +182,7 @@ add_action('wp_ajax_sb_tf_apply', function () {
     sb_ajax_guard('manage_options');
     $pat = sb_tf_pattern((string) wp_unslash($_POST['find'] ?? ''), sanitize_key((string) ($_POST['mode'] ?? 'plain'))); // phpcs:ignore WordPress.Security.NonceVerification
     $rep = (string) wp_unslash($_POST['rep'] ?? ''); // phpcs:ignore WordPress.Security.NonceVerification
-    $only = array_filter(array_map('intval', explode(',', (string) ($_POST['ids'] ?? '')))); // phpcs:ignore WordPress.Security.NonceVerification
+    $only = array_filter(array_map('sanitize_text_field', explode(',', (string) ($_POST['ids'] ?? '')))); // phpcs:ignore WordPress.Security.NonceVerification
     if ('' === $pat) {
         wp_send_json_error(array('message' => 'খোঁজার লেখা ঠিক নয়।'));
     }
@@ -134,7 +190,7 @@ add_action('wp_ajax_sb_tf_apply', function () {
     $done  = 0;
     $total = 0;
     foreach (sb_tf_ids() as $id) {
-        if ($only && !in_array((int) $id, $only, true)) {
+        if ($only && !in_array((string) $id, $only, true)) {
             continue;
         }
         list($c, , $ch) = sb_tf_item($id, $pat, $rep);
@@ -154,6 +210,10 @@ add_action('wp_ajax_sb_tf_apply', function () {
             $b['el'] = $ch['el'][0];
             update_post_meta($id, '_elementor_data', wp_slash($ch['el'][1]));
         }
+        if (!empty($ch['jl'])) {
+            $b['jl'] = $ch['jl'][0];
+            update_post_meta($id, '_csa_jsonld', $ch['jl'][1]);
+        }
         foreach ((array) ($ch['meta'] ?? array()) as $k => $pair) {
             $b['meta'][$k] = $pair[0];
             update_post_meta($id, $k, $pair[1]);
@@ -162,6 +222,19 @@ add_action('wp_ajax_sb_tf_apply', function () {
         $done++;
         $total += $c;
         clean_post_cache($id);
+    }
+    foreach (sb_tf_opts() as $on) {
+        if ($only && !in_array('opt:' . $on, $only, true)) {
+            continue;
+        }
+        $old = get_option($on, null);
+        list($c, , $nv) = sb_tf_opt($on, $pat, $rep);
+        if ($c && null !== $nv) {
+            $bk['opt:' . $on] = array('opt' => $old);
+            update_option($on, $nv);
+            $done++;
+            $total += $c;
+        }
     }
     $log = get_option('sb_tf_backup', array());
     $log = is_array($log) ? $log : array();
@@ -179,11 +252,18 @@ add_action('wp_ajax_sb_tf_undo', function () {
     }
     $run = array_shift($log);
     foreach ($run['items'] as $id => $b) {
+        if (isset($b['opt'])) {
+            update_option(substr((string) $id, 4), $b['opt']);
+            continue;
+        }
         if (!empty($b['post'])) {
             wp_update_post(wp_slash(array_merge(array('ID' => $id), $b['post'])));
         }
         if (isset($b['el'])) {
             update_post_meta($id, '_elementor_data', wp_slash($b['el']));
+        }
+        if (isset($b['jl'])) {
+            update_post_meta($id, '_csa_jsonld', $b['jl']);
         }
         foreach ((array) ($b['meta'] ?? array()) as $k => $v) {
             update_post_meta($id, $k, $v);
