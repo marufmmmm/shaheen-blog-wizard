@@ -66,9 +66,12 @@ add_action( 'wpseo_add_opengraph_images', function ( $obj ) {
 		$obj->add_image( csa_ev_seo_img( $e ) );
 	}
 } );
-add_filter( 'wpseo_locale', function ( $l ) {
-	return csa_ev_seo_cur() ? 'bn_BD' : $l;
-} );
+foreach ( array( 'wpseo_locale', 'wpseo_og_locale' ) as $csa_loc_f ) {
+	add_filter( $csa_loc_f, function ( $l ) {
+		return csa_ev_seo_cur() ? 'bn_BD' : $l;
+	}, 30 );
+}
+unset( $csa_loc_f );
 
 /** Without Yoast, print the share tags ourselves. */
 add_action( 'wp_head', function () {
