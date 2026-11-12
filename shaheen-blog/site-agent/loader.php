@@ -37,3 +37,8 @@ unset( $csa_f );
 
 register_activation_hook( SB_FILE, 'csa_install' );
 register_deactivation_hook( SB_FILE, 'csa_deactivate' );
+
+/** Mobile header stays on screen while scrolling (the thin contact bar scrolls away, logo + menu button stay). */
+add_action( 'wp_head', function () {
+	echo '<style id="sb-mob-sticky">@media(max-width:900px){#masthead{position:sticky!important;top:-36px!important;z-index:99999!important}#sefNav .mdrw.open{max-height:calc(100vh - 62px);max-height:calc(100dvh - 62px);overflow-y:auto;-webkit-overflow-scrolling:touch}}</style>' . "\n";
+}, 99 );
