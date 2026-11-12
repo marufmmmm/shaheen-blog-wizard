@@ -794,7 +794,7 @@ function sb_page_textfix() {
         return fxScan(v).then(function (j) {
             if (!j.success) { m.textContent = (j.data && j.data.message) || 'ত্রুটি'; return 0; }
             var ids = j.data.rows.map(function (r) { return r.id; }).join(','); if (!ids) { m.textContent = 'কিছু বদলানোর নেই।'; return 0; }
-            if (ask && !confirm(j.data.total + 'টি জায়গায় ' + BNUM(v.dataset.old) + ' → ' + BNUM(v.dataset.new) + ' হবে। ঠিক আছে?')) { m.textContent = 'বাতিল।'; return 0; }
+            if (ask && v.dataset.ok !== '1') { v.dataset.ok = '1'; var gb = $('.fx-go', v); gb.textContent = '⚠ হ্যাঁ, নিশ্চিত — ' + j.data.total + 'টি জায়গায় ' + BNUM(v.dataset.old) + ' → ' + BNUM(v.dataset.new) + ' করুন'; gb.style.background = '#b45309'; gb.style.borderColor = '#b45309'; m.textContent = 'নিশ্চিত করতে আবার বোতামটি চাপুন।'; return 0; }
             m.textContent = 'বদলানো হচ্ছে…';
             return post('sb_tf_fact_apply', { cat: v.dataset.cat, old: v.dataset.old, new: v.dataset.new, ids: ids, rid: 'f' + v.dataset.cat + v.dataset.old }).then(function (a) {
                 m.textContent = a.success ? '✅ হয়েছে: ' + a.data.changes + 'টি বদল। (আবার ভুল খুঁজলে নতুন অবস্থা দেখবেন)' : 'ত্রুটি'; if (a.success) { v.style.opacity = '.55'; $('.tfo', v).innerHTML = ''; } return a.success ? 1 : 0;
@@ -804,7 +804,9 @@ function sb_page_textfix() {
     $('#fx-out').addEventListener('click', function (e) {
         var b = e.target.closest('button'); if (!b) { return; }
         if (b.id === 'fx-all') {
-            var vs = [].slice.call(document.querySelectorAll('#fx-out .fv')); if (!confirm(vs.length + 'টি ভুল সংখ্যা সাইটজুড়ে ঠিক করা হবে (প্রতিটি পরে ফেরানো যাবে)। শুরু করব?')) { return; }
+            var vs = [].slice.call(document.querySelectorAll('#fx-out .fv'));
+            if (b.dataset.ok !== '1') { b.dataset.ok = '1'; b.textContent = '⚠ হ্যাঁ, নিশ্চিত — ' + vs.length + 'টি ভুল সংখ্যা ঠিক করুন'; $('#fx-allm').textContent = 'প্রতিটি পরে ফেরানো যাবে। নিশ্চিত করতে আবার চাপুন।'; return; }
+            vs.forEach(function (x) { x.dataset.ok = '1'; });
             b.disabled = true; var i = 0; (function nx() { if (i >= vs.length) { $('#fx-allm').textContent = '✅ সব শেষ। আবার "ভুল খুঁজুন" চেপে যাচাই করুন।'; return; } $('#fx-allm').textContent = (i + 1) + '/' + vs.length + ' হচ্ছে…'; fxDo(vs[i++], false).then(nx); })(); return;
         }
         var v = b.closest('.fv'); if (!v) { return; }
