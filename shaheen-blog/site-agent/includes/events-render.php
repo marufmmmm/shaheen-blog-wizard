@@ -157,14 +157,15 @@ function csa_ev_event_html( $e ) {
 			if ( '' === $tt ) {
 				continue;
 			}
-			$yt = csa_ev_yt( $uu );
-			$fb = csa_ev_is_fb( $uu );
-			$em = csa_ev_embed( $uu, $yt, $fb, $tt );
+			$yt  = csa_ev_yt( $uu );
+			$fbp = csa_ev_is_fb( $uu ) && ! preg_match( '#(/reel/|/videos?/|/watch|fb\.watch)#i', $uu ); // a Facebook photo/text post cannot be played: keep it a link card
+			$fb  = csa_ev_is_fb( $uu ) && ! $fbp;
+			$em  = csa_ev_embed( $uu, $yt, $fb, $tt );
 			if ( $em ) {
 				$cards .= '<div class="vc rv emb-c"><div class="vm">' . $em . csa_ev_bigbtn( $uu ) . '</div><a class="vx" href="' . esc_url( $uu ) . '" target="_blank" rel="noopener"><b>' . esc_html( $tt ) . '</b>' . ( $mm ? '<small>' . esc_html( $mm ) . '</small>' : '' ) . '</a></div>';
 				continue;
 			}
-			if ( ! $yt && ! $fb && preg_match( '#^https?://#i', $uu ) && function_exists( 'csa_ev_og_get' ) ) { // news link: picture card
+			if ( ! $yt && ! $fb && ! $fbp && preg_match( '#^https?://#i', $uu ) && function_exists( 'csa_ev_og_get' ) ) { // news link: picture card
 				$og = csa_ev_og_get( $uu );
 				if ( ! $og ) {
 					csa_ev_og_queue( $uu );
@@ -175,7 +176,7 @@ function csa_ev_event_html( $e ) {
 					. '<span class="vx"><b>' . esc_html( $tt ) . '</b>' . ( $ds ? '<em class="nwd">' . esc_html( $ds ) . '</em>' : '' ) . ( $mm ? '<small>' . esc_html( $mm ) . '</small>' : '' ) . '</span></a>';
 				continue;
 			}
-			$cards .= '<a class="vc rv" href="' . esc_url( $uu ? $uu : '#' ) . '" target="_blank" rel="noopener"' . ( $yt ? ' data-yt="' . esc_attr( $yt ) . '"' : ( $fb ? ' data-fb="' . esc_url( $uu ) . '"' : '' ) ) . '><span class="vp">▶</span><span class="vx"><b>' . esc_html( $tt ) . '</b>' . ( $mm ? '<small>' . esc_html( $mm ) . '</small>' : '' ) . '</span></a>';
+			$cards .= '<a class="vc rv" href="' . esc_url( $uu ? $uu : '#' ) . '" target="_blank" rel="noopener"' . ( $yt ? ' data-yt="' . esc_attr( $yt ) . '"' : ( $fb ? ' data-fb="' . esc_url( $uu ) . '"' : '' ) ) . '><span class="vp">' . ( $fbp ? '📘' : '▶' ) . '</span><span class="vx"><b>' . esc_html( $tt ) . '</b>' . ( $mm ? '<small>' . esc_html( $mm ) . '</small>' : '' ) . '</span></a>';
 		}
 		if ( $cards ) {
 			$h .= '<section class="sec' . ( 0 === $vi % 2 ? ' alt' : '' ) . '" id="sev-v' . (int) $vi . '"><div class="in">' . csa_ev_head( trim( ( $vs['ic'] ? $vs['ic'] . ' ' : '' ) . $vs['t'] ), $vs['p'] ) . '<div class="vcs">' . $cards . '</div></div></section>';
