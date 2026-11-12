@@ -674,6 +674,18 @@ function csa_ev_hs_why( $x ) {
 }
 
 function csa_ev_hs_ideal( $x ) {
+	// A card with 'pid' takes its title, summary and link from that blog post, so editing the post in the blog updates the home page.
+	foreach ( (array) $x['cards'] as $i => $c ) {
+		$pid = (int) ( $c['pid'] ?? 0 );
+		if ( $pid && get_post_type( $pid ) === 'sb_post' && get_post_status( $pid ) === 'publish' ) {
+			$x['cards'][ $i ]['u'] = get_permalink( $pid );
+			$x['cards'][ $i ]['t'] = get_the_title( $pid );
+			$ex = trim( wp_strip_all_tags( (string) get_post_field( 'post_excerpt', $pid ) ) );
+			if ( $ex !== '' ) {
+				$x['cards'][ $i ]['d'] = mb_strlen( $ex ) > 90 ? mb_substr( $ex, 0, 88 ) . '…' : $ex;
+			}
+		}
+	}
 	return $x['cards'] ? '<section class="sec"><div class="in">' . csa_ev_head( $x['t'], $x['p'] ) . csa_ev_cards_grid( $x['cards'], 'cg c3' ) . '</div></section>' : '';
 }
 
