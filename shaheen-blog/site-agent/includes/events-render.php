@@ -690,7 +690,9 @@ function csa_ev_hs_blog( $x ) {
 		$img = get_the_post_thumbnail_url( $p, 'medium_large' );
 		$h  .= '<a class="bp rv" href="' . esc_url( get_permalink( $p ) ) . '"><span class="th' . ( $img ? '' : ' ph' ) . '">' . ( $img ? csa_ev_img( $img, get_the_title( $p ) ) : '📰' ) . '</span><span class="tx"><b>' . esc_html( get_the_title( $p ) ) . '</b><time>' . esc_html( csa_ev_date( get_the_date( 'Y-m-d', $p ) ) ) . '</time></span></a>';
 	}
-	$h .= '</div>' . ( $x['bu'] && $x['bt'] ? '<p class="mr rv"><a class="b p"' . csa_ev_link_attr( $x['bu'] ) . '>' . esc_html( $x['bt'] ) . '</a></p>' : '' ) . '</div></section>';
+	$bu = $x['bu'] ? $x['bu'] : '/blog/'; // empty = the blog page, so the button is always there
+	$bt = $x['bt'] ? $x['bt'] : 'সব লেখা পড়ুন →';
+	$h .= '</div><p class="mr rv"><a class="b p"' . csa_ev_link_attr( $bu ) . '>' . esc_html( $bt ) . '</a></p></div></section>';
 	return $h;
 }
 
