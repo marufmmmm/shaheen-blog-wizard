@@ -1656,6 +1656,19 @@ add_action('wp_ajax_sb_desk_op', function () {
         $l = get_option('sb_desk_last_chat', array());
         wp_send_json_success(array('msg' => is_wp_error($i) ? $i->get_error_message() : ('ওয়েবহুক: ' . (!empty($i['url']) ? 'সেট' : 'নেই') . '; অপেক্ষায় ' . (int) ($i['pending_update_count'] ?? 0) . ($i['last_error_message'] ?? '' ? '; শেষ ত্রুটি: ' . $i['last_error_message'] : '')) . (!empty($l['id']) ? ' | অন্য চ্যাট থেকে বার্তা এসেছিল: ' . $l['id'] . ' ' . $l['title'] : '') . (get_option('sb_desk_err') ? ' | ডেস্ক ত্রুটি: ' . get_option('sb_desk_err') : '')));
     }
+    if ('fix_authors' === $op) {   // every blog post and notice shows the team name
+        $uid = sb_team_author_id();
+        $n = 0;
+        $ids = get_posts(array('post_type' => array('sb_post', 'post'), 'post_status' => array('publish', 'draft', 'pending', 'future'), 'numberposts' => -1, 'fields' => 'ids', 'author__not_in' => array($uid),
+            'meta_query' => array('relation' => 'OR', array('key' => '_sn_is', 'value' => '1'), array('key' => '_sb_keywords', 'compare' => 'EXISTS'), array('key' => '_sb_press_url', 'compare' => 'EXISTS'))));
+        foreach ($ids as $pid) {
+            if ('sb_post' === get_post_type($pid) || get_post_meta($pid, '_sn_is', true)) {
+                wp_update_post(array('ID' => $pid, 'post_author' => $uid));
+                $n++;
+            }
+        }
+        wp_send_json_success(array('msg' => $n . ' পোস্টের লেখক বদলে SEF IT Team', 'uid' => $uid, 'name' => get_the_author_meta('display_name', $uid)));
+    }
     if ('sim' === $op) {   // dry run of a whole conversation; replies are returned, not sent
         wp_set_current_user(sb_desk_uid());
         $GLOBALS['sb_desk_sim'] = 1;

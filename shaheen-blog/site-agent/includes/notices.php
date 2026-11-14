@@ -271,6 +271,7 @@ function csa_sn_css() {
 		. ".sn-ck{list-style:none;margin:0;padding:0}.sn-ck li{padding:10px 0 10px 36px;border-bottom:1px dashed #cfd8d1;position:relative}.sn-ck li:last-child{border-bottom:0}.sn-ck li:before{content:'✓';position:absolute;left:0;top:12px;width:25px;height:25px;border-radius:50%;background:var(--p);color:#fff;font-size:15px;display:grid;place-items:center;line-height:1}"
 		. ".sn-note{background:#fff7e0;border-left:4px solid var(--a);padding:10px 14px;border-radius:8px;margin:0 0 12px}.sn-txt p{margin:0 0 .6em}"
 		. ".sn-im{display:grid;gap:10px;margin:0 0 12px}.sn-im img{width:100%;height:auto;border-radius:var(--r);display:block}.sn-im.g2{grid-template-columns:1fr 1fr}.sn-cap{text-align:center;font-size:.85em;color:#556;margin:-6px 0 12px}"
+		. ".sn-pdfv{margin:0 0 14px;border:1px solid #d9e3dc;border-radius:14px;overflow:hidden;background:#f6f8f6}.sn-pdfv iframe{display:block;width:100%;height:min(82vh,860px);min-height:480px;border:0}"
 		. ".sn-btns{display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:10px;margin:0 0 12px}.sn-btn{display:flex;align-items:center;justify-content:center;gap:6px;padding:14px 18px;border-radius:12px;font-weight:700;text-decoration:none!important;color:#fff!important;background:var(--p);text-align:center}.sn-btn.pdf{background:var(--a)}.sn-btn.fb{background:#1877f2}.sn-btn.oth{background:var(--k)}"
 		. ".sn-note{display:block!important;width:100%!important;max-width:100%!important;box-sizing:border-box!important;margin-left:0!important;margin-right:0!important;padding:12px 14px!important;text-indent:0!important;text-align:left!important;text-wrap:wrap!important;word-break:normal!important;overflow-wrap:break-word!important;hyphens:none!important;letter-spacing:normal!important;word-spacing:normal!important;float:none!important;columns:auto!important;column-count:1!important}.sn-note *{text-wrap:wrap!important;max-width:none!important;display:inline!important}.sn-ph{display:flex;flex-wrap:wrap;gap:10px}.sn-ph a.sn-em{background:#fff;color:var(--p)!important;border:2px solid var(--p);text-transform:none}.sn-ph a{display:inline-block;max-width:100%;overflow-wrap:anywhere}.sn-ph a{background:var(--p);color:#fff!important;border-radius:10px;padding:8px 16px;font-weight:700;text-decoration:none!important;font-size:1.05em}"
 		. ".sn-gf{background:#fff;border:1px solid #dfe6e0;border-radius:var(--r);padding:14px 12px;margin:0 0 12px}.sn-gf iframe{display:block;width:100%;border:0;border-radius:10px;background:#fff}.sn-gf p{margin:10px 0 0;text-align:center}.sn-gfb{display:inline-block;background:var(--p);color:#fff!important;border-radius:999px;padding:8px 20px;text-decoration:none;font-weight:600}.sn-emb{position:relative;aspect-ratio:16/9;border-radius:var(--r);overflow:hidden;background:#000;margin:0 0 12px}.sn-emb iframe{position:absolute;inset:0;width:100%;height:100%;border:0}"
@@ -293,6 +294,20 @@ function csa_sn_css() {
 		$css .= wp_strip_all_tags( $o['css'] );
 	}
 	return '<style>' . $css . '</style>';
+}
+
+function csa_sn_pdf_viewer( $u ) {
+	$u = trim( (string) $u );
+	$src = '';
+	if ( preg_match( '#drive\.google\.com/file/d/([\w-]+)#', $u, $m ) || preg_match( '#drive\.google\.com/(?:open|uc)\?(?:.*&)?id=([\w-]+)#', $u, $m ) ) {
+		$src = 'https://drive.google.com/file/d/' . $m[1] . '/preview';
+	} elseif ( preg_match( '#^https://[^?\s]+\.pdf(\?.*)?$#i', $u ) && 0 === strpos( $u, home_url( '/' ) ) ) {
+		$src = $u . ( false === strpos( $u, '#' ) ? '#view=FitH' : '' );
+	}
+	if ( '' === $src ) {
+		return '';
+	}
+	return '<div class="sn-pdfv"><iframe src="' . esc_url( $src ) . '" loading="lazy" allow="fullscreen" title="PDF"></iframe></div>';
 }
 
 function csa_sn_drive( $u ) {
@@ -366,6 +381,7 @@ function csa_sn_block( $b ) {
 		case 'buttons':
 			$o  = '';
 			$gf = '';
+			$pv = '';
 			$ic = array( 'apply' => '✍️', 'pdf' => '📄', 'fb' => '👍', 'oth' => '🔗' );
 			foreach ( (array) ( $b['items'] ?? array() ) as $it ) {
 				$k = isset( $ic[ $it['kind'] ?? '' ] ) ? $it['kind'] : 'oth';
@@ -377,8 +393,11 @@ function csa_sn_block( $b ) {
 					$gf = csa_sn_block( array( 't' => 'gform', 'h' => ( $it['label'] ?? '' ) ?: 'অনলাইনে আবেদন করুন', 'url' => $u, 'height' => 900, 'nolink' => 1 ) );
 				}
 				$o .= '<a class="sn-btn ' . ( 'apply' === $k ? '' : $k ) . '" target="_blank" rel="noopener" href="' . esc_url( $u ) . '">' . $ic[ $k ] . ' ' . esc_html( ( $it['label'] ?? '' ) ?: 'লিংক' ) . '</a>';
+				if ( 'pdf' === $k && '' === $pv ) { // a PDF button also shows the PDF in a viewer right on the page
+					$pv = csa_sn_pdf_viewer( (string) ( $it['url'] ?? '' ) );
+				}
 			}
-			return ( $o ? '<div class="sn-btns">' . $o . '</div>' : '' ) . $gf;
+			return ( $o ? '<div class="sn-btns">' . $o . '</div>' : '' ) . $pv . $gf;
 		case 'phones':
 			$o = '';
 			// One box per number or e-mail address; separate them with a comma or a new line.
