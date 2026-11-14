@@ -1451,6 +1451,13 @@ add_action('wp_ajax_sb_desk_op', function () {
         if ((int) sb_req('thumb', 0)) {
             set_post_thumbnail($pid, (int) sb_req('thumb'));
         }
+        if ('' !== (string) sb_req('summary')) {
+            update_post_meta($pid, '_sb_summary', sanitize_textarea_field((string) sb_req('summary')));
+        }
+        if ('' !== (string) sb_req('meta')) {
+            update_post_meta($pid, '_sb_meta_desc', sanitize_textarea_field((string) sb_req('meta')));
+            wp_update_post(array('ID' => $pid, 'post_excerpt' => sanitize_textarea_field((string) sb_req('meta'))));
+        }
         if ('' !== (string) sb_req('seo_title')) {
             update_post_meta($pid, '_sb_seo_title', sanitize_text_field((string) sb_req('seo_title')));
         }
