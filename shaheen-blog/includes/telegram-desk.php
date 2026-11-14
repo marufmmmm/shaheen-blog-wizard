@@ -1936,10 +1936,18 @@ add_action('wp_ajax_sb_desk_op', function () {
         }
         wp_send_json_success(array('msg' => 'ব্লগ পোস্ট তৈরি', 'id' => $pid, 'status' => get_post_status($pid), 'url' => get_permalink($pid)));
     }
+    if ('get_blog' === $op) {   // read one blog post as stored (owner use, to fix wording)
+        $pid = (int) sb_req('id', 0);
+        if (!$pid || 'sb_post' !== get_post_type($pid)) {
+            wp_send_json_error(array('message' => 'ব্লগ পোস্ট পাইনি।'));
+        }
+        wp_send_json_success(array('title' => get_the_title($pid), 'content' => (string) get_post_field('post_content', $pid), 'status' => get_post_status($pid),
+            'meta' => (string) get_post_meta($pid, '_sb_meta_desc', true), 'seo_title' => (string) get_post_meta($pid, '_sb_seo_title', true), 'en_title' => (string) get_post_meta($pid, '_sb_en_title', true), 'slug' => get_post_field('post_name', $pid)));
+    }
     if ('patch_more' === $op) {   // the same patcher, with the SEO / picture keys too
         $pid = (int) sb_req('id', 0);
         $f = array();
-        foreach (array('status', 'thumb', 'summary', 'meta', 'seo_title', 'keywords', 'en_title', 'slug', 'img_alt', 'aiimg', 'no_social') as $k) {
+        foreach (array('title', 'status', 'thumb', 'summary', 'meta', 'seo_title', 'keywords', 'en_title', 'slug', 'img_alt', 'aiimg', 'no_social') as $k) {
             $f[$k] = (string) sb_req($k);
         }
         $r = sb_desk_patch_post($pid, $f);
