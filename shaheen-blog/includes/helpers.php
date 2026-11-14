@@ -459,6 +459,13 @@ function sb_author_name($post_id) {
     return sb_team_author();
 }
 
+/** Alt text for a post's main picture: the picture's own alt (from the media library), else the post title. */
+function sb_post_alt($post_id) {
+    $t = (int) get_post_thumbnail_id($post_id);
+    $a = $t ? trim((string) get_post_meta($t, '_wp_attachment_image_alt', true)) : '';
+    return '' !== $a ? $a : get_the_title($post_id);
+}
+
 function sb_post_image($post_id, $size = 'large') {
     $url = get_the_post_thumbnail_url($post_id, $size);
     return $url ? $url : '';

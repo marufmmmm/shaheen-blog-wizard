@@ -109,7 +109,7 @@ function sb_card_html($post_id, $hidden = false) {
     <a class="blog-card<?php echo $press ? ' is-press' : ''; ?>" href="<?php echo esc_url($href); ?>"<?php echo $press ? ' target="_blank" rel="noopener nofollow"' : ''; ?> data-cat="<?php echo esc_attr(implode(' ', wp_list_pluck(sb_post_categories($post_id), 'slug'))); ?>"<?php echo $hidden ? ' hidden' : ''; ?>>
         <div class="blog-image-container">
             <?php if ($img) : ?>
-                <img class="blog-image" src="<?php echo esc_url($img); ?>" alt="<?php echo esc_attr($title); ?>" loading="lazy">
+                <img class="blog-image" src="<?php echo esc_url($img); ?>" alt="<?php echo esc_attr(sb_post_alt($post_id)); ?>" loading="lazy">
             <?php else : ?>
                 <div class="blog-noimg" aria-hidden="true"><?php echo $press ? '📰' : '📚'; ?></div>
             <?php endif; ?>
@@ -286,7 +286,7 @@ function sb_single_content($content) {
         <div class="post-wrap">
             <div class="post-card">
                 <?php if ($img) : ?>
-                    <figure class="post-figure"><img src="<?php echo esc_url($img); ?>" alt="<?php echo esc_attr(get_the_title($id)); ?>"></figure>
+                    <figure class="post-figure"><img src="<?php echo esc_url($img); ?>" alt="<?php echo esc_attr(sb_post_alt($id)); ?>"></figure>
                 <?php endif; ?>
                 <div class="post-inner">
                     <?php if ($sum && sb_summary_pos($id) === 'top') : ?>
