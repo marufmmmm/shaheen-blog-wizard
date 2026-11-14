@@ -68,7 +68,7 @@ function sb_render_block($b) {
 /** Where the "সংক্ষেপে" box goes: top (default), p:N (after Nth paragraph), middle, end. */
 function sb_summary_pos($post_id) {
     $p = (string) get_post_meta($post_id, '_sb_summary_pos', true);
-    return preg_match('/^(top|middle|end|p:\d{1,2})$/', $p) ? $p : 'top';
+    return preg_match('/^(top|middle|end|p:\d{1,2})$/', $p) ? $p : 'middle';
 }
 
 function sb_summary_html($sum) {

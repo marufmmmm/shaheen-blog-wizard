@@ -44,6 +44,7 @@ function sb_promo_clean($raw) {
             'like_label' => sanitize_text_field(!empty($r['like_label']) ? $r['like_label'] : '👍 ফেসবুকে লাইক দিন'),
             'pos'   => sb_clean_pos(isset($r['pos']) ? $r['pos'] : 'middle'),
             'auto'  => !empty($r['auto']) ? 1 : 0,
+            'match' => mb_substr(sanitize_text_field(isset($r['match']) ? $r['match'] : ''), 0, 120),
         );
     }
     return $out;
@@ -71,6 +72,23 @@ function sb_promo_html($p) {
     return $h . '</aside>';
 }
 
+/** A card with "match" words (comma separated) shows by itself in posts about that topic: words in the title, English title, keywords, or 3+ times in the text. */
+function sb_promo_matches($p, $post_id) {
+    $m = isset($p['match']) ? trim((string) $p['match']) : '';
+    if ($m === '' || !$post_id) {
+        return false;
+    }
+    $kw = get_post_meta($post_id, '_sb_keywords', true);
+    $head = mb_strtolower(get_the_title($post_id) . ' ' . get_post_meta($post_id, '_sb_en_title', true) . ' ' . (is_array($kw) ? implode(' ', $kw) : (string) $kw));
+    $body = mb_strtolower(wp_strip_all_tags((string) get_post_field('post_content', $post_id)));
+    foreach (array_filter(array_map('trim', preg_split('/[,،\n]+/u', mb_strtolower($m)))) as $w) {
+        if (mb_strpos($head, $w) !== false || mb_substr_count($body, $w) >= 3) {
+            return true;
+        }
+    }
+    return false;
+}
+
 /** [[pos, html], ...] for one post */
 function sb_promo_items($post_id) {
     if ($post_id && get_post_meta($post_id, '_sb_no_promo', true)) {
@@ -80,7 +98,7 @@ function sb_promo_items($post_id) {
     $picked = is_array($picked) ? $picked : array();
     $out = array();
     foreach (sb_promos() as $p) {
-        if (!empty($p['auto']) || in_array($p['id'], $picked, true)) {
+        if (!empty($p['auto']) || in_array($p['id'], $picked, true) || sb_promo_matches($p, $post_id)) {
             $out[] = array($p['pos'], sb_promo_html($p));
         }
     }

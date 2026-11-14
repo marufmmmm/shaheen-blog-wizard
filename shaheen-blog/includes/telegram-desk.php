@@ -996,6 +996,9 @@ function sb_desk_patch_post($pid, $f) {
     if ('' !== $g('summary')) {
         update_post_meta($pid, '_sb_summary', sanitize_textarea_field($g('summary')));
     }
+    if (preg_match('/^(top|middle|end)$/', $g('summary_pos'))) {
+        update_post_meta($pid, '_sb_summary_pos', $g('summary_pos'));
+    }
     if ('' !== $g('meta')) {
         update_post_meta($pid, '_sb_meta_desc', sanitize_textarea_field($g('meta')));
         wp_update_post(array('ID' => $pid, 'post_excerpt' => sanitize_textarea_field($g('meta'))));
@@ -1686,7 +1689,7 @@ function sb_desk_blog($text, $aids, $status = 'publish', $o = array()) {
     if ('' !== $en) {
         update_post_meta($id, '_sb_en_title', mb_substr($en, 0, 120));
     }
-    update_post_meta($id, '_sb_summary_pos', 'top');
+    update_post_meta($id, '_sb_summary_pos', 'middle');
     $ctx['post_id'] = $id;
     foreach (array('summary', 'faq', 'related') as $part) {
         $r = SB_AI::generate($part, $ctx);
@@ -1944,10 +1947,13 @@ add_action('wp_ajax_sb_desk_op', function () {
         wp_send_json_success(array('title' => get_the_title($pid), 'content' => (string) get_post_field('post_content', $pid), 'status' => get_post_status($pid),
             'meta' => (string) get_post_meta($pid, '_sb_meta_desc', true), 'seo_title' => (string) get_post_meta($pid, '_sb_seo_title', true), 'en_title' => (string) get_post_meta($pid, '_sb_en_title', true), 'slug' => get_post_field('post_name', $pid)));
     }
+    if ('promo_get' === $op) {
+        wp_send_json_success(array('promos' => sb_promos()));
+    }
     if ('patch_more' === $op) {   // the same patcher, with the SEO / picture keys too
         $pid = (int) sb_req('id', 0);
         $f = array();
-        foreach (array('title', 'status', 'thumb', 'summary', 'meta', 'seo_title', 'keywords', 'en_title', 'slug', 'img_alt', 'aiimg', 'no_social') as $k) {
+        foreach (array('title', 'status', 'thumb', 'summary', 'summary_pos', 'meta', 'seo_title', 'keywords', 'en_title', 'slug', 'img_alt', 'aiimg', 'no_social', 'promo_ids') as $k) {
             $f[$k] = (string) sb_req($k);
         }
         $r = sb_desk_patch_post($pid, $f);
