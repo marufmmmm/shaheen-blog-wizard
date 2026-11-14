@@ -196,7 +196,12 @@ function sb_gn_resolve($link) {
             };
             $r1  = $post('f.req=' . rawurlencode($freq), array());   // 1st call: Google answers with a one-time XSRF token
             $tok = '';
-            if (!is_wp_error($r1) && preg_match('#xsrf\\\\?",\\\\?"([^"\\\\]+)#', (string) wp_remote_retrieve_body($r1), $mt)) {
+            $gre = '#garturlres\\\\",\\\\"(https?://(?:[^"\\\\]|\\\\u[0-9a-fA-F]{4})+)#';
+            if (!is_wp_error($r1) && preg_match($gre, (string) wp_remote_retrieve_body($r1), $m1)) {   // from the server the 1st answer already holds the address
+                $d   = json_decode('"' . $m1[1] . '"');
+                $url = is_string($d) ? $d : $m1[1];
+            }
+            if ('' === $url && !is_wp_error($r1) && preg_match('#xsrf\\\\?",\\\\?"([^"\\\\]+)#', (string) wp_remote_retrieve_body($r1), $mt)) {
                 $tok = $mt[1];
             }
             $GLOBALS['sb_gn_dbg'][] = '' === $tok ? 'no-xsrf(' . (is_wp_error($r1) ? $r1->get_error_message() : (int) wp_remote_retrieve_response_code($r1) . ':' . substr(preg_replace('/\\s+/', ' ', (string) wp_remote_retrieve_body($r1)), 0, 220)) . ')' : 'xsrf-ok';
