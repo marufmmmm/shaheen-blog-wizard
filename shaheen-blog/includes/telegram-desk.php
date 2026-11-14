@@ -864,6 +864,12 @@ add_action('wp_ajax_sb_desk_op', function () {
         $i = sb_tg_api('getWebhookInfo');
         wp_send_json_success(array('msg' => 'চালু ✓ ' . (is_array($i) && !empty($i['last_error_message']) ? '(টেলিগ্রামের অভিযোগ: ' . $i['last_error_message'] . ')' : '')));
     }
+    if ('who' === $op) {   // which bot does the saved token belong to (the secret part is never shown)
+        $tk  = (string) $n['tg_token'];
+        $me  = sb_tg_api('getMe');
+        $pre = '' === $tk ? '(নেই)' : (false !== strpos($tk, ':') ? explode(':', $tk)[0] : '(কোলন নেই)');
+        wp_send_json_success(array('msg' => 'টোকেনের বট-নম্বর: ' . $pre . ', দৈর্ঘ্য: ' . strlen($tk) . ' → ' . (is_wp_error($me) ? $me->get_error_message() : '@' . $me['username'])));
+    }
     if ('info' === $op) {
         $i = sb_tg_api('getWebhookInfo');
         $l = get_option('sb_desk_last_chat', array());
@@ -910,7 +916,7 @@ function sb_desk_panel() {
         <b>🗂️ টেলিগ্রাম ইনপুট ডেস্ক (নোটিশ ও ব্লগ লেখা)</b>
         <p class="sba-muted" style="margin:4px 0 8px">উপরের বাক্সে টোকেন ও চ্যানেল সেভ করার পর এখানে "চালু করুন" চাপুন। তারপর প্রাইভেট চ্যানেলে <code>/menu</code> লিখলে বট ধাপে ধাপে প্রশ্ন করবে (নোটিশ বা ব্লগ বেছে নিন)। শর্টকাট: নোটিশের ছবি পাঠানো, বা <code>/blog বিষয়</code>। <b>শুধু ওই চ্যানেলের পোস্টই নেওয়া হয়।</b></p>
         <label><input type="checkbox" id="dk-pub" <?php checked($c['publish'], 1); ?>> সরাসরি প্রকাশ করো (বন্ধ থাকলে সব খসড়া হয়ে থাকবে)</label>
-        <p><button type="button" class="button button-primary" id="dk-on"><?php echo $c['on'] ? '🔄 আবার সংযোগ দিন' : '▶️ ডেস্ক চালু করুন'; ?></button> <button type="button" class="button" id="dk-off">⏹️ বন্ধ</button> <button type="button" class="button" id="dk-info">ℹ️ অবস্থা</button> <button type="button" class="button" id="dk-tn">🧪 নোটিশ টেস্ট (খসড়া)</button> <button type="button" class="button" id="dk-tb">🧪 ব্লগ টেস্ট (খসড়া)</button> <span id="dk-msg" class="sba-msg"></span></p>
+        <p><button type="button" class="button button-primary" id="dk-on"><?php echo $c['on'] ? '🔄 আবার সংযোগ দিন' : '▶️ ডেস্ক চালু করুন'; ?></button> <button type="button" class="button" id="dk-off">⏹️ বন্ধ</button> <button type="button" class="button" id="dk-info">ℹ️ অবস্থা</button> <button type="button" class="button" id="dk-who">🔎 টোকেন কার?</button> <button type="button" class="button" id="dk-tn">🧪 নোটিশ টেস্ট (খসড়া)</button> <button type="button" class="button" id="dk-tb">🧪 ব্লগ টেস্ট (খসড়া)</button> <span id="dk-msg" class="sba-msg"></span></p>
     </div>
     <script>
     (function(){var $=function(s){return document.querySelector(s);},aj=<?php echo wp_json_encode(admin_url('admin-ajax.php')); ?>,nn=<?php echo wp_json_encode(wp_create_nonce('sb_admin')); ?>;
@@ -918,6 +924,7 @@ function sb_desk_panel() {
         $('#dk-on').onclick=function(){call('save',{on:'1',publish:$('#dk-pub').checked?'1':'0'}).then(function(){return call('hook');});};
         $('#dk-off').onclick=function(){call('unhook');};
         $('#dk-info').onclick=function(){call('info');};
+        $('#dk-who').onclick=function(){call('who');};
         $('#dk-tn').onclick=function(){call('test_notice');};
         $('#dk-tb').onclick=function(){call('test_blog');};
     })();
