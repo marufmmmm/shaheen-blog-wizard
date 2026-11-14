@@ -241,6 +241,21 @@ add_action('wp_ajax_sb_notify_op', function () {
         update_option('sb_notify', $o, false);
         wp_send_json_success(array('msg' => 'সংরক্ষিত ✓', 'has' => '' !== $o['tg_token'] ? 1 : 0));
     }
+    if ('reseen' === $op) {   // forget the 'already looked' marks made in the last N hours (so those links are looked at again)
+        $h    = max(1, min(72, (int) sb_req('hours')));
+        $seen = get_option('sb_ca_seen', array());
+        $seen = is_array($seen) ? $seen : array();
+        $n    = 0;
+        foreach ($seen as $k => $t) {
+            if ((int) $t > time() - $h * HOUR_IN_SECONDS) {
+                unset($seen[$k]);
+                $n++;
+            }
+        }
+        update_option('sb_ca_seen', $seen, false);
+        delete_option('sb_gn_fail');
+        wp_send_json_success(array('msg' => $n . 'টি চিহ্ন মুছেছে'));
+    }
     if ('gn' === $op) {   // diagnostics for the Google News source (what the SERVER sees)
         $out = array();
         $r   = wp_remote_get('https://news.google.com/rss/search?q=' . rawurlencode('শাহীন শিক্ষা পরিবার when:30d') . '&hl=bn&gl=BD&ceid=BD:bn', array('timeout' => 15, 'user-agent' => 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 Chrome/124.0 Safari/537.36'));
