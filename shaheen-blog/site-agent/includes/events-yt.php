@@ -341,6 +341,9 @@ function csa_ev_yt_has_line( $e, $vid ) {
 
 /** Mail the people who watch this: what was added now and in the last 24 hours. */
 function csa_ev_yt_mail( &$c, $added, $event, $notes = array() ) {
+	if ( function_exists( 'sb_notify_yt' ) ) {
+		sb_notify_yt( $added );
+	}
 	foreach ( $added as $a ) {
 		$c['adds'][] = array( 't' => time(), 'type' => $a['type'], 'where' => $a['where'], 'title' => $a['title'], 'url' => $a['url'] );
 	}

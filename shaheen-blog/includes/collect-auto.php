@@ -136,12 +136,22 @@ function sb_ca_process($item, $manual = true) {
     if (function_exists('sb_press_url_exists') && sb_press_url_exists($item['url'])) {
         return array('dup', 'এই লিংক আগেই আছে।');
     }
+    $nw = function_exists('sb_neg_hit') ? sb_neg_hit($item['title'] . ' ' . mb_substr((string) $item['text'], 0, 400)) : '';
+    if ('' !== $nw) {   // negative word: stop before any AI cost
+        if (function_exists('sb_notify_queue')) {
+            sb_notify_queue('blocked', $item['title'] ?: $item['url'], $item['url'], 'নেতিবাচক শব্দ: ' . $nw);
+        }
+        return array('blocked', 'নেতিবাচক শব্দ পাওয়া গেছে: ' . $nw);
+    }
     $j = sb_ca_ai($item, $cfg, $manual);
     if (is_wp_error($j)) {
         return array('error', $j->get_error_message() . ' — যাচাই ছাড়া কিছু বসানো হয়নি।');
     }
     $why = sanitize_text_field((string) ($j['reason'] ?? ''));
     if (!empty($j['negative'])) {
+        if (function_exists('sb_notify_queue')) {
+            sb_notify_queue('blocked', $item['title'] ?: $item['url'], $item['url'], $why !== '' ? $why : 'নেতিবাচক বা সন্দেহজনক');
+        }
         return array('blocked', $why !== '' ? $why : 'নেতিবাচক বা সন্দেহজনক');
     }
     if (($j['kind'] ?? '') !== 'news' || empty($j['relevant'])) {
@@ -166,6 +176,9 @@ function sb_ca_process($item, $manual = true) {
     $where = 'ব্লগ';
     if ($tp && $tp['event'] !== '' && sb_ca_event_line($tp['event'], $title, $item['url'], $paper . ($date ? ' · ' . sb_ca_bn_date($date) : ''))) {
         $where = 'ব্লগ + ইভেন্ট পেজ';
+    }
+    if (function_exists('sb_notify_queue')) {
+        sb_notify_queue('filed', $title, $item['url'], $paper . ' · ' . $where);
     }
     return array('filed', $where . ($tp ? ' · বিষয়: ' . $tp['name'] : ''));
 }
@@ -266,6 +279,9 @@ function sb_ca_panel() {
         <p><button type="button" class="button" id="ca-save">💾 সেভ</button> <button type="button" class="button" id="ca-find">🔎 এখনই খুঁজুন</button> <button type="button" class="button button-primary" id="ca-run">▶ আগে সংগ্রহ করা বাকিগুলো এখন বসান</button> <span id="ca-msg" class="sba-msg"></span></p>
     </div>
     <?php
+    if (function_exists('sb_notify_panel')) {
+        sb_notify_panel();
+    }
 }
 
 
@@ -345,10 +361,32 @@ function sb_ca_file($cand, $cap, &$seen) {
         if ($cap-- <= 0) {
             break;
         }
+        $orig = $u;
+        if (function_exists('sb_gn_is_google') && sb_gn_is_google($u)) {   // Google News link: open it to the newspaper's real address first
+            $real = sb_gn_resolve($u);
+            if ('' === $real) {
+                $fl = get_option('sb_gn_fail', array());
+                $fl = is_array($fl) ? $fl : array();
+                $fl[md5($u)] = (int) ($fl[md5($u)] ?? 0) + 1;
+                if ($fl[md5($u)] >= 3) {
+                    $seen[md5($u)] = time();
+                }
+                update_option('sb_gn_fail', array_slice($fl, -500, null, true), false);
+                $n['unread']++;
+                continue;
+            }
+            if (isset($seen[md5($real)]) || sb_press_url_exists($real)) {
+                $seen[md5($u)] = time();
+                $n['dup']++;
+                continue;
+            }
+            $u = $real;
+        }
         $item = sb_ca_read($u);
         if (!$item) {
             $n['unread']++;
             $seen[md5($u)] = time();
+            $seen[md5($orig)] = time();
             continue;
         }
         $item['id'] = substr(md5($u . microtime(true)), 0, 10);
@@ -359,6 +397,7 @@ function sb_ca_file($cand, $cap, &$seen) {
             continue;
         }
         $seen[md5($u)] = time();
+        $seen[md5($orig)] = time();
         $n[$st] = ($n[$st] ?? 0) + 1;
         $item['st']   = $st;
         $item['note'] = $note;
@@ -385,9 +424,11 @@ function sb_ca_discover($force = false) {
         $words = array_filter(array_map('trim', explode('|', (string) $t['kw'])));
         foreach (array_slice(array_filter(array_map('trim', explode("\n", (string) $t['q']))), 0, 6) as $q) {
             $res = sb_ca_search($q);
-            if (null === $res) {
+            $gn  = function_exists('sb_ca_gnews') ? sb_ca_gnews($q) : null;
+            if (null === $res && null === $gn) {
                 continue;
             }
+            $res = array_merge((array) $res, (array) $gn);
             $looks++;
             foreach ($res as $r) {
                 $hay = $r[0] . ' ' . $r[2];
@@ -398,6 +439,14 @@ function sb_ca_discover($force = false) {
                     }
                 }
                 if ($ok && !isset($seen[md5($r[1])]) && !sb_press_url_exists($r[1])) {
+                    $nw = function_exists('sb_neg_hit') ? sb_neg_hit($r[0] . ' ' . $r[2]) : '';
+                    if ('' !== $nw) {   // negative word in headline/summary: never opened, never published; the team is told
+                        $seen[md5($r[1])] = time();
+                        if (function_exists('sb_notify_queue')) {
+                            sb_notify_queue('blocked', $r[0], $r[1], 'নেতিবাচক শব্দ: ' . $nw);
+                        }
+                        continue;
+                    }
                     $cand[$r[1]] = $r;
                 }
             }
