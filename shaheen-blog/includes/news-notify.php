@@ -139,7 +139,7 @@ function sb_ca_gnews($q) {
         if ('' !== $src && substr($t, -strlen(' - ' . $src)) === ' - ' . $src) {
             $t = substr($t, 0, -strlen(' - ' . $src));
         }
-        $out[] = array($t, esc_url_raw((string) $it->link), trim(wp_strip_all_tags((string) $it->description)) . ' ' . $src, (string) $it->pubDate);
+        $out[] = array($t, esc_url_raw((string) $it->link), $src, (string) $it->pubDate);   // the RSS description lists OTHER related headlines: never use it for matching
     }
     return $out;
 }
@@ -158,6 +158,7 @@ function sb_gn_resolve($link) {
     if (!preg_match('#/(?:articles|read)/([\w-]+)#', $link, $m)) {
         return '';
     }
+    $GLOBALS['sb_gn_dbg'] = array();
     $id  = $m[1];
     $s   = strtr($id, '-_', '+/');
     $b   = base64_decode($s . str_repeat('=', (4 - strlen($s) % 4) % 4), true);
@@ -173,6 +174,7 @@ function sb_gn_resolve($link) {
         foreach (array('https://news.google.com/articles/' . $id . '?hl=en-US&gl=US&ceid=US:en', 'https://news.google.com/rss/articles/' . $id . '?hl=en-US&gl=US&ceid=US:en') as $pg) {
             $r = wp_remote_get($pg, array('timeout' => 15, 'user-agent' => $ua, 'headers' => $hdr, 'redirection' => 5));
             if (is_wp_error($r) || 200 !== (int) wp_remote_retrieve_response_code($r)) {
+                $GLOBALS['sb_gn_dbg'][] = 'page:' . (is_wp_error($r) ? $r->get_error_message() : (int) wp_remote_retrieve_response_code($r));
                 continue;
             }
             $h = (string) wp_remote_retrieve_body($r);
@@ -181,6 +183,9 @@ function sb_gn_resolve($link) {
                 $ts = $b2[1];
                 break;
             }
+        }
+        if ('' === $sg) {
+            $GLOBALS['sb_gn_dbg'][] = 'no-sg';
         }
         if ('' !== $sg) {
             $payload = '["garturlreq",[["X","X",["X","X"],null,null,1,1,"US:en",null,1,null,null,null,null,null,0,1],"X","X",1,[1,1,1],1,1,null,0,0,null,0],' . wp_json_encode($id) . ',' . (int) $ts . ',' . wp_json_encode($sg) . ']';
@@ -194,11 +199,14 @@ function sb_gn_resolve($link) {
             if (!is_wp_error($r1) && preg_match('#xsrf\\\\",\\\\"([^"\\\\]+)#', (string) wp_remote_retrieve_body($r1), $mt)) {
                 $tok = $mt[1];
             }
+            $GLOBALS['sb_gn_dbg'][] = '' === $tok ? 'no-xsrf(' . (is_wp_error($r1) ? $r1->get_error_message() : (int) wp_remote_retrieve_response_code($r1)) . ')' : 'xsrf-ok';
             if ('' !== $tok) {
                 $r2 = $post('f.req=' . rawurlencode($freq) . '&at=' . rawurlencode($tok), wp_remote_retrieve_cookies($r1));
                 if (!is_wp_error($r2) && preg_match('#garturlres\\\\",\\\\"(https?://(?:[^"\\\\]|\\\\u[0-9a-fA-F]{4})+)#', (string) wp_remote_retrieve_body($r2), $mu)) {
                     $d   = json_decode('"' . $mu[1] . '"');
                     $url = is_string($d) ? $d : $mu[1];
+                } else {
+                    $GLOBALS['sb_gn_dbg'][] = 'r2:' . (is_wp_error($r2) ? $r2->get_error_message() : (int) wp_remote_retrieve_response_code($r2) . ':' . substr(preg_replace('/\s+/', ' ', (string) wp_remote_retrieve_body($r2)), 0, 80));
                 }
             }
         }
@@ -237,7 +245,7 @@ add_action('wp_ajax_sb_notify_op', function () {
         $out['resolved'] = array();
         foreach (array_slice((array) $it, 0, 3) as $x) {
             $u = sb_gn_resolve($x[1]);
-            $out['resolved'][] = array(mb_substr($x[0], 0, 40), $u ? $u : 'FAIL');
+            $out['resolved'][] = array(mb_substr($x[0], 0, 40), $u ? $u : 'FAIL', (array) ($GLOBALS['sb_gn_dbg'] ?? array()));
         }
         wp_send_json_success(array('msg' => wp_json_encode($out, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES)));
     }
