@@ -93,6 +93,9 @@ function sb_inject_blocks($html, array $blocks, $post_id = 0) {
             $items[] = array(sb_summary_pos($post_id), sb_summary_html($sm));
         }
     }
+    foreach (sb_promo_items($post_id) as $pi) {
+        $items[] = $pi;
+    }
     foreach ($blocks as $b) {
         $items[] = array(isset($map[$b['pos']]) ? $map[$b['pos']] : 'middle', sb_render_block($b));
     }

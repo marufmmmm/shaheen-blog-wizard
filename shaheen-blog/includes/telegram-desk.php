@@ -1451,6 +1451,21 @@ add_action('wp_ajax_sb_desk_op', function () {
         if ((int) sb_req('thumb', 0)) {
             set_post_thumbnail($pid, (int) sb_req('thumb'));
         }
+        if ('' !== (string) sb_req('promo_ids')) {
+            update_post_meta($pid, '_sb_promo_ids', array_values(array_filter(array_map('sanitize_key', explode(',', (string) sb_req('promo_ids'))))));
+        }
+        if ('' !== (string) sb_req('no_social')) {
+            if ('1' === (string) sb_req('no_social')) {
+                update_post_meta($pid, '_sb_no_social', 1);
+            } else {
+                delete_post_meta($pid, '_sb_no_social');
+            }
+        }
+        if ('' !== (string) sb_req('embed_url')) {   // one video / post embed with a caption, at a chosen place
+            $e = sb_get_extras($pid);
+            $e['embeds'] = array(array('url' => (string) sb_req('embed_url'), 'label' => (string) sb_req('embed_label'), 'pos' => (string) sb_req('embed_pos', 'p:1'), 'r' => (string) sb_req('embed_r')));
+            update_post_meta($pid, '_sb_extras', sb_clean_extras($e));
+        }
         if ('' !== (string) sb_req('summary')) {
             update_post_meta($pid, '_sb_summary', sanitize_textarea_field((string) sb_req('summary')));
         }
@@ -1463,6 +1478,12 @@ add_action('wp_ajax_sb_desk_op', function () {
         }
         sb_seo_sync($pid);
         wp_send_json_success(array('msg' => 'ঠিক করা হয়েছে', 'status' => get_post_status($pid), 'slug' => get_post_field('post_name', $pid)));
+    }
+    if ('promo_save' === $op) {   // the promo-card library, as JSON
+        $j = json_decode((string) wp_unslash($_POST['promos'] ?? ''), true);
+        $c = sb_promo_clean($j);
+        update_option('sb_promos', $c, false);
+        wp_send_json_success(array('msg' => count($c) . ' কার্ড সংরক্ষিত', 'ids' => array_map(function ($x) { return $x['id']; }, $c)));
     }
     if ('test_notice' === $op || 'test_blog' === $op) {   // writes a DRAFT only
         wp_set_current_user(sb_desk_uid());

@@ -255,7 +255,11 @@ function sb_extras_items($post_id) {
         $items[] = array($d['pos'], sb_pdf_html($d['url'], $d['label']));
     }
     foreach ($e['embeds'] as $d) {
-        $items[] = array($d['pos'], sb_embed_html($d['url'], isset($d['r']) ? $d['r'] : ''));
+        $eh = sb_embed_html($d['url'], isset($d['r']) ? $d['r'] : '');
+        if ($eh !== '' && $d['label'] !== '') {   // the label becomes a caption under the video / post
+            $eh = '<figure class="sb-fig">' . $eh . '<figcaption>' . esc_html($d['label']) . '</figcaption></figure>';
+        }
+        $items[] = array($d['pos'], $eh);
     }
     return $items;
 }
