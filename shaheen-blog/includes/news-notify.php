@@ -185,15 +185,20 @@ function sb_gn_resolve($link) {
         if ('' !== $sg) {
             $payload = '["garturlreq",[["X","X",["X","X"],null,null,1,1,"US:en",null,1,null,null,null,null,null,0,1],"X","X",1,[1,1,1],1,1,null,0,0,null,0],' . wp_json_encode($id) . ',' . (int) $ts . ',' . wp_json_encode($sg) . ']';
             $freq    = wp_json_encode(array(array(array('Fbv4je', $payload, null, 'generic'))));
-            $r2      = wp_remote_post('https://news.google.com/_/DotsSplashUi/data/batchexecute', array('timeout' => 15, 'user-agent' => $ua, 'headers' => array_merge($hdr, array('Content-Type' => 'application/x-www-form-urlencoded;charset=UTF-8')), 'body' => 'f.req=' . rawurlencode($freq)));
-            if (!is_wp_error($r2) && 200 === (int) wp_remote_retrieve_response_code($r2)) {
-                $parts = explode("\n\n", (string) wp_remote_retrieve_body($r2));
-                $j     = isset($parts[1]) ? json_decode($parts[1], true) : null;
-                if (is_array($j) && isset($j[0][2])) {
-                    $d = json_decode((string) $j[0][2], true);
-                    if (is_array($d) && isset($d[1]) && is_string($d[1]) && preg_match('#^https?://#i', $d[1])) {
-                        $url = $d[1];
-                    }
+            $ep   = 'https://news.google.com/_/DotsSplashUi/data/batchexecute?rpcids=Fbv4je&source-path=' . rawurlencode('/articles/' . $id) . '&hl=en-US&rt=c';
+            $post = function ($body, $cookies) use ($ep, $ua, $hdr) {
+                return wp_remote_post($ep, array('timeout' => 15, 'user-agent' => $ua, 'cookies' => $cookies, 'headers' => array_merge($hdr, array('Content-Type' => 'application/x-www-form-urlencoded;charset=UTF-8')), 'body' => $body));
+            };
+            $r1  = $post('f.req=' . rawurlencode($freq), array());   // 1st call: Google answers with a one-time XSRF token
+            $tok = '';
+            if (!is_wp_error($r1) && preg_match('#xsrf\\\\",\\\\"([^"\\\\]+)#', (string) wp_remote_retrieve_body($r1), $mt)) {
+                $tok = $mt[1];
+            }
+            if ('' !== $tok) {
+                $r2 = $post('f.req=' . rawurlencode($freq) . '&at=' . rawurlencode($tok), wp_remote_retrieve_cookies($r1));
+                if (!is_wp_error($r2) && preg_match('#garturlres\\\\",\\\\"(https?://(?:[^"\\\\]|\\\\u[0-9a-fA-F]{4})+)#', (string) wp_remote_retrieve_body($r2), $mu)) {
+                    $d   = json_decode('"' . $mu[1] . '"');
+                    $url = is_string($d) ? $d : $mu[1];
                 }
             }
         }
