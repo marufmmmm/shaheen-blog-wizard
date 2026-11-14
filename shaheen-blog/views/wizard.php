@@ -20,6 +20,7 @@ $d = array(
     'subtitle'    => $post ? get_post_meta($pid, '_sb_subtitle', true) : '',
     'meta_desc'   => $post ? get_post_meta($pid, '_sb_meta_desc', true) : '',
     'seo_title'   => $post ? get_post_meta($pid, '_sb_seo_title', true) : '',
+    'en_title'    => $post ? get_post_meta($pid, '_sb_en_title', true) : '',
     'summary'     => $post ? get_post_meta($pid, '_sb_summary', true) : '',
     'summary_pos' => $post ? (get_post_meta($pid, '_sb_summary_pos', true) ?: 'top') : 'top',
     'author_name' => $post ? get_post_meta($pid, '_sb_author_name', true) : '',
@@ -283,6 +284,10 @@ $costs['research'] = max(0, (int) sb_get('cost_research'));
 
             <label>SEO টাইটেল <small>— গুগলের ফলাফলে নীল শিরোনাম। ফাঁকা রাখলে পোস্টের শিরোনাম ও সাইটের নাম নিজে বসবে। ৬০ অক্ষরের মধ্যে ভালো। <span id="seot-count"></span></small>
                 <input type="text" id="f-seotitle" maxlength="70" value="<?php echo esc_attr($d['seo_title']); ?>">
+            </label>
+
+            <label>ইংরেজি শিরোনাম <small>— শুধু ব্যাকএন্ডের জন্য (সহজ ইংরেজি স্লাগ, ছবির ফাইলের নাম ও গুগলের বিকল্প শিরোনাম)। পাঠক দেখে না।</small>
+                <input type="text" id="f-entitle" maxlength="120" value="<?php echo esc_attr($d['en_title']); ?>">
             </label>
 
             <div class="sba-ai">

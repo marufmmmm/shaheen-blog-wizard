@@ -758,6 +758,7 @@ function sb_ajax_save_post() {
     update_post_meta($id, '_sb_keywords', sb_req_list('keywords', 10));
     update_post_meta($id, '_sb_topic', sanitize_text_field(sb_req('topic')));
     update_post_meta($id, '_sb_seo_title', mb_substr(sanitize_text_field(sb_req('seo_title')), 0, 70));
+    update_post_meta($id, '_sb_en_title', mb_substr(sanitize_text_field(sb_req('en_title')), 0, 120));
     sb_seo_sync($id);
 
     $faq = array();

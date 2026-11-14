@@ -396,7 +396,7 @@ add_action('wp_ajax_sb_img_make', function () {
         $est  = true;
     }
     $meta = array('alt' => sanitize_text_field(sb_req('alt')), 'title' => sanitize_text_field(sb_req('imgtitle')), 'caption' => sanitize_text_field(sb_req('caption')),
-        'details' => sanitize_textarea_field(sb_req('details')), 'slug' => $title);
+        'details' => sanitize_textarea_field(sb_req('details')), 'slug' => sb_req('file_slug', '') !== '' ? sb_req('file_slug') : $title);
     $id = sb_img_save($bytes, $meta, (int) sb_req('post_id', 0));
     if (is_wp_error($id)) {
         delete_transient($lock);

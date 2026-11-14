@@ -189,9 +189,12 @@ function sb_head_meta() {
             echo '<meta property="og:image" content="' . esc_url($img) . '">' . "\n";
         }
         $art = array('@context' => 'https://schema.org', '@type' => 'Article', 'headline' => mb_substr($ttl, 0, 110), 'description' => $desc,
-            'mainEntityOfPage' => $url, 'inLanguage' => 'bn', 'datePublished' => get_post_time('c', true, $id), 'dateModified' => get_post_modified_time('c', true, $id),
+            'mainEntityOfPage' => $url, 'inLanguage' => 'bn', 'alternativeHeadline' => (string) get_post_meta($id, '_sb_en_title', true), 'datePublished' => get_post_time('c', true, $id), 'dateModified' => get_post_modified_time('c', true, $id),
             'author' => array('@type' => 'Person', 'name' => sb_team_author()),
             'publisher' => array('@type' => 'Organization', 'name' => $name));
+        if ('' === $art['alternativeHeadline']) {
+            unset($art['alternativeHeadline']);
+        }
         if ($img) {
             $art['image'] = array($img);
         }

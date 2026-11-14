@@ -239,7 +239,7 @@ function sb_desk_steps($flow, $d) {
     if (in_array($d['body'] ?? '', array('paste', 'desc'), true)) {
         $st[] = 'bodytext';
     }
-    return array_merge($st, array('length', 'image', 'confirm'));
+    return array_merge($st, array('length', 'image'), 'pick' === ($d['imgmode'] ?? '') ? array('dress') : array(), array('confirm'));
 }
 
 /** The ONE question for a notice: a fill-in list, built from what the site's old notices really contain. */
@@ -289,7 +289,9 @@ function sb_desk_ask($m, $s) {
                     array(sb_desk_btn('🏷️ শিরোনাম', 'a:title'), sb_desk_btn('📝 সারাংশ', 'a:summary')),
                     array(sb_desk_btn('🔎 Google বিবরণ', 'a:meta'), sb_desk_btn('🔑 কীওয়ার্ড', 'a:kw')),
                     array(sb_desk_btn('🎬 ভিডিও/ফেসবুক পোস্ট', 'a:embed'), sb_desk_btn('📣 কার্ড', 'a:promo')),
-                    array(sb_desk_btn('🖼️ ছবি বদলান', 'a:img'), $st[0]),
+                    array(sb_desk_btn('🔤 ইংরেজি শিরোনাম', 'a:entitle'), sb_desk_btn('🔗 স্লাগ (লিংক)', 'a:slug')),
+                    array(sb_desk_btn('🖼️ ছবি বদলান', 'a:img'), sb_desk_btn('🎨 AI নতুন ছবি', 'a:aiimg')),
+                    array(sb_desk_btn('🏷️ ছবির অল্ট-টেক্সট', 'a:alt'), $st[0]),
                     array(sb_desk_btn('✍️ লেখায় বদল (লিখে বলুন)', 'a:free')),
                     array($x),
                 ));
@@ -316,6 +318,10 @@ function sb_desk_ask($m, $s) {
                     'embed' => "🎬 <b>ভিডিও বা ফেসবুক পোস্টের লিংক পাঠান।</b>\nপ্রথম লাইনে লিংক, দ্বিতীয় লাইনে ক্যাপশন (ঐচ্ছিক)। প্রথম অনুচ্ছেদের পরে বসবে।",
                     'promo' => "📣 <b>কোন কার্ড বসবে?</b> নাম লিখুন (একাধিক হলে কমা দিয়ে), বাদ দিতে <code>none</code> লিখুন।\n" . implode("\n", $pl),
                     'img' => '🖼️ <b>নতুন ছবি পাঠান।</b>',
+                    'entitle' => '🔤 <b>ইংরেজি শিরোনাম লিখুন</b> (৪–৯ শব্দ)। এটি ব্যাকএন্ডে থাকে, পাঠক দেখে না। <code>auto</code> লিখলে AI বানাবে।',
+                    'slug' => '🔗 <b>লিংকের শেষ অংশ (স্লাগ) লিখুন</b> ইংরেজিতে, যেমন <code>cadet-college-admission-tips</code>। <code>auto</code> লিখলে ইংরেজি শিরোনাম থেকে সহজ স্লাগ হবে।',
+                    'aiimg' => "🎨 <b>কোন ড্রেসে ছবি বানাব?</b> লিখুন: <code>auto</code> (লেখা দেখে), <code>none</code> (ড্রেস ছাড়া), অথবা ধরনের নাম।\nখরচ প্রায় ৭ সেন্ট। পুরোনো ছবি মিডিয়ায় থেকে যায়।",
+                    'alt' => '🏷️ <b>মূল ছবির অল্ট-টেক্সট লিখুন</b> (ছবিতে কী আছে, এক বাক্যে)। <code>auto</code> লিখলে AI ছবি দেখে লিখবে।',
                     'nlink' => '🔗 <b>সংবাদের পুরো লিংক পাঠান।</b>',
                     'paper' => '📰 <b>পত্রিকার নাম লিখুন।</b>',
                     'free' => '✍️ <b>লেখায় কী বদলাতে হবে লিখে বলুন।</b> যেমন: ‘শেষ অনুচ্ছেদে শাখার ফোন নম্বর যোগ করো’।',
@@ -367,7 +373,26 @@ function sb_desk_ask($m, $s) {
         case 'length':
             return sb_desk_say($m, "📏 <b>লেখা কত বড় হবে?</b>", array(array(sb_desk_btn('ছোট', 'l:short'), sb_desk_btn('মাঝারি', 'l:medium'), sb_desk_btn('বড়', 'l:long')), array($x)));
         case 'image':
-            return sb_desk_say($m, "🖼️ <b>ছবি?</b> আপনার ছবি এখনই পাঠাতে পারেন (প্রথমটি মূল ছবি হবে)।\n<i>AI দিয়ে ছবি বানানো পরের ধাপে আসছে।</i>", array(array(sb_desk_btn('⏭️ ছবি ছাড়া', 'skip'), sb_desk_btn('✅ ছবি দিয়েছি', 'done')), array($x)));
+            return sb_desk_say($m, "🖼️ <b>ছবি?</b> আপনার ছবি এখনই পাঠাতে পারেন (প্রথমটি মূল ছবি হবে)।\nছবি না দিলে লেখা দেখে <b>AI ছবি বানাবে</b> (অল্ট-টেক্সট, শিরোনাম, ক্যাপশন সহ)। ড্রেস কোনটি হবে, তা নিজে বাছতে পারেন।", array(
+                array(sb_desk_btn('🎨 AI ছবি (ড্রেস আমি বাছব)', 'img:pick')),
+                array(sb_desk_btn('🎨 AI ছবি (ড্রেস অটো)', 'img:auto'), sb_desk_btn('🚫 ছবি লাগবে না', 'img:none')),
+                array(sb_desk_btn('✅ ছবি দিয়েছি', 'done'), $x),
+            ));
+        case 'dress':
+            $rows = array();
+            $row = array();
+            foreach (array_slice(sb_img_opts()['uniforms'], 0, 12) as $u) {
+                $row[] = sb_desk_btn(mb_substr(preg_replace('/^ধরন:\s*/u', '', $u[1]), 0, 28), 'u:' . $u[0]);
+                if (2 === count($row)) {
+                    $rows[] = $row;
+                    $row = array();
+                }
+            }
+            if ($row) {
+                $rows[] = $row;
+            }
+            $rows[] = array($x);
+            return sb_desk_say($m, "👕 <b>ছবিতে কোন ড্রেস?</b> (শিক্ষার্থী বা শিক্ষক এই ড্রেসেই দেখাবে)", $rows);
         case 'confirm':
             $d = $s['d'];
             if ('news' === $s['flow']) {
@@ -385,7 +410,7 @@ function sb_desk_ask($m, $s) {
                 $sum = "📢 <b>নোটিশ</b>\nধরন: " . esc_html($tl) . "\nছবি: " . count($d['aids'] ?? array()) . "টি; PDF: " . (!empty($d['pdf_aid']) ? 'আছে' : 'নেই') . "; লেখা: " . (!empty($d['text']) ? mb_strlen($d['text']) . ' অক্ষর' : 'নেই') . "\n\nপ্রকাশের আগে AI তারিখ, ফোন, লিংক ও শর্ত আলাদা করে সাজাবে।";
             } else {
                 $bm = array('ai' => 'AI পুরো লিখবে', 'desc' => 'আপনার বিবরণ থেকে AI', 'paste' => 'আপনার তৈরি লেখা');
-                $sum = "✍️ <b>ব্লগ</b>\nবিষয়: " . esc_html($d['topic']) . "\nশিরোনাম: " . esc_html(($d['title'] ?? '') ?: 'AI') . "\nকীওয়ার্ড: " . esc_html(($d['keywords'] ?? '') ?: 'AI') . "\nলেখা: " . $bm[$d['body'] ?? 'ai'] . "\nদৈর্ঘ্য: " . esc_html($d['length'] ?? 'medium') . "\nছবি: " . count($d['aids'] ?? array()) . 'টি';
+                $sum = "✍️ <b>ব্লগ</b>\nবিষয়: " . esc_html($d['topic']) . "\nশিরোনাম: " . esc_html(($d['title'] ?? '') ?: 'AI') . "\nকীওয়ার্ড: " . esc_html(($d['keywords'] ?? '') ?: 'AI') . "\nলেখা: " . $bm[$d['body'] ?? 'ai'] . "\nদৈর্ঘ্য: " . esc_html($d['length'] ?? 'medium') . "\nছবি: " . (count($d['aids'] ?? array()) ? count($d['aids']) . 'টি (আপনার)' : ('none' === ($d['imgmode'] ?? 'auto') ? 'লাগবে না' : 'AI বানাবে, ড্রেস: ' . esc_html(($d['uniform'] ?? 'auto') ?: 'auto'))) . "\nSEO: ইংরেজি শিরোনাম, সহজ স্লাগ, অল্ট-টেক্সট, মেটা, কীওয়ার্ড সব অটো";
             }
             return sb_desk_say($m, $sum . "\n\nপ্রকাশের আগে এটাই শেষ দেখা। কী করব?", array(array(sb_desk_btn('✅ প্রকাশ করো', 'go:publish')), array(sb_desk_btn('📝 শুধু খসড়া', 'go:draft'), $x)));
     }
@@ -695,7 +720,23 @@ function sb_desk_step($m, $in) {
                 sb_desk_say($m, '👍 ছবি পেয়েছি। আরও থাকলে পাঠান, নইলে "✅ ছবি দিয়েছি" চাপুন।', array(array(sb_desk_btn('✅ ছবি দিয়েছি', 'done'), sb_desk_btn('❌ বাতিল', 'cancel'))));
                 return;
             }
-            if ('skip' !== $cb && 'done' !== $cb) {
+            if (0 === strpos($cb, 'img:')) {
+                $d['imgmode'] = substr($cb, 4);   // pick | auto | none
+                if ('auto' === $d['imgmode']) {
+                    $d['uniform'] = 'auto';
+                }
+            } elseif ('done' === $cb) {
+                $d['imgmode'] = 'sent';
+            } elseif ('skip' === $cb) {
+                $d['imgmode'] = 'auto';
+            } else {
+                $stay = true;
+            }
+            break;
+        case 'dress':
+            if (0 === strpos($cb, 'u:')) {
+                $d['uniform'] = substr($cb, 2);
+            } else {
                 $stay = true;
             }
             break;
@@ -837,6 +878,79 @@ function sb_desk_news_run($m, $urls) {
 }
 
 
+
+/** Friendly English slug from the English title (a few plain words), else from keywords / title. */
+function sb_friendly_slug($en, $kw, $title = '') {
+    $stop = array('a', 'an', 'the', 'of', 'and', 'for', 'in', 'on', 'to', 'with', 'by', 'at', 'from', 'is', 'are');
+    $en = trim((string) $en);
+    if ('' !== $en && preg_match('/[A-Za-z]{3,}/', $en)) {
+        $w = preg_split('/[^a-z0-9]+/', strtolower(remove_accents($en)), -1, PREG_SPLIT_NO_EMPTY);
+        $w = array_values(array_filter($w, function ($x) use ($stop) { return !in_array($x, $stop, true); }));
+        $s = '';
+        foreach (array_slice($w, 0, 7) as $x) {
+            if (strlen($s . '-' . $x) > 55) {
+                break;
+            }
+            $s .= ('' === $s ? '' : '-') . $x;
+        }
+        if (strlen($s) >= 3) {
+            return $s;
+        }
+    }
+    return sb_slug_guess($title, $kw);
+}
+
+class SB_Desk_Ajax_Done extends Exception {
+}
+
+/** Runs one of the plugin's own admin-ajax handlers from the webhook (as the desk user) and returns its JSON. */
+function sb_desk_ajax($action, $params) {
+    wp_set_current_user(sb_desk_uid());
+    $keep = array($_POST, $_REQUEST);
+    $p = array_map('wp_slash', array_map('strval', $params));
+    $p['nonce'] = wp_create_nonce('sb_admin');
+    $_POST = $p;
+    $_REQUEST = $p;
+    $f1 = function () { return true; };
+    $f2 = function () { return function () { throw new SB_Desk_Ajax_Done(); }; };
+    add_filter('wp_doing_ajax', $f1);
+    add_filter('wp_die_ajax_handler', $f2);
+    ob_start();
+    try {
+        do_action('wp_ajax_' . $action);
+    } catch (SB_Desk_Ajax_Done $e) {
+        // the handler answered
+    }
+    $out = (string) ob_get_clean();
+    remove_filter('wp_doing_ajax', $f1);
+    remove_filter('wp_die_ajax_handler', $f2);
+    $_POST = $keep[0];
+    $_REQUEST = $keep[1];
+    $a = strpos($out, '{"success"');
+    $j = false !== $a ? json_decode(substr($out, $a), true) : null;
+    return is_array($j) ? $j : array('success' => false, 'data' => array('message' => 'উত্তর পাইনি'));
+}
+
+/** AI picture for a blog post: prompt from the article (+ the chosen dress), image, alt / title / caption, set as the main picture. Returns attachment id or WP_Error. */
+function sb_desk_autoimage($post_id, $title, $slug, $o, $html, $uniform = '') {
+    @set_time_limit(600);
+    $uni = '' !== $uniform ? $uniform : (($o['uniform'] ?? '') !== '' ? (string) $o['uniform'] : 'auto');
+    $p = sb_desk_ajax('sb_img_prompt', array('title' => $title, 'content' => wp_strip_all_tags((string) $html), 'category' => '', 'subject' => 'auto',
+        'uniform' => $uni, 'logo' => (string) ($o['logo'] ?? 'none'), 'logo_at' => 'chest', 'size' => '1536x1024', 'post_id' => (int) $post_id));
+    if (empty($p['success'])) {
+        return new WP_Error('sb_img', (string) ($p['data']['message'] ?? 'ছবির প্রম্পট হয়নি'));
+    }
+    $d = $p['data'];
+    $m = sb_desk_ajax('sb_img_make', array('job' => 'd' . (int) $post_id . wp_generate_password(6, false, false), 'prompt' => $d['prompt'], 'size' => '1536x1024', 'quality' => 'medium',
+        'title' => $title, 'content' => wp_strip_all_tags((string) $html), 'category' => '', 'subject' => 'auto', 'uniform' => $uni, 'logo' => (string) ($o['logo'] ?? 'none'), 'logo_at' => 'chest',
+        'alt' => (string) $d['alt'], 'imgtitle' => (string) $d['title'], 'caption' => (string) $d['caption'], 'details' => (string) $d['details'], 'file_slug' => (string) $slug, 'post_id' => (int) $post_id));
+    if (empty($m['success']) || empty($m['data']['id'])) {
+        return new WP_Error('sb_img', (string) ($m['data']['message'] ?? 'ছবি তৈরি হয়নি'));
+    }
+    set_post_thumbnail((int) $post_id, (int) $m['data']['id']);
+    return (int) $m['data']['id'];
+}
+
 /** One edit of a blog post / press card: only the keys given are changed. */
 function sb_desk_patch_post($pid, $f) {
     $pid = (int) $pid;
@@ -891,6 +1005,33 @@ function sb_desk_patch_post($pid, $f) {
     }
     if ('' !== $g('keywords')) {
         update_post_meta($pid, '_sb_keywords', array_slice(array_values(array_filter(array_map('sanitize_text_field', preg_split('/[,\n،]+/u', $g('keywords'))))), 0, 15));
+    }
+    if ('' !== $g('en_title')) {
+        update_post_meta($pid, '_sb_en_title', mb_substr(sanitize_text_field($g('en_title')), 0, 120));
+    }
+    if ('' !== $g('slug')) {
+        $sl = wp_unique_post_slug(sanitize_title($g('slug')), $pid, get_post_status($pid), 'sb_post', 0);
+        wp_update_post(array('ID' => $pid, 'post_name' => $sl));
+    }
+    if ('' !== $g('img_alt')) {
+        $tid = (int) get_post_thumbnail_id($pid);
+        if ($tid) {
+            $alt = $g('img_alt');
+            if ('auto' === $alt) {
+                $r = sb_desk_ajax('sb_img_describe', array('id' => $tid, 'title' => get_the_title($pid), 'content' => wp_strip_all_tags((string) get_post_field('post_content', $pid))));
+                $alt = !empty($r['success']) ? sanitize_text_field($r['data']['alt'] ?? '') : '';
+            }
+            if ('' !== $alt) {
+                update_post_meta($tid, '_wp_attachment_image_alt', $alt);
+            }
+        }
+    }
+    if ('' !== $g('aiimg')) {
+        $u = 'auto' === strtolower($g('aiimg')) ? 'auto' : $g('aiimg');
+        $ai = sb_desk_autoimage($pid, get_the_title($pid), get_post_field('post_name', $pid), array(), (string) get_post_field('post_content', $pid), $u);
+        if (is_wp_error($ai)) {
+            return $ai;
+        }
     }
     if ('' !== $g('press_url')) {
         update_post_meta($pid, '_sb_press_url', esc_url_raw($g('press_url')));
@@ -976,6 +1117,44 @@ function sb_desk_post_propose($id, $kind, $act, $val) {
             $thumb = $a;
             $f['thumb'] = $a;
             $desc = '🖼️ মূল ছবি বদলে নতুন ছবি বসবে।';
+            break;
+        case 'entitle':
+            if ('auto' === strtolower($t)) {
+                $r = csa_jobs_ai_json('Return ONLY JSON {"en":"the title in natural English, 4 to 9 words, plain words"}.', get_the_title($id), 'Desk: en title', 200);
+                $t = !is_wp_error($r) ? sanitize_text_field($r['en'] ?? '') : '';
+                if ('' === $t) {
+                    return new WP_Error('sb_ed', 'ইংরেজি শিরোনাম বানাতে পারিনি, নিজে লিখে দিন।');
+                }
+            }
+            $f['en_title'] = $t;
+            $desc = '🔤 ইংরেজি শিরোনাম: <b>' . esc_html($t) . '</b>';
+            break;
+        case 'slug':
+            if ('auto' === strtolower($t)) {
+                $t = sb_friendly_slug((string) get_post_meta($id, '_sb_en_title', true), (array) get_post_meta($id, '_sb_keywords', true), get_the_title($id));
+                if ('' === $t) {
+                    return new WP_Error('sb_ed', 'ইংরেজি শিরোনাম নেই, তাই স্লাগ বানাতে পারিনি। আগে ইংরেজি শিরোনাম দিন বা স্লাগ নিজে লিখুন।');
+                }
+            }
+            $t = sanitize_title($t);
+            if (strlen($t) < 3 || !preg_match('/^[a-z0-9-]+$/', $t)) {
+                return new WP_Error('sb_ed', 'স্লাগ ইংরেজি অক্ষর, সংখ্যা ও হাইফেনে লিখুন (যেমন cadet-college-tips)।');
+            }
+            $f['slug'] = $t;
+            $desc = '🔗 নতুন লিংক: ' . esc_html(home_url('/blog/' . $t . '/')) . "\n(পুরোনো লিংক থাকলে সেটি আর কাজ নাও করতে পারে।)";
+            break;
+        case 'aiimg':
+            $f['aiimg'] = '' !== $t ? $t : 'auto';
+            $desc = '🎨 লেখা দেখে নতুন AI ছবি বানিয়ে মূল ছবি করা হবে। ড্রেস: ' . esc_html($f['aiimg']);
+            break;
+        case 'alt':
+            if ('auto' === strtolower($t)) {
+                $f['img_alt'] = 'auto';
+                $desc = '🏷️ AI মূল ছবি দেখে অল্ট-টেক্সট লিখবে।';
+            } else {
+                $f['img_alt'] = mb_substr($t, 0, 200);
+                $desc = '🏷️ অল্ট-টেক্সট: ' . esc_html($f['img_alt']);
+            }
             break;
         case 'nlink':
             if (!preg_match('#^https?://\S+$#i', $t)) {
@@ -1399,8 +1578,22 @@ function sb_desk_notice($text, $aids, $status = 'publish', $o = array()) {
     if (!is_wp_error($tm)) {
         wp_set_post_categories($id, array((int) (is_array($tm) ? $tm['term_id'] : $tm)));
     }
+    $imgnote = '';
+    if (!$aids && 'none' !== ($o['imgmode'] ?? 'auto')) {   // no picture sent: make one from the article, with the chosen dress
+        $ai = sb_desk_autoimage($id, $title, get_post_field('post_name', $id), $o, $html);
+        if (is_wp_error($ai)) {
+            $imgnote = "\n\n🖼️ AI ছবি বানানো যায়নি: " . $ai->get_error_message() . "\nছবি পরে ব্লগ সম্পাদনা → ছবি বা ব্লগ এডিটর থেকে দিন।";
+        } elseif ($ai) {
+            $imgnote = "\n\n🖼️ ছবি AI দিয়ে বানানো হয়েছে (অল্ট-টেক্সট, শিরোনাম ও ক্যাপশন সহ)।";
+        }
+    }
     if ($aids) {
         set_post_thumbnail($id, (int) $aids[0]);
+        foreach ($aids as $ax) {
+            if ('' === trim((string) get_post_meta((int) $ax, '_wp_attachment_image_alt', true))) {
+                update_post_meta((int) $ax, '_wp_attachment_image_alt', mb_substr($title, 0, 120));
+            }
+        }
     }
     if (function_exists('csa_seo_set') && function_exists('csa_seo_plugin') && csa_seo_plugin()) {
         csa_seo_set($id, array('title' => $d['seo_t'], 'description' => $d['seo_d'], 'keyword' => $d['seo_k']), 'Notice SEO');
@@ -1421,7 +1614,7 @@ function sb_desk_blog($text, $aids, $status = 'publish', $o = array()) {
             $cats[(int) $t->term_id] = $t->name;
         }
     }
-    $sys = 'You turn a short request into a blog brief for a school group website (Bangla). Return ONLY JSON: {"title":"Bangla blog title, max 70 characters (use the requester\'s title if one is given)","topic":"1-2 sentences: what the article covers","keywords":["3 to 6 search keywords, first is the main focus keyword"],"length":"short|medium|long","instruction":"extra instructions from the requester or empty","category":"exactly one of: ' . implode(' | ', $cats) . ' (or empty)"}. Never invent facts.';
+    $sys = 'You turn a short request into a blog brief for a school group website (Bangla). Return ONLY JSON: {"title":"Bangla blog title, max 70 characters (use the requester\'s title if one is given)","en_title":"the same title in natural English, 4 to 9 words, plain words (use the requester\'s English title if one is given)","topic":"1-2 sentences: what the article covers","keywords":["3 to 6 search keywords, first is the main focus keyword"],"length":"short|medium|long","instruction":"extra instructions from the requester or empty","category":"exactly one of: ' . implode(' | ', $cats) . ' (or empty)"}. Never invent facts.';
     $b   = csa_jobs_ai_json($sys, mb_substr((string) $text, 0, 700), 'Desk: blog brief', 1400);   // only the short topic goes through the brief; long rules go to the writer below
     if (is_wp_error($b)) {
         return $b;
@@ -1437,6 +1630,7 @@ function sb_desk_blog($text, $aids, $status = 'publish', $o = array()) {
     if (!empty($o['keywords'])) {
         $kw = array_slice(array_values(array_filter(array_map('trim', preg_split('/[,،;]+/u', sanitize_text_field($o['keywords']))))), 0, 15);
     }
+    $en = sanitize_text_field(!empty($o['en_title']) ? $o['en_title'] : ($b['en_title'] ?? ''));
     $len = in_array($b['length'] ?? '', array('short', 'medium', 'long'), true) ? $b['length'] : 'medium';
     if (!empty($o['length']) && in_array($o['length'], array('short', 'medium', 'long'), true)) {
         $len = $o['length'];
@@ -1496,12 +1690,16 @@ function sb_desk_blog($text, $aids, $status = 'publish', $o = array()) {
     if (is_wp_error($id)) {
         return $id;
     }
-    $g = !empty($o['slug']) ? sanitize_title($o['slug']) : sb_slug_guess($title, $kw);
+    $g = !empty($o['slug']) ? sanitize_title($o['slug']) : sb_friendly_slug($en, $kw, $title);
+    $g = $g !== '' ? wp_unique_post_slug($g, $id, 'draft', 'sb_post', 0) : '';
     wp_update_post(array('ID' => $id, 'post_name' => $g !== '' ? $g : 'post-' . $id));
     update_post_meta($id, '_sb_meta_desc', $meta);
     update_post_meta($id, '_sb_keywords', $kw);
     update_post_meta($id, '_sb_topic', $ctx['topic']);
     update_post_meta($id, '_sb_seo_title', mb_substr($title, 0, 70));
+    if ('' !== $en) {
+        update_post_meta($id, '_sb_en_title', mb_substr($en, 0, 120));
+    }
     update_post_meta($id, '_sb_summary_pos', 'top');
     $ctx['post_id'] = $id;
     foreach (array('summary', 'faq', 'related') as $part) {
@@ -1551,8 +1749,9 @@ function sb_desk_blog($text, $aids, $status = 'publish', $o = array()) {
     if ($missing) {
         $msg .= "\n\n⚠️ লেখায় " . count($missing) . 'টি [তথ্য দরকার: …] চিহ্ন আছে, তাই প্রকাশ না করে খসড়ায় রেখেছি। তথ্য বসিয়ে প্রকাশ করুন।';
     }
-    if (!$aids) {
-        $msg .= "\n\n🖼️ ছবি দেননি, তাই লেখাটি ছবি ছাড়া। ছবি যোগ করতে ব্লগ এডিটর খুলুন।";
+    $msg .= $imgnote;
+    if (!$aids && '' === $imgnote) {
+        $msg .= "\n\n🖼️ ছবি ছাড়া রাখা হয়েছে (আপনি ছবি লাগবে না বলেছেন)।";
     }
     return array('id' => $id, 'url' => $url, 'msg' => $msg);
 }
