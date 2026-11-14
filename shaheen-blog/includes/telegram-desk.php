@@ -868,7 +868,26 @@ add_action('wp_ajax_sb_desk_op', function () {
         $tk  = (string) $n['tg_token'];
         $me  = sb_tg_api('getMe');
         $pre = '' === $tk ? '(নেই)' : (false !== strpos($tk, ':') ? explode(':', $tk)[0] : '(কোলন নেই)');
-        wp_send_json_success(array('msg' => 'টোকেনের বট-নম্বর: ' . $pre . ', দৈর্ঘ্য: ' . strlen($tk) . ' → ' . (is_wp_error($me) ? $me->get_error_message() : '@' . $me['username'])));
+        wp_send_json_success(array('msg' => 'চ্যানেল-ঘরে সেভ: ' . $n['tg_chat'] . ' | টোকেনের বট-নম্বর: ' . $pre . ', দৈর্ঘ্য: ' . strlen($tk) . ' → ' . (is_wp_error($me) ? $me->get_error_message() : '@' . $me['username'])));
+    }
+    if ('find' === $op) {   // finds the private channel's number from what Telegram told the bot, and saves it
+        $u = sb_tg_api('getUpdates', array('limit' => 100, 'timeout' => 0, 'allowed_updates' => wp_json_encode(array('channel_post', 'my_chat_member', 'message'))));
+        if (is_wp_error($u)) {
+            wp_send_json_error(array('message' => $u->get_error_message() . ' (ওয়েবহুক চালু থাকলে আগে "বন্ধ" চাপুন)'));
+        }
+        $found = array();
+        foreach ((array) $u as $x) {
+            $ch = isset($x['channel_post']['chat']) ? $x['channel_post']['chat'] : (isset($x['my_chat_member']['chat']) ? $x['my_chat_member']['chat'] : (isset($x['message']['chat']) ? $x['message']['chat'] : null));
+            if (is_array($ch) && 'channel' === ($ch['type'] ?? '')) {
+                $found[(string) $ch['id']] = (string) ($ch['title'] ?? '');
+            }
+        }
+        if (1 === count($found)) {
+            $n['tg_chat'] = (string) key($found);
+            update_option('sb_notify', $n, false);
+            wp_send_json_success(array('msg' => 'চ্যানেল পেয়েছি ও সেভ করেছি: ' . key($found) . ' (' . current($found) . ')'));
+        }
+        wp_send_json_success(array('msg' => $found ? 'একাধিক চ্যানেল: ' . wp_json_encode($found, JSON_UNESCAPED_UNICODE) : 'কোনো চ্যানেল পাইনি। প্রাইভেট চ্যানেলে কিছু একটা লিখে পোস্ট করে আবার চাপুন।', 'current' => $n['tg_chat']));
     }
     if ('info' === $op) {
         $i = sb_tg_api('getWebhookInfo');
@@ -916,7 +935,7 @@ function sb_desk_panel() {
         <b>🗂️ টেলিগ্রাম ইনপুট ডেস্ক (নোটিশ ও ব্লগ লেখা)</b>
         <p class="sba-muted" style="margin:4px 0 8px">উপরের বাক্সে টোকেন ও চ্যানেল সেভ করার পর এখানে "চালু করুন" চাপুন। তারপর প্রাইভেট চ্যানেলে <code>/menu</code> লিখলে বট ধাপে ধাপে প্রশ্ন করবে (নোটিশ বা ব্লগ বেছে নিন)। শর্টকাট: নোটিশের ছবি পাঠানো, বা <code>/blog বিষয়</code>। <b>শুধু ওই চ্যানেলের পোস্টই নেওয়া হয়।</b></p>
         <label><input type="checkbox" id="dk-pub" <?php checked($c['publish'], 1); ?>> সরাসরি প্রকাশ করো (বন্ধ থাকলে সব খসড়া হয়ে থাকবে)</label>
-        <p><button type="button" class="button button-primary" id="dk-on"><?php echo $c['on'] ? '🔄 আবার সংযোগ দিন' : '▶️ ডেস্ক চালু করুন'; ?></button> <button type="button" class="button" id="dk-off">⏹️ বন্ধ</button> <button type="button" class="button" id="dk-info">ℹ️ অবস্থা</button> <button type="button" class="button" id="dk-who">🔎 টোকেন কার?</button> <button type="button" class="button" id="dk-tn">🧪 নোটিশ টেস্ট (খসড়া)</button> <button type="button" class="button" id="dk-tb">🧪 ব্লগ টেস্ট (খসড়া)</button> <span id="dk-msg" class="sba-msg"></span></p>
+        <p><button type="button" class="button button-primary" id="dk-on"><?php echo $c['on'] ? '🔄 আবার সংযোগ দিন' : '▶️ ডেস্ক চালু করুন'; ?></button> <button type="button" class="button" id="dk-off">⏹️ বন্ধ</button> <button type="button" class="button" id="dk-info">ℹ️ অবস্থা</button> <button type="button" class="button" id="dk-who">🔎 টোকেন কার?</button> <button type="button" class="button" id="dk-find">📡 চ্যানেল খুঁজুক</button> <button type="button" class="button" id="dk-tn">🧪 নোটিশ টেস্ট (খসড়া)</button> <button type="button" class="button" id="dk-tb">🧪 ব্লগ টেস্ট (খসড়া)</button> <span id="dk-msg" class="sba-msg"></span></p>
     </div>
     <script>
     (function(){var $=function(s){return document.querySelector(s);},aj=<?php echo wp_json_encode(admin_url('admin-ajax.php')); ?>,nn=<?php echo wp_json_encode(wp_create_nonce('sb_admin')); ?>;
@@ -925,6 +944,7 @@ function sb_desk_panel() {
         $('#dk-off').onclick=function(){call('unhook');};
         $('#dk-info').onclick=function(){call('info');};
         $('#dk-who').onclick=function(){call('who');};
+        $('#dk-find').onclick=function(){call('find');};
         $('#dk-tn').onclick=function(){call('test_notice');};
         $('#dk-tb').onclick=function(){call('test_blog');};
     })();
