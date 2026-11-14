@@ -729,7 +729,7 @@ function sb_ajax_save_post() {
         }
         $res = wp_update_post(wp_slash($postarr), true);
     } else {
-        $postarr['post_author'] = get_current_user_id();
+        $postarr['post_author'] = sb_team_author_id();
         $res = wp_insert_post(wp_slash($postarr), true);
     }
     if (is_wp_error($res)) {
@@ -978,7 +978,7 @@ function sb_ajax_save_press() {
         $arr['ID'] = $id;
         $res = wp_update_post(wp_slash($arr), true);
     } else {
-        $arr['post_author'] = get_current_user_id();
+        $arr['post_author'] = sb_team_author_id();
         $res = wp_insert_post(wp_slash($arr), true);
     }
     if (is_wp_error($res)) {

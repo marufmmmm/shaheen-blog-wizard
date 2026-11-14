@@ -100,7 +100,7 @@ function sb_press_make($title, $url, $paper, $pub, $excerpt, $img_url, $cat) {
     require_once ABSPATH . 'wp-admin/includes/media.php';
     require_once ABSPATH . 'wp-admin/includes/image.php';
     $paper = trim(preg_replace('/\s*[·•].*$/u', '', (string) $paper));
-    $arr   = array('post_type' => 'sb_post', 'post_title' => $title, 'post_status' => 'publish', 'post_author' => get_current_user_id() ?: 1,
+    $arr   = array('post_type' => 'sb_post', 'post_title' => $title, 'post_status' => 'publish', 'post_author' => sb_team_author_id() ?: 1,
         'post_excerpt' => mb_substr(sanitize_textarea_field((string) $excerpt), 0, 240));
     if (preg_match('/^\d{4}-\d{2}-\d{2}$/', (string) $pub) && $pub <= wp_date('Y-m-d')) {
         $arr['post_date']     = $pub . ' 12:00:00';

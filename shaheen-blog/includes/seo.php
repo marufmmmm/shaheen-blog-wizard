@@ -190,7 +190,7 @@ function sb_head_meta() {
         }
         $art = array('@context' => 'https://schema.org', '@type' => 'Article', 'headline' => mb_substr($ttl, 0, 110), 'description' => $desc,
             'mainEntityOfPage' => $url, 'inLanguage' => 'bn', 'datePublished' => get_post_time('c', true, $id), 'dateModified' => get_post_modified_time('c', true, $id),
-            'author' => array('@type' => 'Person', 'name' => ($a = trim((string) get_post_meta($id, '_sb_author_name', true))) !== '' ? $a : $name),
+            'author' => array('@type' => 'Person', 'name' => sb_team_author()),
             'publisher' => array('@type' => 'Organization', 'name' => $name));
         if ($img) {
             $art['image'] = array($img);

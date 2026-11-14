@@ -219,6 +219,7 @@ function sb_desk_menu($m) {
     sb_desk_say($m, "🗂️ <b>কী করতে চান?</b>", array(
         array(sb_desk_btn('📢 নোটিশ', 'm:notice'), sb_desk_btn('✍️ ব্লগ', 'm:blog')),
         array(sb_desk_btn('✏️ নোটিশ সম্পাদনা', 'm:edit')),
+        array(sb_desk_btn('✏️ ব্লগ সম্পাদনা', 'm:eblog'), sb_desk_btn('✏️ সংবাদ সম্পাদনা', 'm:enews')),
         array(sb_desk_btn('📰 সংবাদ (লিংক দিন)', 'm:news'), sb_desk_btn('⭐ স্পেলিং স্টার (শীঘ্রই)', 'm:soon')),
     ));
 }
@@ -264,12 +265,35 @@ function sb_desk_ask($m, $s) {
             return sb_desk_say($m, "📰 <b>সংবাদের লিংক পাঠান।</b> একাধিক হলে প্রতি লাইনে একটি (সর্বোচ্চ ৫টি)।\nআমি পাতাটা পড়ব, নেতিবাচক বা সন্দেহজনক হলে আটকে দেব, আর ঠিক থাকলে সংবাদ-কার্ড (শিরোনাম, পত্রিকা, তারিখ, ছবি, সারাংশ) বানিয়ে সাইটে বসাব।\n<i>ফেসবুক/ইউটিউব লিংক সংবাদ নয়: ওগুলো নোটিশ বা ইভেন্টের অংশ।</i>", array(array($x)));
         case 'pick':
             $rows = array();
-            foreach (sb_desk_edit_list() as $pid) {
-                $rows[] = array(sb_desk_btn(mb_substr(get_the_title($pid), 0, 38) . ' · ' . get_the_date('d/m', $pid), 'p:' . $pid));
+            $kd = $s['d']['kind'] ?? 'notice';
+            foreach (sb_desk_kind_list($kd) as $pid) {
+                $rows[] = array(sb_desk_btn(mb_substr(get_the_title($pid), 0, 38) . ' · ' . get_the_date('d/m', $pid) . ('draft' === get_post_status($pid) ? ' · ড্রাফট' : ''), 'p:' . $pid));
             }
             $rows[] = array($x);
-            return sb_desk_say($m, "✏️ <b>কোন নোটিশটি বদলাবেন?</b> (সর্বশেষ ৫টি)", $rows);
+            return sb_desk_say($m, '✏️ <b>কোন ' . ('blog' === $kd ? 'ব্লগটি' : ('news' === $kd ? 'সংবাদটি' : 'নোটিশটি')) . ' বদলাবেন?</b> (সর্বশেষ ৫টি)', $rows);
         case 'act':
+            $kd = $s['d']['kind'] ?? 'notice';
+            if ('blog' === $kd || 'news' === $kd) {
+                $pub = 'publish' === get_post_status((int) $s['d']['id']);
+                $tt  = esc_html(get_the_title((int) $s['d']['id']));
+                $st  = array(sb_desk_btn($pub ? '📥 ড্রাফটে নিন' : '🌐 প্রকাশ করুন', $pub ? 'a:draft' : 'a:pub'));
+                if ('news' === $kd) {
+                    return sb_desk_say($m, "🛠️ <b>কী বদলাবেন?</b>\n" . $tt, array(
+                        array(sb_desk_btn('🏷️ শিরোনাম', 'a:title'), sb_desk_btn('📝 সারাংশ', 'a:summary')),
+                        array(sb_desk_btn('🔗 সংবাদের লিংক', 'a:nlink'), sb_desk_btn('📰 পত্রিকার নাম', 'a:paper')),
+                        array(sb_desk_btn('🖼️ ছবি বদলান', 'a:img'), $st[0]),
+                        array($x),
+                    ));
+                }
+                return sb_desk_say($m, "🛠️ <b>কী বদলাবেন?</b>\n" . $tt, array(
+                    array(sb_desk_btn('🏷️ শিরোনাম', 'a:title'), sb_desk_btn('📝 সারাংশ', 'a:summary')),
+                    array(sb_desk_btn('🔎 Google বিবরণ', 'a:meta'), sb_desk_btn('🔑 কীওয়ার্ড', 'a:kw')),
+                    array(sb_desk_btn('🎬 ভিডিও/ফেসবুক পোস্ট', 'a:embed'), sb_desk_btn('📣 কার্ড', 'a:promo')),
+                    array(sb_desk_btn('🖼️ ছবি বদলান', 'a:img'), $st[0]),
+                    array(sb_desk_btn('✍️ লেখায় বদল (লিখে বলুন)', 'a:free')),
+                    array($x),
+                ));
+            }
             return sb_desk_say($m, "🛠️ <b>কী বদলাবেন?</b>
 " . esc_html(get_the_title((int) $s['d']['id'])), array(
                 array(sb_desk_btn('📘 Facebook পোস্ট যোগ', 'a:fb'), sb_desk_btn('📅 আবেদনের সময় বাড়ান', 'a:deadline')),
@@ -279,6 +303,25 @@ function sb_desk_ask($m, $s) {
                 array($x),
             ));
         case 'value':
+            if (in_array($s['d']['kind'] ?? 'notice', array('blog', 'news'), true)) {
+                $pl = array();
+                foreach (sb_promos() as $p) {
+                    $pl[] = '<code>' . esc_html($p['id']) . '</code> = ' . esc_html($p['title']);
+                }
+                $qq = array(
+                    'title' => '🏷️ <b>নতুন শিরোনাম লিখুন।</b>',
+                    'summary' => '📝 <b>নতুন সারাংশ লিখুন</b> (২–৩ বাক্য; Google বিবরণও এটি থেকে হবে)।',
+                    'meta' => '🔎 <b>Google বিবরণ লিখুন</b> (সর্বোচ্চ ১৬০ অক্ষর)।',
+                    'kw' => '🔑 <b>কীওয়ার্ড লিখুন</b> (কমা দিয়ে, সর্বোচ্চ ১৫টি)। এগুলো আগেরগুলোর জায়গায় বসবে।',
+                    'embed' => "🎬 <b>ভিডিও বা ফেসবুক পোস্টের লিংক পাঠান।</b>\nপ্রথম লাইনে লিংক, দ্বিতীয় লাইনে ক্যাপশন (ঐচ্ছিক)। প্রথম অনুচ্ছেদের পরে বসবে।",
+                    'promo' => "📣 <b>কোন কার্ড বসবে?</b> নাম লিখুন (একাধিক হলে কমা দিয়ে), বাদ দিতে <code>none</code> লিখুন।\n" . implode("\n", $pl),
+                    'img' => '🖼️ <b>নতুন ছবি পাঠান।</b>',
+                    'nlink' => '🔗 <b>সংবাদের পুরো লিংক পাঠান।</b>',
+                    'paper' => '📰 <b>পত্রিকার নাম লিখুন।</b>',
+                    'free' => '✍️ <b>লেখায় কী বদলাতে হবে লিখে বলুন।</b> যেমন: ‘শেষ অনুচ্ছেদে শাখার ফোন নম্বর যোগ করো’।',
+                );
+                return sb_desk_say($m, $qq[$s['d']['act']] ?? 'লিখে পাঠান।', array(array($x)));
+            }
             $q = array(
                 'fb' => "📘 <b>Facebook পোস্টের লিংক পাঠান।</b> শেয়ার-লিংক (facebook.com/share/…) হলেও চলবে। পোস্ট অবশ্যই পাবলিক হতে হবে।",
                 'deadline' => "📅 <b>নতুন শেষ সময় লিখুন</b> (যেমন: ৩০ ডিসেম্বর ২০২৬, রাত ১০:০০টা)।",
@@ -441,6 +484,15 @@ function sb_desk_step($m, $in) {
         if ('soon' === $f) {
             sb_desk_say($m, 'এটা পরের ধাপে আসছে। এখন নোটিশ ও ব্লগ চলছে।');
         } else {
+            if ('eblog' === $f || 'enews' === $f) {
+                $kd = 'eblog' === $f ? 'blog' : 'news';
+                if (!sb_desk_post_list($kd)) {
+                    sb_desk_say($m, 'সম্পাদনার মতো ' . ('blog' === $kd ? 'ব্লগ' : 'সংবাদ') . ' এখনো নেই।');
+                    return;
+                }
+                sb_desk_start($m, 'edit', array('kind' => $kd));
+                return;
+            }
             if ('edit' === $f) {
                 if (!sb_desk_edit_list()) {
                     sb_desk_say($m, 'সম্পাদনার মতো নতুন-ডিজাইনের নোটিশ এখনো নেই। আগে /menu থেকে একটি নোটিশ বানান।');
@@ -481,7 +533,7 @@ function sb_desk_step($m, $in) {
             }
             break;
         case 'pick':
-            if (0 === strpos($cb, 'p:') && in_array((int) substr($cb, 2), sb_desk_edit_list(), true)) {
+            if (0 === strpos($cb, 'p:') && in_array((int) substr($cb, 2), sb_desk_kind_list($d['kind'] ?? 'notice'), true)) {
                 $d['id'] = (int) substr($cb, 2);
             } else {
                 $stay = true;
@@ -490,6 +542,13 @@ function sb_desk_step($m, $in) {
         case 'act':
             if (0 === strpos($cb, 'a:')) {
                 $d['act'] = substr($cb, 2);
+                if (in_array($d['act'], array('pub', 'draft'), true) && in_array($d['kind'] ?? 'notice', array('blog', 'news'), true)) {
+                    $r = sb_desk_post_propose((int) $d['id'], $d['kind'], $d['act'], array());
+                    if (!is_wp_error($r)) {
+                        $d = array_merge($d, $r);
+                        $s['i']++;   // no value step for publish / draft
+                    }
+                }
             } else {
                 $stay = true;
             }
@@ -502,7 +561,7 @@ function sb_desk_step($m, $in) {
                 break;
             }
             sb_desk_unlock($lock);
-            $r = sb_desk_edit_propose((int) $d['id'], $d['act'], $val);
+            $r = in_array($d['kind'] ?? 'notice', array('blog', 'news'), true) ? sb_desk_post_propose((int) $d['id'], $d['kind'], $d['act'], $val) : sb_desk_edit_propose((int) $d['id'], $d['act'], $val);
             if (is_wp_error($r)) {
                 sb_desk_say($m, '⚠️ ' . esc_html($r->get_error_message()) . "\nআবার পাঠান বা ❌ বাতিল চাপুন।");
                 return;
@@ -644,7 +703,7 @@ function sb_desk_step($m, $in) {
             if ('edit' === $s['flow'] && 'go:apply' === $cb) {
                 sb_desk_clear($m);
                 sb_desk_unlock($lock);
-                $r = sb_desk_edit_apply((int) $d['id'], $d);
+                $r = in_array($d['kind'] ?? 'notice', array('blog', 'news'), true) ? sb_desk_post_apply((int) $d['id'], $d['kind'], $d) : sb_desk_edit_apply((int) $d['id'], $d);
                 sb_desk_say($m, is_wp_error($r) ? '⚠️ ' . esc_html($r->get_error_message()) : $r);
                 return;
             }
@@ -775,6 +834,198 @@ function sb_desk_news_run($m, $urls) {
         $out[] = ($ic[$r[0]] ?? $r[0]) . ': ' . esc_html(mb_substr($it['title'] ?: $u, 0, 80)) . "\n   " . esc_html($r[1]);
     }
     sb_desk_say($m, "📰 <b>সংবাদের ফল</b>\n\n" . implode("\n\n", $out) . "\n\n🛑 আটকানো খবর আপনাকে আলাদা করে জানানো হয় (ব্লগ → সংবাদ সংগ্রহ)।\n/menu — আরেকটি কাজ");
+}
+
+
+/** One edit of a blog post / press card: only the keys given are changed. */
+function sb_desk_patch_post($pid, $f) {
+    $pid = (int) $pid;
+    if (!$pid || 'sb_post' !== get_post_type($pid)) {
+        return new WP_Error('sb_ed', 'ব্লগ পোস্ট পাইনি।');
+    }
+    $g = function ($k) use ($f) {
+        return isset($f[$k]) ? (string) $f[$k] : '';
+    };
+    $a = array('ID' => $pid);
+    if ('' !== $g('title')) {
+        $a['post_title'] = sanitize_text_field($g('title'));
+    }
+    if ('' !== $g('content')) {
+        $a['post_content'] = wp_kses_post($g('content'));
+    }
+    if (in_array($g('status'), array('draft', 'publish'), true)) {
+        $a['post_status'] = $g('status');
+    }
+    $r = wp_update_post(wp_slash($a), true);
+    if (is_wp_error($r)) {
+        return $r;
+    }
+    if ((int) $g('thumb')) {
+        set_post_thumbnail($pid, (int) $g('thumb'));
+    }
+    if ('' !== $g('promo_ids')) {
+        $ids = 'none' === $g('promo_ids') ? array() : array_values(array_filter(array_map('sanitize_key', explode(',', $g('promo_ids')))));
+        update_post_meta($pid, '_sb_promo_ids', $ids);
+    }
+    if ('' !== $g('no_social')) {
+        if ('1' === $g('no_social')) {
+            update_post_meta($pid, '_sb_no_social', 1);
+        } else {
+            delete_post_meta($pid, '_sb_no_social');
+        }
+    }
+    if ('' !== $g('embed_url')) {   // one video / post embed with a caption, at a chosen place
+        $e = sb_get_extras($pid);
+        $e['embeds'] = array(array('url' => $g('embed_url'), 'label' => $g('embed_label'), 'pos' => '' !== $g('embed_pos') ? $g('embed_pos') : 'p:1', 'r' => $g('embed_r')));
+        update_post_meta($pid, '_sb_extras', sb_clean_extras($e));
+    }
+    if ('' !== $g('summary')) {
+        update_post_meta($pid, '_sb_summary', sanitize_textarea_field($g('summary')));
+    }
+    if ('' !== $g('meta')) {
+        update_post_meta($pid, '_sb_meta_desc', sanitize_textarea_field($g('meta')));
+        wp_update_post(array('ID' => $pid, 'post_excerpt' => sanitize_textarea_field($g('meta'))));
+    }
+    if ('' !== $g('seo_title')) {
+        update_post_meta($pid, '_sb_seo_title', sanitize_text_field($g('seo_title')));
+    }
+    if ('' !== $g('keywords')) {
+        update_post_meta($pid, '_sb_keywords', array_slice(array_values(array_filter(array_map('sanitize_text_field', preg_split('/[,\n،]+/u', $g('keywords'))))), 0, 15));
+    }
+    if ('' !== $g('press_url')) {
+        update_post_meta($pid, '_sb_press_url', esc_url_raw($g('press_url')));
+    }
+    if ('' !== $g('press_paper')) {
+        update_post_meta($pid, '_sb_press_paper', sanitize_text_field($g('press_paper')));
+    }
+    sb_seo_sync($pid);
+    clean_post_cache($pid);
+    return true;
+}
+
+/** Blogs (kind blog) or press/news cards (kind news) the owner may edit from Telegram: latest 5. */
+function sb_desk_post_list($kind) {
+    return array_map('intval', get_posts(array('post_type' => 'sb_post', 'post_status' => array('publish', 'draft'), 'numberposts' => 5, 'orderby' => 'date', 'order' => 'DESC', 'fields' => 'ids',
+        'meta_query' => array(array('key' => '_sb_press_url', 'compare' => 'news' === $kind ? 'EXISTS' : 'NOT EXISTS')))));
+}
+
+function sb_desk_kind_list($kind) {
+    return 'notice' === $kind || '' === $kind ? sb_desk_edit_list() : sb_desk_post_list($kind);
+}
+
+/** Proposal for a blog / news edit: array(new => array(fields), desc, thumb) or WP_Error. */
+function sb_desk_post_propose($id, $kind, $act, $val) {
+    $t = trim((string) ($val['text'] ?? ''));
+    $f = array();
+    $thumb = 0;
+    switch ($act) {
+        case 'title':
+            $f['title'] = $t;
+            $desc = '🏷️ নতুন শিরোনাম: <b>' . esc_html($t) . '</b>';
+            break;
+        case 'summary':
+            $f['summary'] = $t;
+            $f['meta'] = mb_substr($t, 0, 160);
+            $desc = '📝 নতুন সারাংশ:' . "\n" . esc_html($t);
+            break;
+        case 'meta':
+            $f['meta'] = mb_substr($t, 0, 160);
+            $desc = '🔎 নতুন Google বিবরণ (সর্বোচ্চ ১৬০ অক্ষর):' . "\n" . esc_html($f['meta']);
+            break;
+        case 'kw':
+            $f['keywords'] = $t;
+            $desc = '🔑 কীওয়ার্ড: ' . esc_html($t);
+            break;
+        case 'embed':
+            $ls = array_values(array_filter(array_map('trim', preg_split('/\R/u', $t))));
+            $url = $ls ? $ls[0] : '';
+            if (!preg_match('#^https?://\S+$#i', $url)) {
+                return new WP_Error('sb_ed', 'প্রথম লাইনে ভিডিও/পোস্টের পুরো লিংক দিন, দ্বিতীয় লাইনে ক্যাপশন (ঐচ্ছিক)।');
+            }
+            if (preg_match('#^https?://([a-z0-9.-]+\.)?(facebook\.com|fb\.watch|fb\.me)/#i', $url)) {
+                $c = sb_desk_fb_canon($url);
+                if (is_wp_error($c)) {
+                    return $c;
+                }
+                $url = $c;
+            }
+            $f['embed_url'] = $url;
+            $f['embed_label'] = implode(' ', array_slice($ls, 1));
+            $f['embed_pos'] = 'p:1';
+            $desc = "🎬 প্রথম অনুচ্ছেদের পরে এই ভিডিও/পোস্ট বসবে:\n" . esc_url($url) . ($f['embed_label'] ? "\nক্যাপশন: " . esc_html($f['embed_label']) : '');
+            break;
+        case 'promo':
+            $have = array();
+            foreach (sb_promos() as $p) {
+                $have[$p['id']] = $p['title'];
+            }
+            $want = 'none' === strtolower($t) || 'নেই' === $t ? array() : array_values(array_filter(array_map('sanitize_key', preg_split('/[\s,]+/u', $t))));
+            foreach ($want as $w) {
+                if (!isset($have[$w])) {
+                    return new WP_Error('sb_ed', 'এই নামে কার্ড নেই: ' . esc_html($w));
+                }
+            }
+            $f['promo_ids'] = $want ? implode(',', $want) : 'none';
+            $desc = '📣 কার্ড: ' . ($want ? esc_html(implode(', ', array_map(function ($w) use ($have) { return $have[$w]; }, $want))) : 'কোনো কার্ড নয়');
+            break;
+        case 'img':
+            $a = (int) ($val['img'] ?? 0);
+            if (!$a) {
+                return new WP_Error('sb_ed', 'ছবি পাইনি।');
+            }
+            $thumb = $a;
+            $f['thumb'] = $a;
+            $desc = '🖼️ মূল ছবি বদলে নতুন ছবি বসবে।';
+            break;
+        case 'nlink':
+            if (!preg_match('#^https?://\S+$#i', $t)) {
+                return new WP_Error('sb_ed', 'সংবাদের পুরো লিংক (https://…) পাঠান।');
+            }
+            $f['press_url'] = $t;
+            $desc = '🔗 সংবাদের লিংক: ' . esc_url($t);
+            break;
+        case 'paper':
+            $f['press_paper'] = $t;
+            $desc = '📰 পত্রিকার নাম: <b>' . esc_html($t) . '</b>';
+            break;
+        case 'pub':
+            $f['status'] = 'publish';
+            $desc = '🌐 লেখাটি <b>প্রকাশিত</b> হবে (সবাই দেখবে)।';
+            break;
+        case 'draft':
+            $f['status'] = 'draft';
+            $desc = '📥 লেখাটি <b>ড্রাফটে</b> যাবে (সাইটে আর দেখা যাবে না)।';
+            break;
+        case 'free':
+            $post = get_post($id);
+            $sys = 'You edit a Bangla blog article stored as HTML. Apply ONLY the requested change; keep everything else exactly as it is; do not invent facts, dates, fees or links. Return ONLY JSON: {"html":"<the full updated HTML>","changes":["each change as one short Bangla line"]}.';
+            $r = csa_jobs_ai_json($sys, "Article HTML:\n" . $post->post_content . "\n\nRequested change:\n" . $t, 'Desk: free blog edit', 7000);
+            if (is_wp_error($r) || empty($r['html']) || !is_string($r['html'])) {
+                return new WP_Error('sb_ed', 'AI বদলটি বুঝে করতে পারেনি। অন্যভাবে লিখে দেখুন।');
+            }
+            $chg = array_values(array_filter((array) ($r['changes'] ?? array())));
+            if (!$chg) {
+                return new WP_Error('sb_ed', 'কোনো বদল করা যায়নি। আরও স্পষ্ট করে লিখুন।');
+            }
+            $f['content'] = $r['html'];
+            $desc = "✍️ বদলগুলো:\n• " . implode("\n• ", array_map('esc_html', array_map('strval', array_slice($chg, 0, 8))));
+            break;
+        default:
+            return new WP_Error('sb_ed', 'অজানা কাজ।');
+    }
+    return array('new' => array('fields' => $f), 'desc' => $desc . "\n\n(" . ('news' === $kind ? 'সংবাদ' : 'ব্লগ') . ': ' . esc_html(get_the_title($id)) . ')', 'thumb' => $thumb);
+}
+
+function sb_desk_post_apply($id, $kind, $st) {
+    if (!in_array($id, sb_desk_post_list($kind), true) || empty($st['new']['fields'])) {
+        return new WP_Error('sb_ed', 'লেখাটি আর তালিকায় নেই, আবার /menu থেকে শুরু করুন।');
+    }
+    $r = sb_desk_patch_post($id, $st['new']['fields']);
+    if (is_wp_error($r)) {
+        return $r;
+    }
+    $url = 'publish' === get_post_status($id) ? get_permalink($id) : home_url('/?post_type=sb_post&p=' . $id . '&preview=true');
+    return "✅ বদল হয়েছে:\n<b>" . esc_html(get_the_title($id)) . "</b>\n" . esc_url($url) . ('publish' === get_post_status($id) ? '' : "\n(ড্রাফট: এডমিন লগইন থাকলে এই লিংকে প্রিভিউ দেখা যায়)") . "\n\n/menu — আরেকটি কাজ";
 }
 
 /* ------------------------------------------------------------ editing a notice made with the notice design */
@@ -1131,7 +1382,7 @@ function sb_desk_notice($text, $aids, $status = 'publish', $o = array()) {
     }
     $d     = csa_sn_autoseo(0, $d);
     $title = (!is_wp_error($s) && $s['title']) ? $s['title'] : ($d['topic'] ?: 'নোটিশ');
-    $arr   = array('post_type' => 'post', 'post_status' => $status, 'post_title' => $title, 'post_excerpt' => $d['summary'], 'post_author' => get_current_user_id());
+    $arr   = array('post_type' => 'post', 'post_status' => $status, 'post_title' => $title, 'post_excerpt' => $d['summary'], 'post_author' => sb_team_author_id());
     if (!empty($d['slug'])) {
         $arr['post_name'] = $d['slug'];
     }
@@ -1239,7 +1490,7 @@ function sb_desk_blog($text, $aids, $status = 'publish', $o = array()) {
     }
     $ctx['excerpt'] = $meta;
 
-    $postarr = array('post_type' => 'sb_post', 'post_title' => $title, 'post_excerpt' => $meta, 'post_content' => $html, 'post_author' => $uid,
+    $postarr = array('post_type' => 'sb_post', 'post_title' => $title, 'post_excerpt' => $meta, 'post_content' => $html, 'post_author' => sb_team_author_id(),
         'post_status' => ($missing || 'publish' !== $status) ? 'draft' : 'publish');
     $id = wp_insert_post(wp_slash($postarr), true);
     if (is_wp_error($id)) {
@@ -1431,52 +1682,15 @@ add_action('wp_ajax_sb_desk_op', function () {
     }
     if ('patch' === $op) {   // owner-requested correction of one blog draft/post: title, body, picture
         $pid = (int) sb_req('id', 0);
-        if (!$pid || 'sb_post' !== get_post_type($pid)) {
-            wp_send_json_error(array('message' => 'ব্লগ পোস্ট পাইনি।'));
+        $f = array();
+        foreach (array('title', 'status', 'thumb', 'promo_ids', 'no_social', 'embed_url', 'embed_label', 'embed_pos', 'embed_r', 'summary', 'meta', 'seo_title') as $k) {
+            $f[$k] = (string) sb_req($k);
         }
-        $a = array('ID' => $pid);
-        if ('' !== (string) sb_req('title')) {
-            $a['post_title'] = sanitize_text_field((string) sb_req('title'));
-        }
-        if ('' !== (string) wp_unslash($_POST['content'] ?? '')) {
-            $a['post_content'] = wp_kses_post(wp_unslash($_POST['content']));
-        }
-        if (in_array((string) sb_req('status'), array('draft', 'publish'), true)) {
-            $a['post_status'] = (string) sb_req('status');
-        }
-        $r = wp_update_post(wp_slash($a), true);
+        $f['content'] = (string) wp_unslash($_POST['content'] ?? '');
+        $r = sb_desk_patch_post($pid, $f);
         if (is_wp_error($r)) {
             wp_send_json_error(array('message' => $r->get_error_message()));
         }
-        if ((int) sb_req('thumb', 0)) {
-            set_post_thumbnail($pid, (int) sb_req('thumb'));
-        }
-        if ('' !== (string) sb_req('promo_ids')) {
-            update_post_meta($pid, '_sb_promo_ids', array_values(array_filter(array_map('sanitize_key', explode(',', (string) sb_req('promo_ids'))))));
-        }
-        if ('' !== (string) sb_req('no_social')) {
-            if ('1' === (string) sb_req('no_social')) {
-                update_post_meta($pid, '_sb_no_social', 1);
-            } else {
-                delete_post_meta($pid, '_sb_no_social');
-            }
-        }
-        if ('' !== (string) sb_req('embed_url')) {   // one video / post embed with a caption, at a chosen place
-            $e = sb_get_extras($pid);
-            $e['embeds'] = array(array('url' => (string) sb_req('embed_url'), 'label' => (string) sb_req('embed_label'), 'pos' => (string) sb_req('embed_pos', 'p:1'), 'r' => (string) sb_req('embed_r')));
-            update_post_meta($pid, '_sb_extras', sb_clean_extras($e));
-        }
-        if ('' !== (string) sb_req('summary')) {
-            update_post_meta($pid, '_sb_summary', sanitize_textarea_field((string) sb_req('summary')));
-        }
-        if ('' !== (string) sb_req('meta')) {
-            update_post_meta($pid, '_sb_meta_desc', sanitize_textarea_field((string) sb_req('meta')));
-            wp_update_post(array('ID' => $pid, 'post_excerpt' => sanitize_textarea_field((string) sb_req('meta'))));
-        }
-        if ('' !== (string) sb_req('seo_title')) {
-            update_post_meta($pid, '_sb_seo_title', sanitize_text_field((string) sb_req('seo_title')));
-        }
-        sb_seo_sync($pid);
         wp_send_json_success(array('msg' => 'ঠিক করা হয়েছে', 'status' => get_post_status($pid), 'slug' => get_post_field('post_name', $pid)));
     }
     if ('promo_save' === $op) {   // the promo-card library, as JSON

@@ -445,13 +445,18 @@ function sb_set_post_categories($post_id, $main, $extra) {
     update_post_meta($post_id, '_sb_cat_primary', $ids ? $ids[0] : 0);
 }
 
+/** Every blog post and notice is published under the team name. */
+function sb_team_author() {
+    return apply_filters('sb_team_author', 'SEF IT Team');
+}
+
+function sb_team_author_id() {
+    $u = get_user_by('slug', 'sef-it-team');
+    return $u ? (int) $u->ID : (int) get_current_user_id();
+}
+
 function sb_author_name($post_id) {
-    $custom = get_post_meta($post_id, '_sb_author_name', true);
-    if ($custom) {
-        return $custom;
-    }
-    $p = get_post($post_id);
-    return $p ? get_the_author_meta('display_name', $p->post_author) : '';
+    return sb_team_author();
 }
 
 function sb_post_image($post_id, $size = 'large') {
