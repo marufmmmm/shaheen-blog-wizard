@@ -225,13 +225,26 @@ function sb_desk_menu($m) {
 /** Flow definitions: ordered steps. kind: choice | text | collect. */
 function sb_desk_steps($flow, $d) {
     if ('notice' === $flow) {
-        return array('type', 'branch', 'details', 'pdf', 'apply', 'confirm');
+        return array('type', 'details', 'confirm');
     }
     $st = array('topic', 'title', 'keywords', 'body');
     if (in_array($d['body'] ?? '', array('paste', 'desc'), true)) {
         $st[] = 'bodytext';
     }
     return array_merge($st, array('length', 'image', 'confirm'));
+}
+
+/** The ONE question for a notice: a fill-in list, built from what the site's old notices really contain. */
+function sb_desk_template($type) {
+    $tail = "\n\n📎 ছবি/পোস্টার বা PDF থাকলে একই সাথে (এই লেখার আগে বা পরে) পাঠান। যে ঘরের তথ্য নেই সেটা ফাঁকা রাখুন, AI বানিয়ে লিখবে না। চাইলে ফেসবুক পোস্টের লেখা সরাসরি পেস্ট করলেও চলবে।\nসব পাঠানো হলে নিচের <b>✅ দেওয়া শেষ</b> চাপুন।";
+    $t = array(
+        'niyog' => "শাখা: \nপদ ও বছর: (যেমন সহকারী শিক্ষক, ২০২৭)\nআবেদনের শেষ সময়: (তারিখ ও সময়)\nলিখিত পরীক্ষার সময়: \nপরীক্ষার ভেন্যু (ঠিকানা): \nশর্তসমূহ: (প্রতি লাইনে একটি)\nGoogle Form লিংক: \nFacebook পোস্টের লিংক: \nফোন নম্বর: ",
+        'niyog_result' => "শাখা: \nফলাফল PDF/Drive লিংক: \nমৌখিক পরীক্ষার তারিখ ও সময়: \nপরবর্তী ধাপ: \nবিশেষ দ্রষ্টব্য/শর্ত: (প্রতি লাইনে একটি)\nফোন নম্বর: ",
+        'britti' => "শিরোনাম: (যেমন বৃত্তি পরীক্ষা ২০২৭)\nআবেদনের শেষ সময়: \nপরীক্ষার তারিখ: \nপরীক্ষার সময়সূচি: \nপরীক্ষার ভেন্যু: \nসিলেবাস/বিজ্ঞপ্তি PDF লিংক: \nআবেদনের লিংক: \nশর্তসমূহ: (প্রতি লাইনে একটি)",
+        'britti_result' => "শিরোনাম: \nফলাফল PDF/লিংক: \nফলাফল প্রকাশের তারিখ: \nবৃত্তির পরিমাণ: \nবিশেষ দ্রষ্টব্য: ",
+        'form' => "শিরোনাম: \nআবেদনের শেষ সময়: \nফরমের লিংক (Google Form হলে পাতায় বসে যাবে): \nশর্তসমূহ: ",
+    );
+    return isset($t[$type]) ? "<code>" . esc_html($t[$type]) . "</code>" . $tail : "<code>" . esc_html("শিরোনাম: \nশাখা (থাকলে): \nমূল তথ্য ও তারিখ: \nশর্তসমূহ: (প্রতি লাইনে একটি)\nআবেদন/ফরমের লিংক: \nডাউনলোড (PDF) লিংক: \nফোন নম্বর: ") . "</code>" . $tail;
 }
 
 function sb_desk_ask($m, $s) {
@@ -251,7 +264,8 @@ function sb_desk_ask($m, $s) {
             return sb_desk_say($m, "📍 <b>কোন শাখা বা জায়গা?</b> (যেমন: মাদারীপুর শাখা)\nলিখে পাঠান, অথবা নোটিশ থেকে AI নিক।", array(array(sb_desk_btn('🤖 AI নিক / সবার জন্য', 'skip'), $x)));
         case 'details':
             $n = count($s['d']['aids'] ?? array());
-            return sb_desk_say($m, "📝 <b>নোটিশের তথ্য দিন</b> — ছবি (পোস্টার), লেখা বা দুটোই পাঠান। একাধিক হলে পরপর পাঠান।" . ($n ? "\nএ পর্যন্ত: " . $n . 'টি ছবি' . (!empty($s['d']['text']) ? ' + লেখা' : '') : '') . "\nশেষ হলে নিচের বোতাম চাপুন।", array(array(sb_desk_btn('✅ দেওয়া শেষ', 'done'), $x)));
+            $tl = ($s['d']['type'] ?? '') !== '' ? (csa_sn_opt('types')[$s['d']['type']]['label'] ?? '') : 'সাধারণ';
+            return sb_desk_say($m, "📝 <b>" . esc_html($tl) . " নোটিশের তথ্য</b> — নিচের তালিকাটি কপি করে ভরে একটি বার্তায় পাঠান:\n\n" . sb_desk_template($s['d']['type'] ?? '') . ($n ? "\n\nএ পর্যন্ত: " . $n . 'টি ছবি' . (!empty($s['d']['text']) ? ' + লেখা' : '') : ''), array(array(sb_desk_btn('✅ দেওয়া শেষ', 'done'), sb_desk_btn('❌ বাতিল', 'cancel'))));
         case 'pdf':
             return sb_desk_say($m, "📎 <b>ডাউনলোডের PDF/ফাইল আছে?</b>\nPDF সরাসরি পাঠান, অথবা ডাউনলোড লিংক লিখে পাঠান।", array(array($skip, $x)));
         case 'apply':
@@ -279,7 +293,7 @@ function sb_desk_ask($m, $s) {
             $d = $s['d'];
             if ('notice' === $s['flow']) {
                 $tl = ($d['type'] ?? '') !== '' ? (csa_sn_opt('types')[$d['type']]['label'] ?? $d['type']) : 'সাধারণ';
-                $sum = "📢 <b>নোটিশ</b>\nধরন: " . esc_html($tl) . "\nশাখা: " . esc_html($d['branch'] ?: 'AI নেবে') . "\nছবি: " . count($d['aids'] ?? array()) . "টি; লেখা: " . (!empty($d['text']) ? 'আছে' : 'নেই') . "\nPDF/ডাউনলোড: " . (!empty($d['pdf_aid']) || !empty($d['pdf_url']) ? 'আছে' : 'নেই') . "\nআবেদন/ফরম: " . (!empty($d['apply']) ? esc_html($d['apply']) : 'নেই');
+                $sum = "📢 <b>নোটিশ</b>\nধরন: " . esc_html($tl) . "\nছবি: " . count($d['aids'] ?? array()) . "টি; PDF: " . (!empty($d['pdf_aid']) ? 'আছে' : 'নেই') . "; লেখা: " . (!empty($d['text']) ? mb_strlen($d['text']) . ' অক্ষর' : 'নেই') . "\n\nপ্রকাশের আগে AI তারিখ, ফোন, লিংক ও শর্ত আলাদা করে সাজাবে।";
             } else {
                 $bm = array('ai' => 'AI পুরো লিখবে', 'desc' => 'আপনার বিবরণ থেকে AI', 'paste' => 'আপনার তৈরি লেখা');
                 $sum = "✍️ <b>ব্লগ</b>\nবিষয়: " . esc_html($d['topic']) . "\nশিরোনাম: " . esc_html(($d['title'] ?? '') ?: 'AI') . "\nকীওয়ার্ড: " . esc_html(($d['keywords'] ?? '') ?: 'AI') . "\nলেখা: " . $bm[$d['body'] ?? 'ai'] . "\nদৈর্ঘ্য: " . esc_html($d['length'] ?? 'medium') . "\nছবি: " . count($d['aids'] ?? array()) . 'টি';
@@ -411,6 +425,9 @@ function sb_desk_step($m, $in) {
             if (!empty($in['img'])) {
                 $d['aids'][] = (int) $in['img'];
             }
+            if (!empty($in['file'])) {
+                $d['pdf_aid'] = (int) $in['file'];
+            }
             if ('' !== $t && '' === $cb) {
                 $d['text'] = trim(($d['text'] ?? '') . "\n" . $t);
             }
@@ -423,18 +440,18 @@ function sb_desk_step($m, $in) {
                 $d2 = $d;
                 usleep(1200000);
                 $now = sb_desk_state($m);
-                if ($now && count($now['d']['aids'] ?? array()) === count($d2['aids'] ?? array()) && ($now['d']['text'] ?? '') === ($d2['text'] ?? '') && empty($now['ack'])) {
+                if ($now && count($now['d']['aids'] ?? array()) === count($d2['aids'] ?? array()) && ($now['d']['pdf_aid'] ?? 0) === ($d2['pdf_aid'] ?? 0) && ($now['d']['text'] ?? '') === ($d2['text'] ?? '') && empty($now['ack'])) {
                     $now['ack'] = 1;
                     sb_desk_save($m, $now);
-                    sb_desk_say($m, '👍 পেয়েছি (' . count($d2['aids']) . 'টি ছবি' . (!empty($d2['text']) ? ' + লেখা' : '') . '). আরও থাকলে পাঠান, নইলে "✅ দেওয়া শেষ" চাপুন।', array(array(sb_desk_btn('✅ দেওয়া শেষ', 'done'), sb_desk_btn('❌ বাতিল', 'cancel'))));
+                    sb_desk_say($m, '👍 পেয়েছি (' . count($d2['aids']) . 'টি ছবি' . (!empty($d2['pdf_aid']) ? ' + PDF' : '') . (!empty($d2['text']) ? ' + লেখা' : '') . '). আরও থাকলে পাঠান, নইলে "✅ দেওয়া শেষ" চাপুন।', array(array(sb_desk_btn('✅ দেওয়া শেষ', 'done'), sb_desk_btn('❌ বাতিল', 'cancel'))));
                     $now['ack'] = 0;
                     sb_desk_save($m, $now);
                 }
                 return;
             }
-            if (!$d['aids'] && '' === trim((string) ($d['text'] ?? ''))) {
+            if (!$d['aids'] && empty($d['pdf_aid']) && '' === trim((string) ($d['text'] ?? ''))) {
                 $stay = true;
-                sb_desk_say($m, 'কিছু পাঠাননি — ছবি বা লেখা পাঠান।');
+                sb_desk_say($m, 'কিছু পাঠাননি — তালিকা ভরে লেখা, বা ছবি/PDF পাঠান।');
             }
             break;
         case 'pdf':
@@ -625,6 +642,10 @@ function sb_desk_notice($text, $aids, $status = 'publish', $o = array()) {
     }
     $btn = array();
     foreach ((array) ($r['links'] ?? array()) as $l) {
+        if (!empty($l['url']) && preg_match('#^https?://#i', $l['url']) && (false !== strpos($l['url'], 'docs.google.com/forms') || false !== strpos($l['url'], 'forms.gle')) && 'apply' === ($l['kind'] ?? 'apply')) {
+            $o['apply'] = $l['url'];
+            continue;
+        }
         if (!empty($l['url']) && preg_match('#^https?://#i', $l['url'])) {
             $btn[] = array('label' => !empty($l['label']) ? $l['label'] : 'লিংক', 'url' => $l['url'], 'kind' => !empty($l['kind']) ? $l['kind'] : 'oth');
         }
