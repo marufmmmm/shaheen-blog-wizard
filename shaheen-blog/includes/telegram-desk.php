@@ -1578,22 +1578,8 @@ function sb_desk_notice($text, $aids, $status = 'publish', $o = array()) {
     if (!is_wp_error($tm)) {
         wp_set_post_categories($id, array((int) (is_array($tm) ? $tm['term_id'] : $tm)));
     }
-    $imgnote = '';
-    if (!$aids && 'none' !== ($o['imgmode'] ?? 'auto')) {   // no picture sent: make one from the article, with the chosen dress
-        $ai = sb_desk_autoimage($id, $title, get_post_field('post_name', $id), $o, $html);
-        if (is_wp_error($ai)) {
-            $imgnote = "\n\n🖼️ AI ছবি বানানো যায়নি: " . $ai->get_error_message() . "\nছবি পরে ব্লগ সম্পাদনা → ছবি বা ব্লগ এডিটর থেকে দিন।";
-        } elseif ($ai) {
-            $imgnote = "\n\n🖼️ ছবি AI দিয়ে বানানো হয়েছে (অল্ট-টেক্সট, শিরোনাম ও ক্যাপশন সহ)।";
-        }
-    }
     if ($aids) {
         set_post_thumbnail($id, (int) $aids[0]);
-        foreach ($aids as $ax) {
-            if ('' === trim((string) get_post_meta((int) $ax, '_wp_attachment_image_alt', true))) {
-                update_post_meta((int) $ax, '_wp_attachment_image_alt', mb_substr($title, 0, 120));
-            }
-        }
     }
     if (function_exists('csa_seo_set') && function_exists('csa_seo_plugin') && csa_seo_plugin()) {
         csa_seo_set($id, array('title' => $d['seo_t'], 'description' => $d['seo_d'], 'keyword' => $d['seo_k']), 'Notice SEO');
@@ -1732,8 +1718,22 @@ function sb_desk_blog($text, $aids, $status = 'publish', $o = array()) {
     if ($cid) {
         sb_set_post_categories($id, $cid, array());
     }
+    $imgnote = '';
+    if (!$aids && 'none' !== ($o['imgmode'] ?? 'auto')) {   // no picture sent: make one from the article, with the chosen dress
+        $ai = sb_desk_autoimage($id, $title, get_post_field('post_name', $id), $o, $html);
+        if (is_wp_error($ai)) {
+            $imgnote = "\n\n🖼️ AI ছবি বানানো যায়নি: " . $ai->get_error_message() . "\nছবি পরে ব্লগ সম্পাদনা → ছবি বা ব্লগ এডিটর থেকে দিন।";
+        } elseif ($ai) {
+            $imgnote = "\n\n🖼️ ছবি AI দিয়ে বানানো হয়েছে (অল্ট-টেক্সট, শিরোনাম ও ক্যাপশন সহ)।";
+        }
+    }
     if ($aids) {
         set_post_thumbnail($id, (int) $aids[0]);
+        foreach ($aids as $ax) {
+            if ('' === trim((string) get_post_meta((int) $ax, '_wp_attachment_image_alt', true))) {
+                update_post_meta((int) $ax, '_wp_attachment_image_alt', mb_substr($title, 0, 120));
+            }
+        }
         foreach (array_slice($aids, 1) as $x) {
             $u = wp_get_attachment_url((int) $x);
             if ($u) {
