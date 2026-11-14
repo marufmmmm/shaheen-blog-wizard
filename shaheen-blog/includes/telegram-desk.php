@@ -1429,6 +1429,34 @@ add_action('wp_ajax_sb_desk_op', function () {
         delete_option(sb_desk_stkey($m));
         wp_send_json_success(array('msg' => 'sim', 'out' => $out));
     }
+    if ('patch' === $op) {   // owner-requested correction of one blog draft/post: title, body, picture
+        $pid = (int) sb_req('id', 0);
+        if (!$pid || 'sb_post' !== get_post_type($pid)) {
+            wp_send_json_error(array('message' => 'ব্লগ পোস্ট পাইনি।'));
+        }
+        $a = array('ID' => $pid);
+        if ('' !== (string) sb_req('title')) {
+            $a['post_title'] = sanitize_text_field((string) sb_req('title'));
+        }
+        if ('' !== (string) wp_unslash($_POST['content'] ?? '')) {
+            $a['post_content'] = wp_kses_post(wp_unslash($_POST['content']));
+        }
+        if (in_array((string) sb_req('status'), array('draft', 'publish'), true)) {
+            $a['post_status'] = (string) sb_req('status');
+        }
+        $r = wp_update_post(wp_slash($a), true);
+        if (is_wp_error($r)) {
+            wp_send_json_error(array('message' => $r->get_error_message()));
+        }
+        if ((int) sb_req('thumb', 0)) {
+            set_post_thumbnail($pid, (int) sb_req('thumb'));
+        }
+        if ('' !== (string) sb_req('seo_title')) {
+            update_post_meta($pid, '_sb_seo_title', sanitize_text_field((string) sb_req('seo_title')));
+        }
+        sb_seo_sync($pid);
+        wp_send_json_success(array('msg' => 'ঠিক করা হয়েছে', 'status' => get_post_status($pid), 'slug' => get_post_field('post_name', $pid)));
+    }
     if ('test_notice' === $op || 'test_blog' === $op) {   // writes a DRAFT only
         wp_set_current_user(sb_desk_uid());
         $r = 'test_notice' === $op
