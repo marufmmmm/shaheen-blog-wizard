@@ -702,6 +702,21 @@ function sb_desk_fb_canon($url) {
     }
     $q = array();
     parse_str((string) wp_parse_url($final, PHP_URL_QUERY), $q);
+    if (empty($q['story_fbid']) && !preg_match('#facebook\.com/[^/?]+/(posts|videos)/#i', $final) && preg_match('#/share/|fb\.watch|fb\.me#i', $url)) {
+        // Facebook does not send browsers' redirect to servers, but it tells its own link-preview robot the real address
+        $r2 = wp_remote_get($url, array('timeout' => 15, 'redirection' => 6, 'user-agent' => 'facebookexternalhit/1.1 (+http://www.facebook.com/externalhit_uatext.php)'));
+        if (!is_wp_error($r2)) {
+            $body = (string) wp_remote_retrieve_body($r2);
+            if (preg_match('#<meta[^>]+property=["\']og:url["\'][^>]+content=["\']([^"\']+)#i', $body, $mm) || preg_match('#<link[^>]+rel=["\']canonical["\'][^>]+href=["\']([^"\']+)#i', $body, $mm)) {
+                $final = html_entity_decode($mm[1]);
+                parse_str((string) wp_parse_url($final, PHP_URL_QUERY), $q);
+            }
+            if (!empty($r2['http_response']) && method_exists($r2['http_response'], 'get_response_object') && !empty($r2['http_response']->get_response_object()->url) && !preg_match('#/share/#', $r2['http_response']->get_response_object()->url)) {
+                $final = $r2['http_response']->get_response_object()->url;
+                parse_str((string) wp_parse_url($final, PHP_URL_QUERY), $q);
+            }
+        }
+    }
     if (!empty($q['story_fbid']) && !empty($q['id'])) {
         return 'https://www.facebook.com/permalink.php?story_fbid=' . rawurlencode($q['story_fbid']) . '&id=' . rawurlencode($q['id']);
     }
