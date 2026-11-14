@@ -1184,7 +1184,7 @@ function sb_desk_blog($text, $aids, $status = 'publish', $o = array()) {
     }
     $kw  = array_slice(array_values(array_filter(array_map('sanitize_text_field', (array) ($b['keywords'] ?? array())))), 0, 6);
     if (!empty($o['keywords'])) {
-        $kw = array_slice(array_values(array_filter(array_map('trim', preg_split('/[,،;]+/u', sanitize_text_field($o['keywords']))))), 0, 6);
+        $kw = array_slice(array_values(array_filter(array_map('trim', preg_split('/[,،;]+/u', sanitize_text_field($o['keywords']))))), 0, 15);
     }
     $len = in_array($b['length'] ?? '', array('short', 'medium', 'long'), true) ? $b['length'] : 'medium';
     if (!empty($o['length']) && in_array($o['length'], array('short', 'medium', 'long'), true)) {
