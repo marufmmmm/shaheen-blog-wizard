@@ -76,7 +76,7 @@ function sb_social_item_types() {
 
 /** Starting height (px) for each type; the owner can change it per item. */
 function sb_social_default_h($type) {
-    $h = array('fb_like' => 40, 'fb_card' => 135, 'fb_timeline' => 500, 'fb_post' => 560, 'ig' => 620, 'code' => 0);
+    $h = array('fb_like' => 40, 'fb_card' => 220, 'fb_timeline' => 500, 'fb_post' => 560, 'ig' => 620, 'code' => 0);
     return isset($h[$type]) ? $h[$type] : 0;
 }
 
@@ -155,6 +155,7 @@ function sb_social_item_slides($it, $s) {
             // The Facebook Like plugin often renders blank (no login / blocked cookies), so a plain link button is used: it always works.
             return array(array('kind' => 'fblink', 'url' => $fb, 'title' => trim($s['fb_label']) !== '' ? $s['fb_label'] : '👍 ফেসবুকে লাইক/ফলো করুন'));
         case 'fb_card':
+            $h = max((int) $h, 220); // shorter than this cuts off the page name and followers
             return $fb ? array(array('kind' => 'fb', 'wa' => 1, 'h' => $h, 'title' => 'ফেসবুক পেজ', 'src' => $page('', $h))) : array();
         case 'fb_timeline':
             return $fb ? array(array('kind' => 'fb', 'wa' => 1, 'auto' => empty($it['h']) ? 1 : 0, 'h' => $h, 'title' => 'ফেসবুক পেজ', 'src' => $page(isset($it['tabs']) && $it['tabs'] !== '' ? $it['tabs'] : 'timeline', $h))) : array();

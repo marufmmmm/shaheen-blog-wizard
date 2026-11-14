@@ -302,6 +302,17 @@ function sb_inject_at($html, array $items) {
             $end .= $chunk;
         } else {
             $k = $pos === 'middle' ? (int) floor(($n - 1) / 2) : min((int) substr($pos, 2), $n) - 1;
+            if ($pos === 'middle') { // never cut a section in two: move to the nearest paragraph that is followed by a heading
+                $best = -1;
+                foreach ($ends as $ei => $eo) {
+                    if (preg_match('#^\s*<h[1-4][\s>]#i', substr($html, $eo, 40)) && ($best < 0 || abs($ei - $k) < abs($best - $k))) {
+                        $best = $ei;
+                    }
+                }
+                if ($best >= 0 && abs($best - $k) <= max(4, (int) floor($n / 3))) {
+                    $k = $best;
+                }
+            }
             $off = $ends[max(0, $k)];
             $at[$off] = (isset($at[$off]) ? $at[$off] : '') . $chunk;
         }
