@@ -158,7 +158,7 @@ function sb_desk_hook(WP_REST_Request $req) {
 
 /* ------------------------------------------------------------ conversation engine */
 function sb_desk_help() {
-    return "📌 <b>শাহীন ডেস্ক</b>\n\n/menu — কী করবেন বেছে নিন (ধাপে ধাপে প্রশ্ন করব)\n/cancel — চলমান কাজ বাতিল\n\n<b>শর্টকাট:</b>\n<code>/blog বিষয় বা কীওয়ার্ড</code> — সরাসরি ব্লগ লিখে প্রকাশ\n<code>/notice লেখা</code> — সরাসরি নোটিশ\nনোটিশের ছবি সরাসরি পাঠালে নোটিশের ধাপ শুরু হবে।";
+    return "📌 <b>শাহীন ডেস্ক</b>\n\n/menu — কী করবেন বেছে নিন (ধাপে ধাপে প্রশ্ন করব)\n/cancel — চলমান কাজ বাতিল\n\n<b>শর্টকাট:</b>\n<code>/blog বিষয় বা কীওয়ার্ড</code> — সরাসরি ব্লগ লিখে প্রকাশ\n<code>/notice লেখা</code> — সরাসরি নোটিশ\nসংবাদের লিংক একাই পাঠালে (বা <code>/news লিংক</code>) সংবাদ-কার্ড হবে।\nনোটিশের ছবি সরাসরি পাঠালে নোটিশের ধাপ শুরু হবে।";
 }
 
 function sb_desk_say($m, $html, $kb = array()) {
@@ -219,7 +219,7 @@ function sb_desk_menu($m) {
     sb_desk_say($m, "🗂️ <b>কী করতে চান?</b>", array(
         array(sb_desk_btn('📢 নোটিশ', 'm:notice'), sb_desk_btn('✍️ ব্লগ', 'm:blog')),
         array(sb_desk_btn('✏️ নোটিশ সম্পাদনা', 'm:edit')),
-        array(sb_desk_btn('📰 সংবাদ (শীঘ্রই)', 'm:soon'), sb_desk_btn('⭐ স্পেলিং স্টার (শীঘ্রই)', 'm:soon')),
+        array(sb_desk_btn('📰 সংবাদ (লিংক দিন)', 'm:news'), sb_desk_btn('⭐ স্পেলিং স্টার (শীঘ্রই)', 'm:soon')),
     ));
 }
 
@@ -227,6 +227,9 @@ function sb_desk_menu($m) {
 function sb_desk_steps($flow, $d) {
     if ('edit' === $flow) {
         return array('pick', 'act', 'value', 'confirm');
+    }
+    if ('news' === $flow) {
+        return array('links', 'confirm');
     }
     if ('notice' === $flow) {
         return array('type', 'details', 'confirm');
@@ -257,6 +260,8 @@ function sb_desk_ask($m, $s) {
     $skip  = sb_desk_btn('⏭️ বাদ', 'skip');
     $x     = sb_desk_btn('❌ বাতিল', 'cancel');
     switch ($k) {
+        case 'links':
+            return sb_desk_say($m, "📰 <b>সংবাদের লিংক পাঠান।</b> একাধিক হলে প্রতি লাইনে একটি (সর্বোচ্চ ৫টি)।\nআমি পাতাটা পড়ব, নেতিবাচক বা সন্দেহজনক হলে আটকে দেব, আর ঠিক থাকলে সংবাদ-কার্ড (শিরোনাম, পত্রিকা, তারিখ, ছবি, সারাংশ) বানিয়ে সাইটে বসাব।\n<i>ফেসবুক/ইউটিউব লিংক সংবাদ নয়: ওগুলো নোটিশ বা ইভেন্টের অংশ।</i>", array(array($x)));
         case 'pick':
             $rows = array();
             foreach (sb_desk_edit_list() as $pid) {
@@ -322,6 +327,13 @@ function sb_desk_ask($m, $s) {
             return sb_desk_say($m, "🖼️ <b>ছবি?</b> আপনার ছবি এখনই পাঠাতে পারেন (প্রথমটি মূল ছবি হবে)।\n<i>AI দিয়ে ছবি বানানো পরের ধাপে আসছে।</i>", array(array(sb_desk_btn('⏭️ ছবি ছাড়া', 'skip'), sb_desk_btn('✅ ছবি দিয়েছি', 'done')), array($x)));
         case 'confirm':
             $d = $s['d'];
+            if ('news' === $s['flow']) {
+                $ls = '';
+                foreach ((array) $d['urls'] as $u) {
+                    $ls .= "\n• " . esc_html(mb_substr($u, 0, 90));
+                }
+                return sb_desk_say($m, "📰 <b>সংবাদ-কার্ড</b> (" . count((array) $d['urls']) . "টি লিংক)" . $ls . "\n\nপ্রতিটি যাচাই করে (নেতিবাচক হলে আটকে দেব) সংবাদ-কার্ড বানাব। কী করব?", array(array(sb_desk_btn('✅ যাচাই করে কার্ড বানাও', 'go:publish'), $x)));
+            }
             if ('edit' === $s['flow']) {
                 return sb_desk_say($m, "✏️ <b>এই বদল করব?</b>\n\n" . $d['desc'], array(array(sb_desk_btn('✅ প্রয়োগ করো', 'go:apply'), $x)));
             }
@@ -374,7 +386,8 @@ function sb_desk_message($m) {
             $in[$kind] = (int) $a;
         }
         $s = sb_desk_state($m);
-        if (in_array($cmd, array('menu', 'help', 'cancel'), true) || ('' === $cmd && !$s && !$fid)) {
+        $newslink = !$s && '' === $cmd && !$fid && sb_desk_urls($text) && !preg_match('#facebook\.com|fb\.watch|fb\.me|youtube\.com|youtu\.be#i', $text) && mb_strlen(trim(preg_replace('#https?://\S+#i', '', $text))) < 12;
+        if (in_array($cmd, array('menu', 'help', 'cancel'), true) || ('' === $cmd && !$s && !$fid && !$newslink)) {
             sb_desk_unlock($lock);
             if ('help' === $cmd) {
                 sb_desk_say($m, sb_desk_help());
@@ -383,6 +396,20 @@ function sb_desk_message($m) {
                 sb_desk_say($m, 'বাতিল ✓');
             } else {
                 sb_desk_menu($m);
+            }
+            return;
+        }
+        if ('news' === $cmd || $newslink) { // news link(s)
+            sb_desk_unlock($lock);
+            $us = sb_desk_urls('news' === $cmd ? $rest : $text);
+            if ($us) {
+                sb_desk_start($m, 'news', array('urls' => array_slice($us, 0, 5)));
+                $s2 = sb_desk_state($m);
+                $s2['i'] = 1;
+                sb_desk_save($m, $s2);
+                sb_desk_ask($m, $s2);
+            } else {
+                sb_desk_start($m, 'news', array('urls' => array()));
             }
             return;
         }
@@ -424,7 +451,7 @@ function sb_desk_step($m, $in) {
                 sb_desk_start($m, 'edit', array());
                 return;
             }
-            sb_desk_start($m, $f, 'notice' === $f ? array('aids' => array(), 'text' => '', 'type' => '', 'branch' => '') : array('aids' => array()));
+            sb_desk_start($m, $f, 'notice' === $f ? array('aids' => array(), 'text' => '', 'type' => '', 'branch' => '') : ('news' === $f ? array('urls' => array()) : array('aids' => array())));
         }
         return;
     }
@@ -447,6 +474,14 @@ function sb_desk_step($m, $in) {
         return;
     }
     switch ($k) {
+        case 'links':
+            $us = sb_desk_urls($t);
+            if ('' === $cb && $us) {
+                $d['urls'] = array_slice($us, 0, 5);
+            } else {
+                $stay = true;
+            }
+            break;
         case 'pick':
             if (0 === strpos($cb, 'p:') && in_array((int) substr($cb, 2), sb_desk_edit_list(), true)) {
                 $d['id'] = (int) substr($cb, 2);
@@ -639,6 +674,9 @@ function sb_desk_step($m, $in) {
 
 /** Runs the finished request in the background and reports the link. */
 function sb_desk_run($m, $flow, $d, $status) {
+    if ('news' === $flow) {
+        return sb_desk_news_run($m, (array) ($d['urls'] ?? array()));
+    }
     sb_desk_say($m, 'notice' === $flow ? '⏳ নোটিশ পড়ছি ও সাজাচ্ছি…' : '⏳ ব্লগ লিখছি ও SEO করছি (সাধারণত ১–৩ মিনিট)…');
     if ('notice' === $flow) {
         $r = sb_desk_notice((string) ($d['text'] ?? ''), (array) ($d['aids'] ?? array()), $status, $d);
@@ -670,12 +708,75 @@ function sb_desk_quick($m, $cmd, $rest, $aids) {
 
 /** Splits "/blog text" style commands. Returns array(cmd, rest). */
 function sb_desk_cmd($text) {
-    if (preg_match('~^\s*(/?)(blog|ব্লগ|notice|নোটিশ|help|সাহায্য|start|menu|মেনু|cancel|বাতিল)(?:@\w+)?(?=[\s:：\-–]|$)[\s:：\-–]*(.*)$~isu', $text, $mm) && ('/' === $mm[1] || !in_array(mb_strtolower($mm[2]), array('start', 'menu', 'cancel', 'help'), true))) {
+    if (preg_match('~^\s*(/?)(blog|ব্লগ|notice|নোটিশ|news|সংবাদ|help|সাহায্য|start|menu|মেনু|cancel|বাতিল)(?:@\w+)?(?=[\s:：\-–]|$)[\s:：\-–]*(.*)$~isu', $text, $mm) && ('/' === $mm[1] || !in_array(mb_strtolower($mm[2]), array('start', 'menu', 'cancel', 'help'), true))) {
         $k   = mb_strtolower($mm[2]);
-        $map = array('ব্লগ' => 'blog', 'নোটিশ' => 'notice', 'সাহায্য' => 'help', 'start' => 'menu', 'মেনু' => 'menu', 'বাতিল' => 'cancel');
+        $map = array('ব্লগ' => 'blog', 'নোটিশ' => 'notice', 'সংবাদ' => 'news', 'সাহায্য' => 'help', 'start' => 'menu', 'মেনু' => 'menu', 'বাতিল' => 'cancel');
         return array(isset($map[$k]) ? $map[$k] : $k, trim($mm[3]));
     }
     return array('', trim($text));
+}
+
+/* ------------------------------------------------------------ news links -> press cards */
+/** http(s) addresses found in a text, unique */
+function sb_desk_urls($text) {
+    if (!preg_match_all('#https?://[^\s<>"\']+#iu', (string) $text, $mm)) {
+        return array();
+    }
+    return array_values(array_unique(array_map(function ($u) { return esc_url_raw(rtrim($u, '.,;)')); }, $mm[0])));
+}
+
+/** reads one news page into the shape the collector's judge expects, or WP_Error */
+function sb_desk_news_item($url) {
+    $r = wp_remote_get($url, array('timeout' => 14, 'redirection' => 5, 'limit_response_size' => 600000,
+        'user-agent' => 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0 Safari/537.36',
+        'headers' => array('Accept-Language' => 'bn,en;q=0.8')));
+    if (is_wp_error($r)) {
+        return new WP_Error('sb_news', 'পাতা খোলা যায়নি।');
+    }
+    $code = (int) wp_remote_retrieve_response_code($r);
+    if (200 !== $code) {
+        return new WP_Error('sb_news', 'পাতা খোলেনি (কোড ' . $code . ')। সাইটটি সার্ভারকে আটকাতে পারে।');
+    }
+    $body = (string) wp_remote_retrieve_body($r);
+    $meta = function_exists('csa_ev_og_meta') ? csa_ev_og_meta($body) : array();
+    $title = (string) ($meta['og:title'] ?? '');
+    if ('' === $title && preg_match('#<title[^>]*>(.*?)</title>#is', $body, $tm)) {
+        $title = html_entity_decode(wp_strip_all_tags($tm[1]), ENT_QUOTES | ENT_HTML5, 'UTF-8');
+    }
+    $plain = preg_replace('#<(script|style|noscript|nav|header|footer|aside)\b.*?</\1>#is', ' ', $body);
+    $plain = html_entity_decode(wp_strip_all_tags(preg_replace('#</(p|div|h\d|li|br)>#i', "\n", (string) $plain)), ENT_QUOTES | ENT_HTML5, 'UTF-8');
+    $plain = trim(preg_replace('/[ \t]+/', ' ', preg_replace('/\s*\n\s*/', "\n", $plain)));
+    $img   = (string) ($meta['og:image'] ?? ($meta['twitter:image'] ?? ''));
+    if ($img && 0 === strpos($img, '//')) {
+        $img = 'https:' . $img;
+    }
+    $desc = (string) ($meta['og:description'] ?? ($meta['description'] ?? ''));
+    return array('id' => substr(md5($url . microtime(true)), 0, 10), 't' => time(), 'url' => $url, 'host' => (string) wp_parse_url($url, PHP_URL_HOST),
+        'title' => mb_substr(sanitize_text_field($title), 0, 300), 'text' => mb_substr(sanitize_textarea_field(($desc !== '' ? $desc . "\n" : '') . $plain), 0, 8000),
+        'images' => ($img && preg_match('#^https?://#i', $img)) ? array(esc_url_raw($img)) : array(), 'videos' => array());
+}
+
+function sb_desk_news_run($m, $urls) {
+    if (!function_exists('sb_ca_process')) {
+        return sb_desk_say($m, '⚠️ সংবাদ সংগ্রহের অংশ চালু নেই।');
+    }
+    sb_desk_say($m, '⏳ ' . count($urls) . 'টি লিংক পড়ছি ও যাচাই করছি…');
+    $out = array();
+    foreach (array_slice($urls, 0, 5) as $u) {
+        if (preg_match('#facebook\.com|fb\.watch|fb\.me|youtube\.com|youtu\.be#i', $u)) {
+            $out[] = '⏭️ ' . esc_html($u) . "\n   ফেসবুক/ইউটিউব সংবাদ নয়, বাদ দিলাম।";
+            continue;
+        }
+        $it = sb_desk_news_item($u);
+        if (is_wp_error($it)) {
+            $out[] = '⚠️ ' . esc_html($u) . "\n   " . esc_html($it->get_error_message());
+            continue;
+        }
+        $r  = sb_ca_process($it, true);
+        $ic = array('filed' => '✅ বসানো হয়েছে', 'blocked' => '🛑 আটকানো হয়েছে', 'skipped' => '⏭️ বাদ', 'dup' => '♻️ আগেই আছে', 'error' => '⚠️ হয়নি');
+        $out[] = ($ic[$r[0]] ?? $r[0]) . ': ' . esc_html(mb_substr($it['title'] ?: $u, 0, 80)) . "\n   " . esc_html($r[1]);
+    }
+    sb_desk_say($m, "📰 <b>সংবাদের ফল</b>\n\n" . implode("\n\n", $out) . "\n\n🛑 আটকানো খবর আপনাকে আলাদা করে জানানো হয় (ব্লগ → সংবাদ সংগ্রহ)।\n/menu — আরেকটি কাজ");
 }
 
 /* ------------------------------------------------------------ editing a notice made with the notice design */
@@ -752,7 +853,25 @@ function sb_desk_edit_propose($id, $act, $val) {
         case 'fb':
             $c = sb_desk_fb_canon($t);
             if (is_wp_error($c)) {
-                return $c;
+                $raw = esc_url_raw(trim($t));
+                if (!preg_match('#^https?://([a-z0-9.-]+\.)?(facebook\.com|fb\.watch|fb\.me)/#i', $raw)) {
+                    return $c;
+                }
+                // fallback: pass the share link as a button, and say how to get an embeddable post
+                $it = array('label' => 'ফেসবুক পোস্ট দেখুন', 'url' => $raw, 'kind' => 'oth');
+                foreach ($new['blocks'] as $k => $b) {
+                    if ('buttons' === ($b['t'] ?? '')) {
+                        $new['blocks'][$k]['items'] = array_values(array_filter((array) $b['items'], function ($x) { return 'ফেসবুক পোস্ট দেখুন' !== ($x['label'] ?? ''); }));
+                    }
+                }
+                $bi = $find($new['blocks'], 'buttons');
+                if ($bi >= 0) {
+                    $new['blocks'][$bi]['items'][] = $it;
+                } else {
+                    $new['blocks'][] = array('t' => 'buttons', 'items' => array($it));
+                }
+                $desc = "📘 এই লিংক থেকে আসল পোস্টের ঠিকানা পাইনি, তাই নোটিশে <b>\"ফেসবুক পোস্ট দেখুন\" বোতাম</b> বসবে:\n" . esc_url($raw) . "\n\n💡 পোস্টটা নোটিশের ভেতরেই দেখাতে চাইলে পরে ডেস্কটপে ফেসবুকে পোস্টের সময়ের লেখায় ক্লিক করে ঠিকানা কপি করে আবার ফেসবুক পোস্ট যোগ করুন।";
+                break;
             }
             $html = sb_desk_fb_html($c);
             $i    = -1;
