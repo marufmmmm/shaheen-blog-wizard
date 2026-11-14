@@ -298,4 +298,7 @@ function sb_notify_panel() {
     })();
     </script>
     <?php
+    if (function_exists('sb_desk_panel')) {
+        sb_desk_panel();
+    }
 }

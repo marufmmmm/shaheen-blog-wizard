@@ -910,13 +910,11 @@ add_action( 'admin_enqueue_scripts', function ( $hook ) {
 	}, get_categories( array( 'hide_empty' => false ) ) ), 'branches' => $br, 'brlist' => function_exists( 'csa_br_for_notice' ) ? csa_br_for_notice() : array(), 'brpage' => function_exists( 'csa_br_pageid' ) && csa_br_pageid() ? admin_url( 'admin.php?page=sef-branches' ) : '', 'model' => (string) csa_sn_opt( 'model' ), 'models' => array_values( array_map( function ( $k, $m ) { return array( 'k' => $k, 'l' => $m['label'] ); }, array_keys( csa_models() ), csa_models() ) ), 'settings' => admin_url( 'admin.php?page=sn-settings' ), 'year' => csa_sn_bn( wp_date( 'Y' ) ) ) );
 } );
 
-/** Claude fills the form from pasted text (e.g. a Facebook post). */
-add_action( 'wp_ajax_csa_sn_ai', function () {
-	csa_guard( 'chat' );
-	$txt  = sanitize_textarea_field( wp_unslash( $_POST['text'] ?? '' ) );
+/** Claude reads a notice (text and/or poster images from the Media Library) and returns the form fields, or WP_Error. */
+function csa_sn_ai_fill( $txt, $aids = array() ) {
 	$imgs = array();
-	foreach ( array_slice( array_map( 'absint', (array) ( $_POST['imgs'] ?? array() ) ), 0, 3 ) as $aid ) {
-		$f = $aid && current_user_can( 'edit_post', $aid ) ? get_attached_file( $aid ) : '';
+	foreach ( array_slice( array_map( 'absint', (array) $aids ), 0, 3 ) as $aid ) {
+		$f = $aid ? get_attached_file( $aid ) : '';
 		if ( ! $f || ! file_exists( $f ) ) {
 			continue;
 		}
@@ -934,7 +932,7 @@ add_action( 'wp_ajax_csa_sn_ai', function () {
 		wp_delete_file( $tmp );
 	}
 	if ( ! $imgs && mb_strlen( $txt ) < 15 ) {
-		wp_send_json_error( 'লেখা পেস্ট করুন অথবা পোস্টারের ছবি বাছুন।' );
+		return new WP_Error( 'sn_short', 'লেখা পেস্ট করুন অথবা পোস্টারের ছবি বাছুন।' );
 	}
 	$ty = array();
 	foreach ( csa_sn_opt( 'types' ) as $k => $t ) {
@@ -948,15 +946,27 @@ add_action( 'wp_ajax_csa_sn_ai', function () {
 		$sys              .= ' The notice may be given as a poster image: read ALL the text in it carefully (Bangla and English), including small print and phone numbers.';
 		$txt               = array_merge( $imgs, array( array( 'type' => 'text', 'text' => '' !== $txt ? $txt : 'Read the poster image above and fill the form.' ) ) );
 	}
-	$r   = csa_jobs_ai_json( $sys, $txt, 'Notice: fill', 2200, $x );
-	is_wp_error( $r ) ? wp_send_json_error( $r->get_error_message() ) : wp_send_json_success( csa_sn_any_clean( $r ) );
+	$r = csa_jobs_ai_json( $sys, $txt, 'Notice: fill', 2200, $x );
+	return is_wp_error( $r ) ? $r : csa_sn_any_clean( $r );
+}
+
+/** Claude fills the form from pasted text (e.g. a Facebook post). */
+add_action( 'wp_ajax_csa_sn_ai', function () {
+	csa_guard( 'chat' );
+	$txt  = sanitize_textarea_field( wp_unslash( $_POST['text'] ?? '' ) );
+	$aids = array();
+	foreach ( array_slice( array_map( 'absint', (array) ( $_POST['imgs'] ?? array() ) ), 0, 3 ) as $aid ) {
+		if ( $aid && current_user_can( 'edit_post', $aid ) ) {
+			$aids[] = $aid;
+		}
+	}
+	$r = csa_sn_ai_fill( $txt, $aids );
+	is_wp_error( $r ) ? wp_send_json_error( $r->get_error_message() ) : wp_send_json_success( $r );
 } );
 
-/** Claude writes the short summary and the Google/SEO fields from what is already in the form. */
-add_action( 'wp_ajax_csa_sn_sum', function () {
-	csa_guard( 'chat' );
-	$d = csa_sn_clean( json_decode( wp_unslash( $_POST['data'] ?? '' ), true ) );
-	$ts = csa_sn_opt( 'types' )[ $d['type'] ] ?? array();
+/** Claude writes title, slug, short summary and Google/SEO fields from a cleaned notice form ($d from csa_sn_clean). */
+function csa_sn_sum_run( $d ) {
+	$ts    = csa_sn_opt( 'types' )[ $d['type'] ] ?? array();
 	$facts = array( 'Type: ' . ( $ts['label'] ?? '' ), 'Organisation: ' . csa_sn_opt( 'brand' ), 'Branch: ' . $d['branch'], 'Topic: ' . $d['topic'], 'Year: ' . $d['year'], 'Application deadline: ' . $d['expiry'] );
 	foreach ( $d['blocks'] as $b ) {
 		foreach ( array( 'rows' => 'cards', 'lines' => 'list', 'body' => 'text' ) as $k => $_ ) {
@@ -969,9 +979,16 @@ add_action( 'wp_ajax_csa_sn_sum', function () {
 	$m   = csa_sn_pick_model();
 	$r   = csa_jobs_ai_json( $sys, implode( "\n", $facts ), 'Notice: summary', 800, $m && csa_model( $m ) ? array( 'model_key' => $m ) : array() );
 	if ( is_wp_error( $r ) ) {
-		wp_send_json_error( $r->get_error_message() );
+		return $r;
 	}
-	wp_send_json_success( array( 'title' => sanitize_text_field( $r['title'] ?? '' ), 'slug' => sanitize_title( $r['slug'] ?? '' ), 'summary' => sanitize_textarea_field( $r['summary'] ?? '' ), 'seo_t' => sanitize_text_field( $r['seo_t'] ?? '' ), 'seo_d' => sanitize_textarea_field( $r['seo_d'] ?? '' ), 'seo_k' => sanitize_text_field( $r['seo_k'] ?? '' ) ) );
+	return array( 'title' => sanitize_text_field( $r['title'] ?? '' ), 'slug' => sanitize_title( $r['slug'] ?? '' ), 'summary' => sanitize_textarea_field( $r['summary'] ?? '' ), 'seo_t' => sanitize_text_field( $r['seo_t'] ?? '' ), 'seo_d' => sanitize_textarea_field( $r['seo_d'] ?? '' ), 'seo_k' => sanitize_text_field( $r['seo_k'] ?? '' ) );
+}
+
+/** Claude writes the short summary and the Google/SEO fields from what is already in the form. */
+add_action( 'wp_ajax_csa_sn_sum', function () {
+	csa_guard( 'chat' );
+	$r = csa_sn_sum_run( csa_sn_clean( json_decode( wp_unslash( $_POST['data'] ?? '' ), true ) ) );
+	is_wp_error( $r ) ? wp_send_json_error( $r->get_error_message() ) : wp_send_json_success( $r );
 } );
 
 /* ------------------------------------------------------------------ */
