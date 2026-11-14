@@ -368,3 +368,4 @@
 .sev .by .py{width:calc(50% - 5px);padding:14px 8px;box-sizing:border-box}
 .sev .by .pl{height:72px}
 }
+@media (max-width:480px){.sev .hero h1{font-size:clamp(26px,8vw,34px);text-wrap:balance}.sev .hero h1 em{white-space:nowrap}}
