@@ -228,6 +228,19 @@ add_action('wp_ajax_sb_notify_op', function () {
         update_option('sb_notify', $o, false);
         wp_send_json_success(array('msg' => 'সংরক্ষিত ✓', 'has' => '' !== $o['tg_token'] ? 1 : 0));
     }
+    if ('gn' === $op) {   // diagnostics for the Google News source (what the SERVER sees)
+        $out = array();
+        $r   = wp_remote_get('https://news.google.com/rss/search?q=' . rawurlencode('শাহীন শিক্ষা পরিবার when:30d') . '&hl=bn&gl=BD&ceid=BD:bn', array('timeout' => 15, 'user-agent' => 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 Chrome/124.0 Safari/537.36'));
+        $out['rss'] = is_wp_error($r) ? $r->get_error_message() : (int) wp_remote_retrieve_response_code($r);
+        $it = sb_ca_gnews('শাহীন শিক্ষা পরিবার');
+        $out['items'] = is_array($it) ? count($it) : null;
+        $out['resolved'] = array();
+        foreach (array_slice((array) $it, 0, 3) as $x) {
+            $u = sb_gn_resolve($x[1]);
+            $out['resolved'][] = array(mb_substr($x[0], 0, 40), $u ? $u : 'FAIL');
+        }
+        wp_send_json_success(array('msg' => wp_json_encode($out, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES)));
+    }
     if ('test' === $op) {
         $t = sb_tg_send('<b>✅ টেস্ট বার্তা</b>' . "\n" . 'শাহীন শিক্ষা পরিবার ওয়েবসাইট থেকে নোটিফিকেশন ঠিকমতো যুক্ত হয়েছে।');
         $m = sb_notify_mail('শাহীন শিক্ষা পরিবার ওয়েবসাইট: টেস্ট বার্তা', 'নোটিফিকেশন ঠিকমতো যুক্ত হয়েছে।');
