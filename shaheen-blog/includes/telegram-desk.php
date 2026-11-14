@@ -1171,7 +1171,7 @@ function sb_desk_blog($text, $aids, $status = 'publish', $o = array()) {
         }
     }
     $sys = 'You turn a short request into a blog brief for a school group website (Bangla). Return ONLY JSON: {"title":"Bangla blog title, max 70 characters (use the requester\'s title if one is given)","topic":"1-2 sentences: what the article covers","keywords":["3 to 6 search keywords, first is the main focus keyword"],"length":"short|medium|long","instruction":"extra instructions from the requester or empty","category":"exactly one of: ' . implode(' | ', $cats) . ' (or empty)"}. Never invent facts.';
-    $b   = csa_jobs_ai_json($sys, $text, 'Desk: blog brief', 700);
+    $b   = csa_jobs_ai_json($sys, mb_substr((string) $text, 0, 700), 'Desk: blog brief', 1400);   // only the short topic goes through the brief; long rules go to the writer below
     if (is_wp_error($b)) {
         return $b;
     }
@@ -1191,7 +1191,7 @@ function sb_desk_blog($text, $aids, $status = 'publish', $o = array()) {
         $len = $o['length'];
     }
     $ctx = array('title' => $title, 'topic' => sanitize_text_field($b['topic'] ?? ''), 'excerpt' => '', 'content' => '', 'keywords' => $kw, 'length' => $len,
-        'research' => true, 'source' => '', 'instruction' => sanitize_textarea_field($b['instruction'] ?? ''), 'faq_count' => 5, 'post_id' => 0, 'tier' => 1, 'model' => '',
+        'research' => true, 'source' => '', 'instruction' => trim(sanitize_textarea_field($b['instruction'] ?? '') . (!empty($o['instruction']) ? "\n" . sanitize_textarea_field($o['instruction']) : '')), 'faq_count' => 5, 'post_id' => 0, 'tier' => 1, 'model' => '',
         'ansi' => false, 'style' => 'para', 'words' => 0, 'mode' => 'both', 'paste' => '', 'ptype' => 'general', 'aud' => 'all', 'tone' => 'warm', 'brief' => '', 'beat_urls' => '');
     $ready = ('paste' === ($o['body'] ?? '') && !empty($o['bodytext']));
     if ('desc' === ($o['body'] ?? '') && !empty($o['bodytext'])) {
@@ -1461,7 +1461,7 @@ add_action('wp_ajax_sb_desk_op', function () {
         wp_set_current_user(sb_desk_uid());
         $r = 'test_notice' === $op
             ? sb_desk_notice("আবেদনের নোটিশ\nশাহীন স্কুল এন্ড ক্যাডেট কোচিং, মাদারীপুর শাখায় সহকারী শিক্ষক নিয়োগ ২০২৭। আবেদনের শেষ তারিখ ২০ ডিসেম্বর ২০২৬। যোগ্যতা: স্নাতক পাস। যোগাযোগ: 01700000000", array(), 'draft')
-            : sb_desk_blog(sanitize_textarea_field((string) sb_req('text')) ?: 'শিশুর বানান শেখার সহজ ৫টি উপায়', array(), 'draft', array_filter(array('title' => (string) sb_req('title'), 'keywords' => (string) sb_req('keywords'), 'slug' => (string) sb_req('slug'), 'meta' => (string) sb_req('meta'), 'summary' => (string) sb_req('summary'), 'length' => (string) sb_req('length'))));
+            : sb_desk_blog(sanitize_textarea_field((string) sb_req('text')) ?: 'শিশুর বানান শেখার সহজ ৫টি উপায়', array(), 'draft', array_filter(array('title' => (string) sb_req('title'), 'keywords' => (string) sb_req('keywords'), 'slug' => (string) sb_req('slug'), 'meta' => (string) sb_req('meta'), 'summary' => (string) sb_req('summary'), 'length' => (string) sb_req('length'), 'instruction' => (string) sb_req('instruction'))));
         wp_send_json_success(array('msg' => is_wp_error($r) ? 'ত্রুটি: ' . $r->get_error_message() : 'খসড়া তৈরি: ' . $r['url'], 'raw' => is_wp_error($r) ? '' : wp_strip_all_tags($r['msg'])));
     }
     wp_send_json_error(array('message' => 'অজানা কাজ।'));
