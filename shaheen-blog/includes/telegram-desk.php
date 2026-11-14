@@ -361,6 +361,17 @@ function sb_desk_message($m) {
 /** One answer (text, file or button) for the current question. */
 function sb_desk_step($m, $in) {
     $lock = sb_desk_lock($m);
+    $cb   = isset($in['cb']) ? $in['cb'] : '';
+    if (0 === strpos($cb, 'm:')) { // menu choice
+        sb_desk_unlock($lock);
+        $f = substr($cb, 2);
+        if ('soon' === $f) {
+            sb_desk_say($m, 'এটা পরের ধাপে আসছে। এখন নোটিশ ও ব্লগ চলছে।');
+        } else {
+            sb_desk_start($m, $f, 'notice' === $f ? array('aids' => array(), 'text' => '', 'type' => '', 'branch' => '') : array('aids' => array()));
+        }
+        return;
+    }
     $s    = sb_desk_state($m);
     if (!$s) {
         sb_desk_unlock($lock);
@@ -377,16 +388,6 @@ function sb_desk_step($m, $in) {
         sb_desk_clear($m);
         sb_desk_unlock($lock);
         sb_desk_say($m, 'বাতিল ✓ (/menu দিয়ে আবার শুরু করুন)');
-        return;
-    }
-    if (0 === strpos($cb, 'm:')) { // menu choice
-        sb_desk_unlock($lock);
-        $f = substr($cb, 2);
-        if ('soon' === $f) {
-            sb_desk_say($m, 'এটা পরের ধাপে আসছে। এখন নোটিশ ও ব্লগ চলছে।');
-        } else {
-            sb_desk_start($m, $f, 'notice' === $f ? array('aids' => array(), 'text' => '', 'type' => '', 'branch' => '') : array('aids' => array()));
-        }
         return;
     }
     switch ($k) {
