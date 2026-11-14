@@ -163,7 +163,7 @@ function sb_faq_jsonld($id) {
 
 /** Replaces the old basic tag block (frontend.php). */
 function sb_head_meta() {
-    if (!is_singular('sb_post')) {
+    if (!sb_is_blog_view()) {
         return;
     }
     $id  = get_queried_object_id();

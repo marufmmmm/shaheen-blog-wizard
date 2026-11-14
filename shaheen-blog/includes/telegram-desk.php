@@ -1947,6 +1947,49 @@ add_action('wp_ajax_sb_desk_op', function () {
         wp_send_json_success(array('title' => get_the_title($pid), 'content' => (string) get_post_field('post_content', $pid), 'status' => get_post_status($pid),
             'meta' => (string) get_post_meta($pid, '_sb_meta_desc', true), 'seo_title' => (string) get_post_meta($pid, '_sb_seo_title', true), 'en_title' => (string) get_post_meta($pid, '_sb_en_title', true), 'slug' => get_post_field('post_name', $pid)));
     }
+    if ('adopt_post' === $op) {   // owner: turn an old regular post (same link) into the blog look, with new text + SEO
+        $pid = (int) sb_req('id', 0);
+        $t = get_post_type($pid);
+        if (!$pid || !in_array($t, array('post', 'page'), true)) {
+            wp_send_json_error(array('message' => 'পোস্ট পাইনি।'));
+        }
+        $a = array('ID' => $pid);
+        $c = (string) wp_unslash($_POST['content'] ?? '');
+        if ('' !== $c) {
+            $a['post_content'] = wp_kses_post($c);
+        }
+        if ('' !== (string) sb_req('title')) {
+            $a['post_title'] = sanitize_text_field((string) sb_req('title'));
+        }
+        if ('' !== (string) sb_req('excerpt')) {
+            $a['post_excerpt'] = sanitize_textarea_field((string) sb_req('excerpt'));
+        }
+        $r = wp_update_post(wp_slash($a), true);
+        if (is_wp_error($r)) {
+            wp_send_json_error(array('message' => $r->get_error_message()));
+        }
+        update_post_meta($pid, '_sb_as_blog', '1');
+        update_post_meta($pid, '_elementor_edit_mode', '');   // text now comes from the editor, not the old Elementor layout
+        foreach (array('summary' => '_sb_summary', 'summary_pos' => '_sb_summary_pos', 'en_title' => '_sb_en_title', 'seo_title' => '_sb_seo_title', 'meta' => '_sb_meta_desc') as $k => $mk) {
+            if ('' !== (string) sb_req($k)) {
+                update_post_meta($pid, $mk, sanitize_textarea_field((string) sb_req($k)));
+            }
+        }
+        if ('' !== (string) sb_req('meta')) {
+            update_post_meta($pid, '_yoast_wpseo_metadesc', sanitize_textarea_field((string) sb_req('meta')));
+        }
+        if ('' !== (string) sb_req('seo_title')) {
+            update_post_meta($pid, '_yoast_wpseo_title', sanitize_text_field((string) sb_req('seo_title')));
+        }
+        if ('' !== (string) sb_req('focus')) {
+            update_post_meta($pid, '_yoast_wpseo_focuskw', sanitize_text_field((string) sb_req('focus')));
+        }
+        if ((int) sb_req('thumb')) {
+            set_post_thumbnail($pid, (int) sb_req('thumb'));
+        }
+        delete_post_meta($pid, '_sb_no_social');
+        wp_send_json_success(array('msg' => 'ব্লগ-ডিজাইনে আনা হয়েছে', 'url' => get_permalink($pid), 'slug' => get_post_field('post_name', $pid)));
+    }
     if ('promo_get' === $op) {
         wp_send_json_success(array('promos' => sb_promos()));
     }

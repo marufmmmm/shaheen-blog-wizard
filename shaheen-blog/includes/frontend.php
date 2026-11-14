@@ -3,10 +3,18 @@ if (!defined('ABSPATH')) {
     exit;
 }
 
+/** True on a blog post, or on an older regular post/page the owner switched to the blog look (meta _sb_as_blog) — keeps its own link. */
+function sb_is_blog_view() {
+    if (is_singular('sb_post')) {
+        return true;
+    }
+    return is_singular(array('post', 'page')) && '1' === (string) get_post_meta(get_queried_object_id(), '_sb_as_blog', true);
+}
+
 /* ------------------------------------------------------------------ assets */
 add_action('wp_enqueue_scripts', 'sb_front_assets_maybe');
 function sb_front_assets_maybe() {
-    if (is_singular('sb_post')) {
+    if (sb_is_blog_view()) {
         sb_enqueue_front(false);
         return;
     }
@@ -34,7 +42,7 @@ function sb_enqueue_front($with_js) {
 function sb_fixedw_attr() {
     $a = (int) sb_get('content_width') >= 600 ? ' data-fixedw="1"' : '';
     $page = (int) get_option('sb_blog_page_id');
-    if (is_singular('sb_post') || ($page && is_page($page))) {
+    if (sb_is_blog_view() || ($page && is_page($page))) {
         $a .= ' data-gapfix="1"';
     }
     return $a . ' data-offset="' . (int) sb_get('top_offset') . '"';
@@ -76,7 +84,7 @@ function sb_ajax_view() {
 add_filter('body_class', 'sb_body_class');
 function sb_body_class($classes) {
     $on = false;
-    if (is_singular('sb_post')) {
+    if (sb_is_blog_view()) {
         $on = true;
     } elseif (is_singular()) {
         $p = get_post();
@@ -241,7 +249,7 @@ function sb_mix_by_category($posts) {
 /* ------------------------------------------------------------ single post */
 add_filter('the_content', 'sb_single_content', 20);
 function sb_single_content($content) {
-    if (!is_singular('sb_post') || !in_the_loop() || !is_main_query()) {
+    if (!sb_is_blog_view() || !in_the_loop() || !is_main_query()) {
         return $content;
     }
     $post = get_post();
