@@ -307,7 +307,7 @@ function csa_sn_pdf_viewer( $u ) {
 	if ( '' === $src ) {
 		return '';
 	}
-	return '<div class="sn-pdfv"><iframe src="' . esc_url( $src ) . '" loading="lazy" allow="fullscreen" title="PDF"></iframe></div>';
+	return '<div class="sn-pdfv"><iframe src="' . esc_url( $src ) . '" data-no-lazy="1" data-skip-lazy="" class="skip-lazy no-lazy" allow="fullscreen" title="PDF"></iframe></div>';
 }
 
 function csa_sn_drive( $u ) {
