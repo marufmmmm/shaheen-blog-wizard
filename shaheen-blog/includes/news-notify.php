@@ -199,7 +199,7 @@ function sb_gn_resolve($link) {
             if (!is_wp_error($r1) && preg_match('#xsrf\\\\?",\\\\?"([^"\\\\]+)#', (string) wp_remote_retrieve_body($r1), $mt)) {
                 $tok = $mt[1];
             }
-            $GLOBALS['sb_gn_dbg'][] = '' === $tok ? 'no-xsrf(' . (is_wp_error($r1) ? $r1->get_error_message() : (int) wp_remote_retrieve_response_code($r1)) . ')' : 'xsrf-ok';
+            $GLOBALS['sb_gn_dbg'][] = '' === $tok ? 'no-xsrf(' . (is_wp_error($r1) ? $r1->get_error_message() : (int) wp_remote_retrieve_response_code($r1) . ':' . substr(preg_replace('/\\s+/', ' ', (string) wp_remote_retrieve_body($r1)), 0, 220)) . ')' : 'xsrf-ok';
             if ('' !== $tok) {
                 $r2 = $post('f.req=' . rawurlencode($freq) . '&at=' . rawurlencode($tok), wp_remote_retrieve_cookies($r1));
                 if (!is_wp_error($r2) && preg_match('#garturlres\\\\",\\\\"(https?://(?:[^"\\\\]|\\\\u[0-9a-fA-F]{4})+)#', (string) wp_remote_retrieve_body($r2), $mu)) {
