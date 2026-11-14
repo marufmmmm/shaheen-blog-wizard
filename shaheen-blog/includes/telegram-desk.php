@@ -1234,6 +1234,9 @@ function sb_desk_blog($text, $aids, $status = 'publish', $o = array()) {
     if ($meta) {
         SB_Credits::charge($uid, 'meta', sb_feature_cost('meta'), 0);
     }
+    if (!empty($o['meta'])) {   // the owner's own meta description wins
+        $meta = sanitize_textarea_field($o['meta']);
+    }
     $ctx['excerpt'] = $meta;
 
     $postarr = array('post_type' => 'sb_post', 'post_title' => $title, 'post_excerpt' => $meta, 'post_content' => $html, 'post_author' => $uid,
@@ -1242,7 +1245,7 @@ function sb_desk_blog($text, $aids, $status = 'publish', $o = array()) {
     if (is_wp_error($id)) {
         return $id;
     }
-    $g = sb_slug_guess($title, $kw);
+    $g = !empty($o['slug']) ? sanitize_title($o['slug']) : sb_slug_guess($title, $kw);
     wp_update_post(array('ID' => $id, 'post_name' => $g !== '' ? $g : 'post-' . $id));
     update_post_meta($id, '_sb_meta_desc', $meta);
     update_post_meta($id, '_sb_keywords', $kw);
@@ -1256,7 +1259,7 @@ function sb_desk_blog($text, $aids, $status = 'publish', $o = array()) {
             continue;
         }
         if ('summary' === $part) {
-            update_post_meta($id, '_sb_summary', sanitize_textarea_field($r['text']));
+            update_post_meta($id, '_sb_summary', !empty($o['summary']) ? sanitize_textarea_field($o['summary']) : sanitize_textarea_field($r['text']));
             update_post_meta($id, '_sb_inc_summary', '1');
         } elseif ('faq' === $part) {
             update_post_meta($id, '_sb_faq', $r['faq']);
@@ -1430,7 +1433,7 @@ add_action('wp_ajax_sb_desk_op', function () {
         wp_set_current_user(sb_desk_uid());
         $r = 'test_notice' === $op
             ? sb_desk_notice("আবেদনের নোটিশ\nশাহীন স্কুল এন্ড ক্যাডেট কোচিং, মাদারীপুর শাখায় সহকারী শিক্ষক নিয়োগ ২০২৭। আবেদনের শেষ তারিখ ২০ ডিসেম্বর ২০২৬। যোগ্যতা: স্নাতক পাস। যোগাযোগ: 01700000000", array(), 'draft')
-            : sb_desk_blog(sanitize_textarea_field((string) sb_req('text')) ?: 'শিশুর বানান শেখার সহজ ৫টি উপায়', array(), 'draft');
+            : sb_desk_blog(sanitize_textarea_field((string) sb_req('text')) ?: 'শিশুর বানান শেখার সহজ ৫টি উপায়', array(), 'draft', array_filter(array('title' => (string) sb_req('title'), 'keywords' => (string) sb_req('keywords'), 'slug' => (string) sb_req('slug'), 'meta' => (string) sb_req('meta'), 'summary' => (string) sb_req('summary'), 'length' => (string) sb_req('length'))));
         wp_send_json_success(array('msg' => is_wp_error($r) ? 'ত্রুটি: ' . $r->get_error_message() : 'খসড়া তৈরি: ' . $r['url'], 'raw' => is_wp_error($r) ? '' : wp_strip_all_tags($r['msg'])));
     }
     wp_send_json_error(array('message' => 'অজানা কাজ।'));
