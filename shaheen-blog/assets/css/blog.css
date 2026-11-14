@@ -712,7 +712,7 @@ body.shb-hide-title main { margin-top: 0; padding-top: 0; }
     overflow: hidden;
 }
 .shb-single .post-figure { margin: 0; background: linear-gradient(135deg,#e3f1e8,#f7f0d9); }
-.shb-single .post-figure img { display: block; width: 100%; max-height: 460px; object-fit: cover; }
+.shb-single .post-figure img { display: block; width: 100%; height: auto; max-height: 460px; object-fit: cover; }
 .shb-single .post-inner { padding: 34px 40px 40px; }
 .shb-single .post-summary {
     background: linear-gradient(135deg, rgba(26,107,62,.08), rgba(212,175,55,.08));

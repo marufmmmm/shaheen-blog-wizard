@@ -294,7 +294,8 @@ function sb_single_content($content) {
         <div class="post-wrap">
             <div class="post-card">
                 <?php if ($img) : ?>
-                    <figure class="post-figure"><img src="<?php echo esc_url($img); ?>" alt="<?php echo esc_attr(sb_post_alt($id)); ?>"></figure>
+                    <?php $tid = (int) get_post_thumbnail_id($id); $tm = $tid ? wp_get_attachment_metadata($tid) : array(); $dim = !empty($tm['width']) && !empty($tm['height']) ? ' width="' . (int) $tm['width'] . '" height="' . (int) $tm['height'] . '"' : ''; ?>
+                    <figure class="post-figure"><img src="<?php echo esc_url($img); ?>" alt="<?php echo esc_attr(sb_post_alt($id)); ?>"<?php echo $dim; // phpcs:ignore WordPress.Security.EscapeOutput ?> decoding="async" fetchpriority="high"></figure>
                 <?php endif; ?>
                 <div class="post-inner">
                     <?php if ($sum && sb_summary_pos($id) === 'top') : ?>
