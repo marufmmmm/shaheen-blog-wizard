@@ -352,3 +352,19 @@
 .sev .btns{flex-direction:column;align-items:stretch;gap:10px}
 .sev .btns .b{width:100%;justify-content:center;text-align:center;box-sizing:border-box}
 }
+
+/* mobile: link boxes sit two in a row (videos stay full width) */
+@media (max-width:640px){
+.sev .vcs{grid-template-columns:1fr 1fr;gap:10px}
+.sev .vcs .vc.emb-c{grid-column:1/-1}
+.sev .vc:not(.emb-c):not(.nw){flex-direction:column;align-items:flex-start;gap:8px;padding:12px}
+.sev .vc:not(.emb-c):not(.nw) .vp{width:34px;height:34px;font-size:14px;padding-left:0}
+.sev .vc:not(.emb-c) b{font-size:13.5px;line-height:1.4}
+.sev .vc:not(.emb-c) small{font-size:11.5px}
+.sev .vc.nw .vx{padding:9px 10px 11px}
+.sev .vc.nw .nwd{display:none}
+.sev .vc.nw.ni{flex-direction:column;align-items:flex-start;gap:8px;padding:12px}
+.sev .by{gap:10px}
+.sev .by .py{width:calc(50% - 5px);padding:14px 8px;box-sizing:border-box}
+.sev .by .pl{height:72px}
+}

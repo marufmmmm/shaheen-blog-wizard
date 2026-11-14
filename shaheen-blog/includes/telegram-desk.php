@@ -382,7 +382,7 @@ function sb_desk_ask($m, $s) {
             $rows = array();
             $row = array();
             foreach (array_slice(sb_img_opts()['uniforms'], 0, 12) as $u) {
-                $row[] = sb_desk_btn(mb_substr(preg_replace('/^ধরন:\s*/u', '', $u[1]), 0, 28), 'u:' . $u[0]);
+                $row[] = sb_desk_btn(mb_substr(preg_replace('/^ধরন:\s*/u', '', $u[1]), 0, 44), 'u:' . $u[0]);
                 if (2 === count($row)) {
                     $rows[] = $row;
                     $row = array();
@@ -1867,6 +1867,17 @@ add_action('wp_ajax_sb_desk_op', function () {
             }
         }
         wp_send_json_success(array('msg' => $n . ' পোস্টের লেখক বদলে SEF IT Team', 'uid' => $uid, 'name' => get_the_author_meta('display_name', $uid)));
+    }
+    if ('test_img' === $op) {   // make the AI picture for one existing blog post (owner test)
+        $pid = (int) sb_req('id', 0);
+        if (!$pid || 'sb_post' !== get_post_type($pid)) {
+            wp_send_json_error(array('message' => 'ব্লগ পোস্ট পাইনি।'));
+        }
+        $r = sb_desk_autoimage($pid, get_the_title($pid), get_post_field('post_name', $pid), array(), (string) get_post_field('post_content', $pid), (string) sb_req('uniform', 'auto'));
+        if (is_wp_error($r)) {
+            wp_send_json_error(array('message' => $r->get_error_message()));
+        }
+        wp_send_json_success(array('id' => $r, 'alt' => get_post_meta($r, '_wp_attachment_image_alt', true), 'url' => wp_get_attachment_url($r)));
     }
     if ('sim' === $op) {   // dry run of a whole conversation; replies are returned, not sent
         wp_set_current_user(sb_desk_uid());
