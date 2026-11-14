@@ -889,6 +889,41 @@ add_action('wp_ajax_sb_desk_op', function () {
         }
         wp_send_json_success(array('msg' => $found ? 'একাধিক চ্যানেল: ' . wp_json_encode($found, JSON_UNESCAPED_UNICODE) : 'কোনো চ্যানেল পাইনি। প্রাইভেট চ্যানেলে কিছু একটা লিখে পোস্ট করে আবার চাপুন।', 'current' => $n['tg_chat']));
     }
+    if ('audit' === $op) {   // which fields do the notices already on the site really use?
+        $ids = get_posts(array('post_type' => 'post', 'post_status' => array('publish', 'draft', 'private'), 'numberposts' => 300, 'fields' => 'ids', 'meta_key' => '_sn_is', 'meta_value' => '1'));
+        $st  = array('n' => count($ids), 'types' => array(), 'blocks' => array(), 'card_labels' => array(), 'list_heads' => array(), 'btn_kinds' => array(), 'btn_labels' => array(), 'detached' => 0, 'with_expiry' => 0, 'with_branch' => 0, 'with_year' => 0, 'with_thumb' => 0, 'with_br' => 0, 'samples' => array());
+        $inc = function (&$a, $k) { $k = trim((string) $k); if ('' !== $k) { $a[$k] = ($a[$k] ?? 0) + 1; } };
+        foreach ($ids as $id) {
+            $d = get_post_meta($id, '_sn', true);
+            if (!is_array($d)) {
+                continue;
+            }
+            $inc($st['types'], $d['type'] ?? '');
+            $st['detached'] += !empty($d['detached']) ? 1 : 0;
+            $st['with_expiry'] += !empty($d['expiry']) ? 1 : 0;
+            $st['with_branch'] += !empty($d['branch']) ? 1 : 0;
+            $st['with_year'] += !empty($d['year']) ? 1 : 0;
+            $st['with_br'] += !empty($d['br']) ? 1 : 0;
+            $st['with_thumb'] += has_post_thumbnail($id) ? 1 : 0;
+            $bl = array();
+            foreach ((array) ($d['blocks'] ?? array()) as $b) {
+                $t = $b['t'] ?? '?';
+                $bl[] = $t;
+                $inc($st['blocks'], $t);
+                if ('cards' === $t) { foreach ((array) $b['rows'] as $r) { $inc($st['card_labels'], $r['l'] ?? ''); } }
+                if ('list' === $t || 'text' === $t || 'phones' === $t) { $inc($st['list_heads'], ($b['h'] ?? '') . ' [' . $t . ']'); }
+                if ('buttons' === $t) { foreach ((array) $b['items'] as $x) { $inc($st['btn_kinds'], $x['kind'] ?? ''); $inc($st['btn_labels'], $x['label'] ?? ''); } }
+            }
+            if (count($st['samples']) < 8 && !empty($d['blocks'])) {
+                $st['samples'][] = array(get_the_title($id), $d['type'] ?? '', $d['branch'] ?? '', implode(',', $bl));
+            }
+        }
+        foreach (array('types', 'blocks', 'card_labels', 'list_heads', 'btn_kinds', 'btn_labels') as $k) {
+            arsort($st[$k]);
+            $st[$k] = array_slice($st[$k], 0, 25, true);
+        }
+        wp_send_json_success(array('msg' => 'audit', 'st' => $st, 'types_cfg' => array_map(function ($t) { return $t['label'] . ' | cards: ' . str_replace("\n", ' / ', $t['cards'] ?? ''); }, (array) csa_sn_opt('types'))));
+    }
     if ('info' === $op) {
         $i = sb_tg_api('getWebhookInfo');
         $l = get_option('sb_desk_last_chat', array());
