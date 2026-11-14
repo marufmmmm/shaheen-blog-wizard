@@ -1916,6 +1916,38 @@ add_action('wp_ajax_sb_desk_op', function () {
         }
         wp_send_json_success(array('msg' => 'ঠিক করা হয়েছে', 'status' => get_post_status($pid), 'slug' => get_post_field('post_name', $pid)));
     }
+    if ('import_blog' === $op) {   // owner hands over a finished article: becomes a blog post (draft/publish) with all the SEO fields
+        wp_set_current_user(sb_desk_uid());
+        $title = sanitize_text_field((string) sb_req('title'));
+        if ('' === $title) {
+            wp_send_json_error(array('message' => 'শিরোনাম দরকার।'));
+        }
+        $pid = wp_insert_post(wp_slash(array('post_type' => 'sb_post', 'post_status' => 'draft', 'post_title' => $title, 'post_author' => sb_team_author_id())), true);
+        if (is_wp_error($pid)) {
+            wp_send_json_error(array('message' => $pid->get_error_message()));
+        }
+        $f = array('content' => (string) wp_unslash($_POST['content'] ?? ''));
+        foreach (array('status', 'no_social', 'summary', 'meta', 'seo_title', 'keywords', 'en_title', 'slug') as $k) {
+            $f[$k] = (string) sb_req($k);
+        }
+        $r = sb_desk_patch_post($pid, $f);
+        if (is_wp_error($r)) {
+            wp_send_json_error(array('message' => $r->get_error_message()));
+        }
+        wp_send_json_success(array('msg' => 'ব্লগ পোস্ট তৈরি', 'id' => $pid, 'status' => get_post_status($pid), 'url' => get_permalink($pid)));
+    }
+    if ('patch_more' === $op) {   // the same patcher, with the SEO / picture keys too
+        $pid = (int) sb_req('id', 0);
+        $f = array();
+        foreach (array('status', 'thumb', 'summary', 'meta', 'seo_title', 'keywords', 'en_title', 'slug', 'img_alt', 'aiimg', 'no_social') as $k) {
+            $f[$k] = (string) sb_req($k);
+        }
+        $r = sb_desk_patch_post($pid, $f);
+        if (is_wp_error($r)) {
+            wp_send_json_error(array('message' => $r->get_error_message()));
+        }
+        wp_send_json_success(array('msg' => 'ঠিক করা হয়েছে', 'status' => get_post_status($pid), 'thumb' => (int) get_post_thumbnail_id($pid), 'url' => get_permalink($pid)));
+    }
     if ('promo_save' === $op) {   // the promo-card library, as JSON
         $j = json_decode((string) wp_unslash($_POST['promos'] ?? ''), true);
         $c = sb_promo_clean($j);
