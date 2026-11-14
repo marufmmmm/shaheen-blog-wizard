@@ -403,9 +403,7 @@ function sb_desk_message($m) {
             sb_desk_unlock($lock);
             $us = sb_desk_urls('news' === $cmd ? $rest : $text);
             if ($us) {
-                sb_desk_start($m, 'news', array('urls' => array_slice($us, 0, 5)));
-                $s2 = sb_desk_state($m);
-                $s2['i'] = 1;
+                $s2 = array('flow' => 'news', 'i' => 1, 'd' => array('urls' => array_slice($us, 0, 5)));
                 sb_desk_save($m, $s2);
                 sb_desk_ask($m, $s2);
             } else {
