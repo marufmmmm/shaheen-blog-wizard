@@ -25,6 +25,7 @@ function csa_ev_yt_cfg() {
 		'last'     => 0,
 		'log'      => array(),
 		'mail'     => 'mosiur@shaheen.edu.bd',
+		'key'      => '',
 		'adds'     => array(),
 		'seen'     => array(),
 	), $c );
@@ -52,13 +53,51 @@ function csa_ev_yt_window( $now ) {
 	return ( $best && $now < $best + 48 * HOUR_IN_SECONDS ) ? $best : 0;
 }
 
-function csa_ev_yt_feed( $channel_id ) {
+/** YouTube Data API (needs a free API key): the channel's uploads playlist. Same shape as the RSS parse. */
+function csa_ev_yt_api( $channel_id, $key ) {
+	if ( ! preg_match( '/^UC[\w-]{22}$/', $channel_id ) ) {
+		return new WP_Error( 'csa_yt', 'চ্যানেল আইডি ঠিক নয়।' );
+	}
+	$url = add_query_arg( array( 'part' => 'snippet,contentDetails', 'playlistId' => 'UU' . substr( $channel_id, 2 ), 'maxResults' => 25, 'key' => $key ), 'https://www.googleapis.com/youtube/v3/playlistItems' );
+	$r   = wp_remote_get( $url, array( 'timeout' => 25 ) );
+	if ( is_wp_error( $r ) ) {
+		return $r;
+	}
+	$code = (int) wp_remote_retrieve_response_code( $r );
+	$j    = json_decode( wp_remote_retrieve_body( $r ), true );
+	if ( 200 !== $code || empty( $j['items'] ) ) {
+		$m = is_array( $j ) && ! empty( $j['error']['message'] ) ? $j['error']['message'] : 'কোনো ভিডিও পাওয়া যায়নি';
+		return new WP_Error( 'csa_yt', 'YouTube API: ' . $m . ' (HTTP ' . $code . ')।' );
+	}
+	$out = array( 'name' => '', 'entries' => array() );
+	foreach ( $j['items'] as $it ) {
+		$id  = (string) ( $it['contentDetails']['videoId'] ?? '' );
+		$pub = strtotime( (string) ( $it['contentDetails']['videoPublishedAt'] ?? ( $it['snippet']['publishedAt'] ?? '' ) ) );
+		if ( '' === $id || ! $pub ) {
+			continue;
+		}
+		if ( '' === $out['name'] ) {
+			$out['name'] = (string) ( $it['snippet']['channelTitle'] ?? '' );
+		}
+		$out['entries'][] = array( 'id' => $id, 'title' => trim( (string) ( $it['snippet']['title'] ?? '' ) ), 'published' => $pub, 'desc' => mb_substr( trim( (string) ( $it['snippet']['description'] ?? '' ) ), 0, 500 ) );
+	}
+	return $out;
+}
+
+function csa_ev_yt_feed( $channel_id, $key = '' ) {
+	if ( '' !== $key ) {
+		$a = csa_ev_yt_api( $channel_id, $key );
+		if ( ! is_wp_error( $a ) ) {
+			return $a;
+		}
+		$api_err = $a->get_error_message();
+	}
 	$r = wp_remote_get( 'https://www.youtube.com/feeds/videos.xml?channel_id=' . rawurlencode( $channel_id ), array( 'timeout' => 25 ) );
 	if ( is_wp_error( $r ) ) {
 		return $r;
 	}
 	if ( 200 !== (int) wp_remote_retrieve_response_code( $r ) ) {
-		return new WP_Error( 'csa_yt', 'YouTube ফিড পাওয়া যায়নি (HTTP ' . (int) wp_remote_retrieve_response_code( $r ) . ')।' );
+		return new WP_Error( 'csa_yt', ( isset( $api_err ) ? $api_err . ' · ' : '' ) . 'YouTube ফিড পাওয়া যায়নি (HTTP ' . (int) wp_remote_retrieve_response_code( $r ) . ')।' );
 	}
 	return csa_ev_yt_parse( wp_remote_retrieve_body( $r ) );
 }
@@ -219,7 +258,7 @@ function csa_ev_yt_check( &$c, $since ) {
 	$errs    = array();
 	$fetched = false;
 	foreach ( $c['channels'] as $ch ) {
-		$f = csa_ev_yt_feed( $ch['id'] );
+		$f = csa_ev_yt_feed( $ch['id'], (string) $c['key'] );
 		if ( is_wp_error( $f ) ) {
 			$errs[] = $ch['name'] . ': ' . $f->get_error_message();
 			continue;
@@ -402,6 +441,9 @@ add_action( 'wp_ajax_csa_ev_yt_op', function () {
 		$c['event']   = sanitize_title( wp_unslash( $_POST['event'] ?? 'spelling-star' ) ) ?: 'spelling-star'; // phpcs:ignore
 		$c['match']   = sanitize_text_field( wp_unslash( $_POST['match'] ?? '' ) ); // phpcs:ignore
 		$c['mail']    = sanitize_text_field( wp_unslash( $_POST['mail'] ?? '' ) ); // phpcs:ignore
+		if ( isset( $_POST['key'] ) && '' !== trim( (string) $_POST['key'] ) ) { // phpcs:ignore
+			$c['key'] = '-' === trim( (string) $_POST['key'] ) ? '' : preg_replace( '/[^\w-]/', '', wp_unslash( (string) $_POST['key'] ) ); // phpcs:ignore  (a single "-" removes the key)
+		}
 		$new          = array();
 		$errs         = array();
 		foreach ( preg_split( '/[\r\n,]+/', (string) wp_unslash( $_POST['channels'] ?? '' ), -1, PREG_SPLIT_NO_EMPTY ) as $line ) { // phpcs:ignore
@@ -446,7 +488,7 @@ function csa_ev_yt_view() {
 		$log[] = wp_date( 'j M, H:i', $l['t'] ) . ' — ' . $l['m'];
 	}
 	return array(
-		'on' => (int) $c['on'], 'mail' => $c['mail'], 'event' => $c['event'], 'match' => $c['match'],
+		'on' => (int) $c['on'], 'haskey' => '' !== (string) $c['key'] ? 1 : 0, 'mail' => $c['mail'], 'event' => $c['event'], 'match' => $c['match'],
 		'channels' => implode( "\n", array_map( function ( $ch ) { return $ch['src'] ?? $ch['id']; }, $c['channels'] ) ),
 		'names' => array_map( function ( $ch ) { return $ch['name']; }, $c['channels'] ),
 		'state' => ! $c['on'] ? 'অটো বন্ধ' : ( $w ? ( (int) $c['done'] === $w ? 'এই সপ্তাহের পর্ব পাওয়া গেছে, পরের শুক্র/রবি রাত ৮টায় আবার শুরু' : 'পর্বের জন্য দেখা চলছে (প্রতি ৩ ঘণ্টা পর পর)' ) : 'অপেক্ষা: পরের শুক্র/রবি রাত ৮টা' ),
@@ -463,6 +505,7 @@ function csa_ev_yt_card() {
 		<p><label>ইভেন্ট (slug)<br><input type="text" id="yt-event" style="width:260px"></label></p>
 		<p><label>YouTube চ্যানেল (প্রতি লাইনে একটি: চ্যানেলের লিংক বা @নাম)<br><textarea id="yt-ch" rows="3" style="width:100%" placeholder="https://www.youtube.com/@channeli"></textarea></label></p>
 		<p><label>প্রথম ছাঁকনি: শিরোনাম/বর্ণনায় এর কোনোটি থাকলে তবেই AI দেখবে (| দিয়ে আলাদা)<br><input type="text" id="yt-match" style="width:100%"></label></p>
+		<p><label>YouTube API key (YouTube-এর RSS ফিড বন্ধ থাকলে এটা দিয়েই চলবে; খালি রাখলে আগেরটা থাকবে, মুছতে শুধু <code>-</code> লিখুন)<br><input type="password" id="yt-key" autocomplete="off" style="width:100%" placeholder=""><span id="yt-keyst" class="description"></span></label></p>
 		<p><label>নতুন কিছু বসলে ইমেইল যাবে (কমা দিয়ে একাধিক)<br><input type="text" id="yt-mail" style="width:100%"></label></p>
 		<p><button type="button" class="button button-primary" id="yt-save">সংরক্ষণ</button> <button type="button" class="button" id="yt-now">এখনই দেখুন (গত ৭ দিন)</button> <span id="yt-msg"></span></p>
 		<p id="yt-names" class="description"></p>
@@ -472,11 +515,11 @@ function csa_ev_yt_card() {
 	(function(){
 		var nonce=<?php echo wp_json_encode( wp_create_nonce( 'csa_ev' ) ); ?>,ajax=<?php echo wp_json_encode( admin_url( 'admin-ajax.php' ) ); ?>,V=<?php echo wp_json_encode( csa_ev_yt_view() ); ?>;
 		var $=function(s){return document.querySelector(s);};
-		function fill(v){$('#yt-on').checked=!!v.on;$('#yt-event').value=v.event;$('#yt-ch').value=v.channels;$('#yt-match').value=v.match;$('#yt-mail').value=v.mail;$('#yt-state').textContent=v.state;
+		function fill(v){$('#yt-on').checked=!!v.on;$('#yt-event').value=v.event;$('#yt-ch').value=v.channels;$('#yt-match').value=v.match;$('#yt-mail').value=v.mail;$('#yt-key').value='';$('#yt-keyst').textContent=v.haskey?'✓ API key সংরক্ষিত আছে':'API key দেওয়া নেই (শুধু RSS ফিড)';$('#yt-state').textContent=v.state;
 			$('#yt-names').textContent=v.names.length?'চেনা চ্যানেল: '+v.names.join(', '):'';var u=$('#yt-log');u.innerHTML='';v.log.forEach(function(t){var l=document.createElement('li');l.textContent=t;u.appendChild(l);});}
 		function msg(t,bad){var m=$('#yt-msg');m.textContent=t;m.style.color=bad?'#b32d2e':'#1a6b3e';}
 		function call(op,extra){msg('…');return fetch(ajax,{method:'POST',credentials:'same-origin',body:new URLSearchParams(Object.assign({action:'csa_ev_yt_op',nonce:nonce,op:op},extra||{}))}).then(function(r){return r.json();}).then(function(j){if(j.success){msg(j.data.msg);fill(j.data.cfg);}else{msg(j.data,true);}});}
-		$('#yt-save').onclick=function(){call('save',{on:$('#yt-on').checked?'1':'0',event:$('#yt-event').value,channels:$('#yt-ch').value,match:$('#yt-match').value,mail:$('#yt-mail').value});};
+		$('#yt-save').onclick=function(){call('save',{on:$('#yt-on').checked?'1':'0',event:$('#yt-event').value,channels:$('#yt-ch').value,match:$('#yt-match').value,mail:$('#yt-mail').value,key:$('#yt-key').value});};
 		$('#yt-now').onclick=function(){call('now');};
 		fill(V);
 	})();
