@@ -455,7 +455,7 @@
         if (e.ratio) { wrap.style.aspectRatio = e.ratio; }
         var sp = document.createElement('div');
         sp.className = 'sb-modal-spin'; sp.setAttribute('aria-label', 'লোড হচ্ছে');
-        fr.addEventListener('load', function () { if (sp.parentNode) { sp.parentNode.removeChild(sp); } });
+        fr.addEventListener('load', function () { setTimeout(function () { if (sp.parentNode) { sp.parentNode.removeChild(sp); } }, e.tall ? 7000 : 1200); });
         wrap.appendChild(sp);
         wrap.appendChild(fr);
         var t = document.createElement('div');
