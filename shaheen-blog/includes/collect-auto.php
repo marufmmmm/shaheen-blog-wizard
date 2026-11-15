@@ -198,7 +198,7 @@ function sb_ca_process($item, $manual = true) {
     if (function_exists('sb_notify_queue')) {
         sb_notify_queue('filed', $title, $item['url'], $paper . ' · ' . $where);
     }
-    return array('filed', $where . ($tp ? ' · বিষয়: ' . $tp['name'] : ''));
+    return array('filed', $where . ($tp ? ' · বিষয়: ' . $tp['name'] : '') . sb_press_audit_note($id));
 }
 
 function sb_ca_mark($id, $st, $note) {
@@ -608,6 +608,7 @@ function sb_ca_social_card($url, $cat = 0, $force = false) {
     $img   = '';
     $who   = '';
     $fbwhy = '';
+    $pub   = '';
     if ($yt) {
         $r = wp_remote_get('https://www.youtube.com/oembed?format=json&url=' . rawurlencode($url), array('timeout' => 12));
         if (!is_wp_error($r) && 200 === (int) wp_remote_retrieve_response_code($r)) {
@@ -616,12 +617,14 @@ function sb_ca_social_card($url, $cat = 0, $force = false) {
             $who   = (string) ($d['author_name'] ?? '');
         }
         $img = 'https://img.youtube.com/vi/' . $ym[1] . '/hqdefault.jpg';
+        $pub = sb_ca_date_for_url('https://www.youtube.com/watch?v=' . $ym[1]);
     } else {
         $fx    = sb_ca_fb_fetch($url);
         $title = $fx['title'];
         $desc  = $fx['desc'];
         $img   = $fx['img'];
         $fbwhy = $fx['why'];
+        $pub   = $fx['date'];
         if ('' === $img && ('' !== $title || '' !== $desc)) {
             list($img) = sb_ca_fb_image($url);
         }
@@ -650,17 +653,17 @@ function sb_ca_social_card($url, $cat = 0, $force = false) {
         return array('blocked', 'নেতিবাচক শব্দ: ' . $nw, $head);
     }
     $cfg = sb_ca_cfg();
-    $id  = sb_press_make(mb_substr(sanitize_text_field($head), 0, 110), $url, $yt ? 'ইউটিউব' . ($who ? ' · ' . $who : '') : 'ফেসবুক', '', $desc, $img, $cat ?: (int) $cfg['cat']);
+    $id  = sb_press_make(mb_substr(sanitize_text_field($head), 0, 110), $url, $yt ? 'ইউটিউব' . ($who ? ' · ' . $who : '') : 'ফেসবুক', $pub, $desc, $img, $cat ?: (int) $cfg['cat']);
     if (!$id) {
         return array('error', 'ব্লগে কার্ড বানানো যায়নি।', $head);
     }
     update_post_meta($id, '_sb_press_kind', $yt ? 'video' : 'fb');
-    return array('filed', 'ব্লগে কার্ড হয়েছে' . ($img ? ' (ছবিসহ)' : ' (ছবি পাওয়া যায়নি, আইকন বসবে)'), $head);
+    return array('filed', 'ব্লগে কার্ড হয়েছে' . ($img ? ' (ছবিসহ)' : ' (ছবি পাওয়া যায়নি, আইকন বসবে)') . sb_press_audit_note($id), $head);
 }
 
 /** Facebook post/video: tries the address with several robot names and the mobile pages until one gives a title, text or picture; says what each answered */
 function sb_ca_fb_fetch($url) {
-    $out  = array('title' => '', 'desc' => '', 'img' => '', 'why' => '');
+    $out  = array('title' => '', 'desc' => '', 'img' => '', 'why' => '', 'date' => '');
     $uas  = array('facebookexternalhit/1.1 (+http://www.facebook.com/externalhit_uatext.php)', 'Twitterbot/1.0', 'Mozilla/5.0 (compatible; Googlebot/2.1; +http://www.google.com/bot.html)', 'WhatsApp/2.23.20.0');
     $urls = array($url, preg_replace('#^https?://(www\.)?facebook\.com#i', 'https://m.facebook.com', $url), preg_replace('#^https?://(www\.)?facebook\.com#i', 'https://mbasic.facebook.com', $url));
     $log  = array();
@@ -690,12 +693,131 @@ function sb_ca_fb_fetch($url) {
             if ($img && 0 === strpos($img, '//')) {
                 $img = 'https:' . $img;
             }
-            return array('title' => $t, 'desc' => $d, 'img' => $img, 'why' => '');
+            return array('title' => $t, 'desc' => $d, 'img' => $img, 'why' => '', 'date' => sb_ca_find_date($b));
         }
     }
     $out['why'] = implode(' ', array_slice($log, 0, 12));
     return $out;
 }
+
+/** a publication date (Y-m-d) from a page's own markup, or '' */
+function sb_ca_find_date($html) {
+    $d  = '';
+    $b  = (string) $html;
+    if (preg_match('/"(?:publish_time|creation_time)"\s*:\s*(\d{9,10})/', $b, $m)) {
+        $d = wp_date('Y-m-d', (int) $m[1]);
+    } elseif (preg_match('/(?:article:published_time|datePublished|uploadDate|publishDate)["\']?\s*(?:content=|:)\s*["\'](\d{4}-\d{2}-\d{2})/i', $b, $m)) {
+        $d = $m[1];
+    } elseif (preg_match('/<time[^>]+datetime=["\'](\d{4}-\d{2}-\d{2})/i', $b, $m)) {
+        $d = $m[1];
+    }
+    return ($d && $d >= '2008-01-01' && $d <= wp_date('Y-m-d')) ? $d : '';
+}
+
+function sb_ca_date_for_url($url) {
+    $fb = (bool) preg_match('#facebook\.com#i', $url);
+    $r  = wp_remote_get($url, array('timeout' => 12, 'redirection' => 4, 'limit_response_size' => 700000,
+        'user-agent' => $fb ? 'facebookexternalhit/1.1' : 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 Chrome/124.0 Safari/537.36', 'headers' => array('Accept-Language' => 'en,bn;q=0.8')));
+    if (is_wp_error($r) || 200 !== (int) wp_remote_retrieve_response_code($r)) {
+        return '';
+    }
+    return sb_ca_find_date((string) wp_remote_retrieve_body($r));
+}
+
+/** consistency check of a freshly filed card: fixes what can be fixed, returns the list of things that look wrong */
+function sb_press_audit($id) {
+    $id    = (int) $id;
+    $p     = get_post($id);
+    $bad   = array();
+    if (!$p) {
+        return array('কার্ড পাওয়া যায়নি');
+    }
+    $url   = (string) get_post_meta($id, '_sb_press_url', true);
+    $kind  = (string) get_post_meta($id, '_sb_press_kind', true);
+    $title = html_entity_decode($p->post_title, ENT_QUOTES, 'UTF-8');
+    $own   = (bool) preg_match('#facebook\.com/shaheen\.edu\.bd/#i', $url);
+    if (!has_post_thumbnail($id) && 'fb' === $kind) {   // try once more to get the picture
+        list($img) = sb_ca_fb_image($url);
+        $aid = $img ? sb_press_sideload($img, $id, $title) : 0;
+        if ($aid) {
+            set_post_thumbnail($id, $aid);
+        }
+    }
+    if (!has_post_thumbnail($id)) {
+        $bad[] = 'ছবি নেই';
+    }
+    if (mb_strlen(trim($title)) < 18 || (preg_match('/^[A-Za-z ,.\-]+$/', $title) && mb_strlen($title) < 50)) {
+        $bad[] = 'শিরোনাম খুব ছোট বা শুধু পেজের নাম';
+    }
+    if (false !== strpos($title, '|')) {
+        $bad[] = 'শিরোনামে "|" ও আপলোডারের নাম আছে';
+    }
+    $la = sb_ca_lookalike($title . ' ' . $p->post_excerpt . ' ' . $url, $own);
+    if ('' !== $la) {
+        $bad[] = 'অন্য প্রতিষ্ঠানের শব্দ (' . $la . ')';
+    }
+    if (function_exists('sb_neg_hit') && '' !== ($nw = sb_neg_hit($title . ' ' . $p->post_excerpt))) {
+        $bad[] = 'নেতিবাচক শব্দ (' . $nw . ')';
+    }
+    if (preg_match('#facebook\.com/[^/]+/(?:videos|posts)/[^/\d][^/]*/\d+#u', $url)) {
+        $bad[] = 'লিংক লম্বা রূপে আছে';
+    }
+    $norm = function ($t) { return mb_substr(mb_strtolower(trim(preg_replace('/[\s\p{P}\p{S}]+/u', ' ', (string) $t))), 0, 40); };
+    $mine = $norm($title);
+    $ids  = get_posts(array('post_type' => 'sb_post', 'post_status' => 'publish', 'numberposts' => 300, 'fields' => 'ids', 'post__not_in' => array($id), 'meta_key' => '_sb_press_url'));
+    foreach ($ids as $o) {
+        if ($norm(get_the_title($o)) === $mine && '' !== $mine) {
+            $bad[] = 'একই শিরোনামের আরেকটি কার্ড আছে (#' . $o . ')';
+            break;
+        }
+    }
+    if (!get_post_meta($id, '_sb_press_dated', true)) {
+        $bad[] = 'ঘটনার তারিখ জানা যায়নি, আজকের তারিখে বসেছে (নতুন হিসেবে দেখাবে)';
+    }
+    update_post_meta($id, '_sb_press_audit', $bad ? implode(' | ', $bad) : 'ok');
+    return $bad;
+}
+
+function sb_press_audit_note($id) {
+    if (!$id) {
+        return '';
+    }
+    $b = sb_press_audit($id);
+    return $b ? "\n   🔎 যাচাই: ⚠️ " . implode('; ', $b) : "\n   🔎 যাচাই: ✔ ঠিক আছে";
+}
+
+/** owner tool: put each press card on the date of the event itself (so the newest event comes first) */
+add_action('wp_ajax_sb_ca_datefix', function () {
+    sb_ajax_guard('manage_options');
+    $pid = (int) sb_req('id', 0);
+    if (!$pid) {
+        $ids = get_posts(array('post_type' => 'sb_post', 'post_status' => 'publish', 'numberposts' => 400, 'fields' => 'ids', 'meta_key' => '_sb_press_url'));
+        $ids = array_values(array_filter($ids, function ($i) { return !get_post_meta($i, '_sb_press_dated', true) && !get_post_meta($i, '_sb_press_nodate', true); }));
+        wp_send_json_success(array('ids' => $ids));
+    }
+    $url = (string) get_post_meta($pid, '_sb_press_url', true);
+    $d   = preg_match('#youtu#i', $url) && preg_match('#(?:v=|shorts/|youtu\.be/)([\w-]{11})#', $url, $ym) ? sb_ca_date_for_url('https://www.youtube.com/watch?v=' . $ym[1]) : sb_ca_date_for_url($url);
+    if ('' === $d) {
+        update_post_meta($pid, '_sb_press_nodate', 1);
+        wp_send_json_success(array('id' => $pid, 'ok' => 0));
+    }
+    wp_update_post(array('ID' => $pid, 'post_date' => $d . ' 12:00:00', 'post_date_gmt' => get_gmt_from_date($d . ' 12:00:00'), 'edit_date' => true));
+    update_post_meta($pid, '_sb_press_dated', 1);
+    wp_send_json_success(array('id' => $pid, 'ok' => 1, 'd' => $d));
+});
+
+/** owner tool: set a card's date by hand (Y-m-d) */
+add_action('wp_ajax_sb_ca_setdate', function () {
+    sb_ajax_guard('manage_options');
+    $pid = (int) sb_req('id', 0);
+    $d   = (string) sb_req('d');
+    if (!$pid || !preg_match('/^\d{4}-\d{2}-\d{2}$/', $d)) {
+        wp_send_json_error(array('message' => 'bad'));
+    }
+    wp_update_post(array('ID' => $pid, 'post_date' => $d . ' 12:00:00', 'post_date_gmt' => get_gmt_from_date($d . ' 12:00:00'), 'edit_date' => true));
+    update_post_meta($pid, '_sb_press_dated', 1);
+    wp_send_json_success(array('id' => $pid, 'd' => $d));
+});
 
 /** a picture for a Facebook post/video when the plain page fetch gives none: other robot names, the mobile page, then Facebook's picture endpoint */
 function sb_ca_fb_image($url) {
@@ -818,4 +940,14 @@ add_action('sb_ca_discover_tick', function () {
 add_action('wp_ajax_sb_ca_find', function () {
     sb_ajax_guard('edit_posts');
     wp_send_json_success(array('msg' => sb_ca_discover(true)));
+});
+
+/** owner tool: run the consistency check on every press card (or one) and show what looks wrong */
+add_action('wp_ajax_sb_ca_audit', function () {
+    sb_ajax_guard('manage_options');
+    $pid = (int) sb_req('id', 0);
+    if (!$pid) {
+        wp_send_json_success(array('ids' => get_posts(array('post_type' => 'sb_post', 'post_status' => 'publish', 'numberposts' => 400, 'fields' => 'ids', 'meta_key' => '_sb_press_url'))));
+    }
+    wp_send_json_success(array('id' => $pid, 't' => get_the_title($pid), 'bad' => sb_press_audit($pid)));
 });

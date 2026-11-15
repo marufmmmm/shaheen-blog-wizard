@@ -129,6 +129,7 @@ function sb_press_make($title, $url, $paper, $pub, $excerpt, $img_url, $cat) {
     if (preg_match('/^\d{4}-\d{2}-\d{2}$/', (string) $pub) && $pub <= wp_date('Y-m-d')) {
         $arr['post_date']     = $pub . ' 12:00:00';
         $arr['post_date_gmt'] = get_gmt_from_date($arr['post_date']);
+        $dated = 1;
     }
     $id = wp_insert_post(wp_slash($arr), true);
     if (is_wp_error($id) || !$id) {
@@ -136,6 +137,9 @@ function sb_press_make($title, $url, $paper, $pub, $excerpt, $img_url, $cat) {
     }
     wp_update_post(array('ID' => $id, 'post_name' => 'press-' . $id));
     update_post_meta($id, '_sb_press_slugged', 1);
+    if (!empty($dated)) {
+        update_post_meta($id, '_sb_press_dated', 1);   // the card sits on the date of the event itself
+    }
     update_post_meta($id, '_sb_press_url', esc_url_raw($url));
     update_post_meta($id, '_sb_press_paper', $paper !== '' ? $paper : (string) wp_parse_url($url, PHP_URL_HOST));
     sb_seo_sync($id);
