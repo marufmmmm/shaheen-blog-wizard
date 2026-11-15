@@ -48,6 +48,7 @@ function sb_ca_ai($item, $cfg, $manual = true) {
         . 'Rules: kind=news only for a real news article/report. relevant=true only if the page is really about one of these topics' . ($manual ? ', or is clearly education news a school/coaching site would share' : '') . '; a page that merely mentions a keyword in passing is NOT relevant. '
         . 'negative=true if the page says or implies ANYTHING bad, critical, controversial, scandalous, a complaint, fraud, accident, case, protest, political fight, unfair result, or any doubtful/sensational claim about Shaheen, Spelling Star, Channel i or their people, or is negative news in general (exam leak, crime, corruption, tragedy). When in doubt, negative=true. '
         . ($cfg['extra'] !== '' ? 'Extra instruction from the owner: ' . $cfg['extra'] . ' ' : '')
+        . 'IMPORTANT: other institutions also carry the name Shaheen (for example BAF Shaheen College, or a Shaheen school in Gazipur): they are NOT ours, so relevant=false for them. Ours is Shaheen Education Family (Shaheen Cadet Coaching / Shaheen School, Tangail-based). '
         . 'Never invent facts; date only if clearly written in the page.';
     $user = 'Link: ' . $item['url'] . "\nTitle: " . $item['title'] . "\nText:\n" . mb_substr((string) $item['text'], 0, 3500);
     $model = function_exists('sb_model_for') ? sb_model_for('headlines') : 'gpt-6.1-terra';
@@ -135,6 +136,10 @@ function sb_ca_process($item, $manual = true) {
     $cfg = sb_ca_cfg();
     if (function_exists('sb_press_url_exists') && sb_press_url_exists($item['url'])) {
         return array('dup', 'এই লিংক আগেই আছে।');
+    }
+    $la = sb_ca_lookalike($item['title'] . ' ' . mb_substr((string) $item['text'], 0, 800));
+    if ('' !== $la) {   // another "Shaheen" institution (BAF Shaheen College, Gazipur ...)
+        return array('skipped', 'অন্য প্রতিষ্ঠান (' . $la . ') — আমাদের নয়');
     }
     $nw = function_exists('sb_neg_hit') ? sb_neg_hit($item['title'] . ' ' . mb_substr((string) $item['text'], 0, 400)) : '';
     if ('' !== $nw) {   // negative word: stop before any AI cost
@@ -466,67 +471,81 @@ function sb_ca_discover($force = false) {
 }
 
 
-/** history backfill: topic x year web searches, a few per call, progress is remembered. */
+/** other institutions that also carry the name "Shaheen" (BAF Shaheen College, Gazipur ...): never ours. Returns the word found or ''. */
+function sb_ca_lookalike($text) {
+    foreach (array('বিএএফ', 'বিএফ', 'বি এ এফ', 'BAF', 'B.A.F', 'এয়ার ফোর্স', 'বিমান বাহিনী', 'বিমানবাহিনী', 'Air Force', 'গাজীপুর', 'গাজিপুর', 'Gazipur') as $w) {
+        if (false !== mb_stripos((string) $text, $w)) {
+            return $w;
+        }
+    }
+    return '';
+}
+
+/** history backfill (Google News, one calendar year per search). Candidates wait in a queue, a few are filed per call. */
 function sb_ca_backfill($reset = false) {
-    $st = get_option('sb_ca_bf', array());
-    $st = is_array($st) ? $st : array();
+    $qs   = array('শাহীন শিক্ষা পরিবার', 'শাহীন স্কুল', 'শাহীন ক্যাডেট কোচিং');
+    $st   = get_option('sb_ca_bf', array());
+    $st   = is_array($st) ? $st : array();
     $from = max(2000, (int) ($st['from'] ?? 2010));
     $to   = (int) wp_date('Y');
     if ($reset || empty($st['y'])) {
-        $st = array('from' => $from, 'y' => $from, 'ti' => 0, 'qi' => 0, 'done' => 0, 'found' => 0, 'filed' => 0, 'blocked' => 0);
+        $st = array('from' => $from, 'y' => $from, 'qi' => 0, 'found' => 0, 'filed' => 0, 'blocked' => 0, 'skipped' => 0, 'unread' => 0, 'excluded' => 0);
+        update_option('sb_ca_bf_q', array(), false);
     }
-    $topics = sb_ca_topics();
-    $seen   = get_option('sb_ca_seen', array());
-    $seen   = is_array($seen) ? $seen : array();
-    $cand   = array();
-    $steps  = 0;
-    $looks  = 0;
-    while ($steps < 4 && $st['y'] <= $to) {
-        $t = $topics[$st['ti']] ?? null;
-        if ($t) {
-            $qs = array_values(array_filter(array_map('trim', explode("\n", (string) $t['q']))));
-            $q  = $qs[$st['qi']] ?? null;
-            if ($q) {
-                $words = array_filter(array_map('trim', explode('|', (string) $t['kw'])));
-                $res   = sb_ca_search($q . ' ' . $st['y'], true);
-                $looks++;
-                foreach ((array) $res as $r) {
-                    $hay = $r[0] . ' ' . $r[2];
-                    $ok  = !$words;
-                    foreach ($words as $w) {
-                        if (false !== mb_stripos($hay, $w)) {
-                            $ok = true;
-                        }
-                    }
-                    if ($ok && !isset($seen[md5($r[1])]) && !sb_press_url_exists($r[1])) {
-                        $cand[$r[1]] = $r;
-                    }
-                }
-                $steps++;
+    $GLOBALS['sb_notify_mute'] = 1;   // hundreds of old items: no Telegram/mail per item
+    $pend = get_option('sb_ca_bf_q', array());
+    $pend = is_array($pend) ? $pend : array();
+    $seen = get_option('sb_ca_seen', array());
+    $seen = is_array($seen) ? $seen : array();
+    if (!$pend && $st['y'] <= $to) {
+        $q   = $qs[$st['qi']];
+        $res = sb_ca_gnews($q, ' after:' . $st['y'] . '-01-01 before:' . ($st['y'] + 1) . '-01-01');
+        $st['last'] = $st['y'] . ' · ' . $q . ' · ' . (is_array($res) ? count($res) : 'ত্রুটি');
+        foreach ((array) $res as $r) {
+            $hay = $r[0] . ' ' . $r[2];
+            if (false === mb_stripos($r[0], 'শাহীন') && false === mb_stripos($r[0], 'Shaheen') && false === mb_stripos($r[0], 'Shahin')) {
+                continue;
             }
+            if ('' !== sb_ca_lookalike($hay)) {
+                $st['excluded']++;
+                continue;
+            }
+            if (isset($seen[md5($r[1])])) {
+                continue;
+            }
+            if (function_exists('sb_neg_hit') && '' !== sb_neg_hit($r[0])) {
+                $seen[md5($r[1])] = time();
+                $st['blocked']++;
+                continue;
+            }
+            $pend[$r[1]] = $r;
         }
-        $st['qi']++;      // next query -> next topic -> next year
-        if (!$t || $st['qi'] >= max(1, count(array_filter(array_map('trim', explode("\n", (string) ($t['q'] ?? ''))))))) {
+        $st['found'] += count($pend);
+        $st['qi']++;
+        if ($st['qi'] >= count($qs)) {
             $st['qi'] = 0;
-            $st['ti']++;
-            if ($st['ti'] >= count($topics)) {
-                $st['ti'] = 0;
-                $st['y']++;
+            $st['y']++;
+        }
+    }
+    if ($pend) {
+        $take = array_slice($pend, 0, 4, true);
+        $pend = array_slice($pend, 4, null, true);
+        $n    = sb_ca_file($take, 4, $seen);
+        $st['filed']   += $n['filed'];
+        $st['blocked'] += $n['blocked'];
+        $st['skipped'] += $n['skipped'] + $n['dup'];
+        $st['unread']  += $n['unread'];
+        foreach ($take as $u => $r) {   // 'error' items stay out of the queue; they are retried by nothing, count as unread
+            if (!isset($seen[md5($u)]) && $n['error']) {
+                $st['unread']++;
             }
         }
     }
-    if ($looks && function_exists('sb_ledger_add') && defined('SB_YT_CHECK_FEE')) {
-        $GLOBALS['sb_bill_override'] = SB_YT_CHECK_FEE;
-        sb_ledger_add(0, 'news_watch', max(1, (int) ceil(SB_YT_CHECK_FEE / sb_unit_billed())), 0, 0.0);
-    }
-    $n = sb_ca_file(array_slice($cand, 0, 6, true), 6, $seen);
-    $st['found']   += count($cand);
-    $st['filed']   += $n['filed'];
-    $st['blocked'] += $n['blocked'];
-    $fin = $st['y'] > $to;
+    update_option('sb_ca_bf_q', $pend, false);
+    $fin = $st['y'] > $to && !$pend;
     $st['finished'] = $fin;
     update_option('sb_ca_bf', $st, false);
-    return array('year' => min($st['y'], $to), 'to' => $to, 'from' => $st['from'], 'finished' => $fin, 'found' => $st['found'], 'filed' => $st['filed'], 'blocked' => $st['blocked']);
+    return array('year' => min($st['y'], $to), 'to' => $to, 'from' => $st['from'], 'finished' => $fin, 'waiting' => count($pend), 'found' => $st['found'], 'filed' => $st['filed'], 'blocked' => $st['blocked'], 'skipped' => $st['skipped'], 'unread' => $st['unread'], 'excluded' => $st['excluded'], 'last' => $st['last'] ?? '');
 }
 add_action('wp_ajax_sb_ca_bf', function () {
     sb_ajax_guard('manage_options');

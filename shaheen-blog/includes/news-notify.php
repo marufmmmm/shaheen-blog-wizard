@@ -43,7 +43,7 @@ function sb_notify_mail($subject, $plain) {
 /** queue one line; everything queued during a request goes out as ONE message at the end of the request */
 function sb_notify_queue($kind, $title, $url, $note = '') {
     $o = sb_notify_cfg();
-    if (empty($o['on']) || ('blocked' === $kind && empty($o['blocked']))) {
+    if (!empty($GLOBALS['sb_notify_mute']) || empty($o['on']) || ('blocked' === $kind && empty($o['blocked']))) {
         return;
     }
     static $reg = false;
@@ -149,8 +149,8 @@ function sb_neg_hit($text) {
 }
 
 /* ---------------------------------------------------------------- Google News RSS */
-function sb_ca_gnews($q) {
-    $r = wp_remote_get('https://news.google.com/rss/search?q=' . rawurlencode($q . ' when:30d') . '&hl=bn&gl=BD&ceid=BD:bn', array('timeout' => 15, 'user-agent' => 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 Chrome/124.0 Safari/537.36'));
+function sb_ca_gnews($q, $range = ' when:30d') {
+    $r = wp_remote_get('https://news.google.com/rss/search?q=' . rawurlencode($q . $range) . '&hl=bn&gl=BD&ceid=BD:bn', array('timeout' => 15, 'user-agent' => 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 Chrome/124.0 Safari/537.36'));
     if (is_wp_error($r) || 200 !== (int) wp_remote_retrieve_response_code($r)) {
         return null;
     }
