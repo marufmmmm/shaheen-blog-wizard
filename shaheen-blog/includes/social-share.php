@@ -22,7 +22,7 @@ function sb_share_cfg() {
         'on' => 0, 'api_ver' => 'v23.0',
         'page_id' => '', 'page_token' => '',
         'ig_id' => '', 'ig_token' => '',
-        'gem_key' => '', 'gem_model' => 'gemini-2.5-flash', 'or_key' => '', 'or_model' => 'google/gemini-2.5-flash',
+        'gem_key' => '', 'gem_model' => 'gemini-3.8-flash', 'or_key' => '', 'or_model' => 'google/gemini-2.5-flash',
         'yt_on' => 0, 'yt_cid' => '', 'yt_sec' => '', 'yt_rt' => '', 'yt_delay' => 60,
         'max_mb' => 200,
     ), is_array($o) ? $o : array());
@@ -386,8 +386,9 @@ function sb_share_gemini($c, $sys, $usr, $file, $video) {
     }
     $j = json_decode((string) wp_remote_retrieve_body($r), true);
     $u = $j['usageMetadata'] ?? array();
-    // Gemini 2.5 Flash list price (USD per 1M tokens): input 0.30, output (incl. thinking) 2.50. Change here if Google changes it.
-    $real = ((int) ($u['promptTokenCount'] ?? 0) * 0.30 + ((int) ($u['candidatesTokenCount'] ?? 0) + (int) ($u['thoughtsTokenCount'] ?? 0)) * 2.50) / 1000000;
+    // Gemini 3.8 Flash list price (USD per 1M tokens): input 0.75, output (incl. thinking) 3.75 until 31 Dec 2026; doubles from 1 Jan 2027 (1.50 / 7.50). Change here if Google changes it.
+    $dbl = time() >= 1798761600 ? 2 : 1;   // 2027-01-01 00:00 UTC
+    $real = ((int) ($u['promptTokenCount'] ?? 0) * 0.75 * $dbl + ((int) ($u['candidatesTokenCount'] ?? 0) + (int) ($u['thoughtsTokenCount'] ?? 0)) * 3.75 * $dbl) / 1000000;
     sb_share_bill($real, $model, 'share_vid');
     $txt = '';
     foreach ((array) ($j['candidates'][0]['content']['parts'] ?? array()) as $p) {
@@ -625,7 +626,7 @@ add_action('wp_ajax_sb_share_cfg', function () {
             }
             foreach (array('ig_token', 'page_token', 'gem_key', 'or_key', 'yt_cid', 'yt_sec', 'yt_rt') as $k) {
                 if (!empty($n[$k])) {
-                    $c[$k] = trim((string) $n[$k]);
+                    $c[$k] = '-' === trim((string) $n[$k]) ? '' : trim((string) $n[$k]);   // "-" clears a saved secret
                 }
             }
             if (isset($n['yt_on'])) {
