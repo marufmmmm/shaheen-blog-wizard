@@ -454,7 +454,7 @@ function sb_desk_message($m) {
             $in[$kind] = (int) $a;
         }
         $s = sb_desk_state($m);
-        $newslink = !$s && '' === $cmd && !$fid && sb_desk_urls($text) && !preg_match('#facebook\.com|fb\.watch|fb\.me|youtube\.com|youtu\.be#i', $text) && mb_strlen(trim(preg_replace('#https?://\S+#i', '', $text))) < 12;
+        $newslink = !$s && '' === $cmd && !$fid && sb_desk_urls($text) && !preg_match('#youtube\.com|youtu\.be#i', $text) && mb_strlen(trim(preg_replace('#https?://\S+#i', '', $text))) < 12;
         if (in_array($cmd, array('menu', 'help', 'cancel'), true) || ('' === $cmd && !$s && !$fid && !$newslink)) {
             sb_desk_unlock($lock);
             if ('help' === $cmd) {
@@ -825,8 +825,9 @@ function sb_desk_urls($text) {
 
 /** reads one news page into the shape the collector's judge expects, or WP_Error */
 function sb_desk_news_item($url) {
+    $fb = (bool) preg_match('#facebook\.com|fb\.watch|fb\.me#i', $url);   // public Facebook posts: Facebook's own link-preview robot is let in
     $r = wp_remote_get($url, array('timeout' => 14, 'redirection' => 5, 'limit_response_size' => 600000,
-        'user-agent' => 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0 Safari/537.36',
+        'user-agent' => $fb ? 'facebookexternalhit/1.1 (+http://www.facebook.com/externalhit_uatext.php)' : 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0 Safari/537.36',
         'headers' => array('Accept-Language' => 'bn,en;q=0.8')));
     if (is_wp_error($r)) {
         return new WP_Error('sb_news', 'পাতা খোলা যায়নি।');
@@ -849,7 +850,10 @@ function sb_desk_news_item($url) {
         $img = 'https:' . $img;
     }
     $desc = (string) ($meta['og:description'] ?? ($meta['description'] ?? ''));
-    return array('id' => substr(md5($url . microtime(true)), 0, 10), 't' => time(), 'url' => $url, 'host' => (string) wp_parse_url($url, PHP_URL_HOST),
+    if ($fb && '' === $desc && '' === $title) {
+        return new WP_Error('sb_news', 'ফেসবুক পোস্টটি পাবলিক নয় বা ফেসবুক পাতার তথ্য দেয়নি। পোস্টটি "Public" করুন, অথবা লেখা ও ছবি সরাসরি পাঠান।');
+    }
+    return array('id' => substr(md5($url . microtime(true)), 0, 10), 't' => time(), 'url' => $url, 'host' => $fb ? 'ফেসবুক' : (string) wp_parse_url($url, PHP_URL_HOST), 'fb' => $fb,
         'title' => mb_substr(sanitize_text_field($title), 0, 300), 'text' => mb_substr(sanitize_textarea_field(($desc !== '' ? $desc . "\n" : '') . $plain), 0, 8000),
         'images' => ($img && preg_match('#^https?://#i', $img)) ? array(esc_url_raw($img)) : array(), 'videos' => array());
 }
@@ -861,8 +865,8 @@ function sb_desk_news_run($m, $urls) {
     sb_desk_say($m, '⏳ ' . count($urls) . 'টি লিংক পড়ছি ও যাচাই করছি…');
     $out = array();
     foreach (array_slice($urls, 0, 5) as $u) {
-        if (preg_match('#facebook\.com|fb\.watch|fb\.me|youtube\.com|youtu\.be#i', $u)) {
-            $out[] = '⏭️ ' . esc_html($u) . "\n   ফেসবুক/ইউটিউব সংবাদ নয়, বাদ দিলাম।";
+        if (preg_match('#youtube\.com|youtu\.be#i', $u)) {
+            $out[] = '⏭️ ' . esc_html($u) . "\n   ইউটিউব ভিডিও সংবাদ কার্ড হয় না, বাদ দিলাম (ভিডিও ইভেন্ট পেজে যায়)।";
             continue;
         }
         $it = sb_desk_news_item($u);

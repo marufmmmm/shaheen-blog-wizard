@@ -22,11 +22,19 @@ function sb_ca_cfg() {
 /** topics: what to look for and where it goes. [ {id,name,kw,q,event,cat} ] */
 function sb_ca_topics() {
     $c = sb_ca_cfg();
+    $ev = array('id' => 't3', 'name' => 'আয়োজন ও অনুষ্ঠান', 'kw' => 'শাহীন|Shaheen', 'q' => "শাহীন স্কুল পুনর্মিলনী\nশাহীন স্কুল পিঠা উৎসব\nশাহীন ক্যাডেট কোচিং ক্রীড়া প্রতিযোগিতা\nশাহীন স্কুল শিক্ষক কর্মশালা", 'event' => '', 'cat' => (int) $c['cat']);
     if (!empty($c['topics']) && is_array($c['topics'])) {
-        return $c['topics'];
+        $has = false;
+        foreach ($c['topics'] as $t) {
+            if ('t3' === ($t['id'] ?? '')) {
+                $has = true;
+            }
+        }
+        return $has ? $c['topics'] : array_merge($c['topics'], array($ev));
     }
     return array(
         array('id' => 't1', 'name' => 'Spelling Star', 'kw' => $c['kw'], 'q' => $c['q'], 'event' => $c['event'], 'cat' => (int) $c['cat']),
+        $ev,
         array('id' => 't2', 'name' => 'শাহীন কোচিং ও ক্যাডেট কোচিং', 'kw' => 'Shaheen Cadet|Shaheen Coaching|শাহীন ক্যাডেট|শাহীন কোচিং|শাহীন শিক্ষা|Shaheen Education',
             'q' => "শাহীন ক্যাডেট কোচিং\nShaheen Cadet Coaching\nশাহীন কোচিং সংবাদ", 'event' => '', 'cat' => (int) $c['cat']),
     );
@@ -48,6 +56,7 @@ function sb_ca_ai($item, $cfg, $manual = true) {
         . 'Rules: kind=news only for a real news article/report. relevant=true only if the page is really about one of these topics' . ($manual ? ', or is clearly education news a school/coaching site would share' : '') . '; a page that merely mentions a keyword in passing is NOT relevant. '
         . 'negative=true if the page says or implies ANYTHING bad, critical, controversial, scandalous, a complaint, fraud, accident, case, protest, political fight, unfair result, or any doubtful/sensational claim about Shaheen, Spelling Star, Channel i or their people, or is negative news in general (exam leak, crime, corruption, tragedy). When in doubt, negative=true. '
         . ($cfg['extra'] !== '' ? 'Extra instruction from the owner: ' . $cfg['extra'] . ' ' : '')
+        . (!empty($item['fb']) ? 'This page is a public FACEBOOK POST that the owner pasted himself (probably from our own page or a partner page). Treat it as kind=news when it reports an event/activity of ours (reunion, pitha utsab, sports, teachers workshop, result, programme); paper="ফেসবুক"; summary from the post text only. ' : '')
         . 'IMPORTANT: other institutions also carry the name Shaheen (for example BAF Shaheen College, or a Shaheen school in Gazipur): they are NOT ours, so relevant=false for them. Ours is Shaheen Education Family (Shaheen Cadet Coaching / Shaheen School, Tangail-based). '
         . 'Never invent facts; date only if clearly written in the page.';
     $user = 'Link: ' . $item['url'] . "\nTitle: " . $item['title'] . "\nText:\n" . mb_substr((string) $item['text'], 0, 3500);
@@ -483,7 +492,7 @@ function sb_ca_lookalike($text) {
 
 /** history backfill (Google News, one calendar year per search). Candidates wait in a queue, a few are filed per call. */
 function sb_ca_backfill($reset = false) {
-    $qs   = array('শাহীন শিক্ষা পরিবার', 'শাহীন স্কুল', 'শাহীন ক্যাডেট কোচিং');
+    $qs   = array('শাহীন শিক্ষা পরিবার', 'শাহীন স্কুল', 'শাহীন ক্যাডেট কোচিং', 'শাহীন স্কুল পুনর্মিলনী', 'শাহীন স্কুল পিঠা উৎসব', 'শাহীন ক্যাডেট কোচিং ক্রীড়া প্রতিযোগিতা', 'শাহীন স্কুল শিক্ষক কর্মশালা');
     $st   = get_option('sb_ca_bf', array());
     $st   = is_array($st) ? $st : array();
     $from = max(2000, (int) ($st['from'] ?? 2010));
