@@ -584,7 +584,7 @@ function sb_ca_backfill($reset = false) {
     return array('year' => min($st['y'], $to), 'to' => $to, 'from' => $st['from'], 'finished' => $fin, 'waiting' => count($pend), 'found' => $st['found'], 'filed' => $st['filed'], 'blocked' => $st['blocked'], 'skipped' => $st['skipped'], 'unread' => $st['unread'], 'excluded' => $st['excluded'], 'last' => $st['last'] ?? '');
 }
 /** Facebook post / YouTube video -> a blog card whose picture is the post's/video's own thumbnail (play badge for videos). Returns array(status, note, title). */
-function sb_ca_social_card($url, $cat = 0) {
+function sb_ca_social_card($url, $cat = 0, $force = false) {
     $url   = esc_url_raw($url);
     $yt    = preg_match('#(?:youtube\.com/(?:watch\?[^\s]*v=|shorts/|live/|embed/)|youtu\.be/)([\w-]{11})#i', $url, $ym);
     $fb    = !$yt && preg_match('#facebook\.com|fb\.watch|fb\.me#i', $url);
@@ -640,7 +640,7 @@ function sb_ca_social_card($url, $cat = 0) {
     if ('' !== $la) {
         return array('skipped', 'অন্য প্রতিষ্ঠান (' . $la . ') — আমাদের নয়', $head);
     }
-    $nw = function_exists('sb_neg_hit') ? sb_neg_hit($head . ' ' . $desc) : '';
+    $nw = (!$force && function_exists('sb_neg_hit')) ? sb_neg_hit($head . ' ' . $desc) : '';
     if ('' !== $nw) {
         return array('blocked', 'নেতিবাচক শব্দ: ' . $nw, $head);
     }
@@ -725,7 +725,7 @@ add_action('wp_ajax_sb_ca_force', function () {
     sb_ajax_guard('manage_options');
     $u = esc_url_raw((string) sb_req('url'));
     if (preg_match('#facebook\.com|fb\.watch|fb\.me|youtube\.com|youtu\.be#i', $u)) {
-        list($st, $note, $ti) = sb_ca_social_card($u);
+        list($st, $note, $ti) = sb_ca_social_card($u, 0, !empty($_REQUEST['okneg']));
         wp_send_json_success(array('st' => $st, 'note' => $note, 'title' => $ti));
     }
     $it = $u ? sb_ca_read($u) : null;
