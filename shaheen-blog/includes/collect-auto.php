@@ -588,7 +588,7 @@ function sb_ca_backfill($reset = false) {
 function sb_ca_canon_social($u) {
     $u = trim($u);
     if (preg_match('#^(https?://(?:www\.|m\.|web\.)?facebook\.com/[^/?\#]+/(?:videos|posts|reel))/(?:[^/?\#]*/)?(\d{6,})(?:/|\?|\#|$)#iu', $u, $m)) {
-        return preg_replace('#^https?://(?:m\.|web\.)?#i', 'https://www.', $m[1]) . '/' . $m[2];
+        return preg_replace('#^https?://(?:www\.|m\.|web\.)?#i', 'https://www.', $m[1]) . '/' . $m[2];
     }
     return $u;
 }
