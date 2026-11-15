@@ -607,6 +607,7 @@ function sb_ca_social_card($url, $cat = 0, $force = false) {
     $desc  = '';
     $img   = '';
     $who   = '';
+    $fbwhy = '';
     if ($yt) {
         $r = wp_remote_get('https://www.youtube.com/oembed?format=json&url=' . rawurlencode($url), array('timeout' => 12));
         if (!is_wp_error($r) && 200 === (int) wp_remote_retrieve_response_code($r)) {
@@ -616,22 +617,17 @@ function sb_ca_social_card($url, $cat = 0, $force = false) {
         }
         $img = 'https://img.youtube.com/vi/' . $ym[1] . '/hqdefault.jpg';
     } else {
-        $r = wp_remote_get($url, array('timeout' => 14, 'redirection' => 5, 'limit_response_size' => 600000, 'user-agent' => 'facebookexternalhit/1.1 (+http://www.facebook.com/externalhit_uatext.php)', 'headers' => array('Accept-Language' => 'bn,en;q=0.8')));
-        if (!is_wp_error($r) && 200 === (int) wp_remote_retrieve_response_code($r)) {
-            $m     = function_exists('csa_ev_og_meta') ? csa_ev_og_meta((string) wp_remote_retrieve_body($r)) : array();
-            $title = (string) ($m['og:title'] ?? '');
-            $desc  = (string) ($m['og:description'] ?? '');
-            $img   = (string) ($m['og:image'] ?? '');
-            if ($img && 0 === strpos($img, '//')) {
-                $img = 'https:' . $img;
-            }
-        }
-        if ('' === $img) {
+        $fx    = sb_ca_fb_fetch($url);
+        $title = $fx['title'];
+        $desc  = $fx['desc'];
+        $img   = $fx['img'];
+        $fbwhy = $fx['why'];
+        if ('' === $img && ('' !== $title || '' !== $desc)) {
             list($img) = sb_ca_fb_image($url);
         }
     }
     if ('' === trim($title . $desc)) {
-        return array('error', 'লিংকের তথ্য পাওয়া যায়নি (পোস্ট পাবলিক নয়, বা সাইট আটকাচ্ছে)।', '');
+        return array('error', 'লিংকের তথ্য পাওয়া যায়নি (পোস্ট পাবলিক নয়, বা সাইট আটকাচ্ছে)।' . (!empty($fbwhy) ? ' [' . $fbwhy . ']' : ''), '');
     }
     if (!$yt && '' !== trim($desc) && ('' === $title || mb_strlen($title) < 30 || false !== stripos($title, 'Shaheen Education Family') && mb_strlen($title) < 40)) {
         $title = trim(preg_replace('/\s+/u', ' ', preg_replace('/[#\x{1F000}-\x{1FFFF}\x{2600}-\x{27BF}]+/u', '', $desc)));   // a page-name-only title: use the post's own first words
@@ -660,6 +656,45 @@ function sb_ca_social_card($url, $cat = 0, $force = false) {
     }
     update_post_meta($id, '_sb_press_kind', $yt ? 'video' : 'fb');
     return array('filed', 'ব্লগে কার্ড হয়েছে' . ($img ? ' (ছবিসহ)' : ' (ছবি পাওয়া যায়নি, আইকন বসবে)'), $head);
+}
+
+/** Facebook post/video: tries the address with several robot names and the mobile pages until one gives a title, text or picture; says what each answered */
+function sb_ca_fb_fetch($url) {
+    $out  = array('title' => '', 'desc' => '', 'img' => '', 'why' => '');
+    $uas  = array('facebookexternalhit/1.1 (+http://www.facebook.com/externalhit_uatext.php)', 'Twitterbot/1.0', 'Mozilla/5.0 (compatible; Googlebot/2.1; +http://www.google.com/bot.html)', 'WhatsApp/2.23.20.0');
+    $urls = array($url, preg_replace('#^https?://(www\.)?facebook\.com#i', 'https://m.facebook.com', $url), preg_replace('#^https?://(www\.)?facebook\.com#i', 'https://mbasic.facebook.com', $url));
+    $log  = array();
+    foreach ($urls as $ui => $u) {
+        foreach ($uas as $ua) {
+            $r    = wp_remote_get($u, array('timeout' => 12, 'redirection' => 5, 'limit_response_size' => 600000, 'user-agent' => $ua, 'headers' => array('Accept-Language' => 'bn,en;q=0.8')));
+            $code = is_wp_error($r) ? 0 : (int) wp_remote_retrieve_response_code($r);
+            if (200 !== $code) {
+                $log[] = $ui . substr($ua, 0, 2) . $code;
+                continue;
+            }
+            $b = (string) wp_remote_retrieve_body($r);
+            $m = function_exists('csa_ev_og_meta') ? csa_ev_og_meta($b) : array();
+            $t = (string) ($m['og:title'] ?? '');
+            $d = (string) ($m['og:description'] ?? '');
+            if ('' === trim($t . $d) && preg_match('#<title[^>]*>(.*?)</title>#is', $b, $tm)) {
+                $t = html_entity_decode(wp_strip_all_tags($tm[1]), ENT_QUOTES | ENT_HTML5, 'UTF-8');
+                if (preg_match('/^(facebook|log in|ফেসবুক|log into|security check)/i', trim($t))) {
+                    $t = '';
+                }
+            }
+            if ('' === trim($t . $d)) {
+                $log[] = $ui . substr($ua, 0, 2) . '200-empty' . (false !== stripos($b, 'login') ? '-login' : '');
+                continue;
+            }
+            $img = (string) ($m['og:image'] ?? '');
+            if ($img && 0 === strpos($img, '//')) {
+                $img = 'https:' . $img;
+            }
+            return array('title' => $t, 'desc' => $d, 'img' => $img, 'why' => '');
+        }
+    }
+    $out['why'] = implode(' ', array_slice($log, 0, 12));
+    return $out;
 }
 
 /** a picture for a Facebook post/video when the plain page fetch gives none: other robot names, the mobile page, then Facebook's picture endpoint */
