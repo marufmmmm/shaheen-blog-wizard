@@ -642,7 +642,7 @@ function sb_ca_social_card($url, $cat = 0, $force = false) {
     $title = $clean($title);
     $head  = '' !== $title ? $title : $clean(mb_substr($desc, 0, 160));
     $la    = sb_ca_lookalike($head . ' ' . $desc . ' ' . $who, (bool) preg_match('#facebook\.com/shaheen\.edu\.bd/#i', $url));
-    if ('' !== $la) {
+    if ('' !== $la && !$force) {   // owner-chosen links skip this check
         return array('skipped', 'অন্য প্রতিষ্ঠান (' . $la . ') — আমাদের নয়', $head);
     }
     $nw = (!$force && function_exists('sb_neg_hit')) ? sb_neg_hit($head . ' ' . $desc) : '';
