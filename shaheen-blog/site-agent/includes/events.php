@@ -729,8 +729,8 @@ function csa_ev_is_front() {
 }
 
 function csa_ev_fonts_url( $e = null ) {
-	$fam = array( 'family=Hind+Siliguri:wght@400;500;600;700', 'family=Baloo+Da+2:wght@500;600;700;800' );
-	if ( $e && $e['font'] && function_exists( 'csa_font' ) && 'baloo' !== $e['font'] && 'hind' !== $e['font'] ) {
+	$fam = array( 'family=Noto+Sans+Bengali:wght@400;500;600;700;800' );
+	if ( $e && $e['font'] && function_exists( 'csa_font' ) && 'baloo' !== $e['font'] && 'hind' !== $e['font'] && 'noto-sans' !== $e['font'] ) {
 		$f = csa_font( $e['font'] );
 		if ( $f ) {
 			$fam[] = 'family=' . str_replace( ' ', '+', $f[0] ) . ':wght@' . $f[1];

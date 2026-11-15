@@ -17,8 +17,9 @@ function csa_ev_icon( $img, $ic, $alt = '' ) {
 }
 
 function csa_ev_vars( $e ) {
-	$f   = ( $e['font'] && function_exists( 'csa_font' ) ) ? csa_font( $e['font'] ) : null;
-	$stk = $f ? csa_font_stack( $f ) : "'Baloo Da 2','Hind Siliguri',sans-serif";
+	$k   = in_array( $e['font'], array( 'baloo', 'hind', '' ), true ) ? 'noto-sans' : $e['font'];   // Baloo / Hind drew the Bangla digit one unclearly: blog font instead
+	$f   = ( $k && function_exists( 'csa_font' ) ) ? csa_font( $k ) : null;
+	$stk = $f ? csa_font_stack( $f ) : "'Noto Sans Bengali',sans-serif";
 	return '--c1:' . $e['c1'] . ';--c2:' . $e['c2'] . ';--ac:' . $e['ac'] . ';--hf:' . $stk . ';';
 }
 
