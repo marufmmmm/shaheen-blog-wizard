@@ -411,3 +411,67 @@
     if (window.ResizeObserver) { new ResizeObserver(later).observe(document.body); }
     window.SBFIT = { fit: fit };
 })();
+
+/* Facebook / YouTube cards: open the post or video in a pop-up on the site (official embed), not a new tab */
+(function () {
+    function embedFor(url, kind) {
+        var m = url.match(/(?:youtube\.com\/(?:watch\?[^#]*v=|shorts\/|live\/|embed\/)|youtu\.be\/)([\w-]{11})/i);
+        if (m) {
+            var short = /shorts\//i.test(url);
+            return { src: 'https://www.youtube-nocookie.com/embed/' + m[1] + '?autoplay=1&rel=0', ratio: short ? '9 / 16' : '16 / 9', maxw: short ? '380px' : '860px' };
+        }
+        if (/facebook\.com|fb\.watch|fb\.me/i.test(url)) {
+            var vid = /\/videos\/|\/reel|\/watch|fb\.watch/i.test(url);
+            var h = encodeURIComponent(url);
+            if (vid) {
+                return { src: 'https://www.facebook.com/plugins/video.php?href=' + h + '&show_text=false&autoplay=true&width=720', ratio: '16 / 9', maxw: '860px' };
+            }
+            return { src: 'https://www.facebook.com/plugins/post.php?href=' + h + '&show_text=true&width=500', ratio: '', maxw: '540px', tall: true };
+        }
+        return null;
+    }
+    var box = null;
+    function close() {
+        if (box) { box.parentNode.removeChild(box); box = null; document.documentElement.classList.remove('sb-modal-open'); }
+    }
+    function open(url, title) {
+        var e = embedFor(url);
+        if (!e) { return false; }
+        close();
+        box = document.createElement('div');
+        box.className = 'sb-modal';
+        box.setAttribute('role', 'dialog');
+        box.setAttribute('aria-modal', 'true');
+        var inner = document.createElement('div');
+        inner.className = 'sb-modal-in';
+        inner.style.maxWidth = e.maxw;
+        var x = document.createElement('button');
+        x.type = 'button'; x.className = 'sb-modal-x'; x.setAttribute('aria-label', 'বন্ধ করুন'); x.textContent = '×';
+        x.addEventListener('click', close);
+        var fr = document.createElement('iframe');
+        fr.src = e.src; fr.title = title || 'Video'; fr.allowFullscreen = true; fr.setAttribute('allow', 'autoplay; clipboard-write; encrypted-media; picture-in-picture; web-share'); fr.setAttribute('loading', 'lazy');
+        var wrap = document.createElement('div');
+        wrap.className = 'sb-modal-frame' + (e.tall ? ' is-tall' : '');
+        if (e.ratio) { wrap.style.aspectRatio = e.ratio; }
+        wrap.appendChild(fr);
+        var t = document.createElement('div');
+        t.className = 'sb-modal-t'; t.textContent = title || '';
+        var a = document.createElement('a');
+        a.className = 'sb-modal-go'; a.href = url; a.target = '_blank'; a.rel = 'noopener nofollow';
+        a.textContent = /youtu/i.test(url) ? 'ইউটিউবে দেখুন ↗' : 'ফেসবুকে দেখুন ↗';
+        inner.appendChild(x); inner.appendChild(wrap); inner.appendChild(t); inner.appendChild(a);
+        box.appendChild(inner);
+        box.addEventListener('click', function (ev) { if (ev.target === box) { close(); } });
+        document.body.appendChild(box);
+        document.documentElement.classList.add('sb-modal-open');
+        return true;
+    }
+    document.addEventListener('click', function (ev) {
+        if (ev.defaultPrevented || ev.button || ev.ctrlKey || ev.metaKey || ev.shiftKey) { return; }
+        var c = ev.target.closest ? ev.target.closest('a.blog-card.is-video, a.blog-card.is-fb') : null;
+        if (!c) { return; }
+        var t = c.querySelector('.blog-title');
+        if (open(c.getAttribute('href') || '', t ? t.textContent : '')) { ev.preventDefault(); }
+    });
+    document.addEventListener('keydown', function (ev) { if (ev.key === 'Escape') { close(); } });
+})();
