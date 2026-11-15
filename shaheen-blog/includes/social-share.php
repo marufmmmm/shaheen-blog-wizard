@@ -729,7 +729,7 @@ add_action('wp_ajax_sb_share_pick', function () {
         $out = array();
         foreach ((array) ($j['data'] ?? array()) as $p) {
             list($kind) = sb_share_kind($p);
-            $out[] = array('id' => $p['id'], 'time' => $p['created_time'] ?? '', 'kind' => $kind ?: 'skip', 'st' => $p['status_type'] ?? '', 'msg' => mb_substr(wp_strip_all_tags((string) ($p['message'] ?? '')), 0, 90), 'state' => $q[$p['id']]['status'] ?? '');
+            $out[] = array('id' => $p['id'], 'time' => $p['created_time'] ?? '', 'kind' => $kind ?: 'skip', 'st' => $p['status_type'] ?? '', 'msg' => mb_substr(wp_strip_all_tags((string) ($p['message'] ?? '')), 0, 90), 'state' => $q[$p['id']]['status'] ?? '', 'len' => $q[$p['id']]['len'] ?? 0);
         }
         wp_send_json_success(array('posts' => $out));
     }
@@ -765,7 +765,7 @@ add_action('wp_ajax_sb_share_pick', function () {
     @ignore_user_abort(true);
     sb_share_run($id);   // runs now; the page may stop waiting, the work carries on
     $e = sb_share_queue()[$id] ?? array();
-    wp_send_json_success(array('status' => $e['status'] ?? '', 'steps' => $e['steps'] ?? array(), 'yt_public' => $e['yt_public'] ?? ''));
+    wp_send_json_success(array('status' => $e['status'] ?? '', 'steps' => $e['steps'] ?? array(), 'yt_public' => $e['yt_public'] ?? '', 'len' => $e['len'] ?? 0));
 });
 
 /* ------------------------------------------------------------ admin panel (shown under the notification panel on the Research page) */
