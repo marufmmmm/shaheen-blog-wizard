@@ -56,6 +56,21 @@
         });
 
         render();
+
+        // auto-load: when the "load more" area scrolls near the screen, load the next batch by itself (the button stays as a fallback)
+        if ('IntersectionObserver' in window) {
+            var busy = false;
+            var ob = new IntersectionObserver(function (es) {
+                es.forEach(function (en) {
+                    if (en.isIntersecting && !more.hidden && !btn.disabled && !busy) {
+                        busy = true;
+                        btn.click();
+                        setTimeout(function () { busy = false; if (!more.hidden && more.getBoundingClientRect().top < window.innerHeight + 400) { btn.click(); } }, 600);
+                    }
+                });
+            }, { rootMargin: '400px 0px' });
+            ob.observe(more);
+        }
     }
 
     function initCopy() {
