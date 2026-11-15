@@ -289,7 +289,7 @@ function sb_share_ai($c, $video, $file, $msg, $fb) {
     $d = null;
     if ('' !== $c['gem_key'] && is_file($file)) {
         $d = sb_share_gemini($c, $sys, $usr, $file, $video);
-    } elseif ('' !== $c['or_key'] && is_file($file)) {
+    } elseif ('' !== sb_share_or_key($c)[0] && is_file($file)) {
         $d = sb_share_openrouter($c, $sys, $usr, $file, $video);   // Gemini through OpenRouter
     }
     if (!is_array($d)) {
@@ -396,6 +396,24 @@ function sb_share_gemini($c, $sys, $usr, $file, $video) {
     return json_decode(preg_replace('/^```[a-z]*\s*|\s*```$/i', '', trim($txt)), true);
 }
 
+/** The OpenRouter key: this panel's own field first, then the plugin's existing OpenRouter key (Site Agent settings), then the main API key when it is an OpenRouter key (sk-or-...). Returns array(key, where-it-came-from). */
+function sb_share_or_key($c) {
+    if ('' !== (string) $c['or_key']) {
+        return array((string) $c['or_key'], 'এই বক্সের key');
+    }
+    if (function_exists('csa_opt')) {
+        $k = trim((string) csa_opt('key_openrouter'));
+        if ('' !== $k) {
+            return array($k, 'প্লাগইনের আগের OpenRouter key');
+        }
+    }
+    $k = function_exists('sb_get') ? trim((string) sb_get('api_key')) : '';
+    if (0 === strpos($k, 'sk-or-')) {
+        return array($k, 'প্লাগইনের মূল API key (OpenRouter)');
+    }
+    return array('', '');
+}
+
 /** Gemini through OpenRouter. The file travels inline (base64), so videos above 25 MB are not sent this way: use the direct Gemini key for big files. */
 function sb_share_openrouter($c, $sys, $usr, $file, $video) {
     if (filesize($file) > 25 * 1048576) {
@@ -406,7 +424,7 @@ function sb_share_openrouter($c, $sys, $usr, $file, $video) {
     $part = $video ? array('type' => 'video_url', 'video_url' => array('url' => $b64)) : array('type' => 'image_url', 'image_url' => array('url' => $b64));
     $model = preg_replace('/[^\w.\-\/:]/', '', $c['or_model']);
     $r = wp_remote_post('https://openrouter.ai/api/v1/chat/completions', array('timeout' => 240,
-        'headers' => array('Authorization' => 'Bearer ' . $c['or_key'], 'Content-Type' => 'application/json', 'HTTP-Referer' => home_url('/'), 'X-Title' => 'Shaheen Blog'),
+        'headers' => array('Authorization' => 'Bearer ' . sb_share_or_key($c)[0], 'Content-Type' => 'application/json', 'HTTP-Referer' => home_url('/'), 'X-Title' => 'Shaheen Blog'),
         'body' => wp_json_encode(array('model' => $model, 'usage' => array('include' => true), 'response_format' => array('type' => 'json_object'), 'messages' => array(
             array('role' => 'system', 'content' => $sys),
             array('role' => 'user', 'content' => array(array('type' => 'text', 'text' => $usr), $part)),
@@ -636,7 +654,7 @@ add_action('wp_ajax_sb_share_cfg', function () {
     }
     wp_send_json_success(array(
         'on' => (int) $c['on'], 'page_id' => $c['page_id'], 'ig_id' => $c['ig_id'], 'api_ver' => $c['api_ver'], 'yt_on' => (int) $c['yt_on'], 'yt_delay' => (int) $c['yt_delay'], 'max_mb' => (int) $c['max_mb'], 'gem_model' => $c['gem_model'], 'or_model' => $c['or_model'],
-        'set' => array('page_token' => '' !== $c['page_token'], 'ig_token' => '' !== $c['ig_token'], 'gem_key' => '' !== $c['gem_key'], 'or_key' => '' !== $c['or_key'], 'yt' => '' !== $c['yt_cid'] && '' !== $c['yt_sec'] && '' !== $c['yt_rt']),
+        'set' => array('page_token' => '' !== $c['page_token'], 'ig_token' => '' !== $c['ig_token'], 'gem_key' => '' !== $c['gem_key'], 'or_key' => '' !== sb_share_or_key($c)[0], 'or_src' => sb_share_or_key($c)[1], 'yt' => '' !== $c['yt_cid'] && '' !== $c['yt_sec'] && '' !== $c['yt_rt']),
         'msg' => $msg,
         'queue' => array_map(function ($e) { return array('k' => $e['kind'], 's' => $e['status'], 'steps' => $e['steps'] ?? array(), 'yt_public' => $e['yt_public'] ?? ''); }, array_slice(sb_share_queue(), -8, null, true)),
     ));
@@ -656,7 +674,7 @@ function sb_share_panel() {
         <p><label>ইনস্টাগ্রাম অ্যাকাউন্ট আইডি<br><input type="text" id="sh-ig" value="<?php echo esc_attr($c['ig_id']); ?>" style="width:100%"></label></p>
         <p><label>ইনস্টাগ্রাম টোকেন<br><input type="password" id="sh-it" autocomplete="off" placeholder="<?php echo esc_attr($ph('' !== $c['ig_token'])); ?>" style="width:100%"></label></p>
         <p><label>Gemini API key (ভিডিও দেখে বোঝার জন্য; সরাসরি Google থেকে, বড় ফাইলও চলে)<br><input type="password" id="sh-gk" autocomplete="off" placeholder="<?php echo esc_attr($ph('' !== $c['gem_key'])); ?>" style="width:100%"></label></p>
-        <p><label>অথবা OpenRouter key (Gemini মডেল দিয়ে; ২৫ MB-র ছোট ফাইল)<br><input type="password" id="sh-ok" autocomplete="off" placeholder="<?php echo esc_attr($ph('' !== $c['or_key'])); ?>" style="width:100%"></label></p>
+        <p><label>OpenRouter key (খালি রাখলে প্লাগইনের আগের OpenRouter key নেবে; Gemini মডেল দিয়ে চলে, ২৫ MB-র ছোট ফাইল)<br><input type="password" id="sh-ok" autocomplete="off" placeholder="<?php echo esc_attr($ph('' !== $c['or_key'])); ?>" style="width:100%"></label></p>
         <p><label>OpenRouter মডেল<br><input type="text" id="sh-om" value="<?php echo esc_attr($c['or_model']); ?>" style="width:100%"></label></p>
         <p><label><input type="checkbox" id="sh-yt" <?php checked($c['yt_on'], 1); ?>> ইউটিউবে আপলোড (OAuth বসানোর পর)</label> &nbsp; <label>পাবলিক হবে <input type="number" id="sh-yd" min="1" max="1440" value="<?php echo (int) $c['yt_delay']; ?>" style="width:70px"> মিনিট পর</label></p>
         <p><button type="button" class="button button-primary" id="sh-save">💾 সেভ</button> <button type="button" class="button" id="sh-check">🔎 এখনই পেজ দেখুন</button> <span id="sh-msg" class="description"></span></p>
@@ -665,7 +683,7 @@ function sb_share_panel() {
     (function(){var $=function(s){return document.querySelector(s);},aj=<?php echo wp_json_encode(admin_url('admin-ajax.php')); ?>,nn=<?php echo wp_json_encode(wp_create_nonce('sb_admin')); ?>;
         function call(x){$('#sh-msg').textContent='…';return fetch(aj,{method:'POST',credentials:'same-origin',body:new URLSearchParams(Object.assign({action:'sb_share_cfg',nonce:nn},x))}).then(function(r){return r.json();}).then(function(j){
             if(!j.success){$('#sh-msg').textContent='❌ '+(j.data||'ত্রুটি');return;}var d=j.data,s=d.set||{};
-            $('#sh-msg').textContent=(d.msg?d.msg+' · ':'')+'চালু: '+(d.on?'হ্যাঁ':'না')+' · পেজ টোকেন: '+(s.page_token?'✅':'—')+' · ইনস্টাগ্রাম: '+(s.ig_token?'✅':'—')+' · Gemini: '+(s.gem_key?'✅':'—')+' · OpenRouter: '+(s.or_key?'✅':'—')+' · ইউটিউব: '+(s.yt?'✅':'—');
+            $('#sh-msg').textContent=(d.msg?d.msg+' · ':'')+'চালু: '+(d.on?'হ্যাঁ':'না')+' · পেজ টোকেন: '+(s.page_token?'✅':'—')+' · ইনস্টাগ্রাম: '+(s.ig_token?'✅':'—')+' · Gemini: '+(s.gem_key?'✅':'—')+' · OpenRouter: '+(s.or_key?'✅ ('+(s.or_src||'')+')':'—')+' · ইউটিউব: '+(s.yt?'✅':'—');
             ['#sh-pt','#sh-it','#sh-gk','#sh-ok'].forEach(function(i){$(i).value='';});});}
         $('#sh-save').onclick=function(){call({set:JSON.stringify({on:$('#sh-on').checked?1:0,page_id:$('#sh-page').value,page_token:$('#sh-pt').value,ig_id:$('#sh-ig').value,ig_token:$('#sh-it').value,gem_key:$('#sh-gk').value,or_key:$('#sh-ok').value,or_model:$('#sh-om').value,yt_on:$('#sh-yt').checked?1:0,yt_delay:$('#sh-yd').value})});};
         $('#sh-check').onclick=function(){call({check:'1'});};
