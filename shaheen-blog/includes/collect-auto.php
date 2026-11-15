@@ -168,6 +168,10 @@ function sb_ca_process($item, $manual = true) {
         }
         return array('blocked', $why !== '' ? $why : 'নেতিবাচক বা সন্দেহজনক');
     }
+    if (!empty($item['force']) && empty($j['negative'])) {   // the owner chose this link himself: it is news and relevant
+        $j['kind']     = 'news';
+        $j['relevant'] = true;
+    }
     if (($j['kind'] ?? '') !== 'news' || empty($j['relevant'])) {
         return array('skipped', $why !== '' ? $why : 'সংবাদ নয় বা বিষয়ের সাথে মেলে না');
     }
@@ -556,6 +560,22 @@ function sb_ca_backfill($reset = false) {
     update_option('sb_ca_bf', $st, false);
     return array('year' => min($st['y'], $to), 'to' => $to, 'from' => $st['from'], 'finished' => $fin, 'waiting' => count($pend), 'found' => $st['found'], 'filed' => $st['filed'], 'blocked' => $st['blocked'], 'skipped' => $st['skipped'], 'unread' => $st['unread'], 'excluded' => $st['excluded'], 'last' => $st['last'] ?? '');
 }
+/** owner picks a link himself (e.g. one the robot skipped): same safety checks, but relevance is taken as given */
+add_action('wp_ajax_sb_ca_force', function () {
+    sb_ajax_guard('manage_options');
+    $u = esc_url_raw((string) sb_req('url'));
+    $it = $u ? sb_ca_read($u) : null;
+    if (!$it) {
+        wp_send_json_error(array('message' => 'পাতা পড়া যায়নি।'));
+    }
+    $it['url']   = $u;
+    $it['host']  = (string) wp_parse_url($u, PHP_URL_HOST);
+    $it['id']    = substr(md5($u . microtime(true)), 0, 10);
+    $it['t']     = time();
+    $it['force'] = 1;
+    list($st, $note) = sb_ca_process($it, true);
+    wp_send_json_success(array('st' => $st, 'note' => $note, 'title' => $it['title']));
+});
 add_action('wp_ajax_sb_ca_bf', function () {
     sb_ajax_guard('manage_options');
     $from = (int) sb_req('from', 0);
