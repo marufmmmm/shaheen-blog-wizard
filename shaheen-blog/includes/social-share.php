@@ -684,6 +684,64 @@ add_action('wp_ajax_sb_share_cfg', function () {
     ));
 });
 
+/* ------------------------------------------------------------ manual: list the page's latest posts, share one right now (admin only) */
+function sb_share_kind($p) {
+    $att   = $p['attachments']['data'][0] ?? array();
+    $mt    = strtolower((string) ($att['media_type'] ?? ''));
+    $video = ('video' === $mt) ? (string) ($att['target']['id'] ?? '') : '';
+    $st    = (string) ($p['status_type'] ?? '');
+    $kind  = ('' !== $video && 'added_video' === $st) ? 'video' : (('photo' === $mt && 'added_photos' === $st && !empty($p['full_picture'])) ? 'photo' : '');
+    return array($kind, $video, $st);
+}
+add_action('wp_ajax_sb_share_pick', function () {
+    check_ajax_referer('sb_admin', 'nonce');
+    if (!current_user_can('manage_options')) {
+        wp_send_json_error('অনুমতি নেই।');
+    }
+    $c = sb_share_cfg();
+    if ('' === $c['page_id'] || '' === $c['page_token']) {
+        wp_send_json_error('পেজের আইডি/টোকেন বসানো নেই।');
+    }
+    $fields = 'id,created_time,message,permalink_url,full_picture,status_type,attachments{media_type,target{id}}';
+    $id = isset($_POST['share']) ? preg_replace('/[^\d_]/', '', (string) $_POST['share']) : '';
+    if ('' === $id) {   // list
+        $j = sb_share_graph($c, $c['page_id'] . '/published_posts', array('fields' => $fields, 'limit' => 15));
+        if (is_wp_error($j)) {
+            wp_send_json_error($j->get_error_message());
+        }
+        $q = sb_share_queue();
+        $out = array();
+        foreach ((array) ($j['data'] ?? array()) as $p) {
+            list($kind) = sb_share_kind($p);
+            $out[] = array('id' => $p['id'], 'time' => $p['created_time'] ?? '', 'kind' => $kind ?: 'skip', 'st' => $p['status_type'] ?? '', 'msg' => mb_substr(wp_strip_all_tags((string) ($p['message'] ?? '')), 0, 90), 'state' => $q[$p['id']]['status'] ?? '');
+        }
+        wp_send_json_success(array('posts' => $out));
+    }
+    // share this one now (even when it is older than the moment sharing was switched on)
+    $p = sb_share_graph($c, $id, array('fields' => $fields));
+    if (is_wp_error($p)) {
+        wp_send_json_error($p->get_error_message());
+    }
+    list($kind, $video, $st) = sb_share_kind($p);
+    if ('' === $kind) {
+        wp_send_json_error('এই পোস্টটা শেয়ার করা যায় না (পেজের নিজের ছবি/ভিডিও নয়)।');
+    }
+    $q = sb_share_queue();
+    if (isset($q[$id]) && in_array($q[$id]['status'], array('working', 'done'), true) && empty($_POST['again'])) {
+        wp_send_json_error('এটা আগেই ' . ('done' === $q[$id]['status'] ? 'শেয়ার হয়ে গেছে' : 'চলছে') . '।');
+    }
+    $q[$id] = array(
+        't' => time(), 'fb' => (string) ($p['permalink_url'] ?? ''), 'msg' => (string) ($p['message'] ?? ''), 'kind' => $kind,
+        'vid' => $video, 'img' => (string) ($p['full_picture'] ?? ''), 'status' => 'new', 'st' => $st, 'steps' => array(),
+    );
+    sb_share_queue_save($q);
+    delete_transient('sb_share_lock');
+    @ignore_user_abort(true);
+    sb_share_run($id);   // runs now; the page may stop waiting, the work carries on
+    $e = sb_share_queue()[$id] ?? array();
+    wp_send_json_success(array('status' => $e['status'] ?? '', 'steps' => $e['steps'] ?? array(), 'yt_public' => $e['yt_public'] ?? ''));
+});
+
 /* ------------------------------------------------------------ admin panel (shown under the notification panel on the Research page) */
 function sb_share_panel() {
     $c = sb_share_cfg();
