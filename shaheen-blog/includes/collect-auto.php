@@ -669,7 +669,7 @@ function sb_ca_fb_fetch($url) {
             $r    = wp_remote_get($u, array('timeout' => 12, 'redirection' => 5, 'limit_response_size' => 600000, 'user-agent' => $ua, 'headers' => array('Accept-Language' => 'bn,en;q=0.8')));
             $code = is_wp_error($r) ? 0 : (int) wp_remote_retrieve_response_code($r);
             if (200 !== $code) {
-                $log[] = $ui . substr($ua, 0, 2) . $code;
+                $log[] = $ui . substr($ua, 0, 2) . $code . (is_wp_error($r) ? '(' . substr(preg_replace('/\s+/', '_', $r->get_error_message()), 0, 45) . ')' : '');
                 continue;
             }
             $b = (string) wp_remote_retrieve_body($r);
