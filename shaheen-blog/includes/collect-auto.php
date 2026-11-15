@@ -793,7 +793,11 @@ add_action('wp_ajax_sb_ca_datefix', function () {
     if (!$pid) {
         $ids = get_posts(array('post_type' => 'sb_post', 'post_status' => 'publish', 'numberposts' => 400, 'fields' => 'ids', 'meta_key' => '_sb_press_url'));
         $ids = array_values(array_filter($ids, function ($i) { return !get_post_meta($i, '_sb_press_dated', true) && !get_post_meta($i, '_sb_press_nodate', true); }));
-        wp_send_json_success(array('ids' => $ids));
+        $urls = array();
+        foreach ($ids as $i) {
+            $urls[$i] = (string) get_post_meta($i, '_sb_press_url', true);
+        }
+        wp_send_json_success(array('ids' => $ids, 'urls' => $urls));
     }
     $url = (string) get_post_meta($pid, '_sb_press_url', true);
     $d   = preg_match('#youtu#i', $url) && preg_match('#(?:v=|shorts/|youtu\.be/)([\w-]{11})#', $url, $ym) ? sb_ca_date_for_url('https://www.youtube.com/watch?v=' . $ym[1]) : sb_ca_date_for_url($url);
