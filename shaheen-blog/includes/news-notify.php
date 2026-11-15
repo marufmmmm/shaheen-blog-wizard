@@ -329,4 +329,7 @@ function sb_notify_panel() {
     if (function_exists('sb_desk_panel')) {
         sb_desk_panel();
     }
+    if (function_exists('sb_share_panel')) {
+        sb_share_panel();
+    }
 }

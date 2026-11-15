@@ -22,6 +22,9 @@ const SB_RESEARCH_MULT = 1.7;
 /** Auto social sharing (Facebook page -> Instagram / YouTube): AI video/image analysis and caption writing, real cost x 1.8. Never shown on a client screen. */
 const SB_SHARE_MULT = 1.8;
 
+/** Same, but the part where Gemini looks at the video/picture and writes the title and description: real cost x 1.5. */
+const SB_SHARE_VID_MULT = 1.5;
+
 /** Automatic YouTube episode look (no AI used): fixed fee per look, USD. If AI is used in that look, real cost x 1.7 is billed instead. */
 const SB_YT_CHECK_FEE = 0.01;
 
@@ -204,7 +207,7 @@ function sb_ledger_add($user_id, $feature, $credits, $post_id = 0, $real_usd = n
         'post_id'  => (int) $post_id,
         'credits'  => $credits,
         'raw_usd'  => $real_usd !== null ? (float) $real_usd : $credits * SB_RAW_USD_PER_CREDIT,
-        'bill_usd' => isset($GLOBALS['sb_bill_override']) ? (float) $GLOBALS['sb_bill_override'] : ($real_usd !== null ? (float) $real_usd : $credits * SB_RAW_USD_PER_CREDIT) * (0 === strpos((string) $feature, 'research') ? SB_RESEARCH_MULT : (0 === strpos((string) $feature, 'share') ? SB_SHARE_MULT : SB_BILL_MULT)),
+        'bill_usd' => isset($GLOBALS['sb_bill_override']) ? (float) $GLOBALS['sb_bill_override'] : ($real_usd !== null ? (float) $real_usd : $credits * SB_RAW_USD_PER_CREDIT) * (0 === strpos((string) $feature, 'research') ? SB_RESEARCH_MULT : (0 === strpos((string) $feature, 'share_vid') ? SB_SHARE_VID_MULT : (0 === strpos((string) $feature, 'share') ? SB_SHARE_MULT : SB_BILL_MULT))),
     ));
 }
 
