@@ -6,7 +6,7 @@ if (!defined('ABSPATH')) {
 /**
  * Automatic sharing: a new post on the Facebook page goes to Instagram; a video also goes to YouTube.
  *
- *  - Every 5 minutes a cron tick reads the page's newest posts (Graph API, page token). Posts made before sharing was switched on are never touched.
+ *  - Every 2 hours a cron tick reads the page's newest posts (Graph API, page token). Posts made before sharing was switched on are never touched.
  *  - Photo post  -> AI writes the caption from the picture + post text -> Instagram photo.
  *  - Video post  -> the video is downloaded to a TEMPORARY file, AI (Gemini) watches/listens and writes an SEO title, description, hashtags
  *                   -> Instagram Reel (resumable upload, no public copy) + YouTube upload (private) -> YouTube is made public after `yt_delay` minutes.
@@ -48,16 +48,21 @@ function sb_share_set($id, $patch) {
     }
 }
 
-/* ------------------------------------------------------------ cron: look at the page every 5 minutes */
+/* ------------------------------------------------------------ cron: look at the page every 2 hours */
 add_filter('cron_schedules', function ($s) {
     $s['sb_5min'] = array('interval' => 300, 'display' => 'Every 5 minutes');
+    $s['sb_2hr']  = array('interval' => 2 * HOUR_IN_SECONDS, 'display' => 'Every 2 hours');
     return $s;
 });
 add_action('init', function () {
     $c  = sb_share_cfg();
     $ev = wp_next_scheduled('sb_share_poll');
+    if (!empty($c['on']) && $ev && 'sb_2hr' !== wp_get_schedule('sb_share_poll')) {
+        wp_clear_scheduled_hook('sb_share_poll');   // old 5-minute schedule -> every 2 hours
+        $ev = false;
+    }
     if (!empty($c['on']) && !$ev) {
-        wp_schedule_event(time() + 60, 'sb_5min', 'sb_share_poll');
+        wp_schedule_event(time() + 60, 'sb_2hr', 'sb_share_poll');
     } elseif (empty($c['on']) && $ev) {
         wp_clear_scheduled_hook('sb_share_poll');
     }
@@ -91,7 +96,7 @@ function sb_share_poll($force = false) {
     }
     $j = sb_share_graph($c, $c['page_id'] . '/published_posts', array(
         'fields' => 'id,created_time,message,permalink_url,full_picture,status_type,attachments{media_type,target{id}}',
-        'limit'  => 10,
+        'limit'  => 25,
     ));
     if (is_wp_error($j)) {
         return 'পেজ পড়া যায়নি: ' . $j->get_error_message();
