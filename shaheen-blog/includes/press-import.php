@@ -95,6 +95,30 @@ add_action('wp_ajax_sb_press_import', function () {
 
 
 /** make one press card (blog post of type sb_post with a press link). Returns post id or 0. */
+/** download a picture even when its address has no .jpg ending (Facebook CDN links); returns the attachment id or 0 */
+function sb_press_sideload($img_url, $post_id, $title) {
+    require_once ABSPATH . 'wp-admin/includes/file.php';
+    require_once ABSPATH . 'wp-admin/includes/media.php';
+    require_once ABSPATH . 'wp-admin/includes/image.php';
+    $tmp = download_url($img_url, 25);
+    if (is_wp_error($tmp)) {
+        return 0;
+    }
+    $mime = function_exists('mime_content_type') ? (string) mime_content_type($tmp) : '';
+    $ext  = array('image/png' => 'png', 'image/webp' => 'webp', 'image/gif' => 'gif')[$mime] ?? 'jpg';
+    if (0 !== strpos($mime, 'image/') && function_exists('getimagesize') && !@getimagesize($tmp)) {
+        @unlink($tmp);
+        return 0;
+    }
+    $file = array('name' => 'press-' . $post_id . '-' . substr(md5($img_url), 0, 6) . '.' . $ext, 'tmp_name' => $tmp);
+    $aid  = media_handle_sideload($file, $post_id, $title);
+    if (is_wp_error($aid)) {
+        @unlink($tmp);
+        return 0;
+    }
+    return (int) $aid;
+}
+
 function sb_press_make($title, $url, $paper, $pub, $excerpt, $img_url, $cat) {
     require_once ABSPATH . 'wp-admin/includes/file.php';
     require_once ABSPATH . 'wp-admin/includes/media.php';
@@ -117,9 +141,9 @@ function sb_press_make($title, $url, $paper, $pub, $excerpt, $img_url, $cat) {
     sb_seo_sync($id);
     sb_set_post_categories($id, (int) $cat, array());
     if ($img_url !== '') {
-        $r = media_sideload_image($img_url, $id, $title, 'id');
-        if (!is_wp_error($r)) {
-            set_post_thumbnail($id, (int) $r);
+        $r = sb_press_sideload($img_url, $id, $title);
+        if ($r) {
+            set_post_thumbnail($id, $r);
         }
     }
     return (int) $id;

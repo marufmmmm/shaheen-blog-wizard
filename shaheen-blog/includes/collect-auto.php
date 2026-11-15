@@ -712,14 +712,11 @@ add_action('wp_ajax_sb_ca_imgfix', function () {
     if ('' === $img) {
         wp_send_json_success(array('id' => $pid, 'ok' => 0, 'how' => $how));
     }
-    require_once ABSPATH . 'wp-admin/includes/file.php';
-    require_once ABSPATH . 'wp-admin/includes/media.php';
-    require_once ABSPATH . 'wp-admin/includes/image.php';
-    $r = media_sideload_image($img, $pid, get_the_title($pid), 'id');
-    if (is_wp_error($r)) {
-        wp_send_json_success(array('id' => $pid, 'ok' => 0, 'how' => $how . ' | ' . $r->get_error_message()));
+    $aid = sb_press_sideload($img, $pid, get_the_title($pid));
+    if (!$aid) {
+        wp_send_json_success(array('id' => $pid, 'ok' => 0, 'how' => $how . ' | download failed'));
     }
-    set_post_thumbnail($pid, (int) $r);
+    set_post_thumbnail($pid, $aid);
     wp_send_json_success(array('id' => $pid, 'ok' => 1, 'how' => $how));
 });
 
