@@ -713,6 +713,31 @@ function csa_ev_hs_ideal( $x ) {
 }
 
 function csa_ev_hs_blog( $x ) {
+	// cats = comma list of blog category ids: newest post of each category (one card per category), labelled with its name.
+	$posts = array();
+	$cats  = array_filter( array_map( 'intval', explode( ',', (string) ( $x['cats'] ?? '' ) ) ) );
+	if ( $cats && post_type_exists( 'sb_post' ) ) {
+		$seen = array();
+		foreach ( array_slice( $cats, 0, 9 ) as $cid ) {
+			$cq = get_posts( array( 'post_type' => 'sb_post', 'post_status' => 'publish', 'posts_per_page' => 1, 'post__not_in' => $seen, 'ignore_sticky_posts' => true, 'tax_query' => array( array( 'taxonomy' => 'sb_category', 'field' => 'term_id', 'terms' => $cid ) ) ) );
+			if ( $cq ) {
+				$posts[ $cq[0]->ID ] = array( $cq[0], get_term( $cid, 'sb_category' ) );
+				$seen[]              = $cq[0]->ID;
+			}
+		}
+	}
+	if ( $posts ) {
+		$h = '<section class="sec alt" id="blog"><div class="in">' . csa_ev_head( $x['t'], $x['p'] ) . '<div class="bl">';
+		foreach ( $posts as $pc ) {
+			$p   = $pc[0];
+			$img = get_the_post_thumbnail_url( $p, 'medium_large' );
+			$lb  = ( $pc[1] && ! is_wp_error( $pc[1] ) ) ? '<em class="ct">' . esc_html( $pc[1]->name ) . '</em>' : '';
+			$h  .= '<a class="bp rv" href="' . esc_url( get_permalink( $p ) ) . '"><span class="th' . ( $img ? '' : ' ph' ) . '">' . ( $img ? csa_ev_img( $img, get_the_title( $p ) ) : '📰' ) . '</span><span class="tx">' . $lb . '<b>' . esc_html( get_the_title( $p ) ) . '</b><time>' . esc_html( csa_ev_date( get_the_date( 'Y-m-d', $p ) ) ) . '</time></span></a>';
+		}
+		$bu = $x['bu'] ? $x['bu'] : '/blog/';
+		$bt = $x['bt'] ? $x['bt'] : 'সব লেখা পড়ুন →';
+		return $h . '</div><p class="mr rv"><a class="b p"' . csa_ev_link_attr( $bu ) . '>' . esc_html( $bt ) . '</a></p></div></section>';
+	}
 	$q = new WP_Query( array( 'post_type' => post_type_exists( 'sb_post' ) ? 'sb_post' : 'post', 'post_status' => 'publish', 'posts_per_page' => (int) $x['n'], 'ignore_sticky_posts' => true ) );
 	if ( ! $q->have_posts() && post_type_exists( 'sb_post' ) ) {
 		$q = new WP_Query( array( 'post_type' => 'post', 'post_status' => 'publish', 'posts_per_page' => (int) $x['n'], 'ignore_sticky_posts' => true ) );

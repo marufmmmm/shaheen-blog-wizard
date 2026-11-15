@@ -907,7 +907,7 @@ function csa_ev_clean_home( $in ) {
 		$h[ $k ] = array( 't' => csa_ev_txt( $x['t'] ?? '' ), 'p' => csa_ev_txt( $x['p'] ?? '' ), 'cards' => $cards( $x['cards'] ?? array(), array( 'ic' => 's', 'img' => 'i', 't' => 's', 'd' => 's', 'u' => 'u', 'pid' => 's' ) ) );
 	}
 	$x         = (array) ( $in['blog'] ?? array() );
-	$h['blog'] = array( 't' => csa_ev_txt( $x['t'] ?? '' ), 'p' => csa_ev_txt( $x['p'] ?? '' ), 'n' => max( 1, min( 9, (int) ( $x['n'] ?? 3 ) ) ), 'bt' => csa_ev_txt( $x['bt'] ?? '' ), 'bu' => csa_ev_clean_url( $x['bu'] ?? '' ) );
+	$h['blog'] = array( 't' => csa_ev_txt( $x['t'] ?? '' ), 'p' => csa_ev_txt( $x['p'] ?? '' ), 'n' => max( 1, min( 9, (int) ( $x['n'] ?? 3 ) ) ), 'cats' => preg_replace( '/[^0-9,]/', '', (string) ( $x['cats'] ?? '' ) ), 'bt' => csa_ev_txt( $x['bt'] ?? '' ), 'bu' => csa_ev_clean_url( $x['bu'] ?? '' ) );
 	$x         = (array) ( $in['cta'] ?? array() );
 	$h['cta']  = array( 't' => csa_ev_txt( $x['t'] ?? '' ), 'p' => csa_ev_txt( $x['p'] ?? '' ), 'b1' => $lnk( (array) ( $x['b1'] ?? array() ) ), 'b2' => $lnk( (array) ( $x['b2'] ?? array() ) ), 'phone' => csa_ev_txt( $x['phone'] ?? '' ), 'mail' => sanitize_email( $x['mail'] ?? '' ) );
 	$x        = (array) ( $in['seo'] ?? array() );
