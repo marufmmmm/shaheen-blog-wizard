@@ -505,8 +505,11 @@ function sb_ca_discover($force = false) {
 
 
 /** other institutions that also carry the name "Shaheen" (BAF Shaheen College, Gazipur ...): never ours. Returns the word found or ''. */
-function sb_ca_lookalike($text) {
+function sb_ca_lookalike($text, $own = false) {
     foreach (array('বিএএফ', 'বিএফ', 'বি এ এফ', 'BAF', 'B.A.F', 'এয়ার ফোর্স', 'বিমান বাহিনী', 'বিমানবাহিনী', 'Air Force', 'গাজীপুর', 'গাজিপুর', 'Gazipur') as $w) {
+        if ($own && preg_match('/গাজ|Gaz/u', $w)) {
+            continue;   // our own Facebook page: a Gazipur mention there is our branch, not the other school
+        }
         if (false !== mb_stripos((string) $text, $w)) {
             return $w;
         }
@@ -614,6 +617,9 @@ function sb_ca_social_card($url, $cat = 0) {
                 $img = 'https:' . $img;
             }
         }
+        if ('' === $img) {
+            list($img) = sb_ca_fb_image($url);
+        }
     }
     if ('' === trim($title . $desc)) {
         return array('error', 'লিংকের তথ্য পাওয়া যায়নি (পোস্ট পাবলিক নয়, বা সাইট আটকাচ্ছে)।', '');
@@ -630,7 +636,7 @@ function sb_ca_social_card($url, $cat = 0) {
     };
     $title = $clean($title);
     $head  = '' !== $title ? $title : $clean(mb_substr($desc, 0, 160));
-    $la    = sb_ca_lookalike($head . ' ' . $desc . ' ' . $who);
+    $la    = sb_ca_lookalike($head . ' ' . $desc . ' ' . $who, (bool) preg_match('#facebook\.com/shaheen\.edu\.bd/#i', $url));
     if ('' !== $la) {
         return array('skipped', 'অন্য প্রতিষ্ঠান (' . $la . ') — আমাদের নয়', $head);
     }
@@ -646,6 +652,76 @@ function sb_ca_social_card($url, $cat = 0) {
     update_post_meta($id, '_sb_press_kind', $yt ? 'video' : 'fb');
     return array('filed', 'ব্লগে কার্ড হয়েছে' . ($img ? ' (ছবিসহ)' : ' (ছবি পাওয়া যায়নি, আইকন বসবে)'), $head);
 }
+
+/** a picture for a Facebook post/video when the plain page fetch gives none: other robot names, the mobile page, then Facebook's picture endpoint */
+function sb_ca_fb_image($url) {
+    $id = '';
+    if (preg_match('#(?:videos|posts|reel|reels)/(\d{6,})#', $url, $m) || preg_match('#[?&](?:v|story_fbid)=(\d{6,})#', $url, $m)) {
+        $id = $m[1];
+    }
+    $uas  = array('facebookexternalhit/1.1', 'Twitterbot/1.0', 'Mozilla/5.0 (compatible; Googlebot/2.1; +http://www.google.com/bot.html)', 'WhatsApp/2.23.20.0', 'Mozilla/5.0 (Linux; Android 10) AppleWebKit/537.36 Chrome/120 Mobile Safari/537.36');
+    $urls = array($url, preg_replace('#^https?://(www\.)?facebook\.com#i', 'https://m.facebook.com', $url), preg_replace('#^https?://(www\.)?facebook\.com#i', 'https://mbasic.facebook.com', $url));
+    $tried = array();
+    foreach ($urls as $u) {
+        foreach ($uas as $ua) {
+            $r = wp_remote_get($u, array('timeout' => 10, 'redirection' => 4, 'limit_response_size' => 400000, 'user-agent' => $ua, 'headers' => array('Accept-Language' => 'en,bn;q=0.8')));
+            $code = is_wp_error($r) ? 0 : (int) wp_remote_retrieve_response_code($r);
+            $tried[] = substr($ua, 0, 8) . ':' . $code;
+            if (200 !== $code) {
+                continue;
+            }
+            $b = (string) wp_remote_retrieve_body($r);
+            if (preg_match('#<meta[^>]+(?:property|name)=["\'](?:og:image|twitter:image)["\'][^>]+content=["\']([^"\']+)#i', $b, $mm) || preg_match('#<meta[^>]+content=["\']([^"\']+)["\'][^>]+(?:property|name)=["\'](?:og:image|twitter:image)["\']#i', $b, $mm)) {
+                $img = html_entity_decode($mm[1], ENT_QUOTES);
+                if (0 === strpos($img, '//')) {
+                    $img = 'https:' . $img;
+                }
+                if (!preg_match('#static\.xx\.fbcdn|rsrc\.php|/images/icons|fb_icon#i', $img)) {
+                    return array($img, 'og via ' . substr($ua, 0, 8));
+                }
+            }
+        }
+    }
+    if ($id) {
+        $g = 'https://graph.facebook.com/' . $id . '/picture?type=large';
+        $r = wp_remote_head($g, array('timeout' => 10, 'redirection' => 5));
+        $code = is_wp_error($r) ? 0 : (int) wp_remote_retrieve_response_code($r);
+        $ct   = is_wp_error($r) ? '' : (string) wp_remote_retrieve_header($r, 'content-type');
+        $tried[] = 'graph:' . $code . ':' . $ct;
+        if (200 === $code && 0 === strpos($ct, 'image/')) {
+            return array($g, 'graph picture');
+        }
+    }
+    return array('', implode(' ', $tried));
+}
+
+/** owner tool: give a picture to press cards that have none (Facebook ones), one card per call */
+add_action('wp_ajax_sb_ca_imgfix', function () {
+    sb_ajax_guard('manage_options');
+    $pid = (int) sb_req('id', 0);
+    if (!$pid) {
+        $q = get_posts(array('post_type' => 'sb_post', 'post_status' => 'publish', 'numberposts' => 200, 'fields' => 'ids', 'meta_key' => '_sb_press_kind', 'meta_value' => 'fb'));
+        $q = array_values(array_filter($q, function ($i) { return !has_post_thumbnail($i); }));
+        wp_send_json_success(array('ids' => $q));
+    }
+    $url = (string) get_post_meta($pid, '_sb_press_url', true);
+    if ('' === $url) {
+        wp_send_json_error(array('message' => 'no url'));
+    }
+    list($img, $how) = sb_ca_fb_image($url);
+    if ('' === $img) {
+        wp_send_json_success(array('id' => $pid, 'ok' => 0, 'how' => $how));
+    }
+    require_once ABSPATH . 'wp-admin/includes/file.php';
+    require_once ABSPATH . 'wp-admin/includes/media.php';
+    require_once ABSPATH . 'wp-admin/includes/image.php';
+    $r = media_sideload_image($img, $pid, get_the_title($pid), 'id');
+    if (is_wp_error($r)) {
+        wp_send_json_success(array('id' => $pid, 'ok' => 0, 'how' => $how . ' | ' . $r->get_error_message()));
+    }
+    set_post_thumbnail($pid, (int) $r);
+    wp_send_json_success(array('id' => $pid, 'ok' => 1, 'how' => $how));
+});
 
 /** owner picks a link himself (e.g. one the robot skipped): same safety checks, but relevance is taken as given */
 add_action('wp_ajax_sb_ca_force', function () {
