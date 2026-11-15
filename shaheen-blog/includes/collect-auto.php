@@ -292,6 +292,26 @@ function sb_ca_panel() {
         <p><button type="button" class="button" id="ca-addt">➕ নতুন বিষয়</button></p>
         <p style="margin:8px 0"><label>আরও নির্দেশ (ঐচ্ছিক) <input type="text" id="ca-extra" value="<?php echo esc_attr($c['extra']); ?>" style="width:100%" placeholder="যেমন: রাজনীতির খবর বাদ দাও"></label></p>
         <p style="margin:8px 0"><label><input type="checkbox" id="ca-disc" <?php checked($c['disc'], 1); ?>> 🔎 নতুন সংবাদ <b>নিজে নিজে খুঁজুন</b> (প্রতি ৬ ঘণ্টায় একবার; খোঁজার খরচ প্রতি বার $০.০১, পাওয়া প্রতিটি পেজ AI যাচাইয়ের খরচ আলাদা)</label></p>
+        <div id="ca-link" style="border:1px dashed #94a3b8;border-radius:6px;padding:8px;margin:10px 0;background:#fff">
+            <b>🔗 লিংক দিয়ে সরাসরি বসান</b>
+            <p class="sba-muted" style="margin:4px 0">খবরের লিংক, ফেসবুক পোস্ট বা ভিডিও লিংক, ইউটিউব লিংক — প্রতি লাইনে একটি। ফেসবুক/ইউটিউবের ছবি নিজে থেকে আসবে; খবর হলে নেতিবাচক-শব্দ ও AI যাচাই হবে।</p>
+            <textarea id="ca-links" rows="4" style="width:100%" placeholder="https://www.facebook.com/…&#10;https://www.youtube.com/watch?v=…"></textarea>
+            <p><button type="button" class="button button-primary" id="ca-linkgo">➕ ব্লগে বসান</button> <span id="ca-linkmsg" class="sba-msg"></span></p>
+            <div id="ca-linkout" style="font-size:13px;line-height:1.6"></div>
+        </div>
+        <script>
+        (function(){var $=function(s){return document.querySelector(s);},aj=<?php echo wp_json_encode(admin_url('admin-ajax.php')); ?>,nn=<?php echo wp_json_encode(wp_create_nonce('sb_admin')); ?>;
+            $('#ca-linkgo').onclick=async function(){var ls=$('#ca-links').value.split(/\s+/).filter(function(x){return /^https?:\/\//i.test(x);}),b=this,o=$('#ca-linkout');if(!ls.length){$('#ca-linkmsg').textContent='লিংক দিন।';return;}
+                b.disabled=true;o.innerHTML='';
+                for(var i=0;i<ls.length;i++){$('#ca-linkmsg').textContent='('+(i+1)+'/'+ls.length+') হচ্ছে…';var t;
+                    try{var r=await (await fetch(aj,{method:'POST',credentials:'same-origin',body:new URLSearchParams({action:'sb_ca_force',nonce:nn,url:ls[i]})})).json();
+                        var ic={filed:'✅ বসেছে',blocked:'🛑 আটকানো',skipped:'⏭️ বাদ',dup:'♻️ আগেই আছে',error:'⚠️ হয়নি'};
+                        t=r.success?((ic[r.data.st]||r.data.st)+' — '+(r.data.title||'')+' ('+r.data.note+')'):('⚠️ '+((r.data&&r.data.message)||'ত্রুটি'));
+                    }catch(e){t='⚠️ সংযোগ ত্রুটি';}
+                    var d=document.createElement('div');d.textContent=t+' · '+ls[i].slice(0,60);o.appendChild(d);}
+                $('#ca-linkmsg').textContent='শেষ ✓';b.disabled=false;};
+        })();
+        </script>
         <?php /* history backfill UI hidden: Bing web RSS returns nothing now (checked live) */ ?>
         <?php if (!empty($c['dlog'])) : ?><p class="sba-muted" style="margin:4px 0">শেষ খোঁজা: <?php echo esc_html(wp_date('d M, H:i', (int) $c['dlast'])); ?> — <?php echo esc_html((string) $c['dlog'][0]); ?></p><?php endif; ?>
         <p><button type="button" class="button" id="ca-save">💾 সেভ</button> <button type="button" class="button" id="ca-find">🔎 এখনই খুঁজুন</button> <button type="button" class="button button-primary" id="ca-run">▶ আগে সংগ্রহ করা বাকিগুলো এখন বসান</button> <span id="ca-msg" class="sba-msg"></span></p>
