@@ -598,6 +598,10 @@ function sb_ca_social_card($url, $cat = 0) {
     if ('' === trim($title . $desc)) {
         return array('error', 'লিংকের তথ্য পাওয়া যায়নি (পোস্ট পাবলিক নয়, বা সাইট আটকাচ্ছে)।', '');
     }
+    if (!$yt && '' !== trim($desc) && ('' === $title || mb_strlen($title) < 30 || false !== stripos($title, 'Shaheen Education Family') && mb_strlen($title) < 40)) {
+        $title = trim(preg_replace('/\s+/u', ' ', preg_replace('/[#\x{1F000}-\x{1FFFF}\x{2600}-\x{27BF}]+/u', '', $desc)));   // a page-name-only title: use the post's own first words
+        $title = mb_strlen($title) > 90 ? mb_substr($title, 0, 88) . '…' : $title;
+    }
     $head  = '' !== $title ? $title : mb_substr($desc, 0, 90);
     $la    = sb_ca_lookalike($head . ' ' . $desc . ' ' . $who);
     if ('' !== $la) {
