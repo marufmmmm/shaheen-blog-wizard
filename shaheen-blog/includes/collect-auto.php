@@ -766,7 +766,7 @@ function sb_press_audit($id) {
     $mine = $norm($title);
     $ids  = get_posts(array('post_type' => 'sb_post', 'post_status' => 'publish', 'numberposts' => 300, 'fields' => 'ids', 'post__not_in' => array($id), 'meta_key' => '_sb_press_url'));
     foreach ($ids as $o) {
-        if ($norm(get_the_title($o)) === $mine && '' !== $mine) {
+        if ($norm(get_the_title($o)) === $mine && '' !== $mine && (string) get_post_meta($o, '_sb_press_paper', true) === (string) get_post_meta($id, '_sb_press_paper', true) && wp_parse_url($url, PHP_URL_PATH) !== wp_parse_url((string) get_post_meta($o, '_sb_press_url', true), PHP_URL_PATH)) {   // same words, same source, different link
             $bad[] = 'একই শিরোনামের আরেকটি কার্ড আছে (#' . $o . ')';
             break;
         }
