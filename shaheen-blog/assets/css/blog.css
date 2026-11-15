@@ -1062,3 +1062,9 @@ html.sb-modal-open{overflow:hidden}
 .sb-modal-go{display:inline-block;font-size:13px;color:#0f5132;text-decoration:none;font-weight:700}
 .blog-card.is-fb[href*="/videos/"] .blog-image-container,.blog-card.is-fb[href*="/reel"] .blog-image-container,.blog-card.is-fb[href*="fb.watch"] .blog-image-container{position:relative}
 .blog-card.is-fb[href*="/videos/"] .blog-image-container::after,.blog-card.is-fb[href*="/reel"] .blog-image-container::after,.blog-card.is-fb[href*="fb.watch"] .blog-image-container::after{content:"▶";position:absolute;left:50%;top:50%;transform:translate(-50%,-50%);width:54px;height:54px;border-radius:50%;background:rgba(24,119,242,.85);color:#fff;font-size:22px;line-height:54px;text-align:center;padding-left:3px;box-sizing:border-box;pointer-events:none}
+
+.sb-modal-frame{position:relative}
+.sb-modal-spin{position:absolute;left:50%;top:50%;width:44px;height:44px;margin:-22px 0 0 -22px;border-radius:50%;border:4px solid rgba(255,255,255,.3);border-top-color:#fff;animation:sbspin .8s linear infinite;z-index:0}
+.sb-modal-frame.is-tall .sb-modal-spin{border-color:rgba(0,0,0,.15);border-top-color:#1877f2}
+.sb-modal-frame iframe{position:relative;z-index:1}
+@keyframes sbspin{to{transform:rotate(360deg)}}

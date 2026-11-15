@@ -418,13 +418,13 @@
         var m = url.match(/(?:youtube\.com\/(?:watch\?[^#]*v=|shorts\/|live\/|embed\/)|youtu\.be\/)([\w-]{11})/i);
         if (m) {
             var short = /shorts\//i.test(url);
-            return { src: 'https://www.youtube-nocookie.com/embed/' + m[1] + '?rel=0', ratio: short ? '9 / 16' : '16 / 9', maxw: short ? '380px' : '860px' };
+            return { src: 'https://www.youtube-nocookie.com/embed/' + m[1] + '?autoplay=1&playsinline=1&rel=0', ratio: short ? '9 / 16' : '16 / 9', maxw: short ? '380px' : '860px' };
         }
         if (/facebook\.com|fb\.watch|fb\.me/i.test(url)) {
             var vid = /\/videos\/|\/reel|\/watch|fb\.watch/i.test(url);
             var h = encodeURIComponent(url);
             if (vid) {
-                return { src: 'https://www.facebook.com/plugins/video.php?href=' + h + '&show_text=false&width=560&height=315', ratio: '16 / 9', maxw: '860px' };
+                return { src: 'https://www.facebook.com/plugins/video.php?href=' + h + '&show_text=false&autoplay=true&width=560&height=315', ratio: '16 / 9', maxw: '860px' };
             }
             return { src: 'https://www.facebook.com/plugins/post.php?href=' + h + '&show_text=true&width=500&height=600', ratio: '', maxw: '540px', tall: true };
         }
@@ -453,6 +453,10 @@
         var wrap = document.createElement('div');
         wrap.className = 'sb-modal-frame' + (e.tall ? ' is-tall' : '');
         if (e.ratio) { wrap.style.aspectRatio = e.ratio; }
+        var sp = document.createElement('div');
+        sp.className = 'sb-modal-spin'; sp.setAttribute('aria-label', 'লোড হচ্ছে');
+        fr.addEventListener('load', function () { if (sp.parentNode) { sp.parentNode.removeChild(sp); } });
+        wrap.appendChild(sp);
         wrap.appendChild(fr);
         var t = document.createElement('div');
         t.className = 'sb-modal-t'; t.textContent = title || '';
