@@ -880,6 +880,7 @@ function sb_desk_news_run($m, $urls) {
         $ic = array('filed' => '✅ বসানো হয়েছে', 'blocked' => '🛑 আটকানো হয়েছে', 'skipped' => '⏭️ বাদ', 'dup' => '♻️ আগেই আছে', 'error' => '⚠️ হয়নি');
         $out[] = ($ic[$r[0]] ?? $r[0]) . ': ' . esc_html(mb_substr($it['title'] ?: $u, 0, 80)) . "\n   " . esc_html($r[1]);
     }
+    update_option('sb_desk_lastrun', array('t' => time(), 'out' => $out), false);
     sb_desk_say($m, "📰 <b>সংবাদের ফল</b>\n\n" . implode("\n\n", $out) . "\n\n🛑 আটকানো খবর আপনাকে আলাদা করে জানানো হয় (ব্লগ → সংবাদ সংগ্রহ)।\n/menu — আরেকটি কাজ");
 }
 
@@ -1798,6 +1799,9 @@ add_action('wp_ajax_sb_desk_op', function () {
         }
         $i = sb_tg_api('getWebhookInfo');
         wp_send_json_success(array('msg' => 'চালু ✓ ' . (is_array($i) && !empty($i['last_error_message']) ? '(টেলিগ্রামের অভিযোগ: ' . $i['last_error_message'] . ')' : '')));
+    }
+    if ('lastrun' === $op) {
+        wp_send_json_success(array('run' => get_option('sb_desk_lastrun', array()), 'err' => get_option('sb_desk_err', '')));
     }
     if ('sim' === $op) {   // owner test: send a message into the desk exactly as if typed in the channel (answers arrive in Telegram)
         $txt = trim((string) sb_req('text'));
