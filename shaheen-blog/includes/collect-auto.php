@@ -635,7 +635,7 @@ function sb_ca_social_card($url, $cat = 0, $force = false) {
     }
     $clean = function ($t) {   // Facebook titles carry "13K views · 354 reactions |" , emoji and #tags: not wanted in a headline
         $t = preg_replace('/^[^|]{0,40}(ভিউ|প্রতিক্রিয়া|views|reactions)[^|]{0,40}\|\s*/u', '', (string) $t);
-        $t = preg_replace('/[#\x{1F000}-\x{1FFFF}\x{2600}-\x{27BF}\x{FE0F}\x{200D}]+\S*/u', ' ', $t);
+        $t = preg_replace('/[#\x{1F000}-\x{1FFFF}\x{2600}-\x{27BF}\x{FE0F}]+\S*/u', ' ', $t);
         $t = trim(preg_replace('/\s+/u', ' ', $t));
         return mb_strlen($t) > 90 ? rtrim(mb_substr($t, 0, mb_strrpos(mb_substr($t, 0, 88), ' ') ?: 88), ' ,.-') . '…' : $t;
     };
