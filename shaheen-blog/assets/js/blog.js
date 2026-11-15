@@ -203,7 +203,7 @@
             if (y) {
                 y.addEventListener('click', function () {
                     var f = document.createElement('iframe');
-                    f.src = s.getAttribute('data-src') + '?autoplay=1&rel=0'; f.title = s.getAttribute('data-title') || '';
+                    f.src = s.getAttribute('data-src') + '?rel=0'; f.title = s.getAttribute('data-title') || '';
                     f.setAttribute('allow', 'autoplay; encrypted-media; picture-in-picture'); f.setAttribute('allowfullscreen', 'true');
                     f.style.cssText = 'width:100%;aspect-ratio:' + ((s.getAttribute('data-r') || '16:9').replace(':', '/')) + ';border:0;display:block';
                     y.replaceWith(f); paused = true;   // keep the video on screen while it plays
@@ -424,9 +424,9 @@
             var vid = /\/videos\/|\/reel|\/watch|fb\.watch/i.test(url);
             var h = encodeURIComponent(url);
             if (vid) {
-                return { src: 'https://www.facebook.com/plugins/video.php?href=' + h + '&show_text=false&autoplay=true&width=720', ratio: '16 / 9', maxw: '860px' };
+                return { src: 'https://www.facebook.com/plugins/video.php?href=' + h + '&show_text=false&width=560&height=315', ratio: '16 / 9', maxw: '860px' };
             }
-            return { src: 'https://www.facebook.com/plugins/post.php?href=' + h + '&show_text=true&width=500', ratio: '', maxw: '540px', tall: true };
+            return { src: 'https://www.facebook.com/plugins/post.php?href=' + h + '&show_text=true&width=500&height=600', ratio: '', maxw: '540px', tall: true };
         }
         return null;
     }
