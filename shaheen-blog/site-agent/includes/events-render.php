@@ -520,7 +520,15 @@ function csa_ev_cards_grid( $cards, $cls = 'cg' ) {
 	foreach ( $cards as $c ) {
 		$tag = ! empty( $c['u'] ) ? 'a' : 'div';
 		$at  = ! empty( $c['u'] ) ? csa_ev_link_attr( $c['u'] ) : '';
-		$h  .= '<' . $tag . ' class="cc rv"' . $at . '>' . ( ! empty( $c['tag'] ) ? '<span class="tg">' . esc_html( $c['tag'] ) . '</span>' : '' ) . csa_ev_icon( $c['img'] ?? '', $c['ic'] ?? '', $c['t'] ) . '<b>' . esc_html( $c['t'] ) . '</b>' . ( ! empty( $c['d'] ) ? '<span>' . esc_html( $c['d'] ) . '</span>' : '' ) . ( ! empty( $c['u'] ) ? '<i class="ar">→</i>' : '' ) . '</' . $tag . '>';
+		$pic = $c['img'] ?? '';
+		$wp  = false;
+		if ( false !== strpos( $cls, 'c3' ) ) { // three-card rows get a real photo on top (own picture, else the linked page's)
+			if ( ! $pic && ! empty( $c['u'] ) ) {
+				$pic = csa_ev_page_img( $c['u'] );
+			}
+			$wp = (bool) $pic;
+		}
+		$h  .= '<' . $tag . ' class="cc rv' . ( $wp ? ' wp' : '' ) . '"' . $at . '>' . ( ! empty( $c['tag'] ) ? '<span class="tg">' . esc_html( $c['tag'] ) . '</span>' : '' ) . csa_ev_icon( $pic, $c['ic'] ?? '', $c['t'] ) . '<b>' . esc_html( $c['t'] ) . '</b>' . ( ! empty( $c['d'] ) ? '<span>' . esc_html( $c['d'] ) . '</span>' : '' ) . ( ! empty( $c['u'] ) ? '<i class="ar">→</i>' : '' ) . '</' . $tag . '>';
 	}
 	return $h . '</div>';
 }
