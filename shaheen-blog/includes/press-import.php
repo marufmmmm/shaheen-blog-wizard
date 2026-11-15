@@ -52,7 +52,7 @@ function sb_url_variants($url) {
 }
 
 function sb_press_url_exists($url) {
-    $q = get_posts(array('post_type' => 'sb_post', 'post_status' => 'any', 'numberposts' => 1, 'fields' => 'ids',
+    $q = get_posts(array('post_type' => 'sb_post', 'post_status' => array('publish', 'draft', 'pending', 'private', 'future', 'trash'), 'numberposts' => 1, 'fields' => 'ids',   // trash counts: a card the owner removed must not come back
         'meta_query' => array(array('key' => '_sb_press_url', 'value' => sb_url_variants($url), 'compare' => 'IN'))));
     return !empty($q);
 }

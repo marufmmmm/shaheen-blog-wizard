@@ -1799,6 +1799,25 @@ add_action('wp_ajax_sb_desk_op', function () {
         $i = sb_tg_api('getWebhookInfo');
         wp_send_json_success(array('msg' => 'চালু ✓ ' . (is_array($i) && !empty($i['last_error_message']) ? '(টেলিগ্রামের অভিযোগ: ' . $i['last_error_message'] . ')' : '')));
     }
+    if ('sim' === $op) {   // owner test: send a message into the desk exactly as if typed in the channel (answers arrive in Telegram)
+        $txt = trim((string) sb_req('text'));
+        $go  = '1' === (string) sb_req('go');
+        $chat = (string) $n['tg_chat'];
+        if ('' === $txt || '' === $chat) {
+            wp_send_json_error(array('message' => 'text বা চ্যানেল নেই'));
+        }
+        $m = array('message_id' => time(), 'chat' => array('id' => $chat, 'type' => 'channel'), 'text' => $txt, 'date' => time());
+        wp_set_current_user(sb_desk_uid());
+        try {
+            sb_desk_message($m);
+            if ($go) {
+                sb_desk_step($m, array('cb' => 'go:publish'));
+            }
+        } catch (Throwable $e) {
+            wp_send_json_error(array('message' => $e->getMessage()));
+        }
+        wp_send_json_success(array('msg' => 'sent'));
+    }
     if ('who' === $op) {   // which bot does the saved token belong to (the secret part is never shown)
         $tk  = (string) $n['tg_token'];
         $me  = sb_tg_api('getMe');

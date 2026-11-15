@@ -584,8 +584,17 @@ function sb_ca_backfill($reset = false) {
     return array('year' => min($st['y'], $to), 'to' => $to, 'from' => $st['from'], 'finished' => $fin, 'waiting' => count($pend), 'found' => $st['found'], 'filed' => $st['filed'], 'blocked' => $st['blocked'], 'skipped' => $st['skipped'], 'unread' => $st['unread'], 'excluded' => $st['excluded'], 'last' => $st['last'] ?? '');
 }
 /** Facebook post / YouTube video -> a blog card whose picture is the post's/video's own thumbnail (play badge for videos). Returns array(status, note, title). */
+/** one address per Facebook post: the long slug between the page and the number is dropped, tracking parts removed */
+function sb_ca_canon_social($u) {
+    $u = trim($u);
+    if (preg_match('#^(https?://(?:www\.|m\.|web\.)?facebook\.com/[^/?\#]+/(?:videos|posts|reel))/(?:[^/?\#]*/)?(\d{6,})(?:/|\?|\#|$)#iu', $u, $m)) {
+        return preg_replace('#^https?://(?:m\.|web\.)?#i', 'https://www.', $m[1]) . '/' . $m[2];
+    }
+    return $u;
+}
+
 function sb_ca_social_card($url, $cat = 0, $force = false) {
-    $url   = esc_url_raw($url);
+    $url   = sb_ca_canon_social(esc_url_raw($url));
     $yt    = preg_match('#(?:youtube\.com/(?:watch\?[^\s]*v=|shorts/|live/|embed/)|youtu\.be/)([\w-]{11})#i', $url, $ym);
     $fb    = !$yt && preg_match('#facebook\.com|fb\.watch|fb\.me#i', $url);
     if (!$yt && !$fb) {
