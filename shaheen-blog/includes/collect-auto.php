@@ -792,7 +792,7 @@ add_action('wp_ajax_sb_ca_datefix', function () {
     $pid = (int) sb_req('id', 0);
     if (!$pid) {
         $ids = get_posts(array('post_type' => 'sb_post', 'post_status' => 'publish', 'numberposts' => 400, 'fields' => 'ids', 'meta_key' => '_sb_press_url'));
-        $ids = array_values(array_filter($ids, function ($i) { return !get_post_meta($i, '_sb_press_dated', true) && !get_post_meta($i, '_sb_press_nodate', true); }));
+        $ids = array_values(array_filter($ids, function ($i) { return !get_post_meta($i, '_sb_press_dated', true) && ('' !== (string) sb_req('all') || !get_post_meta($i, '_sb_press_nodate', true)); }));
         $urls = array();
         foreach ($ids as $i) {
             $urls[$i] = (string) get_post_meta($i, '_sb_press_url', true);
