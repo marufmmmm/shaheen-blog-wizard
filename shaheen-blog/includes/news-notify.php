@@ -64,10 +64,10 @@ function sb_notify_flush() {
     foreach ($q as $x) {
         $by[$x[0]][] = $x;
     }
-    $head = array('filed' => '✅ ওয়েবসাইটে নতুন খবর যোগ হয়েছে', 'blocked' => '⛔ আটকানো হয়েছে (সাইটে বসেনি — দেখে নিন)', 'video' => '🎬 নতুন ভিডিও/পর্ব যোগ হয়েছে');
+    $head = array('filed' => '✅ ওয়েবসাইটে নতুন খবর যোগ হয়েছে', 'blocked' => '⛔ আটকানো হয়েছে (সাইটে বসেনি — দেখে নিন)', 'post' => '🆕 নতুন পোস্ট প্রকাশিত হয়েছে', 'video' => '🎬 নতুন ভিডিও/পর্ব যোগ হয়েছে');
     $h = '';
     $p = '';
-    foreach (array('filed', 'video', 'blocked') as $k) {
+    foreach (array('post', 'filed', 'video', 'blocked') as $k) {
         if (empty($by[$k])) {
             continue;
         }
@@ -92,10 +92,38 @@ function sb_notify_flush() {
             update_option('sb_notify_err', wp_date('d M H:i') . ' — ' . $r->get_error_message(), false);
         }
     }
-    if (isset($by['filed']) || isset($by['blocked'])) {
-        sb_notify_mail('শাহীন শিক্ষা পরিবার ওয়েবসাইট: ' . (isset($by['filed']) ? 'নতুন খবর যোগ হয়েছে' : 'খবর আটকানো হয়েছে'), $p . home_url('/'));
+    if (isset($by['post']) || isset($by['filed']) || isset($by['blocked'])) {
+        sb_notify_mail('শাহীন শিক্ষা পরিবার ওয়েবসাইট: ' . (isset($by['post']) ? 'নতুন পোস্ট প্রকাশিত হয়েছে' : (isset($by['filed']) ? 'নতুন খবর যোগ হয়েছে' : 'খবর আটকানো হয়েছে')), $p . home_url('/'));
     }
 }
+
+/* new post goes live -> Telegram (press cards made by the news robot are skipped; they send their own 'filed' message) */
+add_action('transition_post_status', function ($new, $old, $post) {
+    if ('publish' !== $new || 'publish' === $old || !in_array($post->post_type, array('sb_post', 'post'), true)) {
+        return;
+    }
+    if (wp_is_post_revision($post) || defined('WP_IMPORTING')) {
+        return;
+    }
+    $o = sb_notify_cfg();
+    if (empty($o['on'])) {
+        return;
+    }
+    static $reg = false;
+    $GLOBALS['sb_np_ids'][] = (int) $post->ID;
+    if (!$reg) {
+        $reg = true;
+        add_action('shutdown', function () {
+            foreach (array_unique((array) ($GLOBALS['sb_np_ids'] ?? array())) as $id) {
+                if (get_post_meta($id, '_sb_press_url', true) || 'publish' !== get_post_status($id)) {
+                    continue;
+                }
+                sb_notify_queue('post', html_entity_decode(get_the_title($id), ENT_QUOTES, 'UTF-8'), get_permalink($id), 'ধরন: ' . ('sb_post' === get_post_type($id) ? 'ব্লগ' : 'পেজ/পোস্ট'));
+            }
+            sb_notify_flush();
+        }, 5);
+    }
+}, 10, 3);
 
 /** called by the YouTube episode watcher when it added something */
 function sb_notify_yt($added) {
