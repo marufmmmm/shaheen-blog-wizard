@@ -371,24 +371,42 @@ function sb_share_gemini($c, $sys, $usr, $file, $video) {
     } else {
         $part = array('inline_data' => array('mime_type' => $mime, 'data' => base64_encode((string) file_get_contents($file))));
     }
-    $model = preg_replace('/[^\w.\-]/', '', $c['gem_model']);
-    $r = wp_remote_post($base . '/v1beta/models/' . $model . ':generateContent?key=' . rawurlencode($key), array('timeout' => 180, 'headers' => array('Content-Type' => 'application/json'),
-        'body' => wp_json_encode(array(
-            'system_instruction' => array('parts' => array(array('text' => $sys))),
-            'contents' => array(array('role' => 'user', 'parts' => array($part, array('text' => $usr)))),
-            'generationConfig' => array('response_mime_type' => 'application/json', 'temperature' => 0.4),
-        ))));
+    $body = wp_json_encode(array(
+        'system_instruction' => array('parts' => array(array('text' => $sys))),
+        'contents' => array(array('role' => 'user', 'parts' => array($part, array('text' => $usr)))),
+        'generationConfig' => array('response_mime_type' => 'application/json', 'temperature' => 0.4),
+    ));
+    // The chosen model first; when Google says "busy" (429/500/503) retry once, then fall back to the next model.
+    $models = array_values(array_unique(array(preg_replace('/[^\w.\-]/', '', $c['gem_model']), 'gemini-3.5-flash')));
+    $r = null;
+    $model = '';
+    foreach ($models as $m) {
+        for ($try = 0; $try < 2; $try++) {
+            $r = wp_remote_post($base . '/v1beta/models/' . $m . ':generateContent?key=' . rawurlencode($key), array('timeout' => 180, 'headers' => array('Content-Type' => 'application/json'), 'body' => $body));
+            $code = is_wp_error($r) ? 0 : (int) wp_remote_retrieve_response_code($r);
+            if (200 === $code) {
+                $model = $m;
+                break 2;
+            }
+            if (!in_array($code, array(0, 429, 500, 503), true)) {
+                break 2;   // a real error (bad key, bad request): another model will not help
+            }
+            sleep(3);
+        }
+    }
     if ('' !== $name) {
         sb_share_gemini_del($base, $name, $key);   // the copy at Google is deleted too
     }
-    if (is_wp_error($r) || 200 !== (int) wp_remote_retrieve_response_code($r)) {
+    if ('' === $model) {
         return null;
     }
     $j = json_decode((string) wp_remote_retrieve_body($r), true);
     $u = $j['usageMetadata'] ?? array();
-    // Gemini 3.8 Flash list price (USD per 1M tokens): input 0.75, output (incl. thinking) 3.75 until 31 Dec 2026; doubles from 1 Jan 2027 (1.50 / 7.50). Change here if Google changes it.
-    $dbl = time() >= 1798761600 ? 2 : 1;   // 2027-01-01 00:00 UTC
-    $real = ((int) ($u['promptTokenCount'] ?? 0) * 0.75 * $dbl + ((int) ($u['candidatesTokenCount'] ?? 0) + (int) ($u['thoughtsTokenCount'] ?? 0)) * 3.75 * $dbl) / 1000000;
+    // List prices, USD per 1M tokens (input / output incl. thinking). 3.8 Flash: 0.75 / 3.75 until 31 Dec 2026, doubles from 1 Jan 2027. 3.5 Flash: 1.50 / 9.00. Unknown model: priced as 3.5 Flash (the dearer, so never under-billed). Change here if Google changes it.
+    $prices = array('gemini-3.8-flash' => array(0.75, 3.75), 'gemini-3.5-flash' => array(1.50, 9.00));
+    $pr  = $prices[$model] ?? $prices['gemini-3.5-flash'];
+    $dbl = ('gemini-3.8-flash' === $model && time() >= 1798761600) ? 2 : 1;   // 2027-01-01 00:00 UTC
+    $real = ((int) ($u['promptTokenCount'] ?? 0) * $pr[0] * $dbl + ((int) ($u['candidatesTokenCount'] ?? 0) + (int) ($u['thoughtsTokenCount'] ?? 0)) * $pr[1] * $dbl) / 1000000;
     sb_share_bill($real, $model, 'share_vid');
     $txt = '';
     foreach ((array) ($j['candidates'][0]['content']['parts'] ?? array()) as $p) {
