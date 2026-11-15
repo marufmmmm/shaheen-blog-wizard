@@ -503,6 +503,11 @@ function sb_desk_message($m) {
 function sb_desk_step($m, $in) {
     $lock = sb_desk_lock($m);
     $cb   = isset($in['cb']) ? $in['cb'] : '';
+    if (0 === strpos($cb, 'sh:') && function_exists('sb_share_cb')) { // share approval buttons
+        sb_desk_unlock($lock);
+        sb_share_cb($m, $cb);
+        return;
+    }
     if (0 === strpos($cb, 'm:')) { // menu choice
         sb_desk_unlock($lock);
         $f = substr($cb, 2);
@@ -863,12 +868,16 @@ function sb_desk_news_run($m, $urls) {
         return sb_desk_say($m, '⚠️ সংবাদ সংগ্রহের অংশ চালু নেই।');
     }
     sb_desk_say($m, '⏳ ' . count($urls) . 'টি লিংক পড়ছি ও যাচাই করছি…');
-    $out = array();
+    $out    = array();
+    $offers = array();
     foreach (array_slice($urls, 0, 5) as $u) {
         if (preg_match('#facebook\.com|fb\.watch|fb\.me|youtube\.com|youtu\.be#i', $u)) {   // picture = the post's / video's own thumbnail
             list($st, $note, $ti) = sb_ca_social_card($u);
             $ic = array('filed' => '✅ বসানো হয়েছে', 'blocked' => '🛑 আটকানো হয়েছে', 'skipped' => '⏭️ বাদ', 'dup' => '♻️ আগেই আছে', 'error' => '⚠️ হয়নি');
             $out[] = ($ic[$st] ?? $st) . ': ' . esc_html(mb_substr($ti ?: $u, 0, 80)) . "\n   " . esc_html($note);
+            if ('filed' === $st && function_exists('sb_share_offer')) {
+                $offers[] = array(sb_ca_canon_social(esc_url_raw($u)), (string) $ti);
+            }
             continue;
         }
         $it = sb_desk_news_item($u);
@@ -882,6 +891,9 @@ function sb_desk_news_run($m, $urls) {
     }
     update_option('sb_desk_lastrun', array('t' => time(), 'out' => $out), false);
     sb_desk_say($m, "📰 <b>সংবাদের ফল</b>\n\n" . implode("\n\n", $out) . "\n\n🛑 আটকানো খবর আপনাকে আলাদা করে জানানো হয় (ব্লগ → সংবাদ সংগ্রহ)।\n/menu — আরেকটি কাজ");
+    foreach ($offers as $of) {   // ask before sharing anything: Instagram/YouTube drafts need a tap to go
+        sb_share_offer($m, $of[0], $of[1]);
+    }
 }
 
 
