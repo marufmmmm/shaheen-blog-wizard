@@ -454,7 +454,7 @@ function sb_desk_message($m) {
             $in[$kind] = (int) $a;
         }
         $s = sb_desk_state($m);
-        $newslink = !$s && '' === $cmd && !$fid && sb_desk_urls($text) && !preg_match('#youtube\.com|youtu\.be#i', $text) && mb_strlen(trim(preg_replace('#https?://\S+#i', '', $text))) < 12;
+        $newslink = !$s && '' === $cmd && !$fid && sb_desk_urls($text) && mb_strlen(trim(preg_replace('#https?://\S+#i', '', $text))) < 12;
         if (in_array($cmd, array('menu', 'help', 'cancel'), true) || ('' === $cmd && !$s && !$fid && !$newslink)) {
             sb_desk_unlock($lock);
             if ('help' === $cmd) {
@@ -865,8 +865,10 @@ function sb_desk_news_run($m, $urls) {
     sb_desk_say($m, '⏳ ' . count($urls) . 'টি লিংক পড়ছি ও যাচাই করছি…');
     $out = array();
     foreach (array_slice($urls, 0, 5) as $u) {
-        if (preg_match('#youtube\.com|youtu\.be#i', $u)) {
-            $out[] = '⏭️ ' . esc_html($u) . "\n   ইউটিউব ভিডিও সংবাদ কার্ড হয় না, বাদ দিলাম (ভিডিও ইভেন্ট পেজে যায়)।";
+        if (preg_match('#facebook\.com|fb\.watch|fb\.me|youtube\.com|youtu\.be#i', $u)) {   // picture = the post's / video's own thumbnail
+            list($st, $note, $ti) = sb_ca_social_card($u);
+            $ic = array('filed' => '✅ বসানো হয়েছে', 'blocked' => '🛑 আটকানো হয়েছে', 'skipped' => '⏭️ বাদ', 'dup' => '♻️ আগেই আছে', 'error' => '⚠️ হয়নি');
+            $out[] = ($ic[$st] ?? $st) . ': ' . esc_html(mb_substr($ti ?: $u, 0, 80)) . "\n   " . esc_html($note);
             continue;
         }
         $it = sb_desk_news_item($u);

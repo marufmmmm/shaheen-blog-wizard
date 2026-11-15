@@ -112,14 +112,15 @@ function sb_card_html($post_id, $hidden = false) {
     $label = esc_html($cat['bn']);
     $href  = $press ? get_post_meta($post_id, '_sb_press_url', true) : get_permalink($post_id);
     $paper = $press ? get_post_meta($post_id, '_sb_press_paper', true) : '';
+    $kind  = $press ? (string) get_post_meta($post_id, '_sb_press_kind', true) : '';
     ob_start();
     ?>
-    <a class="blog-card<?php echo $press ? ' is-press' : ''; ?>" href="<?php echo esc_url($href); ?>"<?php echo $press ? ' target="_blank" rel="noopener nofollow"' : ''; ?> data-cat="<?php echo esc_attr(implode(' ', wp_list_pluck(sb_post_categories($post_id), 'slug'))); ?>"<?php echo $hidden ? ' hidden' : ''; ?>>
+    <a class="blog-card<?php echo $press ? ' is-press' : ''; ?><?php echo $kind ? ' is-' . esc_attr($kind) : ''; ?>" href="<?php echo esc_url($href); ?>"<?php echo $press ? ' target="_blank" rel="noopener nofollow"' : ''; ?> data-cat="<?php echo esc_attr(implode(' ', wp_list_pluck(sb_post_categories($post_id), 'slug'))); ?>"<?php echo $hidden ? ' hidden' : ''; ?>>
         <div class="blog-image-container">
             <?php if ($img) : ?>
                 <img class="blog-image" src="<?php echo esc_url($img); ?>" alt="<?php echo esc_attr(sb_post_alt($post_id)); ?>" loading="lazy">
             <?php else : ?>
-                <div class="blog-noimg" aria-hidden="true"><?php echo $press ? '📰' : '📚'; ?></div>
+                <div class="blog-noimg" aria-hidden="true"><?php echo 'video' === $kind ? '🎬' : ('fb' === $kind ? '📘' : ($press ? '📰' : '📚')); ?></div>
             <?php endif; ?>
             <span class="blog-category"><?php echo $label; ?></span>
         </div>
@@ -127,7 +128,7 @@ function sb_card_html($post_id, $hidden = false) {
             <h3 class="blog-title"><?php echo esc_html($title); ?></h3>
             <p class="blog-excerpt"><?php echo esc_html($excerpt !== '' ? $excerpt : ($press ? 'সংবাদটি পড়তে ক্লিক করুন ↗' : '')); ?></p>
             <div class="blog-meta">
-                <span class="blog-author"><?php echo $press ? '📰 ' . esc_html($paper) : '✍️ ' . esc_html(sb_author_name($post_id)); ?></span>
+                <span class="blog-author"><?php echo $press ? ('video' === $kind ? '🎬 ' : ('fb' === $kind ? '📘 ' : '📰 ')) . esc_html($paper) : '✍️ ' . esc_html(sb_author_name($post_id)); ?></span>
                 <span class="blog-date"><?php echo esc_html(sb_bn_date(get_post_time('U', false, $post_id), false)); ?></span>
             </div>
         </div>

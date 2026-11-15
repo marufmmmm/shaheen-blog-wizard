@@ -560,10 +560,70 @@ function sb_ca_backfill($reset = false) {
     update_option('sb_ca_bf', $st, false);
     return array('year' => min($st['y'], $to), 'to' => $to, 'from' => $st['from'], 'finished' => $fin, 'waiting' => count($pend), 'found' => $st['found'], 'filed' => $st['filed'], 'blocked' => $st['blocked'], 'skipped' => $st['skipped'], 'unread' => $st['unread'], 'excluded' => $st['excluded'], 'last' => $st['last'] ?? '');
 }
+/** Facebook post / YouTube video -> a blog card whose picture is the post's/video's own thumbnail (play badge for videos). Returns array(status, note, title). */
+function sb_ca_social_card($url, $cat = 0) {
+    $url   = esc_url_raw($url);
+    $yt    = preg_match('#(?:youtube\.com/(?:watch\?[^\s]*v=|shorts/|live/|embed/)|youtu\.be/)([\w-]{11})#i', $url, $ym);
+    $fb    = !$yt && preg_match('#facebook\.com|fb\.watch|fb\.me#i', $url);
+    if (!$yt && !$fb) {
+        return array('error', 'ফেসবুক বা ইউটিউব লিংক নয়।', '');
+    }
+    if (function_exists('sb_press_url_exists') && sb_press_url_exists($url)) {
+        return array('dup', 'এই লিংক আগেই আছে।', '');
+    }
+    $title = '';
+    $desc  = '';
+    $img   = '';
+    $who   = '';
+    if ($yt) {
+        $r = wp_remote_get('https://www.youtube.com/oembed?format=json&url=' . rawurlencode($url), array('timeout' => 12));
+        if (!is_wp_error($r) && 200 === (int) wp_remote_retrieve_response_code($r)) {
+            $d     = json_decode(wp_remote_retrieve_body($r), true);
+            $title = (string) ($d['title'] ?? '');
+            $who   = (string) ($d['author_name'] ?? '');
+        }
+        $img = 'https://img.youtube.com/vi/' . $ym[1] . '/hqdefault.jpg';
+    } else {
+        $r = wp_remote_get($url, array('timeout' => 14, 'redirection' => 5, 'limit_response_size' => 600000, 'user-agent' => 'facebookexternalhit/1.1 (+http://www.facebook.com/externalhit_uatext.php)', 'headers' => array('Accept-Language' => 'bn,en;q=0.8')));
+        if (!is_wp_error($r) && 200 === (int) wp_remote_retrieve_response_code($r)) {
+            $m     = function_exists('csa_ev_og_meta') ? csa_ev_og_meta((string) wp_remote_retrieve_body($r)) : array();
+            $title = (string) ($m['og:title'] ?? '');
+            $desc  = (string) ($m['og:description'] ?? '');
+            $img   = (string) ($m['og:image'] ?? '');
+            if ($img && 0 === strpos($img, '//')) {
+                $img = 'https:' . $img;
+            }
+        }
+    }
+    if ('' === trim($title . $desc)) {
+        return array('error', 'লিংকের তথ্য পাওয়া যায়নি (পোস্ট পাবলিক নয়, বা সাইট আটকাচ্ছে)।', '');
+    }
+    $head  = '' !== $title ? $title : mb_substr($desc, 0, 90);
+    $la    = sb_ca_lookalike($head . ' ' . $desc . ' ' . $who);
+    if ('' !== $la) {
+        return array('skipped', 'অন্য প্রতিষ্ঠান (' . $la . ') — আমাদের নয়', $head);
+    }
+    $nw = function_exists('sb_neg_hit') ? sb_neg_hit($head . ' ' . $desc) : '';
+    if ('' !== $nw) {
+        return array('blocked', 'নেতিবাচক শব্দ: ' . $nw, $head);
+    }
+    $cfg = sb_ca_cfg();
+    $id  = sb_press_make(mb_substr(sanitize_text_field($head), 0, 110), $url, $yt ? 'ইউটিউব' . ($who ? ' · ' . $who : '') : 'ফেসবুক', '', $desc, $img, $cat ?: (int) $cfg['cat']);
+    if (!$id) {
+        return array('error', 'ব্লগে কার্ড বানানো যায়নি।', $head);
+    }
+    update_post_meta($id, '_sb_press_kind', $yt ? 'video' : 'fb');
+    return array('filed', 'ব্লগে কার্ড হয়েছে' . ($img ? ' (ছবিসহ)' : ' (ছবি পাওয়া যায়নি, আইকন বসবে)'), $head);
+}
+
 /** owner picks a link himself (e.g. one the robot skipped): same safety checks, but relevance is taken as given */
 add_action('wp_ajax_sb_ca_force', function () {
     sb_ajax_guard('manage_options');
     $u = esc_url_raw((string) sb_req('url'));
+    if (preg_match('#facebook\.com|fb\.watch|fb\.me|youtube\.com|youtu\.be#i', $u)) {
+        list($st, $note, $ti) = sb_ca_social_card($u);
+        wp_send_json_success(array('st' => $st, 'note' => $note, 'title' => $ti));
+    }
     $it = $u ? sb_ca_read($u) : null;
     if (!$it) {
         wp_send_json_error(array('message' => 'পাতা পড়া যায়নি।'));
