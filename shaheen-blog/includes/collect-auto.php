@@ -547,10 +547,12 @@ add_filter('cron_schedules', function ($s) {
 add_action('init', function () {
     $cfg = sb_ca_cfg();
     $on  = !empty($cfg['on']) && !empty($cfg['disc']);
-    $nx  = wp_next_scheduled('sb_ca_discover_tick');
-    if ($on && !$nx) {
-        wp_schedule_event(time() + 600, 'sb_6h', 'sb_ca_discover_tick');
-    } elseif (!$on && $nx) {
+    $ev  = wp_get_scheduled_event('sb_ca_discover_tick');
+    if ($on && (!$ev || 'daily' !== $ev->schedule)) {   // owner: one news search per 24 hours is enough (was every 6 hours)
+        wp_clear_scheduled_hook('sb_ca_discover_tick');
+        $t = strtotime('tomorrow 06:00', current_time('timestamp'));   // 6 am site time
+        wp_schedule_event($t - (int) (current_time('timestamp') - time()), 'daily', 'sb_ca_discover_tick');
+    } elseif (!$on && $ev) {
         wp_clear_scheduled_hook('sb_ca_discover_tick');
     }
 });
