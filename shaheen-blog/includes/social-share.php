@@ -185,6 +185,7 @@ function sb_share_run($id) {
                 return;
             }
             $src = $v['source'];
+            sb_share_set($id, array('src' => $src, 'len' => (float) ($v['length'] ?? 0)));
         }
         $r = wp_remote_get($src, array('timeout' => 600, 'stream' => true, 'filename' => $file, 'redirection' => 5));
         if (is_wp_error($r) || 200 !== (int) wp_remote_retrieve_response_code($r) || !is_file($file) || filesize($file) < 1000) {
@@ -214,7 +215,7 @@ function sb_share_run($id) {
         if ('' === $c['ig_id'] || '' === $c['ig_token']) {
             $S['ig'] = 'ইনস্টাগ্রামের আইডি/টোকেন নেই।';
         } else {
-            $r = $video ? sb_share_ig_reel($c, $file, $dr['ig']) : sb_share_ig_image($c, $e['img'], $dr['ig']);
+            $r = $video ? sb_share_ig_reel($c, $file, $dr['ig'], (string) (sb_share_queue()[$id]['src'] ?? '')) : sb_share_ig_image($c, $e['img'], $dr['ig']);
             $S['ig'] = is_wp_error($r) ? 'ব্যর্থ: ' . $r->get_error_message() : 'ok:' . $r;
         }
         sb_share_set($id, array('steps' => $S));
@@ -535,25 +536,39 @@ function sb_share_ig_image($c, $img, $caption) {
     return sb_share_ig_publish($c, (string) $j['id']);
 }
 
-/** Reel through the resumable upload route: the file goes straight to Instagram, no public copy is needed. */
-function sb_share_ig_reel($c, $file, $caption) {
+/** Reel. First the resumable upload (the file goes straight to Instagram); if Instagram refuses it, Instagram is given the video's link and fetches it itself. */
+function sb_share_ig_reel($c, $file, $caption, $src = '') {
     $base = 'https://graph.facebook.com/' . $c['api_ver'] . '/' . rawurlencode($c['ig_id']);
+    $why  = '';
     $r = wp_remote_post($base . '/media', array('timeout' => 60, 'body' => array('media_type' => 'REELS', 'upload_type' => 'resumable', 'caption' => $caption, 'share_to_feed' => 'true', 'access_token' => $c['ig_token'])));
-    if (is_wp_error($r)) {
-        return $r;
-    }
-    $j = json_decode((string) wp_remote_retrieve_body($r), true);
+    $j = is_wp_error($r) ? null : json_decode((string) wp_remote_retrieve_body($r), true);
     if (empty($j['id'])) {
-        return new WP_Error('sb_ig', (string) ($j['error']['message'] ?? 'রিলের কন্টেইনার হয়নি'));
+        $why = is_wp_error($r) ? $r->get_error_message() : (string) ($j['error']['message'] ?? 'রিলের কন্টেইনার হয়নি');
+    } else {
+        $uri = !empty($j['uri']) ? (string) $j['uri'] : 'https://rupload.facebook.com/ig-api-upload/' . $c['api_ver'] . '/' . $j['id'];
+        $up  = sb_share_stream('POST', $uri, array('Authorization: OAuth ' . $c['ig_token'], 'offset: 0', 'file_size: ' . filesize($file), 'Expect:'), $file);
+        $uj  = json_decode($up['b'], true);
+        if (!empty($uj['success'])) {
+            $pub = sb_share_ig_publish($c, (string) $j['id']);
+            if (!is_wp_error($pub)) {
+                return $pub;
+            }
+            $why = $pub->get_error_message();
+        } else {
+            $why = 'আপলোড: ' . (is_array($uj) && isset($uj['debug_info']['message']) ? $uj['debug_info']['message'] : ($up['e'] ?: 'HTTP ' . $up['c'])) . ' [HTTP ' . $up['c'] . ', ' . filesize($file) . ' bytes]';
+        }
     }
-    $uri = !empty($j['uri']) ? (string) $j['uri'] : 'https://rupload.facebook.com/ig-api-upload/' . $c['api_ver'] . '/' . $j['id'];
-    $up  = sb_share_stream('POST', $uri, array('Authorization: OAuth ' . $c['ig_token'], 'offset: 0', 'file_size: ' . filesize($file), 'Expect:'), $file);
-    $uj  = json_decode($up['b'], true);
-    if (empty($uj['success'])) {
-        $why = is_array($uj) && isset($uj['debug_info']['message']) ? $uj['debug_info']['message'] : ($up['e'] ?: 'HTTP ' . $up['c']);
-        return new WP_Error('sb_ig', 'ভিডিও আপলোড হয়নি: ' . $why . ' [HTTP ' . $up['c'] . ', ' . filesize($file) . ' bytes, ' . mb_substr(preg_replace('/\s+/', ' ', (string) $up['b']), 0, 300) . ']');
+    if ('' === $src) {
+        return new WP_Error('sb_ig', 'ভিডিও আপলোড হয়নি: ' . $why);
     }
-    return sb_share_ig_publish($c, (string) $j['id']);
+    // second route: Instagram downloads the video from the link itself
+    $r = wp_remote_post($base . '/media', array('timeout' => 60, 'body' => array('media_type' => 'REELS', 'video_url' => $src, 'caption' => $caption, 'share_to_feed' => 'true', 'access_token' => $c['ig_token'])));
+    $j = is_wp_error($r) ? null : json_decode((string) wp_remote_retrieve_body($r), true);
+    if (empty($j['id'])) {
+        return new WP_Error('sb_ig', 'ভিডিও আপলোড হয়নি: ' . $why . ' | লিংক পদ্ধতি: ' . (is_wp_error($r) ? $r->get_error_message() : (string) ($j['error']['message'] ?? 'কন্টেইনার হয়নি')));
+    }
+    $pub = sb_share_ig_publish($c, (string) $j['id']);
+    return is_wp_error($pub) ? new WP_Error('sb_ig', 'ভিডিও আপলোড হয়নি: ' . $why . ' | লিংক পদ্ধতি: ' . $pub->get_error_message()) : $pub;
 }
 
 /* ------------------------------------------------------------ YouTube */
