@@ -106,10 +106,12 @@ function sb_share_poll($force = false) {
         $att   = $p['attachments']['data'][0] ?? array();
         $mt    = strtolower((string) ($att['media_type'] ?? ''));
         $video = ('video' === $mt) ? (string) ($att['target']['id'] ?? '') : '';
-        $kind  = '' !== $video ? 'video' : (('photo' === $mt && !empty($p['full_picture'])) ? 'photo' : '');
+        $st    = (string) ($p['status_type'] ?? '');
+        // only the page's OWN uploads are shared; "shared_story" posts carry someone else's video/picture (copyright)
+        $kind  = ('' !== $video && 'added_video' === $st) ? 'video' : (('photo' === $mt && 'added_photos' === $st && !empty($p['full_picture'])) ? 'photo' : '');
         $q[$pid] = array(
             't' => time(), 'fb' => (string) ($p['permalink_url'] ?? ''), 'msg' => (string) ($p['message'] ?? ''), 'kind' => $kind ?: 'skip',
-            'vid' => $video, 'img' => (string) ($p['full_picture'] ?? ''), 'status' => $kind ? 'new' : 'skipped', 'steps' => array(),
+            'vid' => $video, 'img' => (string) ($p['full_picture'] ?? ''), 'status' => $kind ? 'new' : 'skipped', 'st' => $st, 'steps' => array(),
         );
         $n++;
         if ($kind) {
