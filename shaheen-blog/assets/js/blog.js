@@ -418,7 +418,7 @@
         var m = url.match(/(?:youtube\.com\/(?:watch\?[^#]*v=|shorts\/|live\/|embed\/)|youtu\.be\/)([\w-]{11})/i);
         if (m) {
             var short = /shorts\//i.test(url);
-            return { src: 'https://www.youtube-nocookie.com/embed/' + m[1] + '?autoplay=1&rel=0', ratio: short ? '9 / 16' : '16 / 9', maxw: short ? '380px' : '860px' };
+            return { src: 'https://www.youtube-nocookie.com/embed/' + m[1] + '?rel=0', ratio: short ? '9 / 16' : '16 / 9', maxw: short ? '380px' : '860px' };
         }
         if (/facebook\.com|fb\.watch|fb\.me/i.test(url)) {
             var vid = /\/videos\/|\/reel|\/watch|fb\.watch/i.test(url);
