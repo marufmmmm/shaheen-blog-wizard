@@ -547,10 +547,11 @@ function sb_share_ig_reel($c, $file, $caption) {
         return new WP_Error('sb_ig', (string) ($j['error']['message'] ?? 'রিলের কন্টেইনার হয়নি'));
     }
     $uri = !empty($j['uri']) ? (string) $j['uri'] : 'https://rupload.facebook.com/ig-api-upload/' . $c['api_ver'] . '/' . $j['id'];
-    $up  = sb_share_stream('POST', $uri, array('Authorization: OAuth ' . $c['ig_token'], 'offset: 0', 'file_size: ' . filesize($file)), $file);
+    $up  = sb_share_stream('POST', $uri, array('Authorization: OAuth ' . $c['ig_token'], 'offset: 0', 'file_size: ' . filesize($file), 'Expect:'), $file);
     $uj  = json_decode($up['b'], true);
     if (empty($uj['success'])) {
-        return new WP_Error('sb_ig', 'ভিডিও আপলোড হয়নি: ' . (is_array($uj) && isset($uj['debug_info']['message']) ? $uj['debug_info']['message'] : ($up['e'] ?: 'HTTP ' . $up['c'])));
+        $why = is_array($uj) && isset($uj['debug_info']['message']) ? $uj['debug_info']['message'] : ($up['e'] ?: 'HTTP ' . $up['c']);
+        return new WP_Error('sb_ig', 'ভিডিও আপলোড হয়নি: ' . $why . ' [HTTP ' . $up['c'] . ', ' . filesize($file) . ' bytes, ' . mb_substr(preg_replace('/\s+/', ' ', (string) $up['b']), 0, 300) . ']');
     }
     return sb_share_ig_publish($c, (string) $j['id']);
 }
@@ -730,9 +731,19 @@ add_action('wp_ajax_sb_share_pick', function () {
     if (isset($q[$id]) && in_array($q[$id]['status'], array('working', 'done'), true) && empty($_POST['again'])) {
         wp_send_json_error('এটা আগেই ' . ('done' === $q[$id]['status'] ? 'শেয়ার হয়ে গেছে' : 'চলছে') . '।');
     }
+    $keep = array();   // a retry keeps the steps that already worked (e.g. the YouTube upload), only failed ones run again
+    $dr   = null;
+    if (isset($q[$id])) {
+        foreach ((array) ($q[$id]['steps'] ?? array()) as $k => $v) {
+            if ('ai' === $k || 0 === strpos((string) $v, 'ok:')) {
+                $keep[$k] = $v;
+            }
+        }
+        $dr = $q[$id]['draft'] ?? null;
+    }
     $q[$id] = array(
         't' => time(), 'fb' => (string) ($p['permalink_url'] ?? ''), 'msg' => (string) ($p['message'] ?? ''), 'kind' => $kind,
-        'vid' => $video, 'img' => (string) ($p['full_picture'] ?? ''), 'status' => 'new', 'st' => $st, 'steps' => array(),
+        'vid' => $video, 'img' => (string) ($p['full_picture'] ?? ''), 'status' => 'new', 'st' => $st, 'steps' => $keep, 'draft' => $dr,
     );
     sb_share_queue_save($q);
     delete_transient('sb_share_lock');
