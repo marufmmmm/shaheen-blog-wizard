@@ -445,6 +445,12 @@
         }
         return null;
     }
+    /* personal profiles: Facebook refuses to embed them, so open the post on Facebook directly */
+    var NO_EMBED = ['junayedsiddiki.mahi', '61581640958339'];
+    function noEmbed(url) {
+        var m = url.match(/facebook\.com\/([^\/?#]+)/i);
+        return !!m && NO_EMBED.indexOf(m[1].toLowerCase()) > -1;
+    }
     var box = null;
     function close() {
         if (box) { box.parentNode.removeChild(box); box = null; document.documentElement.classList.remove('sb-modal-open'); }
@@ -489,6 +495,7 @@
         if (ev.defaultPrevented || ev.button || ev.ctrlKey || ev.metaKey || ev.shiftKey) { return; }
         var c = ev.target.closest ? ev.target.closest('a.blog-card.is-video, a.blog-card.is-fb') : null;
         if (!c) { return; }
+        if (noEmbed(c.getAttribute('href') || '')) { ev.preventDefault(); window.open(c.getAttribute('href'), '_blank', 'noopener'); return; }
         var t = c.querySelector('.blog-title');
         if (open(c.getAttribute('href') || '', t ? t.textContent : '')) { ev.preventDefault(); }
     });
