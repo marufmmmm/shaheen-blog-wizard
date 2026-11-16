@@ -583,6 +583,23 @@ function sb_ca_backfill($reset = false) {
     update_option('sb_ca_bf', $st, false);
     return array('year' => min($st['y'], $to), 'to' => $to, 'from' => $st['from'], 'finished' => $fin, 'waiting' => count($pend), 'found' => $st['found'], 'filed' => $st['filed'], 'blocked' => $st['blocked'], 'skipped' => $st['skipped'], 'unread' => $st['unread'], 'excluded' => $st['excluded'], 'last' => $st['last'] ?? '');
 }
+/** Shorten a headline at a WORD boundary (never in the middle of a word) and add "…". $max counts characters. */
+function sb_ca_cut_title($t, $max = 120) {
+    $t = trim((string) $t);
+    if (mb_strlen($t) <= $max) {
+        return $t;
+    }
+    $head = mb_substr($t, 0, $max - 1);
+    $nxt  = mb_substr($t, $max - 1, 1);
+    if (' ' !== $nxt) {   // the cut falls inside a word: go back to the last space
+        $pos = mb_strrpos($head, ' ');
+        if (false !== $pos && $pos > (int) ($max * 0.5)) {
+            $head = mb_substr($head, 0, $pos);
+        }
+    }
+    return rtrim($head, " ,.;:-–—|") . '…';
+}
+
 /** Facebook post / YouTube video -> a blog card whose picture is the post's/video's own thumbnail (play badge for videos). Returns array(status, note, title). */
 /** one address per Facebook post: the long slug between the page and the number is dropped, tracking parts removed */
 function sb_ca_canon_social($u) {
@@ -634,13 +651,13 @@ function sb_ca_social_card($url, $cat = 0, $force = false) {
     }
     if (!$yt && '' !== trim($desc) && ('' === $title || mb_strlen($title) < 30 || false !== stripos($title, 'Shaheen Education Family') && mb_strlen($title) < 40)) {
         $title = trim(preg_replace('/\s+/u', ' ', preg_replace('/[#\x{1F000}-\x{1FFFF}\x{2600}-\x{27BF}]+/u', '', $desc)));   // a page-name-only title: use the post's own first words
-        $title = mb_strlen($title) > 90 ? mb_substr($title, 0, 88) . '…' : $title;
+        $title = sb_ca_cut_title($title, 120);
     }
     $clean = function ($t) {   // Facebook titles carry "13K views · 354 reactions |" , emoji and #tags: not wanted in a headline
         $t = preg_replace('/^[^|]{0,40}(ভিউ|প্রতিক্রিয়া|views|reactions)[^|]{0,40}\|\s*/u', '', (string) $t);
         $t = preg_replace('/[#\x{1F000}-\x{1FFFF}\x{2600}-\x{27BF}\x{FE0F}]+\S*/u', ' ', $t);
         $t = trim(preg_replace('/\s+/u', ' ', $t));
-        return mb_strlen($t) > 90 ? rtrim(mb_substr($t, 0, mb_strrpos(mb_substr($t, 0, 88), ' ') ?: 88), ' ,.-') . '…' : $t;
+        return sb_ca_cut_title($t, 120);
     };
     $title = $clean($title);
     $head  = '' !== $title ? $title : $clean(mb_substr($desc, 0, 160));
@@ -653,7 +670,7 @@ function sb_ca_social_card($url, $cat = 0, $force = false) {
         return array('blocked', 'নেতিবাচক শব্দ: ' . $nw, $head);
     }
     $cfg = sb_ca_cfg();
-    $id  = sb_press_make(mb_substr(sanitize_text_field($head), 0, 110), $url, $yt ? 'ইউটিউব' . ($who ? ' · ' . $who : '') : 'ফেসবুক', $pub, $desc, $img, $cat ?: (int) $cfg['cat']);
+    $id  = sb_press_make(sb_ca_cut_title(sanitize_text_field($head), 130), $url, $yt ? 'ইউটিউব' . ($who ? ' · ' . $who : '') : 'ফেসবুক', $pub, $desc, $img, $cat ?: (int) $cfg['cat']);
     if (!$id) {
         return array('error', 'ব্লগে কার্ড বানানো যায়নি।', $head);
     }
