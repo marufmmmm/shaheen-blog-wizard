@@ -144,12 +144,21 @@ function sb_model_for($feature) {
     return $m !== '' ? $m : sb_get('model');
 }
 
-/** The model for ONE new article: 2 of 4 Astra, 1 Terra, 1 Sol in a fixed rotation (50 / 25 / 25), advanced once per article. */
+/** The model for ONE new article. A shuffled bag of 20 (10 Astra, 5 Terra, 5 Sol) is drawn from, so the order is unpredictable but every 20 articles hit 50 / 25 / 25. Drawn once per article. */
 function sb_route_article_model() {
-    $seq = array('gpt-6-astra', 'gpt-6.1-terra', 'gpt-6-astra', 'gpt-6.1-sol');
-    $n   = (int) get_option('sb_route_n', 0);
-    update_option('sb_route_n', $n + 1, false);
-    return $seq[$n % 4];
+    $bag = get_option('sb_route_bag', array());
+    if (!is_array($bag) || !$bag) {
+        $bag = array_merge(array_fill(0, 10, 'gpt-6-astra'), array_fill(0, 5, 'gpt-6.1-terra'), array_fill(0, 5, 'gpt-6.1-sol'));
+        for ($i = count($bag) - 1; $i > 0; $i--) {   // Fisher-Yates with a strong random source
+            $j = random_int(0, $i);
+            $t = $bag[$i];
+            $bag[$i] = $bag[$j];
+            $bag[$j] = $t;
+        }
+    }
+    $pick = array_pop($bag);
+    update_option('sb_route_bag', $bag, false);
+    return $pick;
 }
 
 /** Friendly name of a model id for the "written with" line. */
