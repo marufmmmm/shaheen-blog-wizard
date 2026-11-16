@@ -33,7 +33,7 @@ function sb_tg_api($method, $args = array(), $timeout = 20) {
     }
     $o = sb_notify_cfg();
     if ('' === $o['tg_token']) {
-        return new WP_Error('sb_tg', 'টেলিগ্রামের টোকেন দেওয়া নেই।');
+        return new WP_Error('sb_tg', 'The Telegram token is not set.');
     }
     $r = wp_remote_post('https://api.telegram.org/bot' . $o['tg_token'] . '/' . $method, array('timeout' => $timeout, 'body' => $args));
     if (is_wp_error($r)) {
@@ -41,7 +41,7 @@ function sb_tg_api($method, $args = array(), $timeout = 20) {
     }
     $j = json_decode(wp_remote_retrieve_body($r), true);
     if (empty($j['ok'])) {
-        return new WP_Error('sb_tg', 'টেলিগ্রাম: ' . (is_array($j) && !empty($j['description']) ? $j['description'] : 'HTTP ' . (int) wp_remote_retrieve_response_code($r)));
+        return new WP_Error('sb_tg', 'Telegram: ' . (is_array($j) && !empty($j['description']) ? $j['description'] : 'HTTP ' . (int) wp_remote_retrieve_response_code($r)));
     }
     return $j['result'];
 }
@@ -66,7 +66,7 @@ function sb_desk_fetch_image($file_id, $title = '', $kind = 'img') {
     require_once ABSPATH . 'wp-admin/includes/image.php';
     $tmp = download_url($url, 60);
     if (is_wp_error($tmp)) {
-        return new WP_Error('sb_tg', 'ছবি নামানো যায়নি।');
+        return new WP_Error('sb_tg', 'Could not download the picture.');
     }
     $ext  = strtolower(pathinfo($f['file_path'], PATHINFO_EXTENSION)) ?: 'jpg';
     $name = 'telegram-' . gmdate('Ymd-His') . '-' . wp_generate_password(4, false) . '.' . $ext;
@@ -149,7 +149,7 @@ function sb_desk_hook(WP_REST_Request $req) {
         }
     } catch (Throwable $e) {
         update_option('sb_desk_err', mb_substr($e->getMessage(), 0, 300), false);
-        sb_desk_say($m, '⚠️ কাজটি শেষ হয়নি: ' . esc_html(mb_substr($e->getMessage(), 0, 200)));
+        sb_desk_say($m, '⚠️ The task did not finish: ' . esc_html(mb_substr($e->getMessage(), 0, 200)));
     }
     global $wpdb;
     $wpdb->query($wpdb->prepare("DELETE FROM {$wpdb->options} WHERE option_name LIKE 'sb_desk_u_%%' AND option_value < %d", time() - DAY_IN_SECONDS)); // phpcs:ignore
@@ -158,7 +158,7 @@ function sb_desk_hook(WP_REST_Request $req) {
 
 /* ------------------------------------------------------------ conversation engine */
 function sb_desk_help() {
-    return "📌 <b>শাহীন ডেস্ক</b>\n\n/menu — কী করবেন বেছে নিন (ধাপে ধাপে প্রশ্ন করব)\n/cancel — চলমান কাজ বাতিল\n\n<b>শর্টকাট:</b>\n<code>/blog বিষয় বা কীওয়ার্ড</code> — সরাসরি ব্লগ লিখে প্রকাশ\n<code>/notice লেখা</code> — সরাসরি নোটিশ\nসংবাদের লিংক একাই পাঠালে (বা <code>/news লিংক</code>) সংবাদ-কার্ড হবে।\nনোটিশের ছবি সরাসরি পাঠালে নোটিশের ধাপ শুরু হবে।\n<code>/dress</code> — ড্রেসের নমুনা ছবি যোগ (ছবির ক্যাপশনে <code>/dress ক্যাডেট কলেজ মেয়ে</code>)।";
+    return "📌 <b>Shaheen Desk</b>\n\n/menu — choose what to do (I will ask step by step)\n/cancel — cancel the current task\n\n<b>Shortcuts:</b>\n<code>/blog topic or keyword</code> — write and publish a blog directly\n<code>/notice text</code> — a notice directly\nSend a news link on its own (or <code>/news link</code>) to make a news card.\nSend a notice picture on its own to start the notice steps.\n<code>/dress</code> — add a dress sample photo (caption: <code>/dress cadet college girl</code>).\n<code>/held</code> — held-back news: keep or drop by number.";
 }
 
 function sb_desk_say($m, $html, $kb = array()) {
@@ -216,11 +216,11 @@ function sb_desk_unlock($k) {
 
 function sb_desk_menu($m) {
     sb_desk_clear($m);
-    sb_desk_say($m, "🗂️ <b>কী করতে চান?</b>", array(
-        array(sb_desk_btn('📢 নোটিশ', 'm:notice'), sb_desk_btn('✍️ ব্লগ', 'm:blog')),
-        array(sb_desk_btn('✏️ নোটিশ সম্পাদনা', 'm:edit')),
-        array(sb_desk_btn('✏️ ব্লগ সম্পাদনা', 'm:eblog'), sb_desk_btn('✏️ সংবাদ সম্পাদনা', 'm:enews')),
-        array(sb_desk_btn('📰 সংবাদ (লিংক দিন)', 'm:news'), sb_desk_btn('🛑 আটকানো খবর', 'm:held')),
+    sb_desk_say($m, "🗂️ <b>What would you like to do?</b>", array(
+        array(sb_desk_btn('📢 Notice', 'm:notice'), sb_desk_btn('✍️ Blog', 'm:blog')),
+        array(sb_desk_btn('✏️ Edit notice', 'm:edit')),
+        array(sb_desk_btn('✏️ Edit blog', 'm:eblog'), sb_desk_btn('✏️ Edit news', 'm:enews')),
+        array(sb_desk_btn('📰 News (send link)', 'm:news'), sb_desk_btn('🛑 Held-back news', 'm:held')),
         array(sb_desk_btn('⭐ Spelling Star', 'm:soon')),
     ));
 }
@@ -245,15 +245,15 @@ function sb_desk_steps($flow, $d) {
 
 /** The ONE question for a notice: a fill-in list, built from what the site's old notices really contain. */
 function sb_desk_template($type) {
-    $tail = "\n\n📎 ছবি/পোস্টার বা PDF থাকলে একই সাথে (এই লেখার আগে বা পরে) পাঠান। যে ঘরের তথ্য নেই সেটা ফাঁকা রাখুন, AI বানিয়ে লিখবে না। চাইলে ফেসবুক পোস্টের লেখা সরাসরি পেস্ট করলেও চলবে।\nসব পাঠানো হলে নিচের <b>✅ দেওয়া শেষ</b> চাপুন।";
+    $tail = "\n\n📎 If you have a picture/poster or PDF, send it together with this (before or after this text). Leave a field empty if you do not have the information; the AI will not invent it. You can also paste the text of a Facebook post directly.\nWhen everything is sent, press <b>✅ Done</b> below.";
     $t = array(
-        'niyog' => "শাখা: \nপদ ও বছর: (যেমন সহকারী শিক্ষক, ২০২৭)\nআবেদনের শেষ সময়: (তারিখ ও সময়)\nলিখিত পরীক্ষার সময়: \nপরীক্ষার ভেন্যু (ঠিকানা): \nশর্তসমূহ: (প্রতি লাইনে একটি)\nGoogle Form লিংক: \nFacebook পোস্টের লিংক: \nফোন নম্বর: ",
-        'niyog_result' => "শাখা: \nফলাফল PDF/Drive লিংক: \nমৌখিক পরীক্ষার তারিখ ও সময়: \nপরবর্তী ধাপ: \nবিশেষ দ্রষ্টব্য/শর্ত: (প্রতি লাইনে একটি)\nফোন নম্বর: ",
-        'britti' => "শিরোনাম: (যেমন বৃত্তি পরীক্ষা ২০২৭)\nআবেদনের শেষ সময়: \nপরীক্ষার তারিখ: \nপরীক্ষার সময়সূচি: \nপরীক্ষার ভেন্যু: \nসিলেবাস/বিজ্ঞপ্তি PDF লিংক: \nআবেদনের লিংক: \nশর্তসমূহ: (প্রতি লাইনে একটি)",
-        'britti_result' => "শিরোনাম: \nফলাফল PDF/লিংক: \nফলাফল প্রকাশের তারিখ: \nবৃত্তির পরিমাণ: \nবিশেষ দ্রষ্টব্য: ",
-        'form' => "শিরোনাম: \nআবেদনের শেষ সময়: \nফরমের লিংক (Google Form হলে পাতায় বসে যাবে): \nশর্তসমূহ: ",
+        'niyog' => "Branch: \nPost and year: (e.g. Assistant Teacher, 2027)\nApplication deadline: (date and time)\nWritten test time: \nTest venue (address): \nConditions: (one per line)\nGoogle Form link: \nFacebook post link: \nPhone number: ",
+        'niyog_result' => "Branch: \nResult PDF/Drive link: \nViva date and time: \nNext step: \nSpecial notes/conditions: (one per line)\nPhone number: ",
+        'britti' => "Title: (e.g. Scholarship Exam 2027)\nApplication deadline: \nExam date: \nExam schedule: \nExam venue: \nSyllabus/circular PDF link: \nApplication link: \nConditions: (one per line)",
+        'britti_result' => "Title: \nResult PDF/link: \nResult date: \nScholarship amount: \nSpecial notes: ",
+        'form' => "Title: \nApplication deadline: \nForm link (a Google Form is embedded in the page): \nConditions: ",
     );
-    return isset($t[$type]) ? "<code>" . esc_html($t[$type]) . "</code>" . $tail : "<code>" . esc_html("শিরোনাম: \nশাখা (থাকলে): \nমূল তথ্য ও তারিখ: \nশর্তসমূহ: (প্রতি লাইনে একটি)\nআবেদন/ফরমের লিংক: \nডাউনলোড (PDF) লিংক: \nফোন নম্বর: ") . "</code>" . $tail;
+    return isset($t[$type]) ? "<code>" . esc_html($t[$type]) . "</code>" . $tail : "<code>" . esc_html("Title: \nBranch (if any): \nMain facts and dates: \nConditions: (one per line)\nApplication/form link: \nDownload (PDF) link: \nPhone number: ") . "</code>" . $tail;
 }
 
 function sb_desk_ask($m, $s) {
@@ -268,9 +268,9 @@ function sb_desk_ask($m, $s) {
             sb_desk_unlock($lock);
             if ('cancel' === $qc) {
                 sb_desk_clear($m);
-                sb_desk_say($m, 'বাতিল ✓ (/menu দিয়ে আবার শুরু করুন)');
+                sb_desk_say($m, 'Cancelled ✓ (start again with /menu)');
             } else {
-                sb_desk_say($m, 'ওপরের বোতাম থেকে ড্রেস বাছুন, নইলে ❌ বাতিল চাপুন।');
+                sb_desk_say($m, 'Choose a dress with the buttons above, or press ❌ Cancel.');
             }
             return;
         }
@@ -282,8 +282,8 @@ function sb_desk_ask($m, $s) {
             sb_desk_save($m, $s);
             sb_desk_unlock($lock);
             $kb = sb_desk_who_kb('qd:' . $qm[1] . ':');
-            $kb[] = array(sb_desk_btn('❌ বাতিল', 'cancel'));
-            sb_desk_say($m, "👥 <b>ছবিতে কারা থাকবে?</b>\nড্রেস: " . esc_html(sb_desk_dress_label($qm[1])), $kb);
+            $kb[] = array(sb_desk_btn('❌ Cancel', 'cancel'));
+            sb_desk_say($m, "👥 <b>Who should be in the picture?</b>\nDress: " . esc_html(sb_desk_dress_label($qm[1])), $kb);
             return;
         } else {
             $qd['imgmode'] = 'pick';
@@ -296,59 +296,59 @@ function sb_desk_ask($m, $s) {
     }
     $steps = sb_desk_steps($s['flow'], $s['d']);
     $k     = $steps[$s['i']];
-    $skip  = sb_desk_btn('⏭️ বাদ', 'skip');
-    $x     = sb_desk_btn('❌ বাতিল', 'cancel');
+    $skip  = sb_desk_btn('⏭️ Skip', 'skip');
+    $x     = sb_desk_btn('❌ Cancel', 'cancel');
     if (!empty($in['img']) && 'blog' === $s['flow'] && 'image' !== $k) {   // a photo sent before the picture step is kept for it
         $d['aids'] = isset($d['aids']) && is_array($d['aids']) ? $d['aids'] : array();
         $d['aids'][] = (int) $in['img'];
         $s['d'] = $d;
         sb_desk_save($m, $s);
         sb_desk_unlock($lock);
-        sb_desk_album_say($m, '👍 ছবি রেখে দিলাম (এ পর্যন্ত ' . count($d['aids']) . 'টি)। ছবির ধাপে এগুলোই কাজে লাগবে। এখন চলমান প্রশ্নের উত্তর দিন।');
+        sb_desk_album_say($m, '👍 Picture saved (' . count($d['aids']) . ' so far). They will be used in the picture step. Now answer the current question.');
         return;
     }
     switch ($k) {
         case 'links':
-            return sb_desk_say($m, "📰 <b>সংবাদের লিংক পাঠান।</b> একাধিক হলে প্রতি লাইনে একটি (সর্বোচ্চ ৫টি)।\nআমি পাতাটা পড়ব, নেতিবাচক বা সন্দেহজনক হলে আটকে দেব, আর ঠিক থাকলে সংবাদ-কার্ড (শিরোনাম, পত্রিকা, তারিখ, ছবি, সারাংশ) বানিয়ে সাইটে বসাব।\n<i>ফেসবুক/ইউটিউব লিংক সংবাদ নয়: ওগুলো নোটিশ বা ইভেন্টের অংশ।</i>", array(array($x)));
+            return sb_desk_say($m, "📰 <b>Send the news link(s).</b> One per line if more than one (max 5).\nI will read the page, hold it back if it is negative or doubtful, and otherwise make a news card (title, newspaper, date, picture, summary) on the site.\n<i>Facebook/YouTube links are not news: they belong to notices or events.</i>", array(array($x)));
         case 'pick':
             $rows = array();
             $kd = $s['d']['kind'] ?? 'notice';
             foreach (sb_desk_kind_list($kd) as $pid) {
-                $rows[] = array(sb_desk_btn(mb_substr(get_the_title($pid), 0, 38) . ' · ' . get_the_date('d/m', $pid) . ('draft' === get_post_status($pid) ? ' · ড্রাফট' : ''), 'p:' . $pid));
+                $rows[] = array(sb_desk_btn(mb_substr(get_the_title($pid), 0, 38) . ' · ' . get_the_date('d/m', $pid) . ('draft' === get_post_status($pid) ? ' · draft' : ''), 'p:' . $pid));
             }
             $rows[] = array($x);
-            return sb_desk_say($m, '✏️ <b>কোন ' . ('blog' === $kd ? 'ব্লগটি' : ('news' === $kd ? 'সংবাদটি' : 'নোটিশটি')) . ' বদলাবেন?</b> (সর্বশেষ ৫টি)', $rows);
+            return sb_desk_say($m, '✏️ <b>Which ' . ('blog' === $kd ? 'blog' : ('news' === $kd ? 'news card' : 'notice')) . ' do you want to change?</b> (latest 5)', $rows);
         case 'act':
             $kd = $s['d']['kind'] ?? 'notice';
             if ('blog' === $kd || 'news' === $kd) {
                 $pub = 'publish' === get_post_status((int) $s['d']['id']);
                 $tt  = esc_html(get_the_title((int) $s['d']['id']));
-                $st  = array(sb_desk_btn($pub ? '📥 ড্রাফটে নিন' : '🌐 প্রকাশ করুন', $pub ? 'a:draft' : 'a:pub'));
+                $st  = array(sb_desk_btn($pub ? '📥 Make draft' : '🌐 Publish', $pub ? 'a:draft' : 'a:pub'));
                 if ('news' === $kd) {
-                    return sb_desk_say($m, "🛠️ <b>কী বদলাবেন?</b>\n" . $tt, array(
-                        array(sb_desk_btn('🏷️ শিরোনাম', 'a:title'), sb_desk_btn('📝 সারাংশ', 'a:summary')),
-                        array(sb_desk_btn('🔗 সংবাদের লিংক', 'a:nlink'), sb_desk_btn('📰 পত্রিকার নাম', 'a:paper')),
-                        array(sb_desk_btn('🖼️ ছবি বদলান', 'a:img'), $st[0]),
+                    return sb_desk_say($m, "🛠️ <b>What do you want to change?</b>\n" . $tt, array(
+                        array(sb_desk_btn('🏷️ Title', 'a:title'), sb_desk_btn('📝 Summary', 'a:summary')),
+                        array(sb_desk_btn('🔗 News link', 'a:nlink'), sb_desk_btn('📰 Newspaper name', 'a:paper')),
+                        array(sb_desk_btn('🖼️ Change picture', 'a:img'), $st[0]),
                         array($x),
                     ));
                 }
-                return sb_desk_say($m, "🛠️ <b>কী বদলাবেন?</b>\n" . $tt, array(
-                    array(sb_desk_btn('🏷️ শিরোনাম', 'a:title'), sb_desk_btn('📝 সারাংশ', 'a:summary')),
-                    array(sb_desk_btn('🔎 Google বিবরণ', 'a:meta'), sb_desk_btn('🔑 কীওয়ার্ড', 'a:kw')),
-                    array(sb_desk_btn('🎬 ভিডিও/ফেসবুক পোস্ট', 'a:embed'), sb_desk_btn('📣 কার্ড', 'a:promo')),
-                    array(sb_desk_btn('🔤 ইংরেজি শিরোনাম', 'a:entitle'), sb_desk_btn('🔗 স্লাগ (লিংক)', 'a:slug')),
-                    array(sb_desk_btn('🖼️ ছবি বদলান', 'a:img'), sb_desk_btn('🎨 AI নতুন ছবি', 'a:aiimg')),
-                    array(sb_desk_btn('🏷️ ছবির অল্ট-টেক্সট', 'a:alt'), $st[0]),
-                    array(sb_desk_btn('✍️ লেখায় বদল (লিখে বলুন)', 'a:free')),
+                return sb_desk_say($m, "🛠️ <b>What do you want to change?</b>\n" . $tt, array(
+                    array(sb_desk_btn('🏷️ Title', 'a:title'), sb_desk_btn('📝 Summary', 'a:summary')),
+                    array(sb_desk_btn('🔎 Google description', 'a:meta'), sb_desk_btn('🔑 Keywords', 'a:kw')),
+                    array(sb_desk_btn('🎬 Video/Facebook post', 'a:embed'), sb_desk_btn('📣 Promo card', 'a:promo')),
+                    array(sb_desk_btn('🔤 English title', 'a:entitle'), sb_desk_btn('🔗 Slug (link)', 'a:slug')),
+                    array(sb_desk_btn('🖼️ Change picture', 'a:img'), sb_desk_btn('🎨 New AI picture', 'a:aiimg')),
+                    array(sb_desk_btn('🏷️ Picture alt text', 'a:alt'), $st[0]),
+                    array(sb_desk_btn('✍️ Change the text (describe it)', 'a:free')),
                     array($x),
                 ));
             }
-            return sb_desk_say($m, "🛠️ <b>কী বদলাবেন?</b>
+            return sb_desk_say($m, "🛠️ <b>What do you want to change?</b>
 " . esc_html(get_the_title((int) $s['d']['id'])), array(
-                array(sb_desk_btn('📘 Facebook পোস্ট যোগ', 'a:fb'), sb_desk_btn('📅 আবেদনের সময় বাড়ান', 'a:deadline')),
-                array(sb_desk_btn('📞 ফোন নম্বর', 'a:phones'), sb_desk_btn('🔗 আবেদন/ফরম লিংক', 'a:apply')),
-                array(sb_desk_btn('📎 PDF/ডাউনলোড', 'a:pdf'), sb_desk_btn('🖼️ ছবি বদলান', 'a:img')),
-                array(sb_desk_btn('✍️ অন্য বদল (লিখে বলুন)', 'a:free')),
+                array(sb_desk_btn('📘 Add Facebook post', 'a:fb'), sb_desk_btn('📅 Extend deadline', 'a:deadline')),
+                array(sb_desk_btn('📞 Phone numbers', 'a:phones'), sb_desk_btn('🔗 Apply/form link', 'a:apply')),
+                array(sb_desk_btn('📎 PDF/download', 'a:pdf'), sb_desk_btn('🖼️ Change picture', 'a:img')),
+                array(sb_desk_btn('✍️ Other change (describe it)', 'a:free')),
                 array($x),
             ));
         case 'value':
@@ -358,31 +358,31 @@ function sb_desk_ask($m, $s) {
                     $pl[] = '<code>' . esc_html($p['id']) . '</code> = ' . esc_html($p['title']);
                 }
                 $qq = array(
-                    'title' => '🏷️ <b>নতুন শিরোনাম লিখুন।</b>',
-                    'summary' => '📝 <b>নতুন সারাংশ লিখুন</b> (২–৩ বাক্য; Google বিবরণও এটি থেকে হবে)।',
-                    'meta' => '🔎 <b>Google বিবরণ লিখুন</b> (সর্বোচ্চ ১৬০ অক্ষর)।',
-                    'kw' => '🔑 <b>কীওয়ার্ড লিখুন</b> (কমা দিয়ে, সর্বোচ্চ ১৫টি)। এগুলো আগেরগুলোর জায়গায় বসবে।',
-                    'embed' => "🎬 <b>ভিডিও বা ফেসবুক পোস্টের লিংক পাঠান।</b>\nপ্রথম লাইনে লিংক, দ্বিতীয় লাইনে ক্যাপশন (ঐচ্ছিক)। প্রথম অনুচ্ছেদের পরে বসবে।",
-                    'promo' => "📣 <b>কোন কার্ড বসবে?</b> নাম লিখুন (একাধিক হলে কমা দিয়ে), বাদ দিতে <code>none</code> লিখুন।\n" . implode("\n", $pl),
-                    'img' => '🖼️ <b>নতুন ছবি পাঠান।</b>',
-                    'entitle' => '🔤 <b>ইংরেজি শিরোনাম লিখুন</b> (৪–৯ শব্দ)। এটি ব্যাকএন্ডে থাকে, পাঠক দেখে না। <code>auto</code> লিখলে AI বানাবে।',
-                    'slug' => '🔗 <b>লিংকের শেষ অংশ (স্লাগ) লিখুন</b> ইংরেজিতে, যেমন <code>cadet-college-admission-tips</code>। <code>auto</code> লিখলে ইংরেজি শিরোনাম থেকে সহজ স্লাগ হবে।',
-                    'aiimg' => "🎨 <b>কোন ড্রেসে ছবি বানাব?</b> লিখুন: <code>auto</code> (লেখা দেখে), <code>none</code> (ড্রেস ছাড়া), অথবা ধরনের নাম।\nখরচ প্রায় ৭ সেন্ট। পুরোনো ছবি মিডিয়ায় থেকে যায়।",
-                    'alt' => '🏷️ <b>মূল ছবির অল্ট-টেক্সট লিখুন</b> (ছবিতে কী আছে, এক বাক্যে)। <code>auto</code> লিখলে AI ছবি দেখে লিখবে।',
-                    'nlink' => '🔗 <b>সংবাদের পুরো লিংক পাঠান।</b>',
-                    'paper' => '📰 <b>পত্রিকার নাম লিখুন।</b>',
-                    'free' => '✍️ <b>লেখায় কী বদলাতে হবে লিখে বলুন।</b> যেমন: ‘শেষ অনুচ্ছেদে শাখার ফোন নম্বর যোগ করো’।',
+                    'title' => '🏷️ <b>Write the new title.</b>',
+                    'summary' => '📝 <b>Write the new summary</b> (2–3 sentences; the Google description is made from it too).',
+                    'meta' => '🔎 <b>Write the Google description</b> (max 160 characters).',
+                    'kw' => '🔑 <b>Write the keywords</b> (comma separated, max 15). They replace the old ones.',
+                    'embed' => "🎬 <b>Send the video or Facebook post link.</b>\nLink on the first line, caption on the second (optional). It goes after the first paragraph.",
+                    'promo' => "📣 <b>Which promo card?</b> Write the name (comma separated if several), or <code>none</code> to remove.\n" . implode("\n", $pl),
+                    'img' => '🖼️ <b>Send the new picture.</b>',
+                    'entitle' => '🔤 <b>Write the English title</b> (4–9 words). It stays in the back end; readers do not see it. Write <code>auto</code> and the AI makes it.',
+                    'slug' => '🔗 <b>Write the end of the link (slug)</b> in English, e.g. <code>cadet-college-admission-tips</code>. Write <code>auto</code> to make a simple slug from the English title.',
+                    'aiimg' => "🎨 <b>Which dress for the picture?</b> Write <code>auto</code> (from the text), <code>none</code> (no dress), or the kind of dress.\nCost about 7 cents. The old picture stays in Media.",
+                    'alt' => '🏷️ <b>Write the alt text of the main picture</b> (what is in it, one sentence). Write <code>auto</code> and the AI looks at the picture.',
+                    'nlink' => '🔗 <b>Send the full link of the news.</b>',
+                    'paper' => '📰 <b>Write the newspaper name.</b>',
+                    'free' => '✍️ <b>Describe what to change in the text.</b> For example: "add the branch phone number to the last paragraph".',
                 );
-                return sb_desk_say($m, $qq[$s['d']['act']] ?? 'লিখে পাঠান।', array(array($x)));
+                return sb_desk_say($m, $qq[$s['d']['act']] ?? 'Send it as text.', array(array($x)));
             }
             $q = array(
-                'fb' => "📘 <b>Facebook পোস্টের লিংক পাঠান।</b> শেয়ার-লিংক (facebook.com/share/…) হলেও চলবে। পোস্ট অবশ্যই পাবলিক হতে হবে।",
-                'deadline' => "📅 <b>নতুন শেষ সময় লিখুন</b> (যেমন: ৩০ ডিসেম্বর ২০২৬, রাত ১০:০০টা)।",
-                'phones' => "📞 <b>নতুন ফোন নম্বর পাঠান</b> (এক লাইনে একটি বা কমা দিয়ে)। এগুলো আগের নম্বরের জায়গায় বসবে।",
-                'apply' => "🔗 <b>আবেদনের লিংক বা Google Form-এর লিংক পাঠান।</b>",
-                'pdf' => "📎 <b>PDF সরাসরি পাঠান, অথবা ডাউনলোড লিংক লিখুন।</b>",
-                'img' => "🖼️ <b>নতুন ছবি/পোস্টার পাঠান।</b>",
-                'free' => "✍️ <b>কী বদলাতে হবে লিখে বলুন।</b> যেমন: ‘পরীক্ষার ভেন্যু বদলে ঢাকা শাখা করো’।",
+                'fb' => "📘 <b>Send the Facebook post link.</b> A share link (facebook.com/share/…) works too. The post must be public.",
+                'deadline' => "📅 <b>Write the new deadline</b> (e.g. 30 December 2026, 10:00 PM).",
+                'phones' => "📞 <b>Send the new phone numbers</b> (one per line or comma separated). They replace the old numbers.",
+                'apply' => "🔗 <b>Send the application link or the Google Form link.</b>",
+                'pdf' => "📎 <b>Send the PDF directly, or write the download link.</b>",
+                'img' => "🖼️ <b>Send the new picture/poster.</b>",
+                'free' => "✍️ <b>Describe what to change.</b> For example: \"change the exam venue to the Dhaka branch\".",
             );
             return sb_desk_say($m, $q[$s['d']['act']], array(array($x)));
         case 'type':
@@ -390,39 +390,39 @@ function sb_desk_ask($m, $s) {
             foreach ((array) csa_sn_opt('types') as $key => $t) {
                 $row[] = array(sb_desk_btn($t['label'], 't:' . $key));
             }
-            $row[] = array(sb_desk_btn('📄 অন্য / সাধারণ নোটিশ', 't:'), $x);
-            return sb_desk_say($m, "📢 <b>নোটিশের ধরন কী?</b>", $row);
+            $row[] = array(sb_desk_btn('📄 Other / general notice', 't:'), $x);
+            return sb_desk_say($m, "📢 <b>What kind of notice?</b>", $row);
         case 'branch':
-            return sb_desk_say($m, "📍 <b>কোন শাখা বা জায়গা?</b> (যেমন: মাদারীপুর শাখা)\nলিখে পাঠান, অথবা নোটিশ থেকে AI নিক।", array(array(sb_desk_btn('🤖 AI নিক / সবার জন্য', 'skip'), $x)));
+            return sb_desk_say($m, "📍 <b>Which branch or place?</b> (e.g. Madaripur branch)\nType it, or let the AI take it from the notice.", array(array(sb_desk_btn('🤖 AI decides / for everyone', 'skip'), $x)));
         case 'details':
             $n = count($s['d']['aids'] ?? array());
-            $tl = ($s['d']['type'] ?? '') !== '' ? (csa_sn_opt('types')[$s['d']['type']]['label'] ?? '') : 'সাধারণ';
-            return sb_desk_say($m, "📝 <b>" . esc_html($tl) . " নোটিশের তথ্য</b> — নিচের তালিকাটি কপি করে ভরে একটি বার্তায় পাঠান:\n\n" . sb_desk_template($s['d']['type'] ?? '') . ($n ? "\n\nএ পর্যন্ত: " . $n . 'টি ছবি' . (!empty($s['d']['text']) ? ' + লেখা' : '') : ''), array(array(sb_desk_btn('✅ দেওয়া শেষ', 'done'), sb_desk_btn('❌ বাতিল', 'cancel'))));
+            $tl = ($s['d']['type'] ?? '') !== '' ? (csa_sn_opt('types')[$s['d']['type']]['label'] ?? '') : 'General';
+            return sb_desk_say($m, "📝 <b>" . esc_html($tl) . " notice details</b> — copy the list below, fill it in and send it in one message:\n\n" . sb_desk_template($s['d']['type'] ?? '') . ($n ? "\n\nSo far: " . $n . ' picture(s)' . (!empty($s['d']['text']) ? ' + text' : '') : ''), array(array(sb_desk_btn('✅ Done', 'done'), sb_desk_btn('❌ Cancel', 'cancel'))));
         case 'pdf':
-            return sb_desk_say($m, "📎 <b>ডাউনলোডের PDF/ফাইল আছে?</b>\nPDF সরাসরি পাঠান, অথবা ডাউনলোড লিংক লিখে পাঠান।", array(array($skip, $x)));
+            return sb_desk_say($m, "📎 <b>Is there a PDF/file to download?</b>\nSend the PDF directly, or send the download link.", array(array($skip, $x)));
         case 'apply':
-            return sb_desk_say($m, "🔗 <b>আবেদনের লিংক বা Google Form আছে?</b>\nলিংক পাঠান। Google Form হলে নোটিশের পাতায় ফরম বসে যাবে।", array(array($skip, $x)));
+            return sb_desk_say($m, "🔗 <b>Is there an application link or Google Form?</b>\nSend the link. A Google Form is embedded in the notice page.", array(array($skip, $x)));
         case 'topic':
-            return sb_desk_say($m, "✍️ <b>ব্লগের বিষয় কী?</b> সংক্ষেপে লিখে পাঠান (এটা বাধ্যতামূলক, বাকি সবকিছু AI করতে পারে)।", array(array($x)));
+            return sb_desk_say($m, "✍️ <b>What is the blog topic?</b> Send it in a few words (required; the AI can do everything else).", array(array($x)));
         case 'title':
-            return sb_desk_say($m, "🏷️ <b>শিরোনাম?</b> লিখে পাঠান, অথবা AI বানাক।", array(array(sb_desk_btn('🤖 AI বানাক', 'ai'), $x)));
+            return sb_desk_say($m, "🏷️ <b>Title?</b> Type it, or let the AI make it.", array(array(sb_desk_btn('🤖 AI makes it', 'ai'), $x)));
         case 'keywords':
-            return sb_desk_say($m, "🔑 <b>কীওয়ার্ড?</b> কমা দিয়ে লিখুন, অথবা AI ঠিক করুক।", array(array(sb_desk_btn('🤖 AI ঠিক করুক', 'ai'), $x)));
+            return sb_desk_say($m, "🔑 <b>Keywords?</b> Write them comma separated, or let the AI decide.", array(array(sb_desk_btn('🤖 AI decides', 'ai'), $x)));
         case 'body':
-            return sb_desk_say($m, "📄 <b>লেখা কীভাবে হবে?</b>", array(
-                array(sb_desk_btn('🤖 AI পুরো লিখুক', 'b:ai')),
-                array(sb_desk_btn('📝 আমি সংক্ষিপ্ত বিবরণ দেব, AI বিস্তারিত লিখুক', 'b:desc')),
-                array(sb_desk_btn('📋 আমার পুরো লেখা তৈরি আছে', 'b:paste')),
+            return sb_desk_say($m, "📄 <b>How should the article be written?</b>", array(
+                array(sb_desk_btn('🤖 AI writes it all', 'b:ai')),
+                array(sb_desk_btn('📝 I give a short description, AI expands it', 'b:desc')),
+                array(sb_desk_btn('📋 My full text is ready', 'b:paste')),
                 array($x),
             ));
         case 'bodytext':
-            return sb_desk_say($m, ('paste' === $s['d']['body'] ? "📋 <b>পুরো লেখাটি পাঠান</b> (এক বার্তায়)।" : "📝 <b>বিবরণটি লিখে পাঠান।</b> এর ওপর ভিত্তি করে AI বিস্তারিত লিখবে।"), array(array($x)));
+            return sb_desk_say($m, ('paste' === $s['d']['body'] ? "📋 <b>Send the full text</b> (in one message)." : "📝 <b>Send your description.</b> The AI will write the full article from it."), array(array($x)));
         case 'length':
-            return sb_desk_say($m, "📏 <b>লেখা কত বড় হবে?</b>", array(array(sb_desk_btn('ছোট', 'l:short'), sb_desk_btn('মাঝারি', 'l:medium'), sb_desk_btn('বড়', 'l:long')), array($x)));
+            return sb_desk_say($m, "📏 <b>How long should the article be?</b>", array(array(sb_desk_btn('Short', 'l:short'), sb_desk_btn('Medium', 'l:medium'), sb_desk_btn('Long', 'l:long')), array($x)));
         case 'image':
-            return sb_desk_say($m, "🖼️ <b>ছবি কেমন হবে?</b>\n• নিজের ছবি থাকলে এখনই পাঠান (একসাথে কয়েকটিও চলবে, প্রথমটি মূল ছবি), তারপর \"✅ ছবি দিয়েছি\" চাপুন।\n• নইলে \"AI ছবি\" চাপুন। তখন আমি জিজ্ঞেস করব ছবিতে কোন ড্রেস থাকবে।", array(
-                array(sb_desk_btn('🎨 AI ছবি বানাও', 'img:pick')),
-                array(sb_desk_btn('✅ ছবি দিয়েছি', 'done'), sb_desk_btn('🚫 ছবি লাগবে না', 'img:none')),
+            return sb_desk_say($m, "🖼️ <b>How should the picture be?</b>\n• If you have your own pictures, send them now (several are fine; the first is the main picture), then press \"✅ Pictures sent\".\n• Otherwise press \"AI picture\". I will then ask which dress the people wear.", array(
+                array(sb_desk_btn('🎨 Make an AI picture', 'img:pick')),
+                array(sb_desk_btn('✅ Pictures sent', 'done'), sb_desk_btn('🚫 No picture', 'img:none')),
                 array($x),
             ));
         case 'dress':
@@ -430,7 +430,7 @@ function sb_desk_ask($m, $s) {
             $rows[] = array($x);
             return sb_desk_say($m, $txt, $rows);
         case 'who':
-            return sb_desk_say($m, "👥 <b>ছবিতে কারা থাকবে?</b>\nড্রেস: " . esc_html(sb_desk_dress_label(preg_replace('/:[bgm]$/', '', (string) ($s['d']['uniform'] ?? '')))), array_merge(sb_desk_who_kb('g:'), array(array($x))));
+            return sb_desk_say($m, "👥 <b>Who should be in the picture?</b>\nDress: " . esc_html(sb_desk_dress_label(preg_replace('/:[bgm]$/', '', (string) ($s['d']['uniform'] ?? '')))), array_merge(sb_desk_who_kb('g:'), array(array($x))));
         case 'confirm':
             $d = $s['d'];
             if ('news' === $s['flow']) {
@@ -438,26 +438,26 @@ function sb_desk_ask($m, $s) {
                 foreach ((array) $d['urls'] as $u) {
                     $ls .= "\n• " . esc_html(mb_substr($u, 0, 90));
                 }
-                return sb_desk_say($m, "📰 <b>সংবাদ-কার্ড</b> (" . count((array) $d['urls']) . "টি লিংক)" . $ls . "\n\nপ্রতিটি যাচাই করে (নেতিবাচক হলে আটকে দেব) সংবাদ-কার্ড বানাব। কী করব?", array(array(sb_desk_btn('✅ যাচাই করে কার্ড বানাও', 'go:publish'), $x)));
+                return sb_desk_say($m, "📰 <b>News card</b> (" . count((array) $d['urls']) . " link(s))" . $ls . "\n\nI will check each one (and hold back negative ones) and make news cards. Go ahead?", array(array(sb_desk_btn('✅ Check and make cards', 'go:publish'), $x)));
             }
             if ('edit' === $s['flow']) {
-                return sb_desk_say($m, "✏️ <b>এই বদল করব?</b>\n\n" . $d['desc'], array(array(sb_desk_btn('✅ প্রয়োগ করো', 'go:apply'), $x)));
+                return sb_desk_say($m, "✏️ <b>Make this change?</b>\n\n" . $d['desc'], array(array(sb_desk_btn('✅ Apply', 'go:apply'), $x)));
             }
             if ('notice' === $s['flow']) {
-                $tl = ($d['type'] ?? '') !== '' ? (csa_sn_opt('types')[$d['type']]['label'] ?? $d['type']) : 'সাধারণ';
-                $sum = "📢 <b>নোটিশ</b>\nধরন: " . esc_html($tl) . "\nছবি: " . count($d['aids'] ?? array()) . "টি; PDF: " . (!empty($d['pdf_aid']) ? 'আছে' : 'নেই') . "; লেখা: " . (!empty($d['text']) ? mb_strlen($d['text']) . ' অক্ষর' : 'নেই') . "\n\nপ্রকাশের আগে AI তারিখ, ফোন, লিংক ও শর্ত আলাদা করে সাজাবে।";
+                $tl = ($d['type'] ?? '') !== '' ? (csa_sn_opt('types')[$d['type']]['label'] ?? $d['type']) : 'General';
+                $sum = "📢 <b>Notice</b>\nType: " . esc_html($tl) . "\nPictures: " . count($d['aids'] ?? array()) . "; PDF: " . (!empty($d['pdf_aid']) ? 'yes' : 'no') . "; Text: " . (!empty($d['text']) ? mb_strlen($d['text']) . ' characters' : 'none') . "\n\nBefore publishing, the AI will organise dates, phones, links and conditions separately.";
             } else {
-                $bm = array('ai' => 'AI পুরো লিখবে', 'desc' => 'আপনার বিবরণ থেকে AI', 'paste' => 'আপনার তৈরি লেখা');
-                $sum = "✍️ <b>ব্লগ</b>\nবিষয়: " . esc_html($d['topic']) . "\nশিরোনাম: " . esc_html(($d['title'] ?? '') ?: 'AI') . "\nকীওয়ার্ড: " . esc_html(($d['keywords'] ?? '') ?: 'AI') . "\nলেখা: " . $bm[$d['body'] ?? 'ai'] . "\nদৈর্ঘ্য: " . esc_html($d['length'] ?? 'medium') . "\nছবি: " . (count($d['aids'] ?? array()) ? count($d['aids']) . 'টি (আপনার)' : ('none' === ($d['imgmode'] ?? 'auto') ? 'লাগবে না' : 'AI বানাবে, ড্রেস: ' . esc_html(sb_desk_dress_label(($d['uniform'] ?? 'auto') ?: 'auto')))) . "\nSEO: ইংরেজি শিরোনাম, সহজ স্লাগ, অল্ট-টেক্সট, মেটা, কীওয়ার্ড সব অটো";
+                $bm = array('ai' => 'AI writes it all', 'desc' => 'AI from your description', 'paste' => 'Your own text');
+                $sum = "✍️ <b>Blog</b>\nTopic: " . esc_html($d['topic']) . "\nTitle: " . esc_html(($d['title'] ?? '') ?: 'AI') . "\nKeywords: " . esc_html(($d['keywords'] ?? '') ?: 'AI') . "\nText: " . $bm[$d['body'] ?? 'ai'] . "\nLength: " . esc_html($d['length'] ?? 'medium') . "\nPicture: " . (count($d['aids'] ?? array()) ? count($d['aids']) . ' (yours)' : ('none' === ($d['imgmode'] ?? 'auto') ? 'not needed' : 'AI makes it, dress: ' . esc_html(sb_desk_dress_label(($d['uniform'] ?? 'auto') ?: 'auto')))) . "\nSEO: English title, simple slug, alt text, meta and keywords are all automatic";
             }
-            return sb_desk_say($m, $sum . "\n\nপ্রকাশের আগে এটাই শেষ দেখা। কী করব?", array(array(sb_desk_btn('✅ প্রকাশ করো', 'go:publish')), array(sb_desk_btn('📝 শুধু খসড়া', 'go:draft'), $x)));
+            return sb_desk_say($m, $sum . "\n\nThis is the last look before publishing. What next?", array(array(sb_desk_btn('✅ Publish', 'go:publish')), array(sb_desk_btn('📝 Draft only', 'go:draft'), $x)));
     }
 }
 
 function sb_desk_start($m, $flow, $d = array()) {
     $s = array('flow' => $flow, 'i' => 0, 'd' => $d);
     if ('notice' === $flow && !function_exists('csa_sn_opt')) {
-        return sb_desk_say($m, '⚠️ নোটিশ সিস্টেম চালু নেই।');
+        return sb_desk_say($m, '⚠️ The notice system is not active.');
     }
     sb_desk_save($m, $s);
     sb_desk_ask($m, $s);
@@ -499,7 +499,7 @@ function sb_desk_message($m) {
         if ('dress' === $cmd) {   // a dress photo for the Uniform Library
             sb_desk_unlock($lock);
             if (empty($in['img'])) {
-                sb_desk_say($m, "👕 <b>ড্রেসের নমুনা ছবি যোগ করা</b>\nছবি পাঠান, ছবির ক্যাপশনে লিখুন:\n<code>/dress ক্যাডেট কলেজ মেয়ে</code>\n\nধরন: বাংলা মাধ্যম, ইংলিশ ভার্সন, ইসলামিক, ক্যাডেট কলেজ, শিক্ষক। সঙ্গে ছেলে বা মেয়ে লিখুন। ভালো ফলের জন্য একজনের পুরো ড্রেসসহ পরিষ্কার ছবি দিন।");
+                sb_desk_say($m, "👕 <b>Add a dress sample photo</b>\nSend a photo and write this in its caption:\n<code>/dress cadet college girl</code>\n\nKinds: Bangla medium, English version, Islamic, cadet college, teacher. Add boy or girl too. For best results send a clear photo of one person in the full dress.");
             } else {
                 sb_desk_say($m, sb_desk_dress_add((int) $in['img'], $rest));
             }
@@ -516,7 +516,7 @@ function sb_desk_message($m) {
                 sb_desk_say($m, sb_desk_help());
             } elseif ('cancel' === $cmd) {
                 sb_desk_clear($m);
-                sb_desk_say($m, 'বাতিল ✓');
+                sb_desk_say($m, 'Cancelled ✓');
             } else {
                 sb_desk_menu($m);
             }
@@ -571,12 +571,12 @@ function sb_desk_step($m, $in) {
             return;
         }
         if ('soon' === $f) {
-            sb_desk_say($m, '⭐ Spelling Star-এর জন্য আলাদা ধাপ এখনো বানানো হয়নি। এখন নোটিশ, ব্লগ ও সংবাদ চলছে। Spelling Star নিয়ে লিখতে চাইলে <code>/blog Spelling Star ...</code> লিখুন।');
+            sb_desk_say($m, '⭐ There is no separate Spelling Star step yet. Notice, blog and news work now. To write about Spelling Star use <code>/blog Spelling Star ...</code>.');
         } else {
             if ('eblog' === $f || 'enews' === $f) {
                 $kd = 'eblog' === $f ? 'blog' : 'news';
                 if (!sb_desk_post_list($kd)) {
-                    sb_desk_say($m, 'সম্পাদনার মতো ' . ('blog' === $kd ? 'ব্লগ' : 'সংবাদ') . ' এখনো নেই।');
+                    sb_desk_say($m, 'There is no ' . ('blog' === $kd ? 'blog' : 'news card') . ' to edit yet.');
                     return;
                 }
                 sb_desk_start($m, 'edit', array('kind' => $kd));
@@ -584,7 +584,7 @@ function sb_desk_step($m, $in) {
             }
             if ('edit' === $f) {
                 if (!sb_desk_edit_list()) {
-                    sb_desk_say($m, 'সম্পাদনার মতো নতুন-ডিজাইনের নোটিশ এখনো নেই। আগে /menu থেকে একটি নোটিশ বানান।');
+                    sb_desk_say($m, 'There is no new-design notice to edit yet. First make one from /menu.');
                     return;
                 }
                 sb_desk_start($m, 'edit', array());
@@ -597,7 +597,7 @@ function sb_desk_step($m, $in) {
     $s    = sb_desk_state($m);
     if (!$s) {
         sb_desk_unlock($lock);
-        sb_desk_say($m, 'কোনো কাজ চলছে না। শুরু করতে /menu লিখুন।');
+        sb_desk_say($m, 'Nothing is running. Write /menu to start.');
         return;
     }
     $steps = sb_desk_steps($s['flow'], $s['d']);
@@ -609,7 +609,7 @@ function sb_desk_step($m, $in) {
     if ('cancel' === $cb) {
         sb_desk_clear($m);
         sb_desk_unlock($lock);
-        sb_desk_say($m, 'বাতিল ✓ (/menu দিয়ে আবার শুরু করুন)');
+        sb_desk_say($m, 'Cancelled ✓ (start again with /menu)');
         return;
     }
     switch ($k) {
@@ -652,7 +652,7 @@ function sb_desk_step($m, $in) {
             sb_desk_unlock($lock);
             $r = in_array($d['kind'] ?? 'notice', array('blog', 'news'), true) ? sb_desk_post_propose((int) $d['id'], $d['kind'], $d['act'], $val) : sb_desk_edit_propose((int) $d['id'], $d['act'], $val);
             if (is_wp_error($r)) {
-                sb_desk_say($m, '⚠️ ' . esc_html($r->get_error_message()) . "\nআবার পাঠান বা ❌ বাতিল চাপুন।");
+                sb_desk_say($m, '⚠️ ' . esc_html($r->get_error_message()) . "\nSend again or press ❌ Cancel.");
                 return;
             }
             $lock = sb_desk_lock($m);
@@ -696,7 +696,7 @@ function sb_desk_step($m, $in) {
                 if ($now && count($now['d']['aids'] ?? array()) === count($d2['aids'] ?? array()) && ($now['d']['pdf_aid'] ?? 0) === ($d2['pdf_aid'] ?? 0) && ($now['d']['text'] ?? '') === ($d2['text'] ?? '') && empty($now['ack'])) {
                     $now['ack'] = 1;
                     sb_desk_save($m, $now);
-                    sb_desk_say($m, '👍 পেয়েছি (' . count($d2['aids']) . 'টি ছবি' . (!empty($d2['pdf_aid']) ? ' + PDF' : '') . (!empty($d2['text']) ? ' + লেখা' : '') . '). আরও থাকলে পাঠান, নইলে "✅ দেওয়া শেষ" চাপুন।', array(array(sb_desk_btn('✅ দেওয়া শেষ', 'done'), sb_desk_btn('❌ বাতিল', 'cancel'))));
+                    sb_desk_say($m, '👍 Got it (' . count($d2['aids']) . ' picture(s)' . (!empty($d2['pdf_aid']) ? ' + PDF' : '') . (!empty($d2['text']) ? ' + text' : '') . '). Send more if there is more, otherwise press "✅ Done".', array(array(sb_desk_btn('✅ Done', 'done'), sb_desk_btn('❌ Cancel', 'cancel'))));
                     $now['ack'] = 0;
                     sb_desk_save($m, $now);
                 }
@@ -704,7 +704,7 @@ function sb_desk_step($m, $in) {
             }
             if (!$d['aids'] && empty($d['pdf_aid']) && '' === trim((string) ($d['text'] ?? ''))) {
                 $stay = true;
-                sb_desk_say($m, 'কিছু পাঠাননি — তালিকা ভরে লেখা, বা ছবি/PDF পাঠান।');
+                sb_desk_say($m, 'You sent nothing — send the filled list, or a picture/PDF.');
             }
             break;
         case 'pdf':
@@ -781,7 +781,7 @@ function sb_desk_step($m, $in) {
                 $s['d'] = $d;
                 sb_desk_save($m, $s);
                 sb_desk_unlock($lock);
-                sb_desk_album_say($m, '👍 ছবি পেয়েছি (এ পর্যন্ত ' . count($d['aids']) . 'টি)। আরও থাকলে পাঠান, নইলে "✅ ছবি দিয়েছি" চাপুন।', array(array(sb_desk_btn('✅ ছবি দিয়েছি', 'done'), sb_desk_btn('❌ বাতিল', 'cancel'))));
+                sb_desk_album_say($m, '👍 Picture received (' . count($d['aids']) . ' so far). Send more if there is more, otherwise press "✅ Pictures sent".', array(array(sb_desk_btn('✅ Pictures sent', 'done'), sb_desk_btn('❌ Cancel', 'cancel'))));
                 return;
             }
             if (0 === strpos($cb, 'img:')) {
@@ -836,7 +836,7 @@ function sb_desk_step($m, $in) {
     sb_desk_save($m, $s);
     sb_desk_unlock($lock);
     if ($stay && 'details' !== $k) {
-        sb_desk_say($m, 'এই ধাপে নিচের বোতাম বা সঠিক উত্তর দিন 🙂');
+        sb_desk_say($m, 'For this step use the buttons below or give a proper answer 🙂');
     }
     sb_desk_ask($m, $s);
 }
@@ -846,7 +846,7 @@ function sb_desk_run($m, $flow, $d, $status) {
     if ('news' === $flow) {
         return sb_desk_news_run($m, (array) ($d['urls'] ?? array()));
     }
-    sb_desk_say($m, 'notice' === $flow ? '⏳ নোটিশ পড়ছি ও সাজাচ্ছি…' : '⏳ ব্লগ লিখছি ও SEO করছি (সাধারণত ১–৩ মিনিট)…');
+    sb_desk_say($m, 'notice' === $flow ? '⏳ Reading and arranging the notice…' : '⏳ Writing the blog and doing SEO (usually 1–3 minutes)…');
     if ('notice' === $flow) {
         $r = sb_desk_notice((string) ($d['text'] ?? ''), (array) ($d['aids'] ?? array()), $status, $d);
     } else {
@@ -856,27 +856,27 @@ function sb_desk_run($m, $flow, $d, $status) {
         sb_desk_say($m, '⚠️ ' . esc_html($r->get_error_message()));
         return;
     }
-    sb_desk_say($m, $r['msg'] . "\n\n/menu — আরেকটি কাজ");
+    sb_desk_say($m, $r['msg'] . "\n\n/menu — another task");
 }
 
 /** /blog text and /notice text typed directly (no questions). */
 function sb_desk_quick($m, $cmd, $rest, $aids) {
     if ('notice' === $cmd) {
-        sb_desk_say($m, '⏳ নোটিশ পড়ছি ও সাজাচ্ছি…');
+        sb_desk_say($m, '⏳ Reading and arranging the notice…');
         $r = sb_desk_notice($rest, $aids, sb_desk_cfg()['publish'] ? 'publish' : 'draft');
     } else {
         if (mb_strlen($rest) < 4) {
-            sb_desk_say($m, 'ব্লগের বিষয় বা কীওয়ার্ড লিখুন, যেমন: <code>/blog স্পেলিং স্টার প্রস্তুতি</code>');
+            sb_desk_say($m, 'Write the blog topic or keyword, e.g. <code>/blog Spelling Star preparation</code>');
             return;
         }
         if (!$aids) {   // no own photo: ask which dress the AI picture should show
             sb_desk_save($m, array('flow' => 'qblog', 'i' => 0, 'd' => array('topic' => $rest, 'aids' => array())));
             list($txt, $rows) = sb_desk_dress_kb('qd:');
-            $rows[] = array(sb_desk_btn('🚫 ছবি লাগবে না', 'qd:imgnone'), sb_desk_btn('❌ বাতিল', 'cancel'));
-            sb_desk_say($m, "✍️ বিষয়: " . esc_html(mb_substr($rest, 0, 120)) . "\n\n" . $txt, $rows);
+            $rows[] = array(sb_desk_btn('🚫 No picture', 'qd:imgnone'), sb_desk_btn('❌ Cancel', 'cancel'));
+            sb_desk_say($m, "✍️ Topic: " . esc_html(mb_substr($rest, 0, 120)) . "\n\n" . $txt, $rows);
             return;
         }
-        sb_desk_say($m, '⏳ ব্লগ লিখছি (সাধারণত ১–৩ মিনিট)…');
+        sb_desk_say($m, '⏳ Writing the blog (usually 1–3 minutes)…');
         $r = sb_desk_blog($rest, $aids, sb_desk_cfg()['publish'] ? 'publish' : 'draft');
     }
     sb_desk_say($m, is_wp_error($r) ? '⚠️ ' . esc_html($r->get_error_message()) : $r['msg']);
@@ -908,11 +908,11 @@ function sb_desk_news_item($url) {
         'user-agent' => $fb ? 'facebookexternalhit/1.1 (+http://www.facebook.com/externalhit_uatext.php)' : 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0 Safari/537.36',
         'headers' => array('Accept-Language' => 'bn,en;q=0.8')));
     if (is_wp_error($r)) {
-        return new WP_Error('sb_news', 'পাতা খোলা যায়নি।');
+        return new WP_Error('sb_news', 'The page could not be opened.');
     }
     $code = (int) wp_remote_retrieve_response_code($r);
     if (200 !== $code) {
-        return new WP_Error('sb_news', 'পাতা খোলেনি (কোড ' . $code . ')। সাইটটি সার্ভারকে আটকাতে পারে।');
+        return new WP_Error('sb_news', 'The page did not open (code ' . $code . '). The site may be blocking the server.');
     }
     $body = (string) wp_remote_retrieve_body($r);
     $meta = function_exists('csa_ev_og_meta') ? csa_ev_og_meta($body) : array();
@@ -929,7 +929,7 @@ function sb_desk_news_item($url) {
     }
     $desc = (string) ($meta['og:description'] ?? ($meta['description'] ?? ''));
     if ($fb && '' === $desc && '' === $title) {
-        return new WP_Error('sb_news', 'ফেসবুক পোস্টটি পাবলিক নয় বা ফেসবুক পাতার তথ্য দেয়নি। পোস্টটি "Public" করুন, অথবা লেখা ও ছবি সরাসরি পাঠান।');
+        return new WP_Error('sb_news', 'The Facebook post is not public or gave no page data. Make the post "Public", or send the text and picture directly.');
     }
     return array('id' => substr(md5($url . microtime(true)), 0, 10), 't' => time(), 'url' => $url, 'host' => $fb ? 'ফেসবুক' : (string) wp_parse_url($url, PHP_URL_HOST), 'fb' => $fb,
         'title' => mb_substr(sanitize_text_field($title), 0, 300), 'text' => mb_substr(sanitize_textarea_field(($desc !== '' ? $desc . "\n" : '') . $plain), 0, 8000),
@@ -938,15 +938,15 @@ function sb_desk_news_item($url) {
 
 function sb_desk_news_run($m, $urls) {
     if (!function_exists('sb_ca_process')) {
-        return sb_desk_say($m, '⚠️ সংবাদ সংগ্রহের অংশ চালু নেই।');
+        return sb_desk_say($m, '⚠️ The news collector is not active.');
     }
-    sb_desk_say($m, '⏳ ' . count($urls) . 'টি লিংক পড়ছি ও যাচাই করছি…');
+    sb_desk_say($m, '⏳ Reading and checking ' . count($urls) . ' link(s)…');
     $out    = array();
     $offers = array();
     foreach (array_slice($urls, 0, 5) as $u) {
         if (preg_match('#facebook\.com|fb\.watch|fb\.me|youtube\.com|youtu\.be#i', $u)) {   // picture = the post's / video's own thumbnail
             list($st, $note, $ti) = sb_ca_social_card($u);
-            $ic = array('filed' => '✅ বসানো হয়েছে', 'blocked' => '🛑 আটকানো হয়েছে', 'skipped' => '⏭️ বাদ', 'dup' => '♻️ আগেই আছে', 'error' => '⚠️ হয়নি');
+            $ic = array('filed' => '✅ Published', 'blocked' => '🛑 Held back', 'skipped' => '⏭️ Skipped', 'dup' => '♻️ Already exists', 'error' => '⚠️ Failed');
             $out[] = ($ic[$st] ?? $st) . ': ' . esc_html(mb_substr($ti ?: $u, 0, 80)) . "\n   " . esc_html($note);
             if ('filed' === $st && function_exists('sb_share_offer')) {
                 $offers[] = array(sb_ca_canon_social(esc_url_raw($u)), (string) $ti);
@@ -959,11 +959,11 @@ function sb_desk_news_run($m, $urls) {
             continue;
         }
         $r  = sb_ca_process($it, true);
-        $ic = array('filed' => '✅ বসানো হয়েছে', 'blocked' => '🛑 আটকানো হয়েছে', 'skipped' => '⏭️ বাদ', 'dup' => '♻️ আগেই আছে', 'error' => '⚠️ হয়নি');
+        $ic = array('filed' => '✅ Published', 'blocked' => '🛑 Held back', 'skipped' => '⏭️ Skipped', 'dup' => '♻️ Already exists', 'error' => '⚠️ Failed');
         $out[] = ($ic[$r[0]] ?? $r[0]) . ': ' . esc_html(mb_substr($it['title'] ?: $u, 0, 80)) . "\n   " . esc_html($r[1]);
     }
     update_option('sb_desk_lastrun', array('t' => time(), 'out' => $out), false);
-    sb_desk_say($m, "📰 <b>সংবাদের ফল</b>\n\n" . implode("\n\n", $out) . "\n\n🛑 আটকানো খবর আপনাকে আলাদা করে জানানো হয় (ব্লগ → সংবাদ সংগ্রহ)।\n/menu — আরেকটি কাজ");
+    sb_desk_say($m, "📰 <b>News results</b>\n\n" . implode("\n\n", $out) . "\n\n🛑 Held-back news is reported to you separately (Blog → News collector).\n/menu — another task");
     foreach ($offers as $of) {   // ask before sharing anything: Instagram/YouTube drafts need a tap to go
         sb_share_offer($m, $of[0], $of[1]);
     }
@@ -1020,7 +1020,7 @@ function sb_desk_ajax($action, $params) {
     $_REQUEST = $keep[1];
     $a = strpos($out, '{"success"');
     $j = false !== $a ? json_decode(substr($out, $a), true) : null;
-    return is_array($j) ? $j : array('success' => false, 'data' => array('message' => 'উত্তর পাইনি'));
+    return is_array($j) ? $j : array('success' => false, 'data' => array('message' => 'No reply received'));
 }
 
 
@@ -1031,20 +1031,20 @@ function sb_desk_dress_kb($pre) {
         $n[$r['cat']] = ($n[$r['cat']] ?? 0) + 1;
     }
     $kinds = array(
-        array('cat:general', '👦 বাংলা মাধ্যম', 'সাদা শার্ট, সবুজ কাঁধপট্টি, টাই (ছেলে) / সবুজ-সাদা (মেয়ে)'),
-        array('cat:english', '🧒 ইংলিশ ভার্সন', 'নীল পিনাফোর ও সাদা ব্লাউজ (মেয়ে) / সাদা শার্ট, নীল টাই ও প্যান্ট (ছেলে)'),
-        array('cat:madrasha', '🕌 ইসলামিক স্কুল', 'সাদা পাঞ্জাবি ও টুপি (ছেলে) / সাদা পোশাক ও হিজাব (মেয়ে)'),
-        array('cat:cadet', '🎖️ ক্যাডেট কলেজ', 'ক্যাডেট কলেজের ইউনিফর্ম'),
-        array('cat:teacher', '👩‍🏫 শিক্ষক', 'শিক্ষকের পোশাক'),
-        array('none', '⛔ ড্রেস ছাড়া', 'সাধারণ পোশাক, ড্রেসের নমুনা লাগবে না'),
-        array('auto', '🎲 অটো', 'লেখা দেখে এআই নিজে বাছবে'),
+        array('cat:general', '👦 Bangla medium', 'white shirt, green shoulder strap, tie (boys) / green-white (girls)'),
+        array('cat:english', '🧒 English version', 'blue pinafore and white blouse (girls) / white shirt, blue tie and trousers (boys)'),
+        array('cat:madrasha', '🕌 Islamic school', 'white panjabi and cap (boys) / white dress and hijab (girls)'),
+        array('cat:cadet', '🎖️ Cadet college', 'cadet college uniform'),
+        array('cat:teacher', '👩‍🏫 Teacher', 'teacher\'s clothes'),
+        array('none', '⛔ No dress', 'ordinary clothes, no dress sample needed'),
+        array('auto', '🎲 Auto', 'the AI chooses from the text'),
     );
-    $txt  = "👕 <b>ছবিতে কোন ড্রেস থাকবে?</b> একটি চাপুন:\n\n";
+    $txt  = "👕 <b>Which dress should the picture have?</b> Press one:\n\n";
     $rows = array();
     $row  = array();
     foreach ($kinds as $k) {
         $c = 0 === strpos($k[0], 'cat:') ? (int) ($n[substr($k[0], 4)] ?? 0) : -1;
-        $txt .= $k[1] . ' — ' . $k[2] . ($c >= 0 ? ($c ? " ({$c}টি নমুনা)" : ' ⚠️ নমুনা ছবি নেই') : '') . "\n";
+        $txt .= $k[1] . ' — ' . $k[2] . ($c >= 0 ? ($c ? " ({$c} sample(s))" : ' ⚠️ no sample photo') : '') . "\n";
         $row[] = sb_desk_btn($k[1], $pre . $k[0]);
         if (2 === count($row)) {
             $rows[] = $row;
@@ -1065,8 +1065,8 @@ function sb_desk_needs_who($uni) {
 
 function sb_desk_who_kb($pre) {
     return array(
-        array(sb_desk_btn('👦 ছেলে', $pre . 'b'), sb_desk_btn('👧 মেয়ে', $pre . 'g')),
-        array(sb_desk_btn('👫 ছেলে ও মেয়ে (মিক্স)', $pre . 'm')),
+        array(sb_desk_btn('👦 Boys', $pre . 'b'), sb_desk_btn('👧 Girls', $pre . 'g')),
+        array(sb_desk_btn('👫 Boys and girls (mix)', $pre . 'm')),
     );
 }
 
@@ -1101,7 +1101,7 @@ function sb_desk_dress_add($att, $cap) {
             $n++;
         }
     }
-    return "✅ <b>ড্রেসের নমুনা যোগ হয়েছে</b>\nধরন: " . esc_html($cn) . ($who ? "\n" . esc_html(trim($who, ' —')) : "\n(ছেলে/মেয়ে লেখেননি, তাই দুই ক্ষেত্রেই চলবে)") . "\nনাম: " . esc_html($name) . "\n" . esc_html($cn) . ' ধরনে এখন মোট ' . $n . 'টি নমুনা।' . "\nনাম বা বিবরণ বদলাতে: ওয়ার্ডপ্রেস → Uniform Library।";
+    return "✅ <b>Dress sample added</b>\nKind: " . esc_html($cn) . ($who ? "\n" . esc_html(trim($who, ' —')) : "\n(you did not write boy/girl, so it works for both)") . "\nName: " . esc_html($name) . "\nThe " . esc_html($cn) . ' kind now has ' . $n . ' sample(s) in total.' . "\nTo change the name or description: WordPress → Uniform Library.";
 }
 
 /* ------------------------------------------------------------ held-back news (blocked / skipped by the news robot) */
@@ -1124,20 +1124,20 @@ function sb_desk_held_show($m, $page) {
     $all = sb_desk_held_items();
     if (!$all) {
         sb_desk_clear($m);
-        sb_desk_say($m, '🛑 আটকানো বা বাদ পড়া কোনো খবর এখন তালিকায় নেই।');
+        sb_desk_say($m, '🛑 There is no held-back or skipped news in the list right now.');
         return;
     }
     $per   = 10;
     $pages = (int) ceil(count($all) / $per);
     $page  = max(0, min((int) $page, $pages - 1));
-    $t = "🛑 <b>আটকানো / বাদ পড়া খবর</b> (মোট " . count($all) . "টি, পাতা " . ($page + 1) . '/' . $pages . ")\n\n";
+    $t = "🛑 <b>Held-back / skipped news</b> (" . count($all) . " in total, page " . ($page + 1) . '/' . $pages . ")\n\n";
     foreach (array_slice($all, $page * $per, $per, true) as $i => $x) {
         $t .= ($i + 1) . '. ' . ('blocked' === $x['st'] ? '🛑' : '⏭️') . ' <a href="' . esc_url($x['url']) . '">' . esc_html(mb_substr((string) ($x['title'] ?: $x['url']), 0, 80)) . '</a>'
             . "\n    " . esc_html(mb_substr((string) ($x['host'] ?? ''), 0, 30)) . ' — ' . esc_html(mb_substr((string) ($x['note'] ?? ''), 0, 90)) . "\n";
     }
-    $t .= "\n✅ রাখতে: <code>রাখো 1 3</code>\n❌ বাতিল করতে: <code>বাতিল 2 4</code>\nএকসাথে কয়েকটি লাইনেও লিখতে পারেন। পরের পাতা: <code>আরও</code>। শেষ: <code>শেষ</code>\n(🛑 = নেতিবাচক/সন্দেহজনক বলে আটকানো, ⏭️ = সংবাদ নয় বা বিষয় মেলেনি)";
+    $t .= "\n✅ To keep: <code>keep 1 3</code>\n❌ To drop: <code>drop 2 4</code>\nYou can also write several lines at once. Next page: <code>more</code>. Finish: <code>done</code>\n(🛑 = held back as negative/doubtful, ⏭️ = not news or off-topic)";
     sb_desk_save($m, array('flow' => 'held', 'i' => 0, 'd' => array('ids' => array_map(function ($x) { return (string) $x['id']; }, $all), 'page' => $page)));
-    sb_desk_say($m, $t, array(array(sb_desk_btn('➡️ আরও', 'held:more'), sb_desk_btn('✖️ শেষ', 'held:end'))));
+    sb_desk_say($m, $t, array(array(sb_desk_btn('➡️ More', 'held:more'), sb_desk_btn('✖️ Done', 'held:end'))));
 }
 
 function sb_desk_held_step($m, $s, $in) {
@@ -1147,7 +1147,7 @@ function sb_desk_held_step($m, $s, $in) {
     $ids = (array) ($d['ids'] ?? array());
     if ('held:end' === $cb || preg_match('/^\s*(শেষ|done|exit|cancel|বাতিল সব শেষ)\s*$/iu', $tx)) {
         sb_desk_clear($m);
-        sb_desk_say($m, 'ঠিক আছে ✓ (/menu দিয়ে আবার শুরু করুন)');
+        sb_desk_say($m, 'OK ✓ (start again with /menu)');
         return;
     }
     if ('held:more' === $cb || preg_match('/^\s*(আরও|আরো|more|next)\s*$/iu', $tx)) {
@@ -1183,7 +1183,7 @@ function sb_desk_held_step($m, $s, $in) {
         }
     }
     if (!$do) {
-        sb_desk_say($m, "বুঝিনি 🙂 এভাবে লিখুন: <code>রাখো 1 3</code> বা <code>বাতিল 2</code>। পরের পাতা: <code>আরও</code>, শেষ: <code>শেষ</code>");
+        sb_desk_say($m, "I did not understand 🙂 Write it like this: <code>keep 1 3</code> or <code>drop 2</code>. Next page: <code>more</code>, finish: <code>done</code>");
         return;
     }
     @set_time_limit(300);
@@ -1195,13 +1195,13 @@ function sb_desk_held_step($m, $s, $in) {
     foreach ($do as $n => $act) {
         $it = $items[(string) ($ids[$n - 1] ?? '')] ?? null;
         if (!$it) {
-            $report .= $n . '. ⚠️ খবরটি আর তালিকায় নেই' . "\n";
+            $report .= $n . '. ⚠️ This news is no longer in the list' . "\n";
             continue;
         }
         $ttl = esc_html(mb_substr((string) ($it['title'] ?: $it['url']), 0, 60));
         if ('drop' === $act) {
-            sb_ca_mark($it['id'], 'dismissed', 'আপনি বাতিল করেছেন');
-            $report .= $n . '. ❌ বাতিল — ' . $ttl . "\n";
+            sb_ca_mark($it['id'], 'dismissed', 'You dropped it');
+            $report .= $n . '. ❌ Dropped — ' . $ttl . "\n";
             continue;
         }
         $fresh = sb_ca_read($it['url']);
@@ -1211,13 +1211,13 @@ function sb_desk_held_step($m, $s, $in) {
         $item['force']    = 1;
         list($st, $note) = sb_ca_process($item, true);
         if ('filed' === $st) {
-            sb_ca_mark($it['id'], 'filed', 'আপনি রেখেছেন · ' . $note);
-            $report .= $n . '. ✅ রাখা হয়েছে — ' . $ttl . "\n";
+            sb_ca_mark($it['id'], 'filed', 'You kept it · ' . $note);
+            $report .= $n . '. ✅ Kept — ' . $ttl . "\n";
         } elseif ('dup' === $st) {
-            sb_ca_mark($it['id'], 'dismissed', 'আগেই আছে');
-            $report .= $n . '. ♻️ এই লিংক আগেই ব্লগে আছে — ' . $ttl . "\n";
+            sb_ca_mark($it['id'], 'dismissed', 'Already exists');
+            $report .= $n . '. ♻️ This link is already on the blog — ' . $ttl . "\n";
         } else {
-            $report .= $n . '. ⚠️ হয়নি (' . esc_html(mb_substr($note, 0, 80)) . ') — ' . $ttl . "\n";
+            $report .= $n . '. ⚠️ Failed (' . esc_html(mb_substr($note, 0, 80)) . ') — ' . $ttl . "\n";
         }
     }
     sb_desk_say($m, $report);
@@ -1240,14 +1240,14 @@ function sb_desk_album_say($m, $html, $kb = array()) {
 /** Readable name of a dress choice (button id) for notices. */
 function sb_desk_dress_label($uni) {
     if (preg_match('/^(.*):([bgm])$/', (string) $uni, $gm)) {
-        return sb_desk_dress_label($gm[1]) . ' — ' . array('b' => 'ছেলে', 'g' => 'মেয়ে', 'm' => 'ছেলে ও মেয়ে')[$gm[2]];
+        return sb_desk_dress_label($gm[1]) . ' — ' . array('b' => 'boys', 'g' => 'girls', 'm' => 'boys and girls')[$gm[2]];
     }
     foreach (sb_img_opts()['uniforms'] as $u) {
         if ((string) $u[0] === (string) $uni) {
             return preg_replace('/^ধরন:\s*/u', '', $u[1]);
         }
     }
-    return 'auto' === $uni ? 'স্বয়ংক্রিয় (লেখা দেখে)' : (string) $uni;
+    return 'auto' === $uni ? 'automatic (from the text)' : (string) $uni;
 }
 
 /** Notice to the Telegram channel (skipped in a dry run). */
@@ -1262,12 +1262,12 @@ function sb_desk_tgnote($html) {
 function sb_desk_autoimage($post_id, $title, $slug, $o, $html, $uniform = '') {
     @set_time_limit(600);
     $uni = '' !== $uniform ? $uniform : (($o['uniform'] ?? '') !== '' ? (string) $o['uniform'] : 'auto');
-    sb_desk_tgnote("🎨 <b>AI ছবি বানানো শুরু</b>\nপোস্ট: " . esc_html(mb_substr((string) $title, 0, 90)) . "\nড্রেস: " . esc_html(sb_desk_dress_label($uni)) . "\n⏳ ১–২ মিনিট লাগে, শেষ হলে জানাব। খরচ প্রায় ৭ সেন্ট।");
+    sb_desk_tgnote("🎨 <b>AI picture started</b>\nPost: " . esc_html(mb_substr((string) $title, 0, 90)) . "\nDress: " . esc_html(sb_desk_dress_label($uni)) . "\n⏳ Takes 1–2 minutes; I will tell you when it is done. Cost about 7 cents.");
     $p = sb_desk_ajax('sb_img_prompt', array('title' => $title, 'content' => wp_strip_all_tags((string) $html), 'category' => '', 'subject' => 'auto',
         'uniform' => $uni, 'logo' => (string) ($o['logo'] ?? 'none'), 'logo_at' => 'chest', 'size' => '1536x1024', 'post_id' => (int) $post_id));
     if (empty($p['success'])) {
-        $msg = (string) ($p['data']['message'] ?? 'ছবির প্রম্পট হয়নি');
-        sb_desk_tgnote("⚠️ <b>AI ছবি হয়নি</b> (প্রম্পটের ধাপ)\n" . esc_html($msg));
+        $msg = (string) ($p['data']['message'] ?? 'The picture prompt failed');
+        sb_desk_tgnote("⚠️ <b>AI picture failed</b> (prompt step)\n" . esc_html($msg));
         return new WP_Error('sb_img', $msg);
     }
     $d = $p['data'];
@@ -1275,13 +1275,13 @@ function sb_desk_autoimage($post_id, $title, $slug, $o, $html, $uniform = '') {
         'title' => $title, 'content' => wp_strip_all_tags((string) $html), 'category' => '', 'subject' => 'auto', 'uniform' => $uni, 'logo' => (string) ($o['logo'] ?? 'none'), 'logo_at' => 'chest',
         'alt' => (string) $d['alt'], 'imgtitle' => (string) $d['title'], 'caption' => (string) $d['caption'], 'details' => (string) $d['details'], 'file_slug' => (string) $slug, 'post_id' => (int) $post_id));
     if (empty($m['success']) || empty($m['data']['id'])) {
-        $msg = (string) ($m['data']['message'] ?? 'ছবি তৈরি হয়নি');
-        sb_desk_tgnote("⚠️ <b>AI ছবি হয়নি</b>\n" . esc_html($msg));
+        $msg = (string) ($m['data']['message'] ?? 'The picture was not created');
+        sb_desk_tgnote("⚠️ <b>AI picture failed</b>\n" . esc_html($msg));
         return new WP_Error('sb_img', $msg);
     }
     set_post_thumbnail((int) $post_id, (int) $m['data']['id']);
     $note = !empty($p['data']['note']) ? "\n⚠️ " . esc_html((string) $p['data']['note']) : '';
-    sb_desk_tgnote("✅ <b>AI ছবি তৈরি হয়েছে</b>\nপোস্ট: " . esc_html(mb_substr((string) $title, 0, 90)) . "\nড্রেস: " . esc_html(sb_desk_dress_label($uni)) . ((int) ($p['data']['uniforms'] ?? 0) ? '' : "\n(ড্রেসের নমুনা ছবি ব্যবহার হয়নি)") . "\nঅল্ট: " . esc_html(mb_substr((string) $d['alt'], 0, 140)) . $note . "\n" . esc_url(get_edit_post_link((int) $post_id, 'raw')));
+    sb_desk_tgnote("✅ <b>AI picture created</b>\nPost: " . esc_html(mb_substr((string) $title, 0, 90)) . "\nDress: " . esc_html(sb_desk_dress_label($uni)) . ((int) ($p['data']['uniforms'] ?? 0) ? '' : "\n(no dress sample photo was used)") . "\nAlt: " . esc_html(mb_substr((string) $d['alt'], 0, 140)) . $note . "\n" . esc_url(get_edit_post_link((int) $post_id, 'raw')));
     return (int) $m['data']['id'];
 }
 
@@ -1289,7 +1289,7 @@ function sb_desk_autoimage($post_id, $title, $slug, $o, $html, $uniform = '') {
 function sb_desk_patch_post($pid, $f) {
     $pid = (int) $pid;
     if (!$pid || 'sb_post' !== get_post_type($pid)) {
-        return new WP_Error('sb_ed', 'ব্লগ পোস্ট পাইনি।');
+        return new WP_Error('sb_ed', 'Blog post not found.');
     }
     $g = function ($k) use ($f) {
         return isset($f[$k]) ? (string) $f[$k] : '';
@@ -1399,26 +1399,26 @@ function sb_desk_post_propose($id, $kind, $act, $val) {
     switch ($act) {
         case 'title':
             $f['title'] = $t;
-            $desc = '🏷️ নতুন শিরোনাম: <b>' . esc_html($t) . '</b>';
+            $desc = '🏷️ New title: <b>' . esc_html($t) . '</b>';
             break;
         case 'summary':
             $f['summary'] = $t;
             $f['meta'] = mb_substr($t, 0, 160);
-            $desc = '📝 নতুন সারাংশ:' . "\n" . esc_html($t);
+            $desc = '📝 New summary:' . "\n" . esc_html($t);
             break;
         case 'meta':
             $f['meta'] = mb_substr($t, 0, 160);
-            $desc = '🔎 নতুন Google বিবরণ (সর্বোচ্চ ১৬০ অক্ষর):' . "\n" . esc_html($f['meta']);
+            $desc = '🔎 New Google description (max 160 characters):' . "\n" . esc_html($f['meta']);
             break;
         case 'kw':
             $f['keywords'] = $t;
-            $desc = '🔑 কীওয়ার্ড: ' . esc_html($t);
+            $desc = '🔑 Keywords: ' . esc_html($t);
             break;
         case 'embed':
             $ls = array_values(array_filter(array_map('trim', preg_split('/\R/u', $t))));
             $url = $ls ? $ls[0] : '';
             if (!preg_match('#^https?://\S+$#i', $url)) {
-                return new WP_Error('sb_ed', 'প্রথম লাইনে ভিডিও/পোস্টের পুরো লিংক দিন, দ্বিতীয় লাইনে ক্যাপশন (ঐচ্ছিক)।');
+                return new WP_Error('sb_ed', 'Put the full video/post link on the first line and the caption on the second (optional).');
             }
             if (preg_match('#^https?://([a-z0-9.-]+\.)?(facebook\.com|fb\.watch|fb\.me)/#i', $url)) {
                 $c = sb_desk_fb_canon($url);
@@ -1430,7 +1430,7 @@ function sb_desk_post_propose($id, $kind, $act, $val) {
             $f['embed_url'] = $url;
             $f['embed_label'] = implode(' ', array_slice($ls, 1));
             $f['embed_pos'] = 'p:1';
-            $desc = "🎬 প্রথম অনুচ্ছেদের পরে এই ভিডিও/পোস্ট বসবে:\n" . esc_url($url) . ($f['embed_label'] ? "\nক্যাপশন: " . esc_html($f['embed_label']) : '');
+            $desc = "🎬 This video/post will go after the first paragraph:\n" . esc_url($url) . ($f['embed_label'] ? "\nCaption: " . esc_html($f['embed_label']) : '');
             break;
         case 'promo':
             $have = array();
@@ -1440,108 +1440,108 @@ function sb_desk_post_propose($id, $kind, $act, $val) {
             $want = 'none' === strtolower($t) || 'নেই' === $t ? array() : array_values(array_filter(array_map('sanitize_key', preg_split('/[\s,]+/u', $t))));
             foreach ($want as $w) {
                 if (!isset($have[$w])) {
-                    return new WP_Error('sb_ed', 'এই নামে কার্ড নেই: ' . esc_html($w));
+                    return new WP_Error('sb_ed', 'No promo card with this name: ' . esc_html($w));
                 }
             }
             $f['promo_ids'] = $want ? implode(',', $want) : 'none';
-            $desc = '📣 কার্ড: ' . ($want ? esc_html(implode(', ', array_map(function ($w) use ($have) { return $have[$w]; }, $want))) : 'কোনো কার্ড নয়');
+            $desc = '📣 Promo card: ' . ($want ? esc_html(implode(', ', array_map(function ($w) use ($have) { return $have[$w]; }, $want))) : 'no card');
             break;
         case 'img':
             $a = (int) ($val['img'] ?? 0);
             if (!$a) {
-                return new WP_Error('sb_ed', 'ছবি পাইনি।');
+                return new WP_Error('sb_ed', 'No picture received.');
             }
             $thumb = $a;
             $f['thumb'] = $a;
-            $desc = '🖼️ মূল ছবি বদলে নতুন ছবি বসবে।';
+            $desc = '🖼️ The main picture will be replaced with the new one.';
             break;
         case 'entitle':
             if ('auto' === strtolower($t)) {
                 $r = csa_jobs_ai_json('Return ONLY JSON {"en":"the title in natural English, 4 to 9 words, plain words"}.', get_the_title($id), 'Desk: en title', 200);
                 $t = !is_wp_error($r) ? sanitize_text_field($r['en'] ?? '') : '';
                 if ('' === $t) {
-                    return new WP_Error('sb_ed', 'ইংরেজি শিরোনাম বানাতে পারিনি, নিজে লিখে দিন।');
+                    return new WP_Error('sb_ed', 'I could not make an English title; please write it yourself.');
                 }
             }
             $f['en_title'] = $t;
-            $desc = '🔤 ইংরেজি শিরোনাম: <b>' . esc_html($t) . '</b>';
+            $desc = '🔤 English title: <b>' . esc_html($t) . '</b>';
             break;
         case 'slug':
             if ('auto' === strtolower($t)) {
                 $t = sb_friendly_slug((string) get_post_meta($id, '_sb_en_title', true), (array) get_post_meta($id, '_sb_keywords', true), get_the_title($id));
                 if ('' === $t) {
-                    return new WP_Error('sb_ed', 'ইংরেজি শিরোনাম নেই, তাই স্লাগ বানাতে পারিনি। আগে ইংরেজি শিরোনাম দিন বা স্লাগ নিজে লিখুন।');
+                    return new WP_Error('sb_ed', 'There is no English title, so I could not make a slug. Give an English title first or write the slug yourself.');
                 }
             }
             $t = sanitize_title($t);
             if (strlen($t) < 3 || !preg_match('/^[a-z0-9-]+$/', $t)) {
-                return new WP_Error('sb_ed', 'স্লাগ ইংরেজি অক্ষর, সংখ্যা ও হাইফেনে লিখুন (যেমন cadet-college-tips)।');
+                return new WP_Error('sb_ed', 'Write the slug with English letters, numbers and hyphens (e.g. cadet-college-tips).');
             }
             $f['slug'] = $t;
-            $desc = '🔗 নতুন লিংক: ' . esc_html(home_url('/blog/' . $t . '/')) . "\n(পুরোনো লিংক থাকলে সেটি আর কাজ নাও করতে পারে।)";
+            $desc = '🔗 New link: ' . esc_html(home_url('/blog/' . $t . '/')) . "\n(The old link may stop working.)";
             break;
         case 'aiimg':
             $f['aiimg'] = '' !== $t ? $t : 'auto';
-            $desc = '🎨 লেখা দেখে নতুন AI ছবি বানিয়ে মূল ছবি করা হবে। ড্রেস: ' . esc_html($f['aiimg']);
+            $desc = '🎨 A new AI picture will be made from the text and set as the main picture. Dress: ' . esc_html($f['aiimg']);
             break;
         case 'alt':
             if ('auto' === strtolower($t)) {
                 $f['img_alt'] = 'auto';
-                $desc = '🏷️ AI মূল ছবি দেখে অল্ট-টেক্সট লিখবে।';
+                $desc = '🏷️ The AI will look at the main picture and write the alt text.';
             } else {
                 $f['img_alt'] = mb_substr($t, 0, 200);
-                $desc = '🏷️ অল্ট-টেক্সট: ' . esc_html($f['img_alt']);
+                $desc = '🏷️ Alt text: ' . esc_html($f['img_alt']);
             }
             break;
         case 'nlink':
             if (!preg_match('#^https?://\S+$#i', $t)) {
-                return new WP_Error('sb_ed', 'সংবাদের পুরো লিংক (https://…) পাঠান।');
+                return new WP_Error('sb_ed', 'Send the full news link (https://…).');
             }
             $f['press_url'] = $t;
-            $desc = '🔗 সংবাদের লিংক: ' . esc_url($t);
+            $desc = '🔗 News link: ' . esc_url($t);
             break;
         case 'paper':
             $f['press_paper'] = $t;
-            $desc = '📰 পত্রিকার নাম: <b>' . esc_html($t) . '</b>';
+            $desc = '📰 Newspaper name: <b>' . esc_html($t) . '</b>';
             break;
         case 'pub':
             $f['status'] = 'publish';
-            $desc = '🌐 লেখাটি <b>প্রকাশিত</b> হবে (সবাই দেখবে)।';
+            $desc = '🌐 The post will be <b>published</b> (everyone can see it).';
             break;
         case 'draft':
             $f['status'] = 'draft';
-            $desc = '📥 লেখাটি <b>ড্রাফটে</b> যাবে (সাইটে আর দেখা যাবে না)।';
+            $desc = '📥 The post will become a <b>draft</b> (no longer visible on the site).';
             break;
         case 'free':
             $post = get_post($id);
             $sys = 'You edit a Bangla blog article stored as HTML. Apply ONLY the requested change; keep everything else exactly as it is; do not invent facts, dates, fees or links. Return ONLY JSON: {"html":"<the full updated HTML>","changes":["each change as one short Bangla line"]}.';
             $r = csa_jobs_ai_json($sys, "Article HTML:\n" . $post->post_content . "\n\nRequested change:\n" . $t, 'Desk: free blog edit', 7000);
             if (is_wp_error($r) || empty($r['html']) || !is_string($r['html'])) {
-                return new WP_Error('sb_ed', 'AI বদলটি বুঝে করতে পারেনি। অন্যভাবে লিখে দেখুন।');
+                return new WP_Error('sb_ed', 'The AI could not understand the change. Try wording it differently.');
             }
             $chg = array_values(array_filter((array) ($r['changes'] ?? array())));
             if (!$chg) {
-                return new WP_Error('sb_ed', 'কোনো বদল করা যায়নি। আরও স্পষ্ট করে লিখুন।');
+                return new WP_Error('sb_ed', 'No change could be made. Please be more specific.');
             }
             $f['content'] = $r['html'];
-            $desc = "✍️ বদলগুলো:\n• " . implode("\n• ", array_map('esc_html', array_map('strval', array_slice($chg, 0, 8))));
+            $desc = "✍️ Changes:\n• " . implode("\n• ", array_map('esc_html', array_map('strval', array_slice($chg, 0, 8))));
             break;
         default:
-            return new WP_Error('sb_ed', 'অজানা কাজ।');
+            return new WP_Error('sb_ed', 'Unknown action.');
     }
-    return array('new' => array('fields' => $f), 'desc' => $desc . "\n\n(" . ('news' === $kind ? 'সংবাদ' : 'ব্লগ') . ': ' . esc_html(get_the_title($id)) . ')', 'thumb' => $thumb);
+    return array('new' => array('fields' => $f), 'desc' => $desc . "\n\n(" . ('news' === $kind ? 'news' : 'blog') . ': ' . esc_html(get_the_title($id)) . ')', 'thumb' => $thumb);
 }
 
 function sb_desk_post_apply($id, $kind, $st) {
     if (!in_array($id, sb_desk_post_list($kind), true) || empty($st['new']['fields'])) {
-        return new WP_Error('sb_ed', 'লেখাটি আর তালিকায় নেই, আবার /menu থেকে শুরু করুন।');
+        return new WP_Error('sb_ed', 'The post is no longer in the list; start again from /menu.');
     }
     $r = sb_desk_patch_post($id, $st['new']['fields']);
     if (is_wp_error($r)) {
         return $r;
     }
     $url = 'publish' === get_post_status($id) ? get_permalink($id) : home_url('/?post_type=sb_post&p=' . $id . '&preview=true');
-    return "✅ বদল হয়েছে:\n<b>" . esc_html(get_the_title($id)) . "</b>\n" . esc_url($url) . ('publish' === get_post_status($id) ? '' : "\n(ড্রাফট: এডমিন লগইন থাকলে এই লিংকে প্রিভিউ দেখা যায়)") . "\n\n/menu — আরেকটি কাজ";
+    return "✅ Changed:\n<b>" . esc_html(get_the_title($id)) . "</b>\n" . esc_url($url) . ('publish' === get_post_status($id) ? '' : "\n(Draft: you can preview it at this link while logged in as admin)") . "\n\n/menu — another task";
 }
 
 /* ------------------------------------------------------------ editing a notice made with the notice design */
@@ -1554,7 +1554,7 @@ function sb_desk_edit_list() {
 function sb_desk_fb_canon($url) {
     $url = esc_url_raw(trim($url));
     if (!preg_match('#^https?://([a-z0-9.-]+\.)?(facebook\.com|fb\.watch|fb\.me)/#i', $url)) {
-        return new WP_Error('sb_fb', 'এটা ফেসবুকের লিংক মনে হচ্ছে না।');
+        return new WP_Error('sb_fb', 'This does not look like a Facebook link.');
     }
     $final = $url;
     if (preg_match('#/share/|fb\.watch|fb\.me#i', $url)) {
@@ -1589,7 +1589,7 @@ function sb_desk_fb_canon($url) {
     if (preg_match('#facebook\.com/[^/?]+/(posts|videos)/#i', $final) || preg_match('#facebook\.com/(reel|watch)#i', $final)) {
         return strtok($final, '?');
     }
-    return new WP_Error('sb_fb', 'এই লিংক থেকে আসল পোস্টের ঠিকানা পাইনি (ফেসবুক সার্ভারকে আটকাতে পারে)। ফেসবুক পোস্টের "…" মেনু → "Embed"/লিংক কপি করে পোস্টের সরাসরি লিংক পাঠান (…/posts/… বা permalink.php?story_fbid=… ধরনের)।');
+    return new WP_Error('sb_fb', 'I could not get the real post address from this link (Facebook may be blocking the server). Use the "…" menu of the Facebook post → "Embed"/copy link and send the direct post link (like …/posts/… or permalink.php?story_fbid=…).');
 }
 
 function sb_desk_fb_html($canon) {
@@ -1600,7 +1600,7 @@ function sb_desk_fb_html($canon) {
 function sb_desk_edit_propose($id, $act, $val) {
     $d = csa_sn_get($id);
     if (!$d) {
-        return new WP_Error('sb_ed', 'নোটিশের তথ্য পাইনি।');
+        return new WP_Error('sb_ed', 'Notice data not found.');
     }
     $new   = $d;
     $new['blocks'] = isset($d['blocks']) ? array_values((array) $d['blocks']) : array();
@@ -1635,7 +1635,7 @@ function sb_desk_edit_propose($id, $act, $val) {
                 } else {
                     $new['blocks'][] = array('t' => 'buttons', 'items' => array($it));
                 }
-                $desc = "📘 এই লিংক থেকে আসল পোস্টের ঠিকানা পাইনি, তাই নোটিশে <b>\"ফেসবুক পোস্ট দেখুন\" বোতাম</b> বসবে:\n" . esc_url($raw) . "\n\n💡 পোস্টটা নোটিশের ভেতরেই দেখাতে চাইলে পরে ডেস্কটপে ফেসবুকে পোস্টের সময়ের লেখায় ক্লিক করে ঠিকানা কপি করে আবার ফেসবুক পোস্ট যোগ করুন।";
+                $desc = "📘 I could not get the real post address from this link, so the notice will get a <b>\"View Facebook post\" button</b>:\n" . esc_url($raw) . "\n\n💡 To show the post inside the notice itself, later open Facebook on a desktop, click the post time text, copy the address and add the Facebook post again.";
                 break;
             }
             $html = sb_desk_fb_html($c);
@@ -1650,14 +1650,14 @@ function sb_desk_edit_propose($id, $act, $val) {
             } else {
                 $new['blocks'][] = array('t' => 'html', 'code' => $html);
             }
-            $desc = "📘 নোটিশের নিচে এই ফেসবুক পোস্টটি পোস্ট আকারে বসবে:\n" . esc_url($c);
+            $desc = "📘 This Facebook post will be embedded below the notice:\n" . esc_url($c);
             break;
         case 'deadline':
             $cur = (string) ($d['expiry'] ?? '');
             $r   = csa_jobs_ai_json('Convert the Bangla/English date text into JSON {"date":"YYYY-MM-DD"} (the calendar date only; use the year in the text; if unsure return empty). Today is ' . wp_date('Y-m-d') . '.', $t, 'Desk: date', 120);
             $dt  = !is_wp_error($r) && preg_match('/^\d{4}-\d{2}-\d{2}$/', (string) ($r['date'] ?? '')) ? $r['date'] : '';
             if ('' === $dt) {
-                return new WP_Error('sb_ed', 'তারিখটা বুঝতে পারিনি। আবার লিখুন (যেমন ৩০ ডিসেম্বর ২০২৬)।');
+                return new WP_Error('sb_ed', 'I could not understand the date. Write it again (e.g. 30 December 2026).');
             }
             $done = false;
             foreach ($new['blocks'] as $k => $b) {
@@ -1680,12 +1680,12 @@ function sb_desk_edit_propose($id, $act, $val) {
                 array_unshift($new['blocks'][$ci]['rows'], array('l' => 'আবেদনের শেষ সময়', 'v' => $t, 'm' => ''));
             }
             $new['expiry'] = $dt;
-            $desc = '📅 আবেদনের শেষ সময়: ' . esc_html($cur ?: 'আগের কার্ডের তারিখ') . ' → <b>' . esc_html($t) . '</b> (' . esc_html($dt) . ")\nনোটিশ আবার \"চলমান\" দেখাবে।";
+            $desc = '📅 Application deadline: ' . esc_html($cur ?: 'date on the old card') . ' → <b>' . esc_html($t) . '</b> (' . esc_html($dt) . ")\nThe notice will show as \"ongoing\" again.";
             break;
         case 'phones':
             $nums = array_values(array_filter(array_map('trim', preg_split('/[\n,;]+/u', $t))));
             if (!$nums) {
-                return new WP_Error('sb_ed', 'কোনো নম্বর পাইনি।');
+                return new WP_Error('sb_ed', 'No number found.');
             }
             $i = $find($new['blocks'], 'phones');
             if ($i >= 0) {
@@ -1693,11 +1693,11 @@ function sb_desk_edit_propose($id, $act, $val) {
             } else {
                 $new['blocks'][] = array('t' => 'phones', 'h' => 'যোগাযোগ', 'nums' => implode("\n", $nums));
             }
-            $desc = '📞 ফোন নম্বর হবে: ' . esc_html(implode(', ', $nums));
+            $desc = '📞 Phone numbers will be: ' . esc_html(implode(', ', $nums));
             break;
         case 'apply':
             if (!preg_match('#^https?://\S+$#i', $t)) {
-                return new WP_Error('sb_ed', 'পুরো লিংক (https://…) পাঠান।');
+                return new WP_Error('sb_ed', 'Send the full link (https://…).');
             }
             $isf = false !== strpos($t, 'docs.google.com/forms') || false !== strpos($t, 'forms.gle');
             foreach ($new['blocks'] as $k => $b) { // drop the old form and old apply buttons
@@ -1721,12 +1721,12 @@ function sb_desk_edit_propose($id, $act, $val) {
                     $new['blocks'][] = array('t' => 'buttons', 'items' => array(array('label' => 'আবেদন করুন', 'url' => esc_url_raw($t), 'kind' => 'apply')));
                 }
             }
-            $desc = '🔗 নতুন ' . ($isf ? 'Google Form (পাতায় বসবে)' : 'আবেদন বোতাম') . ":\n" . esc_url($t) . "\nআগের ফরম/আবেদন বোতাম সরে যাবে।";
+            $desc = '🔗 New ' . ($isf ? 'Google Form (embedded in the page)' : 'apply button') . ":\n" . esc_url($t) . "\nThe old form/apply button will be removed.";
             break;
         case 'pdf':
             $u = !empty($val['file']) ? wp_get_attachment_url((int) $val['file']) : (preg_match('#^https?://\S+$#i', $t) ? esc_url_raw($t) : '');
             if (!$u) {
-                return new WP_Error('sb_ed', 'PDF বা ডাউনলোড লিংক পাইনি।');
+                return new WP_Error('sb_ed', 'No PDF or download link found.');
             }
             foreach ($new['blocks'] as $k => $b) {
                 if ('buttons' === ($b['t'] ?? '')) {
@@ -1740,12 +1740,12 @@ function sb_desk_edit_propose($id, $act, $val) {
             } else {
                 $new['blocks'][] = array('t' => 'buttons', 'items' => array($it));
             }
-            $desc = "📎 ডাউনলোড বোতাম:\n" . esc_url($u);
+            $desc = "📎 Download button:\n" . esc_url($u);
             break;
         case 'img':
             $a = (int) $val['img'];
             if (!$a) {
-                return new WP_Error('sb_ed', 'ছবি পাইনি।');
+                return new WP_Error('sb_ed', 'No picture received.');
             }
             $i = $find($new['blocks'], 'image');
             if ($i >= 0) {
@@ -1754,32 +1754,32 @@ function sb_desk_edit_propose($id, $act, $val) {
                 array_unshift($new['blocks'], array('t' => 'image', 'ids' => array($a), 'cap' => ''));
             }
             $thumb = $a;
-            $desc  = '🖼️ নোটিশের মূল ছবি বদলে নতুন ছবি বসবে।';
+            $desc  = '🖼️ The notice main picture will be replaced with the new one.';
             break;
         case 'free':
             $sys = 'You edit a school notice stored as JSON. Apply ONLY the requested change; keep everything else exactly as it is. Return ONLY JSON: {"notice":<the full updated notice object, same keys and block structure>,"changes":["each change as one short Bangla line: আগে → পরে"]}. Never invent dates, numbers, names or links; if the request cannot be done with the data given, return the notice unchanged and an empty changes list.';
             $r   = csa_jobs_ai_json($sys, "Notice JSON:\n" . wp_json_encode($new, JSON_UNESCAPED_UNICODE) . "\n\nRequested change:\n" . $t, 'Desk: free edit', 3500);
             if (is_wp_error($r) || empty($r['notice']) || !is_array($r['notice'])) {
-                return new WP_Error('sb_ed', 'AI বদলটি বুঝে করতে পারেনি। অন্যভাবে লিখে দেখুন।');
+                return new WP_Error('sb_ed', 'The AI could not understand the change. Try wording it differently.');
             }
             $chg = array_values(array_filter((array) ($r['changes'] ?? array())));
             if (!$chg) {
-                return new WP_Error('sb_ed', 'কোনো বদল করা যায়নি (তথ্য বাড়তি লাগতে পারে)। আরও স্পষ্ট করে লিখুন।');
+                return new WP_Error('sb_ed', 'No change could be made (more information may be needed). Please be more specific.');
             }
             $cl = csa_sn_clean(array_merge($d, $r['notice']));
             $new = array_merge($new, $cl);
-            $desc = "✍️ বদলগুলো:\n• " . implode("\n• ", array_map('esc_html', array_map('strval', array_slice($chg, 0, 8))));
+            $desc = "✍️ Changes:\n• " . implode("\n• ", array_map('esc_html', array_map('strval', array_slice($chg, 0, 8))));
             break;
         default:
-            return new WP_Error('sb_ed', 'অজানা কাজ।');
+            return new WP_Error('sb_ed', 'Unknown action.');
     }
     $new['blocks'] = array_values($new['blocks']);
-    return array('new' => $new, 'desc' => $desc . "\n\n(নোটিশ: " . esc_html(get_the_title($id)) . ')', 'thumb' => $thumb);
+    return array('new' => $new, 'desc' => $desc . "\n\n(Notice: " . esc_html(get_the_title($id)) . ')', 'thumb' => $thumb);
 }
 
 function sb_desk_edit_apply($id, $st) {
     if (!in_array($id, sb_desk_edit_list(), true) || empty($st['new'])) {
-        return new WP_Error('sb_ed', 'নোটিশটি আর তালিকায় নেই, আবার /menu থেকে শুরু করুন।');
+        return new WP_Error('sb_ed', 'The notice is no longer in the list; start again from /menu.');
     }
     $old = csa_sn_get($id);
     $new = $st['new'];
@@ -1815,13 +1815,13 @@ function sb_desk_edit_apply($id, $st) {
     }
     clean_post_cache($id);
     $url = 'publish' === get_post_status($id) ? get_permalink($id) : admin_url('post.php?post=' . $id . '&action=edit');
-    return "✅ বদল হয়েছে:\n<b>" . esc_html(get_the_title($id)) . "</b>\n" . esc_url($url) . "\n\n/menu — আরেকটি কাজ";
+    return "✅ Changed:\n<b>" . esc_html(get_the_title($id)) . "</b>\n" . esc_url($url) . "\n\n/menu — another task";
 }
 
 /* ------------------------------------------------------------ notice */
 function sb_desk_notice($text, $aids, $status = 'publish', $o = array()) {
     if (!function_exists('csa_sn_ai_fill')) {
-        return new WP_Error('sb_desk', 'নোটিশ সিস্টেম (Site Agent) চালু নেই।');
+        return new WP_Error('sb_desk', 'The notice system (Site Agent) is not active.');
     }
     $r = csa_sn_ai_fill($text, $aids);
     if (is_wp_error($r)) {
@@ -1922,13 +1922,13 @@ function sb_desk_notice($text, $aids, $status = 'publish', $o = array()) {
         csa_seo_set($id, array('title' => $d['seo_t'], 'description' => $d['seo_d'], 'keyword' => $d['seo_k']), 'Notice SEO');
     }
     $url = 'publish' === $status ? get_permalink($id) : admin_url('post.php?post=' . $id . '&action=edit');
-    return array('id' => $id, 'url' => $url, 'msg' => ('publish' === $status ? '✅ নোটিশ প্রকাশ হয়েছে' : '📝 নোটিশ খসড়া হয়েছে (প্রকাশ হয়নি)') . ":\n<b>" . esc_html($title) . "</b>\n" . esc_url($url) . ($d['expiry'] ? "\nশেষ তারিখ: " . esc_html($d['expiry']) : '') . "\n\n💡 AI ভুল পড়তে পারে, তাই তারিখ/নম্বর একবার মিলিয়ে নিন।");
+    return array('id' => $id, 'url' => $url, 'msg' => ('publish' === $status ? '✅ Notice published' : '📝 Notice saved as a draft (not published)') . ":\n<b>" . esc_html($title) . "</b>\n" . esc_url($url) . ($d['expiry'] ? "\nDeadline: " . esc_html($d['expiry']) : '') . "\n\n💡 The AI can misread things, so please double-check dates and numbers.");
 }
 
 /* ------------------------------------------------------------ blog */
 function sb_desk_blog($text, $aids, $status = 'publish', $o = array()) {
     if (!function_exists('csa_jobs_ai_json') || !class_exists('SB_AI')) {
-        return new WP_Error('sb_desk', 'ব্লগ বা Site Agent চালু নেই।');
+        return new WP_Error('sb_desk', 'The blog or Site Agent is not active.');
     }
     $uid  = get_current_user_id();
     $cats = array();
@@ -1944,7 +1944,7 @@ function sb_desk_blog($text, $aids, $status = 'publish', $o = array()) {
     }
     $title = sanitize_text_field($b['title'] ?? '');
     if ('' === $title) {
-        return new WP_Error('sb_desk', 'শিরোনাম বানাতে পারিনি, আরেকটু স্পষ্ট করে লিখে আবার পাঠান।');
+        return new WP_Error('sb_desk', 'I could not make a title; please write a bit more clearly and send again.');
     }
     if (!empty($o['title'])) {
         $title = sanitize_text_field($o['title']);
@@ -1974,7 +1974,7 @@ function sb_desk_blog($text, $aids, $status = 'publish', $o = array()) {
     $need = $cost + max(0, (int) sb_get('cost_research')) + sb_feature_cost('meta') + sb_feature_cost('summary') + sb_feature_cost('faq');
     $st   = SB_Credits::state($uid);
     if ($st['remaining'] < $need) {
-        return new WP_Error('sb_desk', 'ব্যালেন্স যথেষ্ট নয় (দরকার ' . sb_money($need) . ', আছে ' . sb_money($st['remaining']) . ')।');
+        return new WP_Error('sb_desk', 'Balance is not enough (needed ' . sb_money($need) . ', available ' . sb_money($st['remaining']) . ').');
     }
     $notes = array();
     if ($ready) {
@@ -1993,7 +1993,7 @@ function sb_desk_blog($text, $aids, $status = 'publish', $o = array()) {
         $html = (string) $res['text'];
     }
     if (!$ready && mb_strlen(wp_strip_all_tags($html)) < 300) {
-        return new WP_Error('sb_desk', 'AI পুরো লেখা দেয়নি, আবার চেষ্টা করুন।');
+        return new WP_Error('sb_desk', 'The AI did not give the full text; try again.');
     }
     $missing = !empty($res['missing']) ? (array) $res['missing'] : array();
     $ctx['content'] = $html;
@@ -2059,9 +2059,9 @@ function sb_desk_blog($text, $aids, $status = 'publish', $o = array()) {
     if (!$aids && 'none' !== ($o['imgmode'] ?? 'auto')) {   // no picture sent: make one from the article, with the chosen dress
         $ai = sb_desk_autoimage($id, $title, get_post_field('post_name', $id), $o, $html);
         if (is_wp_error($ai)) {
-            $imgnote = "\n\n🖼️ AI ছবি বানানো যায়নি: " . $ai->get_error_message() . "\nছবি পরে ব্লগ সম্পাদনা → ছবি বা ব্লগ এডিটর থেকে দিন।";
+            $imgnote = "\n\n🖼️ The AI picture could not be made: " . $ai->get_error_message() . "\nAdd a picture later via Edit blog → Change picture, or from the blog editor.";
         } elseif ($ai) {
-            $imgnote = "\n\n🖼️ ছবি AI দিয়ে বানানো হয়েছে (অল্ট-টেক্সট, শিরোনাম ও ক্যাপশন সহ)।";
+            $imgnote = "\n\n🖼️ The picture was made by AI (with alt text, title and caption).";
         }
     }
     if ($aids) {
@@ -2082,13 +2082,13 @@ function sb_desk_blog($text, $aids, $status = 'publish', $o = array()) {
     sb_init_views($id);
     $live = 'publish' === get_post_status($id);
     $url  = $live ? get_permalink($id) : admin_url('admin.php?page=sb-new&post=' . $id);
-    $msg  = ($live ? '✅ ব্লগ প্রকাশ হয়েছে' : '📝 ব্লগ খসড়া রাখা হয়েছে') . ":\n<b>" . esc_html($title) . "</b>\n" . esc_url($url) . "\nকীওয়ার্ড: " . esc_html(implode(', ', $kw)) . "\nসাথে SEO বর্ণনা, সারসংক্ষেপ, FAQ ও সম্পর্কিত লেখা যোগ হয়েছে।";
+    $msg  = ($live ? '✅ Blog published' : '📝 Blog saved as a draft') . ":\n<b>" . esc_html($title) . "</b>\n" . esc_url($url) . "\nKeywords: " . esc_html(implode(', ', $kw)) . "\nSEO description, summary, FAQ and related posts were added too.";
     if ($missing) {
-        $msg .= "\n\n⚠️ লেখায় " . count($missing) . 'টি [তথ্য দরকার: …] চিহ্ন আছে, তাই প্রকাশ না করে খসড়ায় রেখেছি। তথ্য বসিয়ে প্রকাশ করুন।';
+        $msg .= "\n\n⚠️ The text has " . count($missing) . ' [তথ্য দরকার: …] marker(s), so I kept it as a draft instead of publishing. Fill in the information and publish.';
     }
     $msg .= $imgnote;
     if (!$aids && '' === $imgnote) {
-        $msg .= "\n\n🖼️ ছবি ছাড়া রাখা হয়েছে (আপনি ছবি লাগবে না বলেছেন)।";
+        $msg .= "\n\n🖼️ Kept without a picture (you said no picture is needed).";
     }
     return array('id' => $id, 'url' => $url, 'msg' => $msg);
 }
@@ -2374,7 +2374,7 @@ add_action('wp_ajax_sb_desk_op', function () {
             : sb_desk_blog(sanitize_textarea_field((string) sb_req('text')) ?: 'শিশুর বানান শেখার সহজ ৫টি উপায়', array(), 'draft', array_filter(array('title' => (string) sb_req('title'), 'keywords' => (string) sb_req('keywords'), 'slug' => (string) sb_req('slug'), 'meta' => (string) sb_req('meta'), 'summary' => (string) sb_req('summary'), 'length' => (string) sb_req('length'), 'instruction' => (string) sb_req('instruction'))));
         wp_send_json_success(array('msg' => is_wp_error($r) ? 'ত্রুটি: ' . $r->get_error_message() : 'খসড়া তৈরি: ' . $r['url'], 'raw' => is_wp_error($r) ? '' : wp_strip_all_tags($r['msg'])));
     }
-    wp_send_json_error(array('message' => 'অজানা কাজ।'));
+    wp_send_json_error(array('message' => 'Unknown action.'));
 });
 
 function sb_desk_panel() {

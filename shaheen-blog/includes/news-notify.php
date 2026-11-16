@@ -20,7 +20,7 @@ function sb_notify_cfg() {
 function sb_tg_send($html) {
     $o = sb_notify_cfg();
     if ('' === $o['tg_token'] || '' === $o['tg_chat']) {
-        return new WP_Error('sb_tg', 'টেলিগ্রামের টোকেন বা চ্যানেল দেওয়া নেই।');
+        return new WP_Error('sb_tg', 'The Telegram token or channel is not set.');
     }
     $r = wp_remote_post('https://api.telegram.org/bot' . $o['tg_token'] . '/sendMessage', array('timeout' => 15, 'body' => array(
         'chat_id' => $o['tg_chat'], 'text' => mb_substr($html, 0, 3900), 'parse_mode' => 'HTML', 'disable_web_page_preview' => 'true')));
@@ -29,7 +29,7 @@ function sb_tg_send($html) {
     }
     $j = json_decode(wp_remote_retrieve_body($r), true);
     if (empty($j['ok'])) {
-        return new WP_Error('sb_tg', 'টেলিগ্রাম: ' . (is_array($j) && !empty($j['description']) ? $j['description'] : 'HTTP ' . (int) wp_remote_retrieve_response_code($r)));
+        return new WP_Error('sb_tg', 'Telegram: ' . (is_array($j) && !empty($j['description']) ? $j['description'] : 'HTTP ' . (int) wp_remote_retrieve_response_code($r)));
     }
     return true;
 }
@@ -64,7 +64,7 @@ function sb_notify_flush() {
     foreach ($q as $x) {
         $by[$x[0]][] = $x;
     }
-    $head = array('filed' => '✅ ওয়েবসাইটে নতুন খবর যোগ হয়েছে', 'blocked' => '⛔ আটকানো হয়েছে (সাইটে বসেনি — দেখে নিন। রাখতে চাইলে এই বটে /held লিখুন)', 'post' => '🆕 নতুন পোস্ট প্রকাশিত হয়েছে', 'video' => '🎬 নতুন ভিডিও/পর্ব যোগ হয়েছে');
+    $head = array('filed' => '✅ New news added to the website', 'blocked' => '⛔ Held back (not put on the site — please check. To keep one, write /held in this bot)', 'post' => '🆕 A new post was published', 'video' => '🎬 A new video/episode was added');
     $h = '';
     $p = '';
     foreach (array('post', 'filed', 'video', 'blocked') as $k) {
@@ -93,7 +93,7 @@ function sb_notify_flush() {
         }
     }
     if (isset($by['post']) || isset($by['filed']) || isset($by['blocked'])) {
-        sb_notify_mail('শাহীন শিক্ষা পরিবার ওয়েবসাইট: ' . (isset($by['post']) ? 'নতুন পোস্ট প্রকাশিত হয়েছে' : (isset($by['filed']) ? 'নতুন খবর যোগ হয়েছে' : 'খবর আটকানো হয়েছে')), $p . home_url('/'));
+        sb_notify_mail('Shaheen Education Family website: ' . (isset($by['post']) ? 'a new post was published' : (isset($by['filed']) ? 'new news was added' : 'news was held back')), $p . home_url('/'));
     }
 }
 
@@ -118,7 +118,7 @@ add_action('transition_post_status', function ($new, $old, $post) {
                 if (get_post_meta($id, '_sb_press_url', true) || 'publish' !== get_post_status($id)) {
                     continue;
                 }
-                sb_notify_queue('post', html_entity_decode(get_the_title($id), ENT_QUOTES, 'UTF-8'), get_permalink($id), 'ধরন: ' . ('sb_post' === get_post_type($id) ? 'ব্লগ' : 'পেজ/পোস্ট'));
+                sb_notify_queue('post', html_entity_decode(get_the_title($id), ENT_QUOTES, 'UTF-8'), get_permalink($id), 'Type: ' . ('sb_post' === get_post_type($id) ? 'blog' : 'page/post'));
             }
             sb_notify_flush();
         }, 5);
@@ -298,9 +298,9 @@ add_action('wp_ajax_sb_notify_op', function () {
         wp_send_json_success(array('msg' => wp_json_encode($out, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES)));
     }
     if ('test' === $op) {
-        $t = sb_tg_send('<b>✅ টেস্ট বার্তা</b>' . "\n" . 'শাহীন শিক্ষা পরিবার ওয়েবসাইট থেকে নোটিফিকেশন ঠিকমতো যুক্ত হয়েছে।');
-        $m = sb_notify_mail('শাহীন শিক্ষা পরিবার ওয়েবসাইট: টেস্ট বার্তা', 'নোটিফিকেশন ঠিকমতো যুক্ত হয়েছে।');
-        wp_send_json_success(array('msg' => 'টেলিগ্রাম: ' . (true === $t ? '✅ গেছে' : '❌ ' . $t->get_error_message()) . ' · মেইল: ' . ($m ? '✅ পাঠানো হয়েছে' : '❌ যায়নি (ঠিকানা/মেইল সেটিং দেখুন)')));
+        $t = sb_tg_send('<b>✅ Test message</b>' . "\n" . 'Notifications from the Shaheen Education Family website are connected correctly.');
+        $m = sb_notify_mail('Shaheen Education Family website: test message', 'Notifications are connected correctly.');
+        wp_send_json_success(array('msg' => 'Telegram: ' . (true === $t ? '✅ sent' : '❌ ' . $t->get_error_message()) . ' · Mail: ' . ($m ? '✅ sent' : '❌ not sent (check the address/mail settings)')));
     }
     wp_send_json_error(array('message' => 'অজানা কাজ।'));
 });

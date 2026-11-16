@@ -180,7 +180,7 @@ function sb_share_run($id) {
         if ($video) {
             $v = sb_share_graph($c, $e['vid'], array('fields' => 'source,length'));
             if (is_wp_error($v) || empty($v['source'])) {
-                $S['dl'] = 'ভিডিও ফাইলের লিংক পাইনি: ' . (is_wp_error($v) ? $v->get_error_message() : 'source খালি');
+                $S['dl'] = 'Could not find the video file link: ' . (is_wp_error($v) ? $v->get_error_message() : 'source is empty');
                 sb_share_finish($id, $S, $file);
                 return;
             }
@@ -189,14 +189,14 @@ function sb_share_run($id) {
         }
         $r = wp_remote_get($src, array('timeout' => 600, 'stream' => true, 'filename' => $file, 'redirection' => 5));
         if (is_wp_error($r) || 200 !== (int) wp_remote_retrieve_response_code($r) || !is_file($file) || filesize($file) < 1000) {
-            $S['dl'] = 'ডাউনলোড হয়নি' . (is_wp_error($r) ? ': ' . $r->get_error_message() : '');
+            $S['dl'] = 'Download failed' . (is_wp_error($r) ? ': ' . $r->get_error_message() : '');
             if ($video) {
                 sb_share_finish($id, $S, $file);
                 return;
             }
             @unlink($file);   // a photo still goes out, only without the AI looking at it
         } elseif (filesize($file) > (int) $c['max_mb'] * 1048576) {
-            $S['dl'] = 'ফাইল ' . (int) $c['max_mb'] . ' MB-র বেশি, তাই বাদ।';
+            $S['dl'] = 'File is over ' . (int) $c['max_mb'] . ' MB, so it was skipped.';
             sb_share_finish($id, $S, $file);
             return;
         }
@@ -206,17 +206,17 @@ function sb_share_run($id) {
     $dr = $e['draft'] ?? null;
     if (empty($S['ai'])) {
         $dr = sb_share_ai($c, $video, $file, $e['msg'], $e['fb']);
-        $S['ai'] = !empty($dr['ai']) ? 'ok' : 'সরল খসড়া (AI পায়নি)';
+        $S['ai'] = !empty($dr['ai']) ? 'ok' : 'simple draft (the AI gave none)';
         sb_share_set($id, array('draft' => $dr, 'steps' => $S));
     }
 
     // 3. Instagram
     if (empty($S['ig'])) {
         if ('' === $c['ig_id'] || '' === $c['ig_token']) {
-            $S['ig'] = 'ইনস্টাগ্রামের আইডি/টোকেন নেই।';
+            $S['ig'] = 'The Instagram ID/token is missing.';
         } else {
             $r = $video ? sb_share_ig_reel($c, $file, $dr['ig'], (string) (sb_share_queue()[$id]['src'] ?? '')) : sb_share_ig_image($c, $e['img'], $dr['ig']);
-            $S['ig'] = is_wp_error($r) ? 'ব্যর্থ: ' . $r->get_error_message() : 'ok:' . $r;
+            $S['ig'] = is_wp_error($r) ? 'Failed: ' . $r->get_error_message() : 'ok:' . $r;
         }
         sb_share_set($id, array('steps' => $S));
     }
@@ -225,7 +225,7 @@ function sb_share_run($id) {
     if ($video && !empty($c['yt_on']) && empty($S['yt'])) {
         $r = sb_share_yt_upload($c, $file, $dr);
         if (is_wp_error($r)) {
-            $S['yt'] = 'ব্যর্থ: ' . $r->get_error_message();
+            $S['yt'] = 'Failed: ' . $r->get_error_message();
         } else {
             $S['yt'] = 'ok:' . $r;
             wp_schedule_single_event(time() + max(1, (int) $c['yt_delay']) * 60, 'sb_share_ytpub', array($id));
@@ -249,10 +249,10 @@ function sb_share_finish($id, $S, $file) {
     }
     sb_share_set($id, array('steps' => $S, 'status' => $ok ? 'done' : 'failed', 'draft' => $e['draft'] ?? null));
     $L = array();
-    $L[] = '📸 ইনস্টাগ্রাম: ' . (isset($S['ig']) ? (0 === strpos($S['ig'], 'ok:') ? 'গেছে ✅' : esc_html($S['ig'])) : '—');
+    $L[] = '📸 Instagram: ' . (isset($S['ig']) ? (0 === strpos($S['ig'], 'ok:') ? 'sent ✅' : esc_html($S['ig'])) : '—');
     if ('video' === ($e['kind'] ?? '')) {
-        $yt = $S['yt'] ?? (empty(sb_share_cfg()['yt_on']) ? 'এখনো সংযুক্ত নয়' : '—');
-        $L[] = '▶️ ইউটিউব: ' . (0 === strpos($yt, 'ok:') ? 'আপলোড হয়েছে ✅ (প্রাইভেট), ' . (int) sb_share_cfg()['yt_delay'] . ' মিনিট পর পাবলিক হবে' : esc_html($yt));
+        $yt = $S['yt'] ?? (empty(sb_share_cfg()['yt_on']) ? 'not connected yet' : '—');
+        $L[] = '▶️ YouTube: ' . (0 === strpos($yt, 'ok:') ? 'uploaded ✅ (private), will go public after ' . (int) sb_share_cfg()['yt_delay'] . ' minutes' : esc_html($yt));
     }
     if (!empty($S['dl'])) {
         $L[] = '⚠️ ' . esc_html($S['dl']);
@@ -261,7 +261,7 @@ function sb_share_finish($id, $S, $file) {
     if ('' !== (string) $cfg['tg_chat']) {
         $t = trim((string) ($e['draft']['yt_title'] ?? '')) ?: mb_substr(wp_strip_all_tags((string) ($e['msg'] ?? '')), 0, 70);
         sb_tg_api('sendMessage', array('chat_id' => $cfg['tg_chat'], 'parse_mode' => 'HTML', 'disable_web_page_preview' => 'true',
-            'text' => "📣 <b>ফেসবুক পোস্ট অটো-শেয়ার হয়েছে</b>\n" . esc_html($t) . "\n\n" . implode("\n", $L) . "\n\n🗑️ সার্ভার থেকে ভিডিও/ছবি মুছে ফেলা হয়েছে।" . (!empty($e['fb']) ? "\n" . esc_url_raw($e['fb']) : '')));
+            'text' => "📣 <b>Facebook post auto-shared</b>\n" . esc_html($t) . "\n\n" . implode("\n", $L) . "\n\n🗑️ The video/picture was deleted from the server." . (!empty($e['fb']) ? "\n" . esc_url_raw($e['fb']) : '')));
     }
 }
 
@@ -511,7 +511,7 @@ function sb_share_ig_publish($c, $creation) {
             break;
         }
         if ('ERROR' === $code || 'EXPIRED' === $code) {
-            return new WP_Error('sb_ig', 'ইনস্টাগ্রাম প্রসেস করতে পারেনি: ' . (string) ($s['status'] ?? $code));
+            return new WP_Error('sb_ig', 'Instagram could not process it: ' . (string) ($s['status'] ?? $code));
         }
         sleep(6);
     }
@@ -520,7 +520,7 @@ function sb_share_ig_publish($c, $creation) {
         return $r2;
     }
     $j2 = json_decode((string) wp_remote_retrieve_body($r2), true);
-    return empty($j2['id']) ? new WP_Error('sb_ig', (string) ($j2['error']['message'] ?? 'প্রকাশ হয়নি')) : (string) $j2['id'];
+    return empty($j2['id']) ? new WP_Error('sb_ig', (string) ($j2['error']['message'] ?? 'Not published')) : (string) $j2['id'];
 }
 
 function sb_share_ig_image($c, $img, $caption) {
@@ -559,16 +559,16 @@ function sb_share_ig_reel($c, $file, $caption, $src = '') {
         }
     }
     if ('' === $src) {
-        return new WP_Error('sb_ig', 'ভিডিও আপলোড হয়নি: ' . $why);
+        return new WP_Error('sb_ig', 'Video upload failed: ' . $why);
     }
     // second route: Instagram downloads the video from the link itself
     $r = wp_remote_post($base . '/media', array('timeout' => 60, 'body' => array('media_type' => 'REELS', 'video_url' => $src, 'caption' => $caption, 'share_to_feed' => 'true', 'access_token' => $c['ig_token'])));
     $j = is_wp_error($r) ? null : json_decode((string) wp_remote_retrieve_body($r), true);
     if (empty($j['id'])) {
-        return new WP_Error('sb_ig', 'ভিডিও আপলোড হয়নি: ' . $why . ' | লিংক পদ্ধতি: ' . (is_wp_error($r) ? $r->get_error_message() : (string) ($j['error']['message'] ?? 'কন্টেইনার হয়নি')));
+        return new WP_Error('sb_ig', 'Video upload failed: ' . $why . ' | link method: ' . (is_wp_error($r) ? $r->get_error_message() : (string) ($j['error']['message'] ?? 'কন্টেইনার হয়নি')));
     }
     $pub = sb_share_ig_publish($c, (string) $j['id']);
-    return is_wp_error($pub) ? new WP_Error('sb_ig', 'ভিডিও আপলোড হয়নি: ' . $why . ' | লিংক পদ্ধতি: ' . $pub->get_error_message()) : $pub;
+    return is_wp_error($pub) ? new WP_Error('sb_ig', 'Video upload failed: ' . $why . ' | link method: ' . $pub->get_error_message()) : $pub;
 }
 
 /* ------------------------------------------------------------ YouTube */
@@ -596,11 +596,11 @@ function sb_share_yt_upload($c, $file, $dr) {
     $loc = $a['h']['location'] ?? '';
     if ('' === $loc) {
         $e = json_decode($a['b'], true);
-        return new WP_Error('sb_yt', 'আপলোড শুরু হয়নি: ' . ($e['error']['message'] ?? 'HTTP ' . $a['c']));
+        return new WP_Error('sb_yt', 'Upload did not start: ' . ($e['error']['message'] ?? 'HTTP ' . $a['c']));
     }
     $u = sb_share_stream('PUT', $loc, array('Authorization: Bearer ' . $tok, 'Content-Type: video/*'), $file);
     $j = json_decode($u['b'], true);
-    return empty($j['id']) ? new WP_Error('sb_yt', 'আপলোড হয়নি: ' . ($j['error']['message'] ?? ($u['e'] ?: 'HTTP ' . $u['c']))) : (string) $j['id'];
+    return empty($j['id']) ? new WP_Error('sb_yt', 'Upload failed: ' . ($j['error']['message'] ?? ($u['e'] ?: 'HTTP ' . $u['c']))) : (string) $j['id'];
 }
 
 /** After the delay: private -> public. Google keeps videos from unaudited API projects private; then the owner is told to press Public in Studio. */
@@ -615,20 +615,20 @@ function sb_share_yt_public($id) {
     $tok = sb_share_yt_token($c);
     $msg = '';
     if (is_wp_error($tok)) {
-        $msg = 'টোকেন সমস্যা: ' . $tok->get_error_message();
+        $msg = 'Token problem: ' . $tok->get_error_message();
     } else {
         $r = wp_remote_request('https://www.googleapis.com/youtube/v3/videos?part=status', array('method' => 'PUT', 'timeout' => 40,
             'headers' => array('Authorization' => 'Bearer ' . $tok, 'Content-Type' => 'application/json'),
             'body' => wp_json_encode(array('id' => $vid, 'status' => array('privacyStatus' => 'public', 'selfDeclaredMadeForKids' => false)))));
         $chk = wp_remote_get('https://www.googleapis.com/youtube/v3/videos?part=status&id=' . rawurlencode($vid), array('timeout' => 30, 'headers' => array('Authorization' => 'Bearer ' . $tok)));
         $st  = is_wp_error($chk) ? '' : (string) (json_decode((string) wp_remote_retrieve_body($chk), true)['items'][0]['status']['privacyStatus'] ?? '');
-        $msg = 'public' === $st ? 'এখন পাবলিক ✅' : 'এখনো প্রাইভেট আছে (Google-এর API অডিট শেষ না হলে এমন হয়)। YouTube Studio থেকে "Public" করুন।';
+        $msg = 'public' === $st ? 'now public ✅' : 'still private (this happens until Google\'s API audit is finished). Make it "Public" from YouTube Studio.';
     }
     sb_share_set($id, array('yt_public' => $msg));
     $cfg = function_exists('sb_notify_cfg') ? sb_notify_cfg() : array('tg_chat' => '');
     if ('' !== (string) $cfg['tg_chat']) {
         sb_tg_api('sendMessage', array('chat_id' => $cfg['tg_chat'], 'parse_mode' => 'HTML', 'disable_web_page_preview' => 'true',
-            'text' => "▶️ <b>ইউটিউব ভিডিও</b>\n" . esc_html(mb_substr((string) ($e['draft']['yt_title'] ?? ''), 0, 90)) . "\n" . esc_html($msg) . "\nhttps://youtu.be/" . $vid));
+            'text' => "▶️ <b>YouTube video</b>\n" . esc_html(mb_substr((string) ($e['draft']['yt_title'] ?? ''), 0, 90)) . "\n" . esc_html($msg) . "\nhttps://youtu.be/" . $vid));
     }
 }
 
@@ -637,7 +637,7 @@ function sb_share_offer($m, $url, $title, $img = '') {
     return;
 }
 function sb_share_cb($m, $cb) {
-    sb_desk_say($m, 'শেয়ার এখন অটো চলে — ফেসবুক পেজে পোস্ট করলেই ইনস্টাগ্রাম/ইউটিউবে যায়, অনুমোদন লাগে না।');
+    sb_desk_say($m, 'Sharing now runs automatically — whatever you post on the Facebook page goes to Instagram/YouTube, no approval needed.');
 }
 
 /* ------------------------------------------------------------ settings: admin only, secrets are write-only */
