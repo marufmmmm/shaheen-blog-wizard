@@ -220,7 +220,8 @@ function sb_desk_menu($m) {
         array(sb_desk_btn('📢 নোটিশ', 'm:notice'), sb_desk_btn('✍️ ব্লগ', 'm:blog')),
         array(sb_desk_btn('✏️ নোটিশ সম্পাদনা', 'm:edit')),
         array(sb_desk_btn('✏️ ব্লগ সম্পাদনা', 'm:eblog'), sb_desk_btn('✏️ সংবাদ সম্পাদনা', 'm:enews')),
-        array(sb_desk_btn('📰 সংবাদ (লিংক দিন)', 'm:news'), sb_desk_btn('⭐ Spelling Star', 'm:soon')),
+        array(sb_desk_btn('📰 সংবাদ (লিংক দিন)', 'm:news'), sb_desk_btn('🛑 আটকানো খবর', 'm:held')),
+        array(sb_desk_btn('⭐ Spelling Star', 'm:soon')),
     ));
 }
 
@@ -256,6 +257,11 @@ function sb_desk_template($type) {
 }
 
 function sb_desk_ask($m, $s) {
+    if ('held' === $s['flow']) {   // numbered list of held-back news: keep / drop by number
+        sb_desk_unlock($lock);
+        sb_desk_held_step($m, $s, $in);
+        return;
+    }
     if ('qblog' === $s['flow']) {   // /blog shortcut waiting for the dress choice
         $qc = isset($in['cb']) ? (string) $in['cb'] : '';
         if (0 !== strpos($qc, 'qd:')) {
@@ -485,6 +491,11 @@ function sb_desk_message($m) {
             }
             $in[$kind] = (int) $a;
         }
+        if ('held' === $cmd) {   // held-back news
+            sb_desk_unlock($lock);
+            sb_desk_held_show($m, 0);
+            return;
+        }
         if ('dress' === $cmd) {   // a dress photo for the Uniform Library
             sb_desk_unlock($lock);
             if (empty($in['img'])) {
@@ -495,6 +506,9 @@ function sb_desk_message($m) {
             return;
         }
         $s = sb_desk_state($m);
+        if ($s && 'held' === $s['flow'] && 'cancel' === $cmd) {   // "বাতিল 2" is an answer in the held-news list, not a cancel
+            $cmd = '';
+        }
         $newslink = !$s && '' === $cmd && !$fid && sb_desk_urls($text) && mb_strlen(trim(preg_replace('#https?://\S+#i', '', $text))) < 12;
         if (in_array($cmd, array('menu', 'help', 'cancel'), true) || ('' === $cmd && !$s && !$fid && !$newslink)) {
             sb_desk_unlock($lock);
@@ -552,6 +566,10 @@ function sb_desk_step($m, $in) {
     if (0 === strpos($cb, 'm:')) { // menu choice
         sb_desk_unlock($lock);
         $f = substr($cb, 2);
+        if ('held' === $f) {
+            sb_desk_held_show($m, 0);
+            return;
+        }
         if ('soon' === $f) {
             sb_desk_say($m, '⭐ Spelling Star-এর জন্য আলাদা ধাপ এখনো বানানো হয়নি। এখন নোটিশ, ব্লগ ও সংবাদ চলছে। Spelling Star নিয়ে লিখতে চাইলে <code>/blog Spelling Star ...</code> লিখুন।');
         } else {
@@ -866,9 +884,9 @@ function sb_desk_quick($m, $cmd, $rest, $aids) {
 
 /** Splits "/blog text" style commands. Returns array(cmd, rest). */
 function sb_desk_cmd($text) {
-    if (preg_match('~^\s*(/?)(blog|ব্লগ|notice|নোটিশ|news|সংবাদ|dress|ড্রেস|help|সাহায্য|start|menu|মেনু|cancel|বাতিল)(?:@\w+)?(?=[\s:：\-–]|$)[\s:：\-–]*(.*)$~isu', $text, $mm) && ('/' === $mm[1] || !in_array(mb_strtolower($mm[2]), array('start', 'menu', 'cancel', 'help'), true))) {
+    if (preg_match('~^\s*(/?)(blog|ব্লগ|notice|নোটিশ|news|সংবাদ|dress|ড্রেস|held|আটকানো|help|সাহায্য|start|menu|মেনু|cancel|বাতিল)(?:@\w+)?(?=[\s:：\-–]|$)[\s:：\-–]*(.*)$~isu', $text, $mm) && ('/' === $mm[1] || !in_array(mb_strtolower($mm[2]), array('start', 'menu', 'cancel', 'help'), true))) {
         $k   = mb_strtolower($mm[2]);
-        $map = array('ব্লগ' => 'blog', 'নোটিশ' => 'notice', 'সংবাদ' => 'news', 'ড্রেস' => 'dress', 'সাহায্য' => 'help', 'start' => 'menu', 'মেনু' => 'menu', 'বাতিল' => 'cancel');
+        $map = array('ব্লগ' => 'blog', 'নোটিশ' => 'notice', 'সংবাদ' => 'news', 'ড্রেস' => 'dress', 'আটকানো' => 'held', 'সাহায্য' => 'help', 'start' => 'menu', 'মেনু' => 'menu', 'বাতিল' => 'cancel');
         return array(isset($map[$k]) ? $map[$k] : $k, trim($mm[3]));
     }
     return array('', trim($text));
@@ -1084,6 +1102,126 @@ function sb_desk_dress_add($att, $cap) {
         }
     }
     return "✅ <b>ড্রেসের নমুনা যোগ হয়েছে</b>\nধরন: " . esc_html($cn) . ($who ? "\n" . esc_html(trim($who, ' —')) : "\n(ছেলে/মেয়ে লেখেননি, তাই দুই ক্ষেত্রেই চলবে)") . "\nনাম: " . esc_html($name) . "\n" . esc_html($cn) . ' ধরনে এখন মোট ' . $n . 'টি নমুনা।' . "\nনাম বা বিবরণ বদলাতে: ওয়ার্ডপ্রেস → Uniform Library।";
+}
+
+/* ------------------------------------------------------------ held-back news (blocked / skipped by the news robot) */
+/** Items the robot did not file, newest first. Blocked ones (negative / doubtful) and "not news" ones; other-institution matches are left out. */
+function sb_desk_held_items() {
+    $out = array();
+    foreach ((array) sb_collect_items() as $x) {
+        $st = (string) ($x['st'] ?? '');
+        if ('blocked' === $st || ('skipped' === $st && false === mb_strpos((string) ($x['note'] ?? ''), 'অন্য প্রতিষ্ঠান'))) {
+            $out[] = $x;
+        }
+        if (count($out) >= 60) {
+            break;
+        }
+    }
+    return $out;
+}
+
+function sb_desk_held_show($m, $page) {
+    $all = sb_desk_held_items();
+    if (!$all) {
+        sb_desk_clear($m);
+        sb_desk_say($m, '🛑 আটকানো বা বাদ পড়া কোনো খবর এখন তালিকায় নেই।');
+        return;
+    }
+    $per   = 10;
+    $pages = (int) ceil(count($all) / $per);
+    $page  = max(0, min((int) $page, $pages - 1));
+    $t = "🛑 <b>আটকানো / বাদ পড়া খবর</b> (মোট " . count($all) . "টি, পাতা " . ($page + 1) . '/' . $pages . ")\n\n";
+    foreach (array_slice($all, $page * $per, $per, true) as $i => $x) {
+        $t .= ($i + 1) . '. ' . ('blocked' === $x['st'] ? '🛑' : '⏭️') . ' <a href="' . esc_url($x['url']) . '">' . esc_html(mb_substr((string) ($x['title'] ?: $x['url']), 0, 80)) . '</a>'
+            . "\n    " . esc_html(mb_substr((string) ($x['host'] ?? ''), 0, 30)) . ' — ' . esc_html(mb_substr((string) ($x['note'] ?? ''), 0, 90)) . "\n";
+    }
+    $t .= "\n✅ রাখতে: <code>রাখো 1 3</code>\n❌ বাতিল করতে: <code>বাতিল 2 4</code>\nএকসাথে কয়েকটি লাইনেও লিখতে পারেন। পরের পাতা: <code>আরও</code>। শেষ: <code>শেষ</code>\n(🛑 = নেতিবাচক/সন্দেহজনক বলে আটকানো, ⏭️ = সংবাদ নয় বা বিষয় মেলেনি)";
+    sb_desk_save($m, array('flow' => 'held', 'i' => 0, 'd' => array('ids' => array_map(function ($x) { return (string) $x['id']; }, $all), 'page' => $page)));
+    sb_desk_say($m, $t, array(array(sb_desk_btn('➡️ আরও', 'held:more'), sb_desk_btn('✖️ শেষ', 'held:end'))));
+}
+
+function sb_desk_held_step($m, $s, $in) {
+    $cb = (string) ($in['cb'] ?? '');
+    $tx = trim((string) ($in['t'] ?? ''));
+    $d  = $s['d'];
+    $ids = (array) ($d['ids'] ?? array());
+    if ('held:end' === $cb || preg_match('/^\s*(শেষ|done|exit|cancel|বাতিল সব শেষ)\s*$/iu', $tx)) {
+        sb_desk_clear($m);
+        sb_desk_say($m, 'ঠিক আছে ✓ (/menu দিয়ে আবার শুরু করুন)');
+        return;
+    }
+    if ('held:more' === $cb || preg_match('/^\s*(আরও|আরো|more|next)\s*$/iu', $tx)) {
+        $per = 10;
+        $np  = ((int) $d['page'] + 1) * $per < count($ids) ? (int) $d['page'] + 1 : 0;
+        sb_desk_held_show($m, $np);
+        return;
+    }
+    $tx = strtr($tx, array('০' => '0', '১' => '1', '২' => '2', '৩' => '3', '৪' => '4', '৫' => '5', '৬' => '6', '৭' => '7', '৮' => '8', '৯' => '9'));
+    $do = array();   // number => keep|drop
+    foreach (preg_split('/[\n;]+/u', $tx) as $line) {
+        $act = '';
+        if (preg_match('/রাখ|keep|ok|হ্যাঁ|yes|✅/iu', $line)) {
+            $act = 'keep';
+        } elseif (preg_match('/বাতিল|বাদ|drop|no|না|❌|skip/iu', $line)) {
+            $act = 'drop';
+        }
+        if ('' === $act) {
+            continue;
+        }
+        if (preg_match('/সব|all/iu', $line)) {
+            $from = (int) $d['page'] * 10;
+            foreach (range($from + 1, min(count($ids), $from + 10)) as $n) {
+                $do[$n] = $act;
+            }
+        }
+        if (preg_match_all('/\d+/', $line, $mm)) {
+            foreach ($mm[0] as $n) {
+                if ((int) $n >= 1 && (int) $n <= count($ids)) {
+                    $do[(int) $n] = $act;
+                }
+            }
+        }
+    }
+    if (!$do) {
+        sb_desk_say($m, "বুঝিনি 🙂 এভাবে লিখুন: <code>রাখো 1 3</code> বা <code>বাতিল 2</code>। পরের পাতা: <code>আরও</code>, শেষ: <code>শেষ</code>");
+        return;
+    }
+    @set_time_limit(300);
+    $report = '';
+    $items = array();
+    foreach ((array) sb_collect_items() as $x) {
+        $items[(string) $x['id']] = $x;
+    }
+    foreach ($do as $n => $act) {
+        $it = $items[(string) ($ids[$n - 1] ?? '')] ?? null;
+        if (!$it) {
+            $report .= $n . '. ⚠️ খবরটি আর তালিকায় নেই' . "\n";
+            continue;
+        }
+        $ttl = esc_html(mb_substr((string) ($it['title'] ?: $it['url']), 0, 60));
+        if ('drop' === $act) {
+            sb_ca_mark($it['id'], 'dismissed', 'আপনি বাতিল করেছেন');
+            $report .= $n . '. ❌ বাতিল — ' . $ttl . "\n";
+            continue;
+        }
+        $fresh = sb_ca_read($it['url']);
+        $item  = $fresh ? $fresh : array('url' => $it['url'], 'host' => (string) ($it['host'] ?? ''), 'title' => (string) $it['title'], 'text' => (string) ($it['text'] ?? ''), 'images' => (array) ($it['images'] ?? array()), 'videos' => array());
+        $item['id']       = (string) $it['id'];
+        $item['override'] = 1;
+        $item['force']    = 1;
+        list($st, $note) = sb_ca_process($item, true);
+        if ('filed' === $st) {
+            sb_ca_mark($it['id'], 'filed', 'আপনি রেখেছেন · ' . $note);
+            $report .= $n . '. ✅ রাখা হয়েছে — ' . $ttl . "\n";
+        } elseif ('dup' === $st) {
+            sb_ca_mark($it['id'], 'dismissed', 'আগেই আছে');
+            $report .= $n . '. ♻️ এই লিংক আগেই ব্লগে আছে — ' . $ttl . "\n";
+        } else {
+            $report .= $n . '. ⚠️ হয়নি (' . esc_html(mb_substr($note, 0, 80)) . ') — ' . $ttl . "\n";
+        }
+    }
+    sb_desk_say($m, $report);
+    sb_desk_held_show($m, 0);
 }
 
 /** One reply for a whole album (Telegram sends each photo of an album as its own message). */

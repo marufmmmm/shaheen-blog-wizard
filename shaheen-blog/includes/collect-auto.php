@@ -146,11 +146,12 @@ function sb_ca_process($item, $manual = true) {
     if (function_exists('sb_press_url_exists') && sb_press_url_exists($item['url'])) {
         return array('dup', 'এই লিংক আগেই আছে।');
     }
-    $la = sb_ca_lookalike($item['title'] . ' ' . mb_substr((string) $item['text'], 0, 800));
+    $ov = !empty($item['override']);   // the owner chose to keep this held-back news: no blocking
+    $la = $ov ? '' : sb_ca_lookalike($item['title'] . ' ' . mb_substr((string) $item['text'], 0, 800));
     if ('' !== $la) {   // another "Shaheen" institution (BAF Shaheen College, Gazipur ...)
         return array('skipped', 'অন্য প্রতিষ্ঠান (' . $la . ') — আমাদের নয়');
     }
-    $nw = function_exists('sb_neg_hit') ? sb_neg_hit($item['title'] . ' ' . mb_substr((string) $item['text'], 0, 400)) : '';
+    $nw = $ov ? '' : (function_exists('sb_neg_hit') ? sb_neg_hit($item['title'] . ' ' . mb_substr((string) $item['text'], 0, 400)) : '');
     if ('' !== $nw) {   // negative word: stop before any AI cost
         if (function_exists('sb_notify_queue')) {
             sb_notify_queue('blocked', $item['title'] ?: $item['url'], $item['url'], 'নেতিবাচক শব্দ: ' . $nw);
@@ -162,13 +163,13 @@ function sb_ca_process($item, $manual = true) {
         return array('error', $j->get_error_message() . ' — যাচাই ছাড়া কিছু বসানো হয়নি।');
     }
     $why = sanitize_text_field((string) ($j['reason'] ?? ''));
-    if (!empty($j['negative'])) {
+    if (!empty($j['negative']) && !$ov) {
         if (function_exists('sb_notify_queue')) {
             sb_notify_queue('blocked', $item['title'] ?: $item['url'], $item['url'], $why !== '' ? $why : 'নেতিবাচক বা সন্দেহজনক');
         }
         return array('blocked', $why !== '' ? $why : 'নেতিবাচক বা সন্দেহজনক');
     }
-    if (!empty($item['force']) && empty($j['negative'])) {   // the owner chose this link himself: it is news and relevant
+    if ((!empty($item['force']) && empty($j['negative'])) || $ov) {   // the owner chose this link himself: it is news and relevant
         $j['kind']     = 'news';
         $j['relevant'] = true;
     }
