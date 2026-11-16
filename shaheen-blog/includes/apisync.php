@@ -155,6 +155,15 @@ function sb_ledger_fixed_bill($ym, $since = 0) {
     return (float) $wpdb->get_var($wpdb->prepare("SELECT SUM(bill_usd) FROM {$t} WHERE t BETWEEN %d AND %d AND feature IN ('yt_watch','news_watch')", $a, $b));
 }
 
+/** Extra (or less) billed on GPT-6 text lines because of the per-model bands, compared with the flat x2 the provider-based total assumes. */
+function sb_ledger_band_delta($ym, $since = 0) {
+    global $wpdb;
+    list($a, $b) = sb_month_range($ym);
+    $a = max($a, (int) $since);
+    $t = sb_ledger_table();
+    return (float) $wpdb->get_var($wpdb->prepare("SELECT SUM(bill_usd - raw_usd * %f) FROM {$t} WHERE t BETWEEN %d AND %d AND model LIKE %s AND feature NOT LIKE %s AND feature NOT LIKE %s AND feature NOT IN ('yt_watch','news_watch')", SB_BILL_MULT, $a, $b, 'gpt-6%', 'research%', 'share%'));
+}
+
 function sb_ledger_other_bill($ym, $since = 0) {
     global $wpdb;
     list($a, $b) = sb_month_range($ym);

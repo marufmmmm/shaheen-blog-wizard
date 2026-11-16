@@ -28,6 +28,24 @@ const SB_SHARE_VID_MULT = 1.5;
 /** Automatic YouTube episode look (no AI used): fixed fee per look, USD. If AI is used in that look, real cost x 1.7 is billed instead. */
 const SB_YT_CHECK_FEE = 0.01;
 
+/** Hidden margin band per model (client never sees it). Chosen at random after the job is done. Astra 1.5-2, Terra/Sol 2-3, others flat. */
+function sb_band_mult($model, $feature) {
+    $model = (string) $model;
+    if (function_exists('sb_get') && sb_get('route_mode') === 'manual') {
+        return SB_BILL_MULT;
+    }
+    if (0 !== strpos($model, 'gpt-6')) {
+        return SB_BILL_MULT;
+    }
+    $lo = 2.0;
+    $hi = 3.0;
+    if (0 === strpos($model, 'gpt-6-astra')) {
+        $lo = 1.5;
+        $hi = 2.0;
+    }
+    return round($lo + (random_int(0, 1000) / 1000) * ($hi - $lo), 3);
+}
+
 function sb_mult() {
     return SB_BILL_MULT;
 }
@@ -207,7 +225,7 @@ function sb_ledger_add($user_id, $feature, $credits, $post_id = 0, $real_usd = n
         'post_id'  => (int) $post_id,
         'credits'  => $credits,
         'raw_usd'  => $real_usd !== null ? (float) $real_usd : $credits * SB_RAW_USD_PER_CREDIT,
-        'bill_usd' => isset($GLOBALS['sb_bill_override']) ? (float) $GLOBALS['sb_bill_override'] : ($real_usd !== null ? (float) $real_usd : $credits * SB_RAW_USD_PER_CREDIT) * (0 === strpos((string) $feature, 'research') ? SB_RESEARCH_MULT : (0 === strpos((string) $feature, 'share_vid') ? SB_SHARE_VID_MULT : (0 === strpos((string) $feature, 'share') ? SB_SHARE_MULT : SB_BILL_MULT))),
+        'bill_usd' => isset($GLOBALS['sb_bill_override']) ? (float) $GLOBALS['sb_bill_override'] : ($real_usd !== null ? (float) $real_usd : $credits * SB_RAW_USD_PER_CREDIT) * (0 === strpos((string) $feature, 'research') ? SB_RESEARCH_MULT : (0 === strpos((string) $feature, 'share_vid') ? SB_SHARE_VID_MULT : (0 === strpos((string) $feature, 'share') ? SB_SHARE_MULT : sb_band_mult(!empty($tk['model']) ? $tk['model'] : '', $feature)))),
     ));
 }
 
@@ -265,7 +283,7 @@ function sb_ledger_month($ym) {
     if ($api) {
         $base   = sb_api_base();
         $first  = $base['ym'] === $ym;
-        $target = sb_api_bill_from((float) $api['text'], (float) $api['image'], sb_research_raw($ym, $first ? (int) $base['t0'] : 0)) + sb_ledger_other_bill($ym, $first ? (int) $base['t0'] : 0) + sb_ledger_fixed_bill($ym, $first ? (int) $base['t0'] : 0) + ($first ? sb_api_carry() : 0);
+        $target = sb_api_bill_from((float) $api['text'], (float) $api['image'], sb_research_raw($ym, $first ? (int) $base['t0'] : 0)) + sb_ledger_other_bill($ym, $first ? (int) $base['t0'] : 0) + (function_exists('sb_ledger_band_delta') ? sb_ledger_band_delta($ym, $first ? (int) $base['t0'] : 0) : 0) + sb_ledger_fixed_bill($ym, $first ? (int) $base['t0'] : 0) + ($first ? sb_api_carry() : 0);
         $adj    = round($target - $out['bill'], 4);
         if (abs($adj) >= 0.005) {
             $out['by_feature']['api_adjust'] = array('n' => 0, 'bill' => $adj);
