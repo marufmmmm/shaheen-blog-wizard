@@ -257,56 +257,10 @@ function sb_desk_template($type) {
 }
 
 function sb_desk_ask($m, $s) {
-    if ('held' === $s['flow']) {   // numbered list of held-back news: keep / drop by number
-        sb_desk_unlock($lock);
-        sb_desk_held_step($m, $s, $in);
-        return;
-    }
-    if ('qblog' === $s['flow']) {   // /blog shortcut waiting for the dress choice
-        $qc = isset($in['cb']) ? (string) $in['cb'] : '';
-        if (0 !== strpos($qc, 'qd:')) {
-            sb_desk_unlock($lock);
-            if ('cancel' === $qc) {
-                sb_desk_clear($m);
-                sb_desk_say($m, 'Cancelled ✓ (start again with /menu)');
-            } else {
-                sb_desk_say($m, 'Choose a dress with the buttons above, or press ❌ Cancel.');
-            }
-            return;
-        }
-        $qd = array('topic' => (string) $s['d']['topic'], 'aids' => array());
-        if ('qd:imgnone' === $qc) {
-            $qd['imgmode'] = 'none';
-        } elseif (preg_match('/^qd:(cat:[a-z]+)$/', $qc, $qm) && sb_desk_needs_who($qm[1])) {   // a kind of dress: ask who is shown
-            $s['d']['uniform'] = $qm[1];
-            sb_desk_save($m, $s);
-            sb_desk_unlock($lock);
-            $kb = sb_desk_who_kb('qd:' . $qm[1] . ':');
-            $kb[] = array(sb_desk_btn('❌ Cancel', 'cancel'));
-            sb_desk_say($m, "👥 <b>Who should be in the picture?</b>\nDress: " . esc_html(sb_desk_dress_label($qm[1])), $kb);
-            return;
-        } else {
-            $qd['imgmode'] = 'pick';
-            $qd['uniform'] = substr($qc, 3);
-        }
-        sb_desk_clear($m);
-        sb_desk_unlock($lock);
-        sb_desk_run($m, 'blog', $qd, sb_desk_cfg()['publish'] ? 'publish' : 'draft');
-        return;
-    }
     $steps = sb_desk_steps($s['flow'], $s['d']);
     $k     = $steps[$s['i']];
     $skip  = sb_desk_btn('⏭️ Skip', 'skip');
     $x     = sb_desk_btn('❌ Cancel', 'cancel');
-    if (!empty($in['img']) && 'blog' === $s['flow'] && 'image' !== $k) {   // a photo sent before the picture step is kept for it
-        $d['aids'] = isset($d['aids']) && is_array($d['aids']) ? $d['aids'] : array();
-        $d['aids'][] = (int) $in['img'];
-        $s['d'] = $d;
-        sb_desk_save($m, $s);
-        sb_desk_unlock($lock);
-        sb_desk_album_say($m, '👍 Picture saved (' . count($d['aids']) . ' so far). They will be used in the picture step. Now answer the current question.');
-        return;
-    }
     switch ($k) {
         case 'links':
             return sb_desk_say($m, "📰 <b>Send the news link(s).</b> One per line if more than one (max 5).\nI will read the page, hold it back if it is negative or doubtful, and otherwise make a news card (title, newspaper, date, picture, summary) on the site.\n<i>Facebook/YouTube links are not news: they belong to notices or events.</i>", array(array($x)));
@@ -606,6 +560,52 @@ function sb_desk_step($m, $in) {
     $t     = isset($in['t']) ? trim($in['t']) : '';
     $stay  = false;
     $d     = $s['d'];
+    if ('held' === $s['flow']) {   // numbered list of held-back news: keep / drop by number
+        sb_desk_unlock($lock);
+        sb_desk_held_step($m, $s, $in);
+        return;
+    }
+    if ('qblog' === $s['flow']) {   // /blog shortcut waiting for the dress choice
+        $qc = isset($in['cb']) ? (string) $in['cb'] : '';
+        if (0 !== strpos($qc, 'qd:')) {
+            sb_desk_unlock($lock);
+            if ('cancel' === $qc) {
+                sb_desk_clear($m);
+                sb_desk_say($m, 'Cancelled ✓ (start again with /menu)');
+            } else {
+                sb_desk_say($m, 'Choose a dress with the buttons above, or press ❌ Cancel.');
+            }
+            return;
+        }
+        $qd = array('topic' => (string) $s['d']['topic'], 'aids' => array());
+        if ('qd:imgnone' === $qc) {
+            $qd['imgmode'] = 'none';
+        } elseif (preg_match('/^qd:(cat:[a-z]+)$/', $qc, $qm) && sb_desk_needs_who($qm[1])) {   // a kind of dress: ask who is shown
+            $s['d']['uniform'] = $qm[1];
+            sb_desk_save($m, $s);
+            sb_desk_unlock($lock);
+            $kb = sb_desk_who_kb('qd:' . $qm[1] . ':');
+            $kb[] = array(sb_desk_btn('❌ Cancel', 'cancel'));
+            sb_desk_say($m, "👥 <b>Who should be in the picture?</b>\nDress: " . esc_html(sb_desk_dress_label($qm[1])), $kb);
+            return;
+        } else {
+            $qd['imgmode'] = 'pick';
+            $qd['uniform'] = substr($qc, 3);
+        }
+        sb_desk_clear($m);
+        sb_desk_unlock($lock);
+        sb_desk_run($m, 'blog', $qd, sb_desk_cfg()['publish'] ? 'publish' : 'draft');
+        return;
+    }
+    if (!empty($in['img']) && 'blog' === $s['flow'] && 'image' !== $k) {   // a photo sent before the picture step is kept for it
+        $d['aids'] = isset($d['aids']) && is_array($d['aids']) ? $d['aids'] : array();
+        $d['aids'][] = (int) $in['img'];
+        $s['d'] = $d;
+        sb_desk_save($m, $s);
+        sb_desk_unlock($lock);
+        sb_desk_album_say($m, '👍 Picture saved (' . count($d['aids']) . ' so far). They will be used in the picture step. Now answer the current question.');
+        return;
+    }
     if ('cancel' === $cb) {
         sb_desk_clear($m);
         sb_desk_unlock($lock);
