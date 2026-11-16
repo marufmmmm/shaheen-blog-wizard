@@ -256,6 +256,30 @@ function sb_desk_template($type) {
 }
 
 function sb_desk_ask($m, $s) {
+    if ('qblog' === $s['flow']) {   // /blog shortcut waiting for the dress choice
+        $qc = isset($in['cb']) ? (string) $in['cb'] : '';
+        if (0 !== strpos($qc, 'qd:')) {
+            sb_desk_unlock($lock);
+            if ('cancel' === $qc) {
+                sb_desk_clear($m);
+                sb_desk_say($m, 'বাতিল ✓ (/menu দিয়ে আবার শুরু করুন)');
+            } else {
+                sb_desk_say($m, 'ওপরের বোতাম থেকে ড্রেস বাছুন, নইলে ❌ বাতিল চাপুন।');
+            }
+            return;
+        }
+        $qd = array('topic' => (string) $s['d']['topic'], 'aids' => array());
+        if ('qd:imgnone' === $qc) {
+            $qd['imgmode'] = 'none';
+        } else {
+            $qd['imgmode'] = 'pick';
+            $qd['uniform'] = substr($qc, 3);
+        }
+        sb_desk_clear($m);
+        sb_desk_unlock($lock);
+        sb_desk_run($m, 'blog', $qd, sb_desk_cfg()['publish'] ? 'publish' : 'draft');
+        return;
+    }
     $steps = sb_desk_steps($s['flow'], $s['d']);
     $k     = $steps[$s['i']];
     $skip  = sb_desk_btn('⏭️ বাদ', 'skip');
@@ -382,41 +406,15 @@ function sb_desk_ask($m, $s) {
         case 'length':
             return sb_desk_say($m, "📏 <b>লেখা কত বড় হবে?</b>", array(array(sb_desk_btn('ছোট', 'l:short'), sb_desk_btn('মাঝারি', 'l:medium'), sb_desk_btn('বড়', 'l:long')), array($x)));
         case 'image':
-            return sb_desk_say($m, "🖼️ <b>ছবি?</b> আপনার ছবি এখনই পাঠাতে পারেন (প্রথমটি মূল ছবি হবে)।\nছবি না দিলে লেখা দেখে <b>AI ছবি বানাবে</b> (অল্ট-টেক্সট, শিরোনাম, ক্যাপশন সহ)। ড্রেস কোনটি হবে, তা নিজে বাছতে পারেন।", array(
-                array(sb_desk_btn('🎨 AI ছবি (ড্রেস আমি বাছব)', 'img:pick')),
-                array(sb_desk_btn('🎨 AI ছবি (ড্রেস অটো)', 'img:auto'), sb_desk_btn('🚫 ছবি লাগবে না', 'img:none')),
-                array(sb_desk_btn('✅ ছবি দিয়েছি', 'done'), $x),
+            return sb_desk_say($m, "🖼️ <b>ছবি কেমন হবে?</b>\n• নিজের ছবি থাকলে এখনই পাঠান (একসাথে কয়েকটিও চলবে, প্রথমটি মূল ছবি), তারপর \"✅ ছবি দিয়েছি\" চাপুন।\n• নইলে \"AI ছবি\" চাপুন। তখন আমি জিজ্ঞেস করব ছবিতে কোন ড্রেস থাকবে।", array(
+                array(sb_desk_btn('🎨 AI ছবি বানাও', 'img:pick')),
+                array(sb_desk_btn('✅ ছবি দিয়েছি', 'done'), sb_desk_btn('🚫 ছবি লাগবে না', 'img:none')),
+                array($x),
             ));
         case 'dress':
-            $rows = array();
-            $row = array();
-            $txt = "👕 <b>ছবিতে কোন ড্রেস?</b> নম্বর চাপুন। শিক্ষার্থী বা শিক্ষক ঠিক এই ড্রেসেই দেখাবে।\n\n";
-            $uopts = sb_img_opts()['uniforms'];
-            $descs = array();
-            foreach (sb_uniforms(true) as $r) {
-                $descs[(string) $r['id']] = (string) $r['name'];
-            }
-            foreach ($uopts as $n => $u) {
-                $lab = preg_replace('/\s*\(নির্দিষ্ট ছবি\)$/u', '', preg_replace('/^ধরন:\s*/u', '', $u[1]));
-                if ('auto' === $u[0]) {
-                    $lab = '🎲 অটো: লেখা দেখে এআই নিজে ঠিক করবে';
-                } elseif ('none' === $u[0]) {
-                    $lab = '⛔ নমুনা ছাড়া: ড্রেসের রেফারেন্স লাগবে না';
-                } elseif (0 === strpos((string) $u[0], 'cat:')) {
-                    $lab = 'এই ধরনের যেকোনো ড্রেস: ' . $lab;
-                }
-                $txt .= ($n + 1) . '. ' . esc_html($lab) . "\n";
-                $row[] = sb_desk_btn((string) ($n + 1), 'u:' . $u[0]);
-                if (5 === count($row)) {
-                    $rows[] = $row;
-                    $row = array();
-                }
-            }
-            if ($row) {
-                $rows[] = $row;
-            }
+            list($txt, $rows) = sb_desk_dress_kb('u:');
             $rows[] = array($x);
-            return sb_desk_say($m, $txt . "\nনমুনা-ছবি Uniform Library থেকে আসে। ড্রেস না মিললে সেখানে ছবি ও বিবরণ ঠিক করুন।", $rows);
+            return sb_desk_say($m, $txt, $rows);
         case 'confirm':
             $d = $s['d'];
             if ('news' === $s['flow']) {
@@ -827,6 +825,13 @@ function sb_desk_quick($m, $cmd, $rest, $aids) {
             sb_desk_say($m, 'ব্লগের বিষয় বা কীওয়ার্ড লিখুন, যেমন: <code>/blog স্পেলিং স্টার প্রস্তুতি</code>');
             return;
         }
+        if (!$aids) {   // no own photo: ask which dress the AI picture should show
+            sb_desk_save($m, array('flow' => 'qblog', 'i' => 0, 'd' => array('topic' => $rest, 'aids' => array())));
+            list($txt, $rows) = sb_desk_dress_kb('qd:');
+            $rows[] = array(sb_desk_btn('🚫 ছবি লাগবে না', 'qd:imgnone'), sb_desk_btn('❌ বাতিল', 'cancel'));
+            sb_desk_say($m, "✍️ বিষয়: " . esc_html(mb_substr($rest, 0, 120)) . "\n\n" . $txt, $rows);
+            return;
+        }
         sb_desk_say($m, '⏳ ব্লগ লিখছি (সাধারণত ১–৩ মিনিট)…');
         $r = sb_desk_blog($rest, $aids, sb_desk_cfg()['publish'] ? 'publish' : 'draft');
     }
@@ -974,6 +979,39 @@ function sb_desk_ajax($action, $params) {
     return is_array($j) ? $j : array('success' => false, 'data' => array('message' => 'উত্তর পাইনি'));
 }
 
+
+/** The dress question: one button per kind of dress, each with the number of sample photos in the Uniform Library. Returns array(text, rows). */
+function sb_desk_dress_kb($pre) {
+    $n = array();
+    foreach (sb_uniforms(true) as $r) {
+        $n[$r['cat']] = ($n[$r['cat']] ?? 0) + 1;
+    }
+    $kinds = array(
+        array('cat:general', '👦 বাংলা মাধ্যম', 'সাদা শার্ট, সবুজ কাঁধপট্টি, টাই (ছেলে) / সবুজ-সাদা (মেয়ে)'),
+        array('cat:english', '🧒 ইংলিশ ভার্সন', 'নীল পিনাফোর ও সাদা ব্লাউজ (মেয়ে) / সাদা শার্ট, নীল টাই ও প্যান্ট (ছেলে)'),
+        array('cat:madrasha', '🕌 ইসলামিক স্কুল', 'সাদা পাঞ্জাবি ও টুপি (ছেলে) / সাদা পোশাক ও হিজাব (মেয়ে)'),
+        array('cat:cadet', '🎖️ ক্যাডেট কলেজ', 'ক্যাডেট কলেজের ইউনিফর্ম'),
+        array('cat:teacher', '👩‍🏫 শিক্ষক', 'শিক্ষকের পোশাক'),
+        array('none', '⛔ ড্রেস ছাড়া', 'সাধারণ পোশাক, ড্রেসের নমুনা লাগবে না'),
+        array('auto', '🎲 অটো', 'লেখা দেখে এআই নিজে বাছবে'),
+    );
+    $txt  = "👕 <b>ছবিতে কোন ড্রেস থাকবে?</b> একটি চাপুন:\n\n";
+    $rows = array();
+    $row  = array();
+    foreach ($kinds as $k) {
+        $c = 0 === strpos($k[0], 'cat:') ? (int) ($n[substr($k[0], 4)] ?? 0) : -1;
+        $txt .= $k[1] . ' — ' . $k[2] . ($c >= 0 ? ($c ? " ({$c}টি নমুনা)" : ' ⚠️ নমুনা ছবি নেই') : '') . "\n";
+        $row[] = sb_desk_btn($k[1], $pre . $k[0]);
+        if (2 === count($row)) {
+            $rows[] = $row;
+            $row = array();
+        }
+    }
+    if ($row) {
+        $rows[] = $row;
+    }
+    return array($txt, $rows);
+}
 
 /** One reply for a whole album (Telegram sends each photo of an album as its own message). */
 function sb_desk_album_say($m, $html, $kb = array()) {
