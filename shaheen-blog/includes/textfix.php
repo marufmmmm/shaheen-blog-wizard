@@ -483,7 +483,7 @@ add_action('wp_ajax_sb_tf_ai', function () {
         . 'Rules: pick a value only if the evidence supports it: a value shown on the home page or confirmed by the hints (branch count from the branch plugin, home page description) beats older repeated values. Do not invent numbers. '
         . 'If one value is already used everywhere, suggest the same value with needs_input=false. If the evidence is not enough, set needs_input=true and suggest the most likely one. Different units of the same word (course length "৩ বছর") are already filtered out.';
     $user = 'Hints: ' . wp_json_encode($hint, JSON_UNESCAPED_UNICODE) . "\nFound:\n" . wp_json_encode($facts, JSON_UNESCAPED_UNICODE);
-    $model = function_exists('sb_model_for') ? sb_model_for('headlines') : 'gpt-6.1-terra';
+    $model = function_exists('sb_model_for') ? sb_model_for('bulk') : 'gpt-6.1-terra';
     $body  = array('model' => $model, 'input' => array(array('role' => 'system', 'content' => $sys), array('role' => 'user', 'content' => mb_substr($user, 0, 14000))), 'max_output_tokens' => 900);
     if (preg_match('/^(gpt-[5-9]|o\d)/i', $model)) {
         $body['reasoning'] = array('effort' => 'low');

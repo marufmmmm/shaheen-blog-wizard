@@ -326,7 +326,7 @@ function sb_share_openai_text($sys, $usr) {
     if ('' === (string) $key) {
         return null;
     }
-    $model = sb_model_for('custom');
+    $model = sb_model_for('bulk');
     sb_meter_take();
     $r = wp_remote_post(SB_AI::ENDPOINT, array('timeout' => 60, 'headers' => array('Authorization' => 'Bearer ' . $key, 'Content-Type' => 'application/json'),
         'body' => wp_json_encode(array('model' => $model, 'response_format' => array('type' => 'json_object'), 'messages' => array(array('role' => 'system', 'content' => $sys), array('role' => 'user', 'content' => $usr))))));

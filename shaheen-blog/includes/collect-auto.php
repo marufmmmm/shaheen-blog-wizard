@@ -60,7 +60,7 @@ function sb_ca_ai($item, $cfg, $manual = true) {
         . 'IMPORTANT: other institutions also carry the name Shaheen (for example BAF Shaheen College, or a Shaheen school in Gazipur): they are NOT ours, so relevant=false for them. Ours is Shaheen Education Family (Shaheen Cadet Coaching / Shaheen School, Tangail-based). '
         . 'Never invent facts; date only if clearly written in the page.';
     $user = 'Link: ' . $item['url'] . "\nTitle: " . $item['title'] . "\nText:\n" . mb_substr((string) $item['text'], 0, 3500);
-    $model = function_exists('sb_model_for') ? sb_model_for('headlines') : 'gpt-6.1-terra';
+    $model = function_exists('sb_model_for') ? sb_model_for('bulk') : 'gpt-6.1-terra';
     $body  = array('model' => $model, 'input' => array(array('role' => 'system', 'content' => $sys), array('role' => 'user', 'content' => $user)), 'max_output_tokens' => 700);
     if (preg_match('/^(gpt-[5-9]|o\d)/i', $model)) {
         $body['reasoning'] = array('effort' => 'low');

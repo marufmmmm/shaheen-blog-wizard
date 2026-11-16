@@ -43,7 +43,8 @@ function sb_defaults() {
         'ai_lang_other'  => '',
         'style_note'     => 'প্রচলিত চলিত ভাষায় লিখবে। কঠিন, সাধু বা বইয়ের মতো ভারী শব্দ এড়িয়ে প্রতিদিনের সহজ শব্দ ব্যবহার করবে। যেখানে জনপ্রিয় ইংরেজি শব্দ (যেমন: ক্লাস, কোচিং, অনলাইন) বেশি চলে সেখানে সেটাই লিখবে।',
         'model_article'  => 'gpt-6.1-terra',
-        'model_plan'     => 'gpt-6-astra',
+        'model_plan'     => 'gpt-6.1-terra',
+        'route_mode'     => 'auto',
         'top_offset'     => 0,
         'content_width'  => 0,
         'site_urls'      => "https://shaheen.edu.bd/",
@@ -125,13 +126,42 @@ function sb_pick_model($in, $name) {
     return preg_match('/^[A-Za-z0-9._:\-]{1,60}$/', $v) ? $v : '';
 }
 
-/** Model for a feature: article may use its own (better) model. */
+/** Auto routing (default): rewrite/edit -> Astra, new articles -> rotation (see sb_route_article_model), planning and bulk -> Terra, everything else (SEO, summary, slug, meta, FAQ...) -> Sol. Settings "route_mode" = manual keeps the old per-setting behaviour. */
 function sb_model_for($feature) {
+    if (sb_get('route_mode') !== 'manual') {
+        if (in_array($feature, array('rewrite', 'rewrite_post', 'edit', 'edit_new', 'edit_many'), true)) {
+            return 'gpt-6-astra';
+        }
+        if (in_array($feature, array('brief', 'article', 'custom', 'bulk'), true)) {
+            return 'gpt-6.1-terra';
+        }
+        return 'gpt-6.1-sol';
+    }
     if ($feature === 'brief' && trim((string) sb_get('model_plan')) !== '') {
         return trim((string) sb_get('model_plan'));   // SEO strategy / planning step
     }
     $m = (in_array($feature, array('article', 'custom', 'rewrite', 'rewrite_post', 'edit', 'edit_new'), true)) ? trim((string) sb_get('model_article')) : '';
     return $m !== '' ? $m : sb_get('model');
+}
+
+/** The model for ONE new article: 2 of 4 Astra, 1 Terra, 1 Sol in a fixed rotation (50 / 25 / 25), advanced once per article. */
+function sb_route_article_model() {
+    $seq = array('gpt-6-astra', 'gpt-6.1-terra', 'gpt-6-astra', 'gpt-6.1-sol');
+    $n   = (int) get_option('sb_route_n', 0);
+    update_option('sb_route_n', $n + 1, false);
+    return $seq[$n % 4];
+}
+
+/** Friendly name of a model id for the "written with" line. */
+function sb_model_label($id) {
+    $id = (string) $id;
+    $map = array('gpt-6-astra' => 'GPT-6 Astra', 'gpt-6.1-sol' => 'GPT-6.1 Sol', 'gpt-6.1-terra' => 'GPT-6.1 Terra');
+    foreach ($map as $k => $v) {
+        if (0 === strpos($id, $k)) {
+            return $v;
+        }
+    }
+    return $id;
 }
 
 /** Prompt-article price: by length tier (1 = 800-1000 words, 2 = 1000-1500, 3 = 1500+) and chosen model. */

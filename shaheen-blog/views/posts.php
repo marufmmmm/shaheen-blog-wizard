@@ -61,7 +61,8 @@ $base = admin_url('admin.php?page=sb-posts');
                 <?php $edit_url = sb_is_press($id) ? admin_url('admin.php?page=sb-press&edit=' . $id) : admin_url('admin.php?page=sb-new&post=' . $id); ?>
                 <td><strong><a href="<?php echo esc_url($edit_url); ?>"><?php echo esc_html(get_the_title()); ?></a></strong>
                     <?php if (get_post_meta($id, '_sb_demo', true)) : ?><span class="sba-tag">ডেমো</span><?php endif; ?>
-                    <?php if (sb_is_press($id)) : ?><span class="sba-tag">📰 সংবাদ</span><?php endif; ?></td>
+                    <?php if (sb_is_press($id)) : ?><span class="sba-tag">📰 সংবাদ</span><?php endif; ?>
+                    <?php $wb = get_post_meta($id, '_sb_written_by', true); if (is_array($wb) && !empty($wb['model'])) : ?><br><small class="sba-muted">✍️ Written with <?php echo esc_html(sb_model_label($wb['model'])); ?></small><?php endif; ?></td>
                 <td><?php echo esc_html(implode(', ', wp_list_pluck(sb_post_categories($id), 'bn'))); ?></td>
                 <td><span class="sba-tag sba-tag--<?php echo esc_attr(get_post_status()); ?>"><?php echo get_post_status() === 'publish' ? 'প্রকাশিত' : 'খসড়া'; ?></span></td>
                 <td><?php echo esc_html(sb_bn_date(get_post_time('U'))); ?></td>

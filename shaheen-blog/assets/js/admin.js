@@ -1205,6 +1205,7 @@
         if (r.summary && !val('#f-summary').trim()) { $('#f-summary').value = r.summary; $('#inc-summary').checked = true; }
         if (r.faq && r.faq.length && !faqData().length) { r.faq.forEach(function (x) { addFaq(x.q, x.a); }); $('#inc-faq').checked = true; }
       }
+      if (r.written_by) { toast('✍️ Written with ' + r.written_by, 'ok'); }
       if (r.missing && r.missing.length) {
         var m = document.createElement('strong'); m.textContent = '⚠️ AI-এর এই তথ্যগুলো দরকার, আর্টিকেলে লাল জায়গায় নিজে লিখে দিন:'; mb.appendChild(m);
         var ml = document.createElement('ul');

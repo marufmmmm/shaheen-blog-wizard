@@ -139,13 +139,18 @@ $costs['research'] = max(0, (int) sb_get('cost_research'));
                 <label class="sba-research" style="display:block;margin-top:8px"><input type="checkbox" id="f-research" checked> 🌐 সঠিক ও সর্বশেষ খবরের জন্য AI ইন্টারনেটেও যাচাই করুক</label>
 
                 <div class="sba-style" style="margin-top:12px;display:flex;gap:10px;align-items:flex-end;flex-wrap:wrap">
-                    <label>🤖 মডেল<br><?php $cur_m = trim((string) sb_get('model_article')) ?: sb_get('model'); ?>
+                    <?php $cur_m = trim((string) sb_get('model_article')) ?: sb_get('model'); if (sb_get('route_mode') !== 'manual') : ?>
+                    <input type="hidden" id="f-cmodel" value="gpt-6.1-terra">
+                    <small class="sba-muted" style="max-width:260px">🤖 AI মডেল সাইট নিজে বাছাই করে। লেখা শেষ হলে নিচে দেখানো হবে কোন মডেলে লেখা হয়েছে।</small>
+                    <?php else : ?>
+                    <label>🤖 মডেল<br>
                     <select id="f-cmodel" title="কোন AI মডেলে লিখবে">
                         <?php foreach (sb_model_catalog() as $mid => $mm) : ?>
                             <option value="<?php echo esc_attr($mid); ?>" <?php selected($cur_m, $mid); ?>><?php echo esc_html($mid . ' — ' . $mm[2]); ?></option>
                         <?php endforeach; ?>
                         <?php if (!isset(sb_model_catalog()[$cur_m])) : ?><option value="<?php echo esc_attr($cur_m); ?>" selected><?php echo esc_html($cur_m); ?></option><?php endif; ?>
                     </select></label>
+                    <?php endif; ?>
                     <label>📏 দৈর্ঘ্য<br><select id="f-clen" title="আর্টিকেলের দৈর্ঘ্য">
                         <option value="1">৮০০–১০০০ শব্দ</option>
                         <option value="2">১০০০–১৫০০ শব্দ</option>

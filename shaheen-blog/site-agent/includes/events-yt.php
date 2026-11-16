@@ -200,7 +200,7 @@ function csa_ev_yt_ai_judge( $ev, $v ) {
 		. '(3) section: for a non-episode, the number of the best section from the list, or -1 if none fits. Avoid duplicates of what is already there. (4) meta: a 2-5 word Bangla label. '
 		. 'Reply with JSON only: {"relevant":true|false,"episode":0,"section":-1,"meta":"","reason":"short"}';
 	$user = "Page episodes so far:\n" . ( $eps ? implode( "\n", $eps ) : '(none)' ) . "\n\nSections:\n" . implode( "\n", $secs ) . "\n\nNew video title: " . $v['title'] . "\nDescription: " . $v['desc'];
-	$model = function_exists( 'sb_model_for' ) ? sb_model_for( 'headlines' ) : 'gpt-6.1-terra';
+	$model = function_exists( 'sb_model_for' ) ? sb_model_for( 'bulk' ) : 'gpt-6.1-terra';
 	$body  = array( 'model' => $model, 'input' => array( array( 'role' => 'system', 'content' => $sys ), array( 'role' => 'user', 'content' => $user ) ), 'max_output_tokens' => 500 );
 	if ( preg_match( '/^(gpt-[5-9]|o\d)/i', $model ) ) {
 		$body['reasoning'] = array( 'effort' => 'low' );

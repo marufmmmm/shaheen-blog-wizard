@@ -113,10 +113,16 @@ function sb_ajax_ai() {
         if ($feature === 'brief' && trim((string) sb_get('model_plan')) !== '') {
             $cmodel = trim((string) sb_get('model_plan'));   // planning step always uses the planning model
         }
+        if (sb_get('route_mode') !== 'manual') {   // auto: the client does not choose; the site routes
+            $cmodel = ($feature === 'brief') ? sb_model_for('brief') : sb_route_article_model();
+        }
         $cost = ($feature === 'brief') ? max($cost, (int) round(sb_custom_cost(1, $cmodel) * 0.2)) : (((int) sb_req('words', 0) >= 300) ? sb_words_cost((int) sb_req('words'), $cmodel) : sb_custom_cost($tier, $cmodel));   // the brief costs about 1/5 of an article on the chosen model
     }
     if ($feature === 'rewrite_post') {
         $rm = sanitize_text_field(sb_req('model'));
+        if (sb_get('route_mode') !== 'manual') {
+            $rm = sb_model_for('rewrite_post');   // full rewrites always run on Astra
+        }
         if ($rm !== '' && in_array($rm, sb_allowed_models(), true)) {
             $cmodel = $rm;
             $cost = max($cost, sb_custom_cost(1, $rm));   // a rewrite on a pricier model costs like a short article on it
@@ -463,6 +469,14 @@ function sb_ai_finish($uid, $feature, $ctx, $cost, $research, $result, &$notes) 
         $cost = max(0, min($actual + $rp, $rem));
         $result['words'] = $wc;
     }
+    if (in_array($feature, array('custom', 'rewrite_post', 'rewrite', 'edit', 'edit_new'), true) && !empty($result['model'])) {
+        // remember which model really wrote this, until the post is saved (then it becomes the post's "written with" line)
+        set_transient('sb_lastgen_' . (int) $uid, array('model' => (string) $result['model'], 'feature' => $feature, 't' => time()), 6 * HOUR_IN_SECONDS);
+        if (!empty($ctx['post_id']) && get_post_type((int) $ctx['post_id']) === 'sb_post') {
+            update_post_meta((int) $ctx['post_id'], '_sb_written_by', array('model' => (string) $result['model'], 'feature' => $feature, 't' => time()));
+        }
+        $result['written_by'] = sb_model_label($result['model']);
+    }
     $real = sb_meter_take();   // what OpenAI really charged for this answer (tokens x the model's rates)
     if ($real > 0 && $cost > 0) {
         $cost = max(1, (int) ceil($real / SB_RAW_USD_PER_CREDIT));
@@ -747,6 +761,11 @@ function sb_ajax_save_post() {
         wp_update_post(array('ID' => $id, 'post_name' => $g !== '' ? $g : 'post-' . $id));
     }
 
+    $lg = get_transient('sb_lastgen_' . get_current_user_id());
+    if (is_array($lg) && !empty($lg['model']) && (int) $lg['t'] > time() - 6 * HOUR_IN_SECONDS && 'custom' === ($lg['feature'] ?? '') && !get_post_meta($id, '_sb_written_by', true)) {
+        update_post_meta($id, '_sb_written_by', array('model' => (string) $lg['model'], 'feature' => (string) $lg['feature'], 't' => (int) $lg['t']));
+        delete_transient('sb_lastgen_' . get_current_user_id());
+    }
     update_post_meta($id, '_sb_subtitle', sanitize_text_field(sb_req('subtitle')));
     update_post_meta($id, '_sb_meta_desc', sanitize_textarea_field(sb_req('meta_desc')));
     update_post_meta($id, '_sb_summary', sanitize_textarea_field(sb_req('summary')));
