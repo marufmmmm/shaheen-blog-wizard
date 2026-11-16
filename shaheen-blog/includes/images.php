@@ -97,6 +97,9 @@ function sb_uniform_pick($explicit, $text, $subject = 'auto') {
         $cat = 'general';
     }
     $pool = $cat !== '' ? $in_cat($cat) : array();
+    if (!$pool && 'general' !== $cat) {
+        $pool = $in_cat('general');   // e.g. "cadet" with no cadet-college photos: the school's own dress, never plain clothes
+    }
     if (!$pool) {
         $pool = array_values(array_filter($all, function ($r) { return !empty($r['default']); }));
         if (!$pool) {
@@ -251,7 +254,11 @@ function sb_img_call($model, $prompt, $size, $quality, $refs) {
 function sb_img_save($bytes, $meta, $post_id) {
     $slug = sanitize_title(isset($meta['slug']) ? $meta['slug'] : '');
     $slug = preg_match('/^[a-z0-9-]+$/', $slug) ? $slug : '';   // Bangla titles give unreadable file names, so use "image"
-    $name = 'sb-' . ($slug !== '' ? mb_substr($slug, 0, 40) : 'image') . '-' . wp_date('YmdHis') . '.webp';
+    if (strlen($slug) > 40) {   // cut at a whole word, not in the middle of one
+        $cut  = substr($slug, 0, 40);
+        $slug = (false !== strpos(substr($slug, 40, 1), '-')) ? $cut : (false !== ($dp = strrpos($cut, '-')) && $dp > 15 ? substr($cut, 0, $dp) : $cut);
+    }
+    $name = 'sb-' . ($slug !== '' ? $slug : 'image') . '-' . wp_date('YmdHis') . '.webp';
     $up   = wp_upload_bits($name, null, $bytes);
     if (!empty($up['error'])) {
         return new WP_Error('sb_save', 'ছবি সেভ করা যায়নি: ' . $up['error']);
