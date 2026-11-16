@@ -1158,26 +1158,25 @@ function sb_desk_held_step($m, $s, $in) {
     }
     $tx = strtr($tx, array('০' => '0', '১' => '1', '২' => '2', '৩' => '3', '৪' => '4', '৫' => '5', '৬' => '6', '৭' => '7', '৮' => '8', '৯' => '9'));
     $do = array();   // number => keep|drop
-    foreach (preg_split('/[\n;]+/u', $tx) as $line) {
-        $act = '';
-        if (preg_match('/রাখ|keep|ok|হ্যাঁ|yes|✅/iu', $line)) {
-            $act = 'keep';
-        } elseif (preg_match('/বাতিল|বাদ|drop|no|না|❌|skip/iu', $line)) {
-            $act = 'drop';
-        }
-        if ('' === $act) {
-            continue;
-        }
-        if (preg_match('/সব|all/iu', $line)) {
-            $from = (int) $d['page'] * 10;
-            foreach (range($from + 1, min(count($ids), $from + 10)) as $n) {
-                $do[$n] = $act;
-            }
-        }
-        if (preg_match_all('/\d+/', $line, $mm)) {
-            foreach ($mm[0] as $n) {
-                if ((int) $n >= 1 && (int) $n <= count($ids)) {
-                    $do[(int) $n] = $act;
+    foreach (preg_split('/\n+/u', $tx) as $line) {   // several actions may share a line: "keep 10 drop 1 2 3"
+        $cur = '';
+        foreach (preg_split('/[\s,;:]+/u', $line, -1, PREG_SPLIT_NO_EMPTY) as $w) {
+            if (preg_match('/^(রাখ|keep|okay|ok$|yes|হ্যাঁ|✅)/iu', $w)) {
+                $cur = 'keep';
+            } elseif (preg_match('/^(বাতিল|বাদ|drop|skip|no$|না$|❌)/iu', $w)) {
+                $cur = 'drop';
+            } elseif ('' !== $cur && preg_match('/^(সব|all)$/iu', $w)) {
+                $from = (int) $d['page'] * 10;
+                foreach (range($from + 1, min(count($ids), $from + 10)) as $n) {
+                    $do[$n] = $cur;
+                }
+            } elseif ('' !== $cur && preg_match('/^(\d+)(?:[-–](\d+))?$/', $w, $nm)) {
+                $lo = (int) $nm[1];
+                $hi = isset($nm[2]) && '' !== $nm[2] ? (int) $nm[2] : $lo;
+                for ($n = $lo; $n <= min($hi, $lo + 60); $n++) {
+                    if ($n >= 1 && $n <= count($ids)) {
+                        $do[$n] = $cur;
+                    }
                 }
             }
         }
