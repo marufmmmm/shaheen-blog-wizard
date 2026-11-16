@@ -66,10 +66,29 @@ function sb_uniform_pick($explicit, $text, $subject = 'auto') {
     if (!$all) {
         return array(array(), 'ড্রেসের নমুনা লাইব্রেরিতে কোনো ছবি নেই, তাই রেফারেন্স ছাড়াই বানানো হবে।');
     }
-    $in_cat = function ($cat) use ($all) {
+    $gen = '';   // who is shown: b = boys, g = girls, m = boys and girls ("cat:general:g")
+    if (preg_match('/^(cat:[a-z]+):([bgm])$/', (string) $explicit, $gm)) {
+        $explicit = $gm[1];
+        $gen      = $gm[2];
+    }
+    $in_cat = function ($cat) use ($all, $gen) {
         $p = array_values(array_filter($all, function ($r) use ($cat) { return $r['cat'] === $cat; }));
         usort($p, function ($a, $b) { return (int) !empty($b['default']) <=> (int) !empty($a['default']); });
-        return array_slice($p, 0, 3);
+        if ('' === $gen) {
+            return array_slice($p, 0, 3);
+        }
+        $nm   = function ($r) { return (string) $r['name']; };
+        $boys = array_values(array_filter($p, function ($r) use ($nm) { return preg_match('/ছেলে/u', $nm($r)) && !preg_match('/মেয়ে/u', $nm($r)); }));
+        $girl = array_values(array_filter($p, function ($r) use ($nm) { return preg_match('/মেয়ে/u', $nm($r)) && !preg_match('/ছেলে/u', $nm($r)); }));
+        $none = array_values(array_filter($p, function ($r) use ($nm) { return !preg_match('/ছেলে|মেয়ে/u', $nm($r)); }));   // no gender in the name: fits both
+        if ('b' === $gen) {
+            $out = array_merge($boys, $none);
+        } elseif ('g' === $gen) {
+            $out = array_merge($girl, $none);
+        } else {
+            $out = array_merge(array_slice($boys, 0, 1), array_slice($girl, 0, 1), array_slice($boys, 1), array_slice($girl, 1), $none);
+        }
+        return array_slice($out ? $out : $p, 0, 3);
     };
     if ($explicit !== '' && $explicit !== 'auto') {
         if (strpos($explicit, 'cat:') === 0) {
@@ -314,6 +333,10 @@ add_action('wp_ajax_sb_img_prompt', function () {
     $subject = in_array(sb_req('subject'), array('auto', 'student', 'teacher', 'none'), true) ? sb_req('subject') : 'auto';
     $section = mb_substr(sanitize_textarea_field(sb_req('section')), 0, 900);
     list($refs, $note) = sb_uniform_pick(sanitize_text_field(sb_req('uniform', 'auto')), $title . ' ' . $cat . ' ' . $text . ' ' . $section, $subject);
+    $genline = '';
+    if (preg_match('/:([bgm])$/', sanitize_text_field(sb_req('uniform', 'auto')), $gg)) {
+        $genline = array('b' => "Show only boys (no girls).\n", 'g' => "Show only girls (no boys).\n", 'm' => "Show a mix: at least one boy AND at least one girl, each wearing the matching dress from the reference images.\n")[$gg[1]];
+    }
     list($logoref, $lwhere) = sb_logo_pick(sanitize_text_field(sb_req('logo', 'none')), sanitize_text_field(sb_req('logo_at', 'chest')), $refs);
     $udesc = '';
     foreach ($refs as $r) {
@@ -324,6 +347,7 @@ add_action('wp_ajax_sb_img_prompt', function () {
         . "prompt: English, 90-160 words, specific to THIS article. Cover: main visual message, who the audience is, setting and background, composition and camera angle, natural lighting and realism, aspect ratio, and things to avoid.\n"
         . "People must look like natural, realistic Bangladeshi people: South Asian features, authentic light-brown to deep-brown skin tones with natural texture, black or dark-brown hair, age-appropriate children, realistic Bangladeshi adults. No skin lightening, no beauty filter, no European or East Asian look. Use authentic Bangladeshi classrooms, homes, schools, libraries.\n"
         . ($subject === 'none' ? "Show no people: the scene is the place, objects, books or campus only.\n" : '')
+        . $genline
         . ($refs ? ($subject === 'teacher' ? "The person shown is a teacher wearing the dress exactly as in the attached reference image(s): same garments and colours. " : "If students are shown, they wear the dress exactly as in the attached reference image(s): same colours, shirt/tunic, trousers/skirt, scarf/hijab/cap. ") . "Never invent a different uniform. " . ($udesc ? "Dress notes: {$udesc}" : '') . "\n" : "If people are shown, use plain, simple clothes with no logos or text.\n")
         . ($logoref ? "The official logo ({$logoref['name']}) is attached as a reference image and will be added by the image model: mention it once in the prompt as placed {$lwhere}, unaltered. Nothing else may carry any logo, text, letters or watermark.\n" : "No text, letters, watermarks or logos inside the image.\n")
         . "Avoid stereotypes.\n"

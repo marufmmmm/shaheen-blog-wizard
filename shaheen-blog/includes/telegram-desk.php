@@ -158,7 +158,7 @@ function sb_desk_hook(WP_REST_Request $req) {
 
 /* ------------------------------------------------------------ conversation engine */
 function sb_desk_help() {
-    return "📌 <b>শাহীন ডেস্ক</b>\n\n/menu — কী করবেন বেছে নিন (ধাপে ধাপে প্রশ্ন করব)\n/cancel — চলমান কাজ বাতিল\n\n<b>শর্টকাট:</b>\n<code>/blog বিষয় বা কীওয়ার্ড</code> — সরাসরি ব্লগ লিখে প্রকাশ\n<code>/notice লেখা</code> — সরাসরি নোটিশ\nসংবাদের লিংক একাই পাঠালে (বা <code>/news লিংক</code>) সংবাদ-কার্ড হবে।\nনোটিশের ছবি সরাসরি পাঠালে নোটিশের ধাপ শুরু হবে।";
+    return "📌 <b>শাহীন ডেস্ক</b>\n\n/menu — কী করবেন বেছে নিন (ধাপে ধাপে প্রশ্ন করব)\n/cancel — চলমান কাজ বাতিল\n\n<b>শর্টকাট:</b>\n<code>/blog বিষয় বা কীওয়ার্ড</code> — সরাসরি ব্লগ লিখে প্রকাশ\n<code>/notice লেখা</code> — সরাসরি নোটিশ\nসংবাদের লিংক একাই পাঠালে (বা <code>/news লিংক</code>) সংবাদ-কার্ড হবে।\nনোটিশের ছবি সরাসরি পাঠালে নোটিশের ধাপ শুরু হবে।\n<code>/dress</code> — ড্রেসের নমুনা ছবি যোগ (ছবির ক্যাপশনে <code>/dress ক্যাডেট কলেজ মেয়ে</code>)।";
 }
 
 function sb_desk_say($m, $html, $kb = array()) {
@@ -239,7 +239,7 @@ function sb_desk_steps($flow, $d) {
     if (in_array($d['body'] ?? '', array('paste', 'desc'), true)) {
         $st[] = 'bodytext';
     }
-    return array_merge($st, array('length', 'image'), 'pick' === ($d['imgmode'] ?? '') ? array('dress') : array(), array('confirm'));
+    return array_merge($st, array('length', 'image'), 'pick' === ($d['imgmode'] ?? '') ? array_merge(array('dress'), sb_desk_needs_who($d['uniform'] ?? '') ? array('who') : array()) : array(), array('confirm'));
 }
 
 /** The ONE question for a notice: a fill-in list, built from what the site's old notices really contain. */
@@ -271,6 +271,14 @@ function sb_desk_ask($m, $s) {
         $qd = array('topic' => (string) $s['d']['topic'], 'aids' => array());
         if ('qd:imgnone' === $qc) {
             $qd['imgmode'] = 'none';
+        } elseif (preg_match('/^qd:(cat:[a-z]+)$/', $qc, $qm) && sb_desk_needs_who($qm[1])) {   // a kind of dress: ask who is shown
+            $s['d']['uniform'] = $qm[1];
+            sb_desk_save($m, $s);
+            sb_desk_unlock($lock);
+            $kb = sb_desk_who_kb('qd:' . $qm[1] . ':');
+            $kb[] = array(sb_desk_btn('❌ বাতিল', 'cancel'));
+            sb_desk_say($m, "👥 <b>ছবিতে কারা থাকবে?</b>\nড্রেস: " . esc_html(sb_desk_dress_label($qm[1])), $kb);
+            return;
         } else {
             $qd['imgmode'] = 'pick';
             $qd['uniform'] = substr($qc, 3);
@@ -415,6 +423,8 @@ function sb_desk_ask($m, $s) {
             list($txt, $rows) = sb_desk_dress_kb('u:');
             $rows[] = array($x);
             return sb_desk_say($m, $txt, $rows);
+        case 'who':
+            return sb_desk_say($m, "👥 <b>ছবিতে কারা থাকবে?</b>\nড্রেস: " . esc_html(sb_desk_dress_label(preg_replace('/:[bgm]$/', '', (string) ($s['d']['uniform'] ?? '')))), array_merge(sb_desk_who_kb('g:'), array(array($x))));
         case 'confirm':
             $d = $s['d'];
             if ('news' === $s['flow']) {
@@ -432,7 +442,7 @@ function sb_desk_ask($m, $s) {
                 $sum = "📢 <b>নোটিশ</b>\nধরন: " . esc_html($tl) . "\nছবি: " . count($d['aids'] ?? array()) . "টি; PDF: " . (!empty($d['pdf_aid']) ? 'আছে' : 'নেই') . "; লেখা: " . (!empty($d['text']) ? mb_strlen($d['text']) . ' অক্ষর' : 'নেই') . "\n\nপ্রকাশের আগে AI তারিখ, ফোন, লিংক ও শর্ত আলাদা করে সাজাবে।";
             } else {
                 $bm = array('ai' => 'AI পুরো লিখবে', 'desc' => 'আপনার বিবরণ থেকে AI', 'paste' => 'আপনার তৈরি লেখা');
-                $sum = "✍️ <b>ব্লগ</b>\nবিষয়: " . esc_html($d['topic']) . "\nশিরোনাম: " . esc_html(($d['title'] ?? '') ?: 'AI') . "\nকীওয়ার্ড: " . esc_html(($d['keywords'] ?? '') ?: 'AI') . "\nলেখা: " . $bm[$d['body'] ?? 'ai'] . "\nদৈর্ঘ্য: " . esc_html($d['length'] ?? 'medium') . "\nছবি: " . (count($d['aids'] ?? array()) ? count($d['aids']) . 'টি (আপনার)' : ('none' === ($d['imgmode'] ?? 'auto') ? 'লাগবে না' : 'AI বানাবে, ড্রেস: ' . esc_html(($d['uniform'] ?? 'auto') ?: 'auto'))) . "\nSEO: ইংরেজি শিরোনাম, সহজ স্লাগ, অল্ট-টেক্সট, মেটা, কীওয়ার্ড সব অটো";
+                $sum = "✍️ <b>ব্লগ</b>\nবিষয়: " . esc_html($d['topic']) . "\nশিরোনাম: " . esc_html(($d['title'] ?? '') ?: 'AI') . "\nকীওয়ার্ড: " . esc_html(($d['keywords'] ?? '') ?: 'AI') . "\nলেখা: " . $bm[$d['body'] ?? 'ai'] . "\nদৈর্ঘ্য: " . esc_html($d['length'] ?? 'medium') . "\nছবি: " . (count($d['aids'] ?? array()) ? count($d['aids']) . 'টি (আপনার)' : ('none' === ($d['imgmode'] ?? 'auto') ? 'লাগবে না' : 'AI বানাবে, ড্রেস: ' . esc_html(sb_desk_dress_label(($d['uniform'] ?? 'auto') ?: 'auto')))) . "\nSEO: ইংরেজি শিরোনাম, সহজ স্লাগ, অল্ট-টেক্সট, মেটা, কীওয়ার্ড সব অটো";
             }
             return sb_desk_say($m, $sum . "\n\nপ্রকাশের আগে এটাই শেষ দেখা। কী করব?", array(array(sb_desk_btn('✅ প্রকাশ করো', 'go:publish')), array(sb_desk_btn('📝 শুধু খসড়া', 'go:draft'), $x)));
     }
@@ -474,6 +484,15 @@ function sb_desk_message($m) {
                 return;
             }
             $in[$kind] = (int) $a;
+        }
+        if ('dress' === $cmd) {   // a dress photo for the Uniform Library
+            sb_desk_unlock($lock);
+            if (empty($in['img'])) {
+                sb_desk_say($m, "👕 <b>ড্রেসের নমুনা ছবি যোগ করা</b>\nছবি পাঠান, ছবির ক্যাপশনে লিখুন:\n<code>/dress ক্যাডেট কলেজ মেয়ে</code>\n\nধরন: বাংলা মাধ্যম, ইংলিশ ভার্সন, ইসলামিক, ক্যাডেট কলেজ, শিক্ষক। সঙ্গে ছেলে বা মেয়ে লিখুন। ভালো ফলের জন্য একজনের পুরো ড্রেসসহ পরিষ্কার ছবি দিন।");
+            } else {
+                sb_desk_say($m, sb_desk_dress_add((int) $in['img'], $rest));
+            }
+            return;
         }
         $s = sb_desk_state($m);
         $newslink = !$s && '' === $cmd && !$fid && sb_desk_urls($text) && mb_strlen(trim(preg_replace('#https?://\S+#i', '', $text))) < 12;
@@ -767,6 +786,13 @@ function sb_desk_step($m, $in) {
                 $stay = true;
             }
             break;
+        case 'who':
+            if (preg_match('/^g:([bgm])$/', $cb, $gm)) {
+                $d['uniform'] = preg_replace('/:[bgm]$/', '', (string) ($d['uniform'] ?? '')) . ':' . $gm[1];
+            } else {
+                $stay = true;
+            }
+            break;
         case 'confirm':
             if ('edit' === $s['flow'] && 'go:apply' === $cb) {
                 sb_desk_clear($m);
@@ -840,9 +866,9 @@ function sb_desk_quick($m, $cmd, $rest, $aids) {
 
 /** Splits "/blog text" style commands. Returns array(cmd, rest). */
 function sb_desk_cmd($text) {
-    if (preg_match('~^\s*(/?)(blog|ব্লগ|notice|নোটিশ|news|সংবাদ|help|সাহায্য|start|menu|মেনু|cancel|বাতিল)(?:@\w+)?(?=[\s:：\-–]|$)[\s:：\-–]*(.*)$~isu', $text, $mm) && ('/' === $mm[1] || !in_array(mb_strtolower($mm[2]), array('start', 'menu', 'cancel', 'help'), true))) {
+    if (preg_match('~^\s*(/?)(blog|ব্লগ|notice|নোটিশ|news|সংবাদ|dress|ড্রেস|help|সাহায্য|start|menu|মেনু|cancel|বাতিল)(?:@\w+)?(?=[\s:：\-–]|$)[\s:：\-–]*(.*)$~isu', $text, $mm) && ('/' === $mm[1] || !in_array(mb_strtolower($mm[2]), array('start', 'menu', 'cancel', 'help'), true))) {
         $k   = mb_strtolower($mm[2]);
-        $map = array('ব্লগ' => 'blog', 'নোটিশ' => 'notice', 'সংবাদ' => 'news', 'সাহায্য' => 'help', 'start' => 'menu', 'মেনু' => 'menu', 'বাতিল' => 'cancel');
+        $map = array('ব্লগ' => 'blog', 'নোটিশ' => 'notice', 'সংবাদ' => 'news', 'ড্রেস' => 'dress', 'সাহায্য' => 'help', 'start' => 'menu', 'মেনু' => 'menu', 'বাতিল' => 'cancel');
         return array(isset($map[$k]) ? $map[$k] : $k, trim($mm[3]));
     }
     return array('', trim($text));
@@ -1013,6 +1039,53 @@ function sb_desk_dress_kb($pre) {
     return array($txt, $rows);
 }
 
+/** Does this dress choice need the boy / girl / mix question? (only the kinds with sample photos of people) */
+function sb_desk_needs_who($uni) {
+    $b = preg_replace('/:[bgm]$/', '', (string) $uni);
+    return 0 === strpos($b, 'cat:') && 'cat:teacher' !== $b;
+}
+
+function sb_desk_who_kb($pre) {
+    return array(
+        array(sb_desk_btn('👦 ছেলে', $pre . 'b'), sb_desk_btn('👧 মেয়ে', $pre . 'g')),
+        array(sb_desk_btn('👫 ছেলে ও মেয়ে (মিক্স)', $pre . 'm')),
+    );
+}
+
+/** Adds a photo (already in the Media Library) to the Uniform Library from the caption "ক্যাডেট কলেজ মেয়ে ..." */
+function sb_desk_dress_add($att, $cap) {
+    $cap = trim((string) $cap);
+    $cat = 'general';
+    $cn  = 'বাংলা মাধ্যম';
+    foreach (array('cadet' => array('ক্যাডেট', 'cadet', 'ক্যাডেট কলেজ'), 'english' => array('ইংলিশ', 'ইংরেজি', 'english'), 'madrasha' => array('ইসলামিক', 'মাদ্রাসা', 'মাদরাসা', 'madrasa'), 'teacher' => array('শিক্ষক', 'শিক্ষিকা', 'teacher')) as $k => $ws) {
+        foreach ($ws as $w) {
+            if (false !== mb_stripos($cap, $w)) {
+                $cat = $k;
+                break 2;
+            }
+        }
+    }
+    $names = array('general' => 'বাংলা মাধ্যম', 'english' => 'ইংলিশ ভার্সন', 'madrasha' => 'ইসলামিক স্কুল', 'cadet' => 'ক্যাডেট কলেজ', 'teacher' => 'শিক্ষক');
+    $cn    = $names[$cat];
+    $boy   = (bool) preg_match('/ছেলে|boy/iu', $cap);
+    $girl  = (bool) preg_match('/মেয়ে|girl/iu', $cap);
+    $who   = ($boy && !$girl) ? ' — ছেলে' : (($girl && !$boy) ? ' — মেয়ে' : '');
+    $rest  = trim(preg_replace('/ক্যাডেট\s*কলেজ|ক্যাডেট|ইংলিশ\s*ভার্সন|ইংলিশ|ইংরেজি|ইসলামিক\s*স্কুল|ইসলামিক|মাদ্রাসা|মাদরাসা|শিক্ষক|শিক্ষিকা|ছেলে|মেয়ে|cadet|english|madrasa|teacher|boy|girl/iu', '', $cap), " \t-—:,।");
+    $name  = $cn . $who . ('' !== $rest ? ' (' . mb_substr($rest, 0, 60) . ')' : '');
+    $desc  = 'Dress exactly as worn in the reference photo (' . $cn . ('' !== $who ? ($boy ? ', boy' : ', girl') : '') . '). Copy garments, colours, badges, epaulettes and ties; do not copy the face, background or number of people.' . ('' !== $rest ? ' Note from the school: ' . $rest . '.' : '');
+    $u = get_option('sb_uniforms', array());
+    $u = is_array($u) ? $u : array();
+    $u[] = array('id' => $att, 'att' => $att, 'cat' => $cat, 'name' => $name, 'desc' => $desc, 'active' => 1, 'default' => 0);
+    update_option('sb_uniforms', $u, false);
+    $n = 0;
+    foreach ($u as $r) {
+        if ($r['cat'] === $cat && !empty($r['active'])) {
+            $n++;
+        }
+    }
+    return "✅ <b>ড্রেসের নমুনা যোগ হয়েছে</b>\nধরন: " . esc_html($cn) . ($who ? "\n" . esc_html(trim($who, ' —')) : "\n(ছেলে/মেয়ে লেখেননি, তাই দুই ক্ষেত্রেই চলবে)") . "\nনাম: " . esc_html($name) . "\n" . esc_html($cn) . ' ধরনে এখন মোট ' . $n . 'টি নমুনা।' . "\nনাম বা বিবরণ বদলাতে: ওয়ার্ডপ্রেস → Uniform Library।";
+}
+
 /** One reply for a whole album (Telegram sends each photo of an album as its own message). */
 function sb_desk_album_say($m, $html, $kb = array()) {
     $g = isset($m['media_group_id']) ? (string) $m['media_group_id'] : '';
@@ -1028,6 +1101,9 @@ function sb_desk_album_say($m, $html, $kb = array()) {
 
 /** Readable name of a dress choice (button id) for notices. */
 function sb_desk_dress_label($uni) {
+    if (preg_match('/^(.*):([bgm])$/', (string) $uni, $gm)) {
+        return sb_desk_dress_label($gm[1]) . ' — ' . array('b' => 'ছেলে', 'g' => 'মেয়ে', 'm' => 'ছেলে ও মেয়ে')[$gm[2]];
+    }
     foreach (sb_img_opts()['uniforms'] as $u) {
         if ((string) $u[0] === (string) $uni) {
             return preg_replace('/^ধরন:\s*/u', '', $u[1]);
