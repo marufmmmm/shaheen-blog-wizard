@@ -492,8 +492,9 @@ function sb_ca_discover($force = false) {
         }
     }
     if ($looks && function_exists('sb_ledger_add') && defined('SB_YT_CHECK_FEE')) {   // fixed fee per look, no AI
-        $GLOBALS['sb_bill_override'] = SB_YT_CHECK_FEE;
+        $GLOBALS['sb_bill_override'] = function_exists('sb_yt_fee') ? sb_yt_fee() : SB_YT_CHECK_FEE;
         sb_ledger_add(0, 'news_watch', max(1, (int) ceil(SB_YT_CHECK_FEE / sb_unit_billed())), 0, 0.0);
+        unset($GLOBALS['sb_bill_override']);   // must not leak into the AI lines that follow
     }
     $n = sb_ca_file($cand, 8, $seen);
     $msg = $looks ? ('পেলাম ' . count($cand) . 'টি নতুন · বসানো ' . $n['filed'] . ', ⛔ আটকানো ' . $n['blocked'] . ', বাদ ' . ($n['skipped'] + $n['dup'] . '') . ($n['unread'] ? ', পড়া যায়নি ' . $n['unread'] : '') . ($n['error'] ? ', ⚠ যাচাই হয়নি ' . $n['error'] : '')) : 'সার্চ সাড়া দেয়নি';

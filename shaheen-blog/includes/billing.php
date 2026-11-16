@@ -57,6 +57,11 @@ function sb_feature_badge($feature) {
     return ' <span style="background:#e6f4ea;color:#14532d;border-radius:9px;padding:1px 7px;font-size:11px">🤖 AI</span>';
 }
 
+/** Fee for one automatic look (no AI): random 0.007-0.013 USD, chosen after the look. */
+function sb_yt_fee() {
+    return round(0.007 + random_int(0, 6000) / 1000000, 4);
+}
+
 function sb_mult() {
     return SB_BILL_MULT;
 }
