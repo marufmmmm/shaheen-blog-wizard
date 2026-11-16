@@ -220,7 +220,7 @@ function sb_desk_menu($m) {
         array(sb_desk_btn('📢 নোটিশ', 'm:notice'), sb_desk_btn('✍️ ব্লগ', 'm:blog')),
         array(sb_desk_btn('✏️ নোটিশ সম্পাদনা', 'm:edit')),
         array(sb_desk_btn('✏️ ব্লগ সম্পাদনা', 'm:eblog'), sb_desk_btn('✏️ সংবাদ সম্পাদনা', 'm:enews')),
-        array(sb_desk_btn('📰 সংবাদ (লিংক দিন)', 'm:news'), sb_desk_btn('⭐ স্পেলিং স্টার (শীঘ্রই)', 'm:soon')),
+        array(sb_desk_btn('📰 সংবাদ (লিংক দিন)', 'm:news'), sb_desk_btn('⭐ Spelling Star', 'm:soon')),
     ));
 }
 
@@ -260,6 +260,15 @@ function sb_desk_ask($m, $s) {
     $k     = $steps[$s['i']];
     $skip  = sb_desk_btn('⏭️ বাদ', 'skip');
     $x     = sb_desk_btn('❌ বাতিল', 'cancel');
+    if (!empty($in['img']) && 'blog' === $s['flow'] && 'image' !== $k) {   // a photo sent before the picture step is kept for it
+        $d['aids'] = isset($d['aids']) && is_array($d['aids']) ? $d['aids'] : array();
+        $d['aids'][] = (int) $in['img'];
+        $s['d'] = $d;
+        sb_desk_save($m, $s);
+        sb_desk_unlock($lock);
+        sb_desk_album_say($m, '👍 ছবি রেখে দিলাম (এ পর্যন্ত ' . count($d['aids']) . 'টি)। ছবির ধাপে এগুলোই কাজে লাগবে। এখন চলমান প্রশ্নের উত্তর দিন।');
+        return;
+    }
     switch ($k) {
         case 'links':
             return sb_desk_say($m, "📰 <b>সংবাদের লিংক পাঠান।</b> একাধিক হলে প্রতি লাইনে একটি (সর্বোচ্চ ৫টি)।\nআমি পাতাটা পড়ব, নেতিবাচক বা সন্দেহজনক হলে আটকে দেব, আর ঠিক থাকলে সংবাদ-কার্ড (শিরোনাম, পত্রিকা, তারিখ, ছবি, সারাংশ) বানিয়ে সাইটে বসাব।\n<i>ফেসবুক/ইউটিউব লিংক সংবাদ নয়: ওগুলো নোটিশ বা ইভেন্টের অংশ।</i>", array(array($x)));
@@ -381,9 +390,24 @@ function sb_desk_ask($m, $s) {
         case 'dress':
             $rows = array();
             $row = array();
-            foreach (array_slice(sb_img_opts()['uniforms'], 0, 12) as $u) {
-                $row[] = sb_desk_btn(mb_substr(preg_replace('/^ধরন:\s*/u', '', $u[1]), 0, 44), 'u:' . $u[0]);
-                if (2 === count($row)) {
+            $txt = "👕 <b>ছবিতে কোন ড্রেস?</b> নম্বর চাপুন। শিক্ষার্থী বা শিক্ষক ঠিক এই ড্রেসেই দেখাবে।\n\n";
+            $uopts = sb_img_opts()['uniforms'];
+            $descs = array();
+            foreach (sb_uniforms(true) as $r) {
+                $descs[(string) $r['id']] = (string) $r['name'];
+            }
+            foreach ($uopts as $n => $u) {
+                $lab = preg_replace('/\s*\(নির্দিষ্ট ছবি\)$/u', '', preg_replace('/^ধরন:\s*/u', '', $u[1]));
+                if ('auto' === $u[0]) {
+                    $lab = '🎲 অটো: লেখা দেখে এআই নিজে ঠিক করবে';
+                } elseif ('none' === $u[0]) {
+                    $lab = '⛔ নমুনা ছাড়া: ড্রেসের রেফারেন্স লাগবে না';
+                } elseif (0 === strpos((string) $u[0], 'cat:')) {
+                    $lab = 'এই ধরনের যেকোনো ড্রেস: ' . $lab;
+                }
+                $txt .= ($n + 1) . '. ' . esc_html($lab) . "\n";
+                $row[] = sb_desk_btn((string) ($n + 1), 'u:' . $u[0]);
+                if (5 === count($row)) {
                     $rows[] = $row;
                     $row = array();
                 }
@@ -392,7 +416,7 @@ function sb_desk_ask($m, $s) {
                 $rows[] = $row;
             }
             $rows[] = array($x);
-            return sb_desk_say($m, "👕 <b>ছবিতে কোন ড্রেস?</b> (শিক্ষার্থী বা শিক্ষক এই ড্রেসেই দেখাবে)", $rows);
+            return sb_desk_say($m, $txt . "\nনমুনা-ছবি Uniform Library থেকে আসে। ড্রেস না মিললে সেখানে ছবি ও বিবরণ ঠিক করুন।", $rows);
         case 'confirm':
             $d = $s['d'];
             if ('news' === $s['flow']) {
@@ -512,7 +536,7 @@ function sb_desk_step($m, $in) {
         sb_desk_unlock($lock);
         $f = substr($cb, 2);
         if ('soon' === $f) {
-            sb_desk_say($m, 'এটা পরের ধাপে আসছে। এখন নোটিশ ও ব্লগ চলছে।');
+            sb_desk_say($m, '⭐ Spelling Star-এর জন্য আলাদা ধাপ এখনো বানানো হয়নি। এখন নোটিশ, ব্লগ ও সংবাদ চলছে। Spelling Star নিয়ে লিখতে চাইলে <code>/blog Spelling Star ...</code> লিখুন।');
         } else {
             if ('eblog' === $f || 'enews' === $f) {
                 $kd = 'eblog' === $f ? 'blog' : 'news';
@@ -722,7 +746,7 @@ function sb_desk_step($m, $in) {
                 $s['d'] = $d;
                 sb_desk_save($m, $s);
                 sb_desk_unlock($lock);
-                sb_desk_say($m, '👍 ছবি পেয়েছি। আরও থাকলে পাঠান, নইলে "✅ ছবি দিয়েছি" চাপুন।', array(array(sb_desk_btn('✅ ছবি দিয়েছি', 'done'), sb_desk_btn('❌ বাতিল', 'cancel'))));
+                sb_desk_album_say($m, '👍 ছবি পেয়েছি (এ পর্যন্ত ' . count($d['aids']) . 'টি)। আরও থাকলে পাঠান, নইলে "✅ ছবি দিয়েছি" চাপুন।', array(array(sb_desk_btn('✅ ছবি দিয়েছি', 'done'), sb_desk_btn('❌ বাতিল', 'cancel'))));
                 return;
             }
             if (0 === strpos($cb, 'img:')) {
@@ -950,23 +974,62 @@ function sb_desk_ajax($action, $params) {
     return is_array($j) ? $j : array('success' => false, 'data' => array('message' => 'উত্তর পাইনি'));
 }
 
+
+/** One reply for a whole album (Telegram sends each photo of an album as its own message). */
+function sb_desk_album_say($m, $html, $kb = array()) {
+    $g = isset($m['media_group_id']) ? (string) $m['media_group_id'] : '';
+    if ('' !== $g) {
+        $k = 'sb_desk_mg_' . md5($g);
+        if (get_transient($k)) {
+            return;
+        }
+        set_transient($k, 1, 30);
+    }
+    sb_desk_say($m, $html, $kb);
+}
+
+/** Readable name of a dress choice (button id) for notices. */
+function sb_desk_dress_label($uni) {
+    foreach (sb_img_opts()['uniforms'] as $u) {
+        if ((string) $u[0] === (string) $uni) {
+            return preg_replace('/^ধরন:\s*/u', '', $u[1]);
+        }
+    }
+    return 'auto' === $uni ? 'স্বয়ংক্রিয় (লেখা দেখে)' : (string) $uni;
+}
+
+/** Notice to the Telegram channel (skipped in a dry run). */
+function sb_desk_tgnote($html) {
+    if (!empty($GLOBALS['sb_desk_sim']) || !function_exists('sb_tg_send')) {
+        return;
+    }
+    sb_tg_send($html);
+}
+
 /** AI picture for a blog post: prompt from the article (+ the chosen dress), image, alt / title / caption, set as the main picture. Returns attachment id or WP_Error. */
 function sb_desk_autoimage($post_id, $title, $slug, $o, $html, $uniform = '') {
     @set_time_limit(600);
     $uni = '' !== $uniform ? $uniform : (($o['uniform'] ?? '') !== '' ? (string) $o['uniform'] : 'auto');
+    sb_desk_tgnote("🎨 <b>AI ছবি বানানো শুরু</b>\nপোস্ট: " . esc_html(mb_substr((string) $title, 0, 90)) . "\nড্রেস: " . esc_html(sb_desk_dress_label($uni)) . "\n⏳ ১–২ মিনিট লাগে, শেষ হলে জানাব। খরচ প্রায় ৭ সেন্ট।");
     $p = sb_desk_ajax('sb_img_prompt', array('title' => $title, 'content' => wp_strip_all_tags((string) $html), 'category' => '', 'subject' => 'auto',
         'uniform' => $uni, 'logo' => (string) ($o['logo'] ?? 'none'), 'logo_at' => 'chest', 'size' => '1536x1024', 'post_id' => (int) $post_id));
     if (empty($p['success'])) {
-        return new WP_Error('sb_img', (string) ($p['data']['message'] ?? 'ছবির প্রম্পট হয়নি'));
+        $msg = (string) ($p['data']['message'] ?? 'ছবির প্রম্পট হয়নি');
+        sb_desk_tgnote("⚠️ <b>AI ছবি হয়নি</b> (প্রম্পটের ধাপ)\n" . esc_html($msg));
+        return new WP_Error('sb_img', $msg);
     }
     $d = $p['data'];
     $m = sb_desk_ajax('sb_img_make', array('job' => 'd' . (int) $post_id . wp_generate_password(6, false, false), 'prompt' => $d['prompt'], 'size' => '1536x1024', 'quality' => 'medium',
         'title' => $title, 'content' => wp_strip_all_tags((string) $html), 'category' => '', 'subject' => 'auto', 'uniform' => $uni, 'logo' => (string) ($o['logo'] ?? 'none'), 'logo_at' => 'chest',
         'alt' => (string) $d['alt'], 'imgtitle' => (string) $d['title'], 'caption' => (string) $d['caption'], 'details' => (string) $d['details'], 'file_slug' => (string) $slug, 'post_id' => (int) $post_id));
     if (empty($m['success']) || empty($m['data']['id'])) {
-        return new WP_Error('sb_img', (string) ($m['data']['message'] ?? 'ছবি তৈরি হয়নি'));
+        $msg = (string) ($m['data']['message'] ?? 'ছবি তৈরি হয়নি');
+        sb_desk_tgnote("⚠️ <b>AI ছবি হয়নি</b>\n" . esc_html($msg));
+        return new WP_Error('sb_img', $msg);
     }
     set_post_thumbnail((int) $post_id, (int) $m['data']['id']);
+    $note = !empty($p['data']['note']) ? "\n⚠️ " . esc_html((string) $p['data']['note']) : '';
+    sb_desk_tgnote("✅ <b>AI ছবি তৈরি হয়েছে</b>\nপোস্ট: " . esc_html(mb_substr((string) $title, 0, 90)) . "\nড্রেস: " . esc_html(sb_desk_dress_label($uni)) . ((int) ($p['data']['uniforms'] ?? 0) ? '' : "\n(ড্রেসের নমুনা ছবি ব্যবহার হয়নি)") . "\nঅল্ট: " . esc_html(mb_substr((string) $d['alt'], 0, 140)) . $note . "\n" . esc_url(get_edit_post_link((int) $post_id, 'raw')));
     return (int) $m['data']['id'];
 }
 

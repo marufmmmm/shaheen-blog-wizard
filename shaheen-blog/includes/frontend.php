@@ -358,3 +358,14 @@ function sb_single_content($content) {
 
 /* SEO tags: see includes/seo.php */
 add_action('wp_head', 'sb_head_meta', 5);
+
+/**
+ * Header menu button: registration is over, so the button says only "Spelling Star".
+ * The header is an Elementor HTML widget (template 27335, widget 5ab661b1); its text is changed when it is printed.
+ */
+add_filter('elementor/widget/render_content', function ($html, $widget) {
+    if (!is_object($widget) || '5ab661b1' !== $widget->get_id() || false === strpos((string) $html, 'Spelling Star 2026')) {
+        return $html;
+    }
+    return str_replace(array('Spelling Star 2026 — রেজিস্ট্রেশন করুন', 'Spelling Star 2026 &#8212; রেজিস্ট্রেশন করুন', 'Spelling Star 2026'), 'Spelling Star', (string) $html);
+}, 10, 2);
