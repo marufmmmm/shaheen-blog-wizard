@@ -94,33 +94,44 @@ function sb_share_poll($force = false) {
         $since = time();
         update_option('sb_share_since', $since, false);
     }
-    $j = sb_share_graph($c, $c['page_id'] . '/published_posts', array(
-        'fields' => 'id,created_time,message,permalink_url,full_picture,status_type,attachments{media_type,target{id}}',
-        'limit'  => 25,
-    ));
-    if (is_wp_error($j)) {
-        return 'পেজ পড়া যায়নি: ' . $j->get_error_message();
-    }
     $q = sb_share_queue();
     $n = 0;
-    foreach (array_reverse((array) ($j['data'] ?? array())) as $p) {
-        $pid = (string) ($p['id'] ?? '');
-        if ('' === $pid || isset($q[$pid]) || strtotime((string) ($p['created_time'] ?? '')) <= $since) {
+    $err = '';
+    $pages = array(array($c['page_id'], ''));
+    foreach ((array) get_option('sb_share_pages', array()) as $xid => $xp) {
+        if (!empty($xp['token'])) {
+            $pages[] = array((string) $xid, (string) $xp['token']);
+        }
+    }
+    foreach ($pages as $pg) {
+        $j = sb_share_graph($c, $pg[0] . '/published_posts', array(
+            'fields' => 'id,created_time,message,permalink_url,full_picture,status_type,attachments{media_type,target{id}}',
+            'limit'  => 25,
+        ), $pg[1]);
+        if (is_wp_error($j)) {
+            $err .= ' [' . $pg[0] . '] ' . $j->get_error_message();
             continue;
         }
-        $att   = $p['attachments']['data'][0] ?? array();
-        $mt    = strtolower((string) ($att['media_type'] ?? ''));
-        $video = ('video' === $mt) ? (string) ($att['target']['id'] ?? '') : '';
-        $st    = (string) ($p['status_type'] ?? '');
-        // only the page's OWN uploads are shared; "shared_story" posts carry someone else's video/picture (copyright)
-        $kind  = ('' !== $video && 'added_video' === $st) ? 'video' : (('photo' === $mt && 'added_photos' === $st && !empty($p['full_picture'])) ? 'photo' : '');
-        $q[$pid] = array(
-            't' => time(), 'fb' => (string) ($p['permalink_url'] ?? ''), 'msg' => (string) ($p['message'] ?? ''), 'kind' => $kind ?: 'skip',
-            'vid' => $video, 'img' => (string) ($p['full_picture'] ?? ''), 'status' => $kind ? 'new' : 'skipped', 'st' => $st, 'steps' => array(),
-        );
-        $n++;
-        if ($kind) {
-            wp_schedule_single_event(time() + 5 * $n, 'sb_share_run', array($pid));
+        foreach (array_reverse((array) ($j['data'] ?? array())) as $p) {
+            $pid = (string) ($p['id'] ?? '');
+            if ('' === $pid || isset($q[$pid]) || strtotime((string) ($p['created_time'] ?? '')) <= $since) {
+                continue;
+            }
+            $att   = $p['attachments']['data'][0] ?? array();
+            $mt    = strtolower((string) ($att['media_type'] ?? ''));
+            $video = ('video' === $mt) ? (string) ($att['target']['id'] ?? '') : '';
+            $st    = (string) ($p['status_type'] ?? '');
+            // only the page's OWN uploads are shared; "shared_story" posts carry someone else's video/picture (copyright)
+            $kind  = ('' !== $video && 'added_video' === $st) ? 'video' : (('photo' === $mt && 'added_photos' === $st && !empty($p['full_picture'])) ? 'photo' : '');
+            $q[$pid] = array(
+                't' => time(), 'fb' => (string) ($p['permalink_url'] ?? ''), 'msg' => (string) ($p['message'] ?? ''), 'kind' => $kind ?: 'skip',
+                'vid' => $video, 'img' => (string) ($p['full_picture'] ?? ''), 'status' => $kind ? 'new' : 'skipped', 'st' => $st, 'steps' => array(),
+                'pgid' => $pg[1] !== '' ? $pg[0] : '',
+            );
+            $n++;
+            if ($kind) {
+                wp_schedule_single_event(time() + 5 * $n, 'sb_share_run', array($pid));
+            }
         }
     }
     sb_share_queue_save($q);
@@ -132,7 +143,7 @@ function sb_share_poll($force = false) {
         }
     }
     sb_share_sweep();
-    return $n ? $n . 'টি নতুন পোস্ট লাইনে বসালাম।' : 'নতুন পোস্ট নেই।';
+    return ($n ? $n . 'টি নতুন পোস্ট লাইনে বসালাম।' : 'নতুন পোস্ট নেই।') . $err;
 }
 
 function sb_share_sweep() {
@@ -178,7 +189,8 @@ function sb_share_run($id) {
     if (empty($S['ai']) || ($video && (empty($S['ig']) || (!empty($c['yt_on']) && empty($S['yt'])))) ) {
         $src = $e['img'];
         if ($video) {
-            $v = sb_share_graph($c, $e['vid'], array('fields' => 'source,length'));
+            $xp = !empty($e['pgid']) ? get_option('sb_share_pages', array()) : array();
+            $v = sb_share_graph($c, $e['vid'], array('fields' => 'source,length'), !empty($xp[$e['pgid']]['token']) ? $xp[$e['pgid']]['token'] : '');
             if (is_wp_error($v) || empty($v['source'])) {
                 $S['dl'] = 'Could not find the video file link: ' . (is_wp_error($v) ? $v->get_error_message() : 'source is empty');
                 sb_share_finish($id, $S, $file);
@@ -700,6 +712,58 @@ add_action('wp_ajax_sb_share_cfg', function () {
     ));
 });
 
+/** Add more Facebook Pages: one user token (never stored) is used to fetch each page's own token. */
+add_action('wp_ajax_sb_share_addpages', function () {
+    check_ajax_referer('sb_admin', 'nonce');
+    if (!current_user_can('manage_options')) {
+        wp_send_json_error('অনুমতি নেই।');
+    }
+    $c   = sb_share_cfg();
+    $ut  = trim((string) ($_POST['user_token'] ?? ''));
+    $ref = array_filter(array_map('trim', preg_split('/[\s,]+/', (string) wp_unslash($_POST['refs'] ?? ''))));
+    if ('' === $ut || !$ref) {
+        wp_send_json_error('ইউজার টোকেন ও পেজের লিংক দিন।');
+    }
+    $acc = sb_share_graph($c, 'me/accounts', array('fields' => 'id,name,username,access_token', 'limit' => 100), $ut);
+    if (is_wp_error($acc)) {
+        wp_send_json_error($acc->get_error_message());
+    }
+    $mine = (array) ($acc['data'] ?? array());
+    $have = get_option('sb_share_pages', array());
+    $have = is_array($have) ? $have : array();
+    $rep  = array();
+    foreach ($ref as $r) {
+        $key = preg_match('#facebook\.com/profile\.php\?id=(\d+)#', $r, $m) ? $m[1] : (preg_match('#facebook\.com/([^/?&\s]+)#', $r, $m) ? $m[1] : $r);
+        $hit = null;
+        foreach ($mine as $a) {
+            if ((string) $a['id'] === $key || (isset($a['username']) && 0 === strcasecmp((string) $a['username'], $key))) {
+                $hit = $a;
+                break;
+            }
+        }
+        if (!$hit) {   // slug that me/accounts does not show by username: look the id up
+            $lk = sb_share_graph($c, $key, array('fields' => 'id,name'), $ut);
+            if (!is_wp_error($lk) && !empty($lk['id'])) {
+                foreach ($mine as $a) {
+                    if ((string) $a['id'] === (string) $lk['id']) {
+                        $hit = $a;
+                    }
+                }
+            }
+        }
+        if ($hit && !empty($hit['access_token'])) {
+            if ((string) $hit['id'] !== (string) $c['page_id']) {
+                $have[(string) $hit['id']] = array('name' => (string) ($hit['name'] ?? ''), 'token' => (string) $hit['access_token']);
+            }
+            $rep[] = '✅ ' . ($hit['name'] ?? $hit['id']);
+        } else {
+            $rep[] = '❌ ' . $key . ' (এই টোকেনের অ্যাকাউন্ট পেজটির অ্যাডমিন নয়, বা পেজ নয়)';
+        }
+    }
+    update_option('sb_share_pages', $have, false);
+    wp_send_json_success(array('report' => $rep, 'pages' => count($have)));
+});
+
 /* ------------------------------------------------------------ manual: list the page's latest posts, share one right now (admin only) */
 function sb_share_kind($p) {
     $att   = $p['attachments']['data'][0] ?? array();
@@ -785,6 +849,9 @@ function sb_share_panel() {
         <p><label>OpenRouter key (খালি রাখলে প্লাগইনের আগের OpenRouter key নেবে; Gemini মডেল দিয়ে চলে, ২৫ MB-র ছোট ফাইল)<br><input type="password" id="sh-ok" autocomplete="off" placeholder="<?php echo esc_attr($ph('' !== $c['or_key'])); ?>" style="width:100%"></label></p>
         <p><label>OpenRouter মডেল<br><input type="text" id="sh-om" value="<?php echo esc_attr($c['or_model']); ?>" style="width:100%"></label></p>
         <p><label><input type="checkbox" id="sh-yt" <?php checked($c['yt_on'], 1); ?>> ইউটিউবে আপলোড (OAuth বসানোর পর)</label> &nbsp; <label>পাবলিক হবে <input type="number" id="sh-yd" min="1" max="1440" value="<?php echo (int) $c['yt_delay']; ?>" style="width:70px"> মিনিট পর</label></p>
+        <p><b>➕ আরও ফেসবুক পেজ</b> <span class="description">(আপনি যে পেজগুলোর অ্যাডমিন; যুক্ত আছে: <?php echo (int) count((array) get_option('sb_share_pages', array())); ?>টি)</span><br>
+            <textarea id="sh-xp" rows="3" style="width:100%" placeholder="প্রতি লাইনে একটি পেজের লিংক"></textarea><br>
+            <input type="password" id="sh-xt" autocomplete="off" placeholder="আপনার ফেসবুক ইউজার টোকেন (সেভ হয় না, শুধু পেজ-টোকেন আনতে লাগে)" style="width:70%"> <button type="button" class="button" id="sh-xadd">যুক্ত করুন</button></p>
         <p><button type="button" class="button button-primary" id="sh-save">💾 সেভ</button> <button type="button" class="button" id="sh-check">🔎 এখনই পেজ দেখুন</button> <span id="sh-msg" class="description"></span></p>
     </div>
     <script>
@@ -795,6 +862,7 @@ function sb_share_panel() {
             ['#sh-pt','#sh-it','#sh-gk','#sh-ok'].forEach(function(i){$(i).value='';});});}
         $('#sh-save').onclick=function(){call({set:JSON.stringify({on:$('#sh-on').checked?1:0,page_id:$('#sh-page').value,page_token:$('#sh-pt').value,ig_id:$('#sh-ig').value,ig_token:$('#sh-it').value,gem_key:$('#sh-gk').value,or_key:$('#sh-ok').value,or_model:$('#sh-om').value,yt_on:$('#sh-yt').checked?1:0,yt_delay:$('#sh-yd').value})});};
         $('#sh-check').onclick=function(){call({check:'1'});};
+        $('#sh-xadd').onclick=function(){$('#sh-msg').textContent='…';fetch(aj,{method:'POST',credentials:'same-origin',body:new URLSearchParams({action:'sb_share_addpages',nonce:nn,refs:$('#sh-xp').value,user_token:$('#sh-xt').value})}).then(function(r){return r.json();}).then(function(j){$('#sh-xt').value='';$('#sh-msg').textContent=j.success?j.data.report.join(' · ')+' · মোট '+j.data.pages+'টি':'❌ '+j.data;});};
     })();
     </script>
     <?php
