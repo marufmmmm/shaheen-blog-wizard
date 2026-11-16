@@ -396,13 +396,6 @@ function csa_ev_yt_tick( $force = false ) {
 	$c['last'] = $now;
 	$GLOBALS['csa_yt_ai_billed'] = false;
 	list( $n, $msg, $added, $fetched, $notes ) = csa_ev_yt_check( $c, $since );
-	if ( $fetched && empty( $GLOBALS['csa_yt_ai_billed'] ) && function_exists( 'sb_ledger_add' ) && defined( 'SB_YT_CHECK_FEE' ) ) {
-		// no AI used in this look: a fixed fee per search
-		$GLOBALS['sb_bill_override'] = function_exists('sb_yt_fee') ? sb_yt_fee() : SB_YT_CHECK_FEE;
-		$GLOBALS['sb_ledger_model']  = '';
-		sb_ledger_add( 0, 'yt_watch', max( 1, (int) ceil( SB_YT_CHECK_FEE / sb_unit_billed() ) ), 0, 0.0 );
-		unset( $GLOBALS['sb_bill_override'] );
-	}
 	if ( $n > 0 ) {
 		csa_ev_yt_mail( $c, $added, $c['event'], $notes );
 		if ( $w && ! $force ) {

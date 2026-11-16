@@ -62,6 +62,14 @@ function sb_yt_fee() {
     return round(0.007 + random_int(0, 6000) / 1000000, 4);
 }
 
+/** Smallest price of one AI step in the automatic "look for new" jobs: random 0.007-0.013, or the real cost price if that is higher. */
+function sb_floor_bill($feature, $bill) {
+    if (in_array((string) $feature, array('research_collect', 'research_yt'), true)) {
+        return max((float) $bill, sb_yt_fee());
+    }
+    return $bill;
+}
+
 function sb_mult() {
     return SB_BILL_MULT;
 }
@@ -241,7 +249,7 @@ function sb_ledger_add($user_id, $feature, $credits, $post_id = 0, $real_usd = n
         'post_id'  => (int) $post_id,
         'credits'  => $credits,
         'raw_usd'  => $real_usd !== null ? (float) $real_usd : $credits * SB_RAW_USD_PER_CREDIT,
-        'bill_usd' => isset($GLOBALS['sb_bill_override']) ? (float) $GLOBALS['sb_bill_override'] : ($real_usd !== null ? (float) $real_usd : $credits * SB_RAW_USD_PER_CREDIT) * (0 === strpos((string) $feature, 'research') ? SB_RESEARCH_MULT : (0 === strpos((string) $feature, 'share_vid') ? SB_SHARE_VID_MULT : (0 === strpos((string) $feature, 'share') ? SB_SHARE_MULT : sb_band_mult(!empty($tk['model']) ? $tk['model'] : '', $feature)))),
+        'bill_usd' => sb_floor_bill($feature, isset($GLOBALS['sb_bill_override']) ? (float) $GLOBALS['sb_bill_override'] : ($real_usd !== null ? (float) $real_usd : $credits * SB_RAW_USD_PER_CREDIT) * (0 === strpos((string) $feature, 'research') ? SB_RESEARCH_MULT : (0 === strpos((string) $feature, 'share_vid') ? SB_SHARE_VID_MULT : (0 === strpos((string) $feature, 'share') ? SB_SHARE_MULT : sb_band_mult(!empty($tk['model']) ? $tk['model'] : '', $feature))))),
     ));
 }
 
