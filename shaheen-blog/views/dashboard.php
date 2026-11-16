@@ -64,7 +64,7 @@ $blog_page = (int) get_option('sb_blog_page_id');
                 <ul class="sba-list" id="sb-uselist">
                     <?php foreach ($uses as $i => $row) : ?>
                         <li<?php echo $i >= 10 ? ' class="sb-more" style="display:none"' : ''; ?>>
-                            <?php echo esc_html($row['label']); ?>
+                            <?php echo esc_html($row['label']); ?><?php echo sb_feature_badge($row['feature']); ?>
                             <?php if ($row['title']) : ?><span class="sba-muted">— <?php echo esc_html(wp_trim_words($row['title'], 6, '…')); ?></span><?php endif; ?>
                             <span class="sba-muted"><?php echo esc_html(sb_bn_date($row['t'], false)); ?></span>
                             <strong><?php echo esc_html('$' . number_format((float) $row['bill_usd'], (float) $row['bill_usd'] < 0.1 ? 3 : 2)); ?></strong>

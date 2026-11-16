@@ -46,6 +46,17 @@ function sb_band_mult($model, $feature) {
     return round($lo + (random_int(0, 1000) / 1000) * ($hi - $lo), 3);
 }
 
+/** True when the line was really done by AI; the two automatic "look for new" fees use no AI and are marked as automatic instead. */
+function sb_feature_badge($feature) {
+    if (in_array($feature, array('news_watch', 'yt_watch'), true)) {
+        return ' <span style="background:#e8eef5;color:#334;border-radius:9px;padding:1px 7px;font-size:11px">⚙️ অটো খোঁজা</span>';
+    }
+    if (in_array($feature, array('api_adjust', 'legacy'), true)) {
+        return '';
+    }
+    return ' <span style="background:#e6f4ea;color:#14532d;border-radius:9px;padding:1px 7px;font-size:11px">🤖 AI</span>';
+}
+
 function sb_mult() {
     return SB_BILL_MULT;
 }
@@ -576,7 +587,7 @@ function sb_page_billing() {
         echo '<table class="widefat striped"><thead><tr><th>সময়</th><th>কাজ</th><th>ইউজার</th><th>বিল</th></tr></thead><tbody>';
         foreach ($rows as $r) {
             $u = get_userdata((int) $r['user_id']);
-            echo '<tr><td>' . esc_html(wp_date('d M H:i', (int) $r['t'])) . '</td><td>' . esc_html(isset($labels[$r['feature']]) ? $labels[$r['feature']] : $r['feature']) . '</td><td>' . esc_html($u ? $u->display_name : '#' . $r['user_id']) . '</td><td>' . esc_html(sb_fmt_usd($r['bill_usd'])) . '</td></tr>';
+            echo '<tr><td>' . esc_html(wp_date('d M H:i', (int) $r['t'])) . '</td><td>' . esc_html(isset($labels[$r['feature']]) ? $labels[$r['feature']] : $r['feature']) . sb_feature_badge($r['feature']) . '</td><td>' . esc_html($u ? $u->display_name : '#' . $r['user_id']) . '</td><td>' . esc_html(sb_fmt_usd($r['bill_usd'])) . '</td></tr>';
         }
         echo '</tbody></table>';
     }
