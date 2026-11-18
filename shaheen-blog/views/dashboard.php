@@ -66,7 +66,8 @@ $blog_page = (int) get_option('sb_blog_page_id');
                         <li<?php echo $i >= 10 ? ' class="sb-more" style="display:none"' : ''; ?>>
                             <?php echo esc_html($row['label']); ?><?php echo sb_feature_badge($row['feature']); ?>
                             <?php if ($row['title']) : ?><span class="sba-muted">— <?php echo esc_html(wp_trim_words($row['title'], 6, '…')); ?></span><?php endif; ?>
-                            <span class="sba-muted"><?php echo esc_html(sb_bn_date($row['t'], false)); ?></span>
+                            <span class="sba-muted"><?php echo esc_html(sb_bn_date($row['t'], false) . ', ' . $row['time']); ?></span>
+                            <span class="sba-muted" style="font-size:11px">· <?php echo esc_html($row['who']); ?><?php echo $row['model'] ? ' · ' . esc_html($row['model']) : ''; ?><?php echo ($row['tok_in'] || $row['tok_out']) ? ' · ' . esc_html(number_format((int) $row['tok_in']) . ' in / ' . number_format((int) $row['tok_out']) . ' out') : ''; ?></span>
                             <strong><?php echo esc_html('$' . number_format((float) $row['bill_usd'], (float) $row['bill_usd'] < 0.1 ? 3 : 2)); ?></strong>
                         </li>
                     <?php endforeach; ?>

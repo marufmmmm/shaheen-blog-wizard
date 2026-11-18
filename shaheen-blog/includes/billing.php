@@ -258,12 +258,15 @@ function sb_ledger_recent($limit = 500) {
     global $wpdb;
     $t    = sb_ledger_table();
     $from = (new DateTimeImmutable('first day of last month 00:00:00', wp_timezone()))->getTimestamp();
-    $rows = (array) $wpdb->get_results($wpdb->prepare("SELECT t, feature, post_id, bill_usd FROM {$t} WHERE t >= %d AND bill_usd > 0 ORDER BY t DESC, id DESC LIMIT %d", $from, (int) $limit), ARRAY_A);
+    $rows = (array) $wpdb->get_results($wpdb->prepare("SELECT t, user_id, feature, post_id, bill_usd, model, tok_in, tok_out, calls FROM {$t} WHERE t >= %d AND bill_usd > 0 ORDER BY t DESC, id DESC LIMIT %d", $from, (int) $limit), ARRAY_A);
     $lab  = sb_feature_labels();
     foreach ($rows as $i => $r) {
         $title = $r['post_id'] ? get_the_title((int) $r['post_id']) : '';
         $rows[$i]['label'] = isset($lab[$r['feature']]) ? $lab[$r['feature']] : $r['feature'];
         $rows[$i]['title'] = $title;
+        $u = $r['user_id'] ? get_userdata((int) $r['user_id']) : false;
+        $rows[$i]['who']   = $u ? $u->display_name : ($r['user_id'] ? '#' . (int) $r['user_id'] : 'স্বয়ংক্রিয়');
+        $rows[$i]['time']  = wp_date('g:i A', (int) $r['t']);
     }
     return $rows;
 }
