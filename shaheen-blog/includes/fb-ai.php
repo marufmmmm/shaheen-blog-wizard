@@ -159,7 +159,9 @@ function sb_fbai_see($c, $tok, $vid, $img_url, $video) {
         return '';
     }
     $sys = 'You look at a Facebook post media of a Bangladeshi school network (Shaheen Education Family) so that staff can answer viewers\' comments. Describe neutrally what it shows and every concrete detail that a viewer might ask about: dates, times, places, fees, offers, names, phone numbers, steps to apply, spoken or written words. Do not invent anything not visible or audible. Reply as JSON: {"summary":"..."} in the language of the media (Bangla if Bangla), at most 900 characters.';
+    $GLOBALS['sb_mult_force'] = SB_FBREPLY_MULT;
     $r = sb_share_gemini($c, $sys, 'Describe this media.', $tmp, (bool) $video);
+    unset($GLOBALS['sb_mult_force']);
     @unlink($tmp);
     return is_array($r) ? trim(mb_substr((string) ($r['summary'] ?? ''), 0, 1200)) : '';
 }
