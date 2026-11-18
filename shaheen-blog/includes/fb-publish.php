@@ -42,6 +42,28 @@ function sb_fbpub_call($c, $path, $args, $token, $headers = array()) {
     return $j;
 }
 
+/** Send the video bytes straight to Facebook's upload URL (the site's own file when possible); falls back to letting Facebook fetch the URL. */
+function sb_fbpub_upload_media($upload_url, $tok, $media_url) {
+    $up   = wp_upload_dir();
+    $path = '';
+    if (0 === strpos($media_url, $up['baseurl'])) {
+        $path = $up['basedir'] . substr($media_url, strlen($up['baseurl']));
+    }
+    if ('' !== $path && is_file($path) && filesize($path) < 150 * MB_IN_BYTES) {
+        $bytes = file_get_contents($path);
+        $r = wp_remote_post($upload_url, array('timeout' => 180, 'body' => $bytes, 'headers' => array(
+            'Authorization' => 'OAuth ' . $tok, 'offset' => '0', 'file_size' => (string) strlen($bytes), 'Content-Type' => 'application/octet-stream',
+        )));
+    } else {
+        $r = wp_remote_post($upload_url, array('timeout' => 120, 'headers' => array('Authorization' => 'OAuth ' . $tok, 'file_url' => $media_url)));
+    }
+    $j = is_wp_error($r) ? null : json_decode((string) wp_remote_retrieve_body($r), true);
+    if (is_wp_error($r) || empty($j['success'])) {
+        return new WP_Error('sb_fbp', 'Upload failed: ' . (is_wp_error($r) ? $r->get_error_message() : substr((string) wp_remote_retrieve_body($r), 0, 200)));
+    }
+    return true;
+}
+
 /** Publish one item on one Facebook page. $o: kind (post|reel|story), text, media (url), mtype (photo|video|none), when (unix or 0), draft (bool). */
 function sb_fbpub_page($c, $pid, $tok, $o) {
     $when  = (int) $o['when'];
@@ -68,10 +90,9 @@ function sb_fbpub_page($c, $pid, $tok, $o) {
         if (is_wp_error($s) || empty($s['video_id']) || empty($s['upload_url'])) {
             return is_wp_error($s) ? $s : new WP_Error('sb_fbp', 'Reel start failed');
         }
-        $u = wp_remote_post($s['upload_url'], array('timeout' => 120, 'headers' => array('Authorization' => 'OAuth ' . $tok, 'file_url' => $o['media'])));
-        $uj = is_wp_error($u) ? null : json_decode((string) wp_remote_retrieve_body($u), true);
-        if (is_wp_error($u) || empty($uj['success'])) {
-            return new WP_Error('sb_fbp', 'Reel upload failed: ' . (is_wp_error($u) ? $u->get_error_message() : substr((string) wp_remote_retrieve_body($u), 0, 200)));
+        $u = sb_fbpub_upload_media($s['upload_url'], $tok, $o['media']);
+        if (is_wp_error($u)) {
+            return $u;
         }
         $fin = array('upload_phase' => 'finish', 'video_id' => $s['video_id'], 'description' => $o['text']);
         if (!empty($o['draft'])) {
@@ -99,10 +120,9 @@ function sb_fbpub_page($c, $pid, $tok, $o) {
             if (is_wp_error($s) || empty($s['video_id']) || empty($s['upload_url'])) {
                 return is_wp_error($s) ? $s : new WP_Error('sb_fbp', 'Story start failed');
             }
-            $u = wp_remote_post($s['upload_url'], array('timeout' => 120, 'headers' => array('Authorization' => 'OAuth ' . $tok, 'file_url' => $o['media'])));
-            $uj = is_wp_error($u) ? null : json_decode((string) wp_remote_retrieve_body($u), true);
-            if (is_wp_error($u) || empty($uj['success'])) {
-                return new WP_Error('sb_fbp', 'Story upload failed: ' . (is_wp_error($u) ? $u->get_error_message() : substr((string) wp_remote_retrieve_body($u), 0, 200)));
+            $u = sb_fbpub_upload_media($s['upload_url'], $tok, $o['media']);
+            if (is_wp_error($u)) {
+                return $u;
             }
             $f = sb_fbpub_call($c, $pid . '/video_stories', array('upload_phase' => 'finish', 'video_id' => $s['video_id']), $tok);
             return is_wp_error($f) ? $f : 'story ' . $s['video_id'];
