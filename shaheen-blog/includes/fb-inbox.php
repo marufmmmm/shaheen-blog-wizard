@@ -10,7 +10,7 @@ if (!defined('ABSPATH')) {
 }
 
 add_action('admin_menu', function () {
-    add_submenu_page('sb-dashboard', 'Facebook Inbox', '💬 Facebook Inbox', 'manage_options', 'sb-fbinbox', 'sb_page_fbinbox');
+    add_submenu_page(null, 'Facebook Inbox', '💬 Facebook Inbox', 'manage_options', 'sb-fbinbox', 'sb_page_fbinbox');
 }, 31);
 
 function sb_fbin_token($pid) {

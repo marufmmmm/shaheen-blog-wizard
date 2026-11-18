@@ -14,7 +14,7 @@ function sb_admin_menu() {
     } else {
         add_submenu_page(null, 'Research', 'Research', 'edit_posts', 'sb-research', 'sb_page_research');
     }
-    add_submenu_page('sb-dashboard', 'Social Media', '🌐 Social Media', 'manage_options', 'sb-social', 'sb_page_social');
+    add_submenu_page(null, 'Social Media', '🌐 Social Media', 'manage_options', 'sb-social', 'sb_page_social');
     add_submenu_page('sb-dashboard', 'Press', '📰 Press', 'edit_posts', 'sb-press', 'sb_page_press');
     add_submenu_page('sb-dashboard', 'Block Library', '📚 Block Library', 'manage_options', 'sb-blocks', 'sb_page_blocks');
     add_submenu_page('sb-dashboard', 'Mobile Models', '📱 Mobile Models', 'manage_options', 'sb-phones', 'sb_page_phones');
@@ -57,7 +57,7 @@ function sb_admin_assets() {
     if ($page === 'sb-memory') {
         wp_enqueue_script('sb-memory-admin', SB_URL . 'assets/js/memory-admin.js', array('sb-admin'), SB_VERSION . '.' . filemtime(SB_PATH . 'assets/js/memory-admin.js'), true);
     }
-    if ($page === 'sb-social') {
+    if ($page === 'sb-social' || ($page === 'sb-facebook' && isset($_GET['tab']) && 'share' === sanitize_key(wp_unslash($_GET['tab'])))) { // phpcs:ignore WordPress.Security.NonceVerification
         wp_enqueue_script('sb-social-admin', SB_URL . 'assets/js/social-admin.js', array('sb-admin'), SB_VERSION . '.' . filemtime(SB_PATH . 'assets/js/social-admin.js'), true);
     }
     if (in_array($page, array('sb-new', 'sb-press', 'sb-rewrite'), true)) {

@@ -9,7 +9,7 @@ if (!defined('ABSPATH')) {
 }
 
 add_action('admin_menu', function () {
-    add_submenu_page('sb-dashboard', 'Facebook Post Manager', '🗂 Post Manager', 'manage_options', 'sb-fbmanager', 'sb_page_fbmanager');
+    add_submenu_page(null, 'Facebook Post Manager', '🗂 Post Manager', 'manage_options', 'sb-fbmanager', 'sb_page_fbmanager');
 }, 30);
 
 add_action('wp_ajax_sb_fbm_list', function () {

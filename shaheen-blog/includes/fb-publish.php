@@ -11,7 +11,7 @@ if (!defined('ABSPATH')) {
 }
 
 add_action('admin_menu', function () {
-    add_submenu_page('sb-dashboard', 'Facebook Post', '📘 Facebook Post', 'manage_options', 'sb-fbpost', 'sb_page_fbpost');
+    add_submenu_page(null, 'Facebook Post', '📘 Facebook Post', 'manage_options', 'sb-fbpost', 'sb_page_fbpost');
 }, 30);
 
 /** All pages that can be posted to: id => [name, token]. */

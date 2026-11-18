@@ -9,7 +9,7 @@ if (!defined('ABSPATH')) {
 }
 
 add_action('admin_menu', function () {
-    add_submenu_page('sb-dashboard', 'Facebook Token', '🔑 Facebook Token', 'manage_options', 'sb-fbtoken', 'sb_page_fbtoken');
+    add_submenu_page(null, 'Facebook Token', '🔑 Facebook Token', 'manage_options', 'sb-fbtoken', 'sb_page_fbtoken');
 }, 33);
 
 function sb_fbtok_cfg() {
