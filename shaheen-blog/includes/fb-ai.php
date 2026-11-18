@@ -55,6 +55,9 @@ function sb_fbai_refs_for($q, $n = 3) {
             continue;
         }
         $r['sim'] = $sim;
+        if (($r['s'] ?? '') === 'auto') {
+            continue;   // sent on its own, not yet checked by the owner: not a reference
+        }
         if (($r['s'] ?? '') === 'bad') {
             $bad[] = $r;
         } else {
@@ -198,27 +201,17 @@ function sb_fbai_system() {
         . "আউটপুট শুধু JSON: {\"reply\":\"...\",\"kind\":\"admission|fee|address|job|book|other\",\"why\":\"reply খালি হলে কারণ\"}";
 }
 
-add_action('wp_ajax_sb_fbai_draft', function () {
-    check_ajax_referer('sb_admin', 'nonce');
-    if (!current_user_can('manage_options')) {
-        wp_send_json_error('No permission.');
-    }
+function sb_fbai_compose($tok, $post, $msg, $channel = 'comment') {
     if (!function_exists('csa_claude')) {
-        wp_send_json_error('AI engine (Site Agent) is not loaded.');
+        return new WP_Error('sb_fbai', 'AI engine (Site Agent) is not loaded.');
     }
-    $pid  = preg_replace('/\D/', '', (string) ($_POST['page'] ?? ''));
-    $tok  = function_exists('sb_fbin_token') ? sb_fbin_token($pid) : '';
-    $post = preg_replace('/[^\w_]/', '', (string) ($_POST['post'] ?? ''));
-    $msg  = mb_substr(sanitize_textarea_field(wp_unslash((string) ($_POST['msg'] ?? ''))), 0, 1000);
-    if ('' === $tok || '' === $post) {
-        wp_send_json_error('Missing page or post.');
-    }
+    $dm  = 'message' === $channel;
     $why = sb_fbai_social_reason($msg);
-    if ('' !== $why) {
-        wp_send_json_success(array('skip' => true, 'why' => $why));
+    if ('' !== $why && (!$dm || 'শুধু ইমোজি/স্টিকার' === $why)) {
+        return array('skip' => true, 'why' => $why);
     }
     $c   = sb_share_cfg();
-    $ctx = sb_fbai_post_ctx($c, $tok, $post);
+    $ctx = ($dm || '' === $post) ? array('caption' => '', 'media' => '', 'kind' => 'text', 'url' => '') : sb_fbai_post_ctx($c, $tok, $post);
     $br  = sb_fbai_branches_for($msg . ' ' . $ctx['caption']);
     list($good, $bad) = sb_fbai_refs_for($msg);
     $recent = array_slice((array) get_option('sb_fbai_recent', array()), 0, 6);
@@ -242,7 +235,7 @@ add_action('wp_ajax_sb_fbai_draft', function () {
     if ($recent) {
         $u .= "\n--- সাম্প্রতিক উত্তর (এগুলোর মতো লিখবে না) ---\n- " . implode("\n- ", array_map(function ($x) { return mb_substr($x, 0, 160); }, $recent)) . "\n";
     }
-    $u .= "\n=== কমেন্ট ===\n" . $msg . "\n\nশুধু JSON দাও।";
+    $u .= "\n=== " . ($dm ? 'মেসেঞ্জারে ইনবক্স মেসেজ (সৌজন্য সম্ভাষণ দিয়ে শুরু করা যায়; পোস্টের প্রসঙ্গ নেই)' : 'কমেন্ট') . " ===\n" . $msg . "\n\nশুধু JSON দাও।";
 
     $key = sb_fbai_pick_model();
     $res = csa_claude(array(array('role' => 'user', 'content' => $u)), sb_fbai_system(), array('task' => 'chat', 'model_key' => $key, 'max_tokens' => 700, 'feature' => 'fb_reply'));
@@ -251,7 +244,7 @@ add_action('wp_ajax_sb_fbai_draft', function () {
         $res = csa_claude(array(array('role' => 'user', 'content' => $u)), sb_fbai_system(), array('task' => 'chat', 'model_key' => $key, 'max_tokens' => 700, 'feature' => 'fb_reply'));
     }
     if (is_wp_error($res)) {
-        wp_send_json_error($res->get_error_message());
+        return new WP_Error('sb_fbai', $res->get_error_message());
     }
     $txt = '';
     foreach ((array) ($res['content'] ?? array()) as $b) {
@@ -264,8 +257,27 @@ add_action('wp_ajax_sb_fbai_draft', function () {
     $reply = is_array($j) ? trim((string) ($j['reply'] ?? '')) : '';
     $label = function_exists('csa_model') && csa_model((string) ($res['_model'] ?? $key)) ? csa_model((string) ($res['_model'] ?? $key))['label'] : $key;
     $info  = $label . ' · ' . ('' !== $ctx['caption'] ? 'ক্যাপশন ✔' : 'ক্যাপশন নেই') . ' · ' . ('' !== $ctx['media'] ? ('video' === $ctx['kind'] ? 'ভিডিও দেখা ✔ (সংরক্ষিত)' : 'ছবি দেখা ✔') : ('text' === $ctx['kind'] ? 'মিডিয়া নেই' : 'মিডিয়া দেখা যায়নি')) . ' · শাখা ' . count($br) . 'টি · রেফারেন্স ' . count($good) . 'টি';
-    wp_send_json_success(array('skip' => false, 'reply' => $reply, 'kind' => is_array($j) ? (string) ($j['kind'] ?? 'other') : 'other',
-        'why' => is_array($j) ? (string) ($j['why'] ?? '') : 'AI-র উত্তর বোঝা যায়নি', 'info' => $info, 'url' => (string) ($ctx['url'] ?? ''), 'model' => $label));
+    return array('skip' => false, 'reply' => $reply, 'kind' => is_array($j) ? (string) ($j['kind'] ?? 'other') : 'other',
+        'why' => is_array($j) ? (string) ($j['why'] ?? '') : 'AI-র উত্তর বোঝা যায়নি', 'info' => $info, 'url' => (string) ($ctx['url'] ?? ''), 'model' => $label);
+}
+
+add_action('wp_ajax_sb_fbai_draft', function () {
+    check_ajax_referer('sb_admin', 'nonce');
+    if (!current_user_can('manage_options')) {
+        wp_send_json_error('No permission.');
+    }
+    if (!function_exists('csa_claude')) {
+        wp_send_json_error('AI engine (Site Agent) is not loaded.');
+    }
+    $pid  = preg_replace('/\D/', '', (string) ($_POST['page'] ?? ''));
+    $tok  = function_exists('sb_fbin_token') ? sb_fbin_token($pid) : '';
+    $post = preg_replace('/[^\w_]/', '', (string) ($_POST['post'] ?? ''));
+    $msg  = mb_substr(sanitize_textarea_field(wp_unslash((string) ($_POST['msg'] ?? ''))), 0, 1000);
+    if ('' === $tok || '' === $post) {
+        wp_send_json_error('Missing page or post.');
+    }
+    $r = sb_fbai_compose($tok, $post, $msg, 'comment');
+    is_wp_error($r) ? wp_send_json_error($r->get_error_message()) : wp_send_json_success($r);
 });
 
 /** The owner's verdict: ok (sent as drafted), edit (sent after changing / written by hand), bad (not ok). Every entry is kept (with the post link) in the memory page and feeds later drafts. */
@@ -362,8 +374,16 @@ function sb_page_fbmemory() {
         <h1>🧠 উত্তরের মেমোরি</h1>
         <p class="description">AI যত উত্তর দিয়েছে বা আপনি শিখিয়েছেন, সব এখানে। প্রতিটির সাথে পোস্ট ও কমেন্টের লিংক আছে। উত্তর বদলে দিলে বা বাতিল করলে AI পরের বার সেটাই মানবে। এখান থেকেই নতুন প্রশ্ন-উত্তর শেখানো যায়।
         পোস্টের ছবি/ভিডিও AI একবার দেখেছে এমন পোস্ট: <b><?php echo (int) count($ctx); ?></b>টি (আবার দেখে না)।</p>
+        <div style="background:#fff;border:1px solid #d1d5db;border-left:4px solid #f59e0b;border-radius:6px;padding:10px;margin:10px 0;max-width:720px">
+            <b>🤖 অটো উত্তর (আপনি না দেখলেও AI নিজে পাঠাবে)</b>
+            <p style="margin:6px 0"><label><input type="checkbox" id="fa-c" <?php checked((int) get_option('sb_fbai_auto_c', 0), 1); ?>> কমেন্টের উত্তর নিজে দেবে</label><br>
+            <label><input type="checkbox" id="fa-m" <?php checked((int) get_option('sb_fbai_auto_m', 0), 1); ?>> মেসেঞ্জার মেসেজের উত্তর নিজে দেবে (২৪ ঘণ্টার মধ্যের মেসেজ)</label></p>
+            <p class="description" style="margin:0">প্রতি ৫ মিনিটে নতুন কমেন্ট/মেসেজ দেখে। চালু করার আগের কিছুতে উত্তর দেয় না। ধন্যবাদ/ইমোজি কমেন্ট বাদ। সব উত্তর নিচে "🤖 অটো" চিহ্নে জমা হয়; ভুল হলে বদলে দিন বা বাতিল করুন, পরের বার সেটা মানবে।
+            <?php $lr = (array) get_option('sb_fbai_auto_last', array()); if ($lr) { echo '<br>সর্বশেষ চালানো: ' . esc_html(wp_date('d M, H:i', (int) ($lr['t'] ?? 0))) . ' · পাঠানো ' . (int) ($lr['sent'] ?? 0) . 'টি' . (!empty($lr['err']) ? ' · ⚠ ' . esc_html((string) $lr['err']) : ''); } ?></p>
+            <span id="fa-m2" class="description"></span>
+        </div>
         <p><b>মোট <?php echo (int) count($rows); ?></b> · ✔ ঠিক <?php echo (int) $cnt['ok']; ?> · ✏ সম্পাদিত <?php echo (int) $cnt['edit']; ?> · ✖ বাতিল <?php echo (int) $cnt['bad']; ?></p>
-        <p><select id="fm2-f"><option value="">সব</option><option value="ok">✔ ঠিক</option><option value="edit">✏ সম্পাদিত</option><option value="bad">✖ বাতিল</option></select>
+        <p><select id="fm2-f"><option value="">সব</option><option value="auto">🤖 অটো (অপরীক্ষিত)</option><option value="ok">✔ ঠিক</option><option value="edit">✏ সম্পাদিত</option><option value="bad">✖ বাতিল</option></select>
             <input type="search" id="fm2-s" placeholder="খুঁজুন…" style="min-width:240px"> <span id="fm2-m" class="description"></span></p>
         <details style="margin-bottom:12px"><summary><b>➕ নতুন প্রশ্ন-উত্তর শেখান</b></summary>
             <div style="max-width:640px;margin-top:6px"><textarea id="fm2-nq" rows="2" style="width:100%" placeholder="প্রশ্ন (যেমন: ভর্তি কবে শুরু?)"></textarea><textarea id="fm2-na" rows="3" style="width:100%;margin-top:4px" placeholder="সঠিক উত্তর"></textarea><button class="button button-primary" id="fm2-add">যোগ করুন</button></div></details>
@@ -373,7 +393,7 @@ function sb_page_fbmemory() {
     (function(){var $=function(s){return document.querySelector(s);},aj=<?php echo wp_json_encode(admin_url('admin-ajax.php')); ?>,nn=<?php echo wp_json_encode(wp_create_nonce('sb_admin')); ?>,D=<?php echo wp_json_encode($rows); ?>;
         function el(t,css,txt){var e=document.createElement(t);if(css){e.style.cssText=css;}if(txt!==undefined){e.textContent=txt;}return e;}
         function post(x){return fetch(aj,{method:'POST',credentials:'same-origin',body:new URLSearchParams(Object.assign({nonce:nn},x))}).then(function(r){return r.json();});}
-        var lab={ok:'✔ ঠিক',edit:'✏ সম্পাদিত',bad:'✖ বাতিল'},col={ok:'#16a34a',edit:'#2563eb',bad:'#dc2626'};
+        var lab={auto:'🤖 অটো',ok:'✔ ঠিক',edit:'✏ সম্পাদিত',bad:'✖ বাতিল'},col={auto:'#f59e0b',ok:'#16a34a',edit:'#2563eb',bad:'#dc2626'};
         function draw(){var f=$('#fm2-f').value,q=$('#fm2-s').value.trim().toLowerCase(),L=$('#fm2-l');L.textContent='';var n=0;
             D.forEach(function(r){if(r.dead){return;}if(f&&r.s!==f){return;}if(q&&(r.q+' '+r.a).toLowerCase().indexOf(q)<0){return;}n++;if(n>150){return;}
                 var c=el('div','border:1px solid #d1d5db;border-left:4px solid '+(col[r.s]||'#999')+';border-radius:6px;padding:8px;margin-bottom:8px;background:#fff');
@@ -392,7 +412,166 @@ function sb_page_fbmemory() {
             if(!n){L.textContent='কিছু নেই।';}$('#fm2-m').textContent=n>150?'প্রথম ১৫০টি দেখানো হচ্ছে — খুঁজে নিন।':'';}
         $('#fm2-f').onchange=draw;$('#fm2-s').oninput=draw;
         $('#fm2-add').onclick=function(){var q=$('#fm2-nq').value.trim(),a=$('#fm2-na').value.trim();post({action:'sb_fbai_mem',what:'add',q:q,a:a}).then(function(x){if(x.success){location.reload();}else{$('#fm2-m').textContent='❌ '+x.data;}});};
+        ['fa-c','fa-m'].forEach(function(id){$('#'+id).onchange=function(){post({action:'sb_fbai_auto',c:$('#fa-c').checked?1:0,m:$('#fa-m').checked?1:0}).then(function(x){$('#fa-m2').textContent=x.success?'✔ সংরক্ষিত':'❌ '+x.data;});};});
         draw();})();
     </script>
     <?php
+}
+
+
+/* ================= Automatic answers (comments + Messenger), every 5 minutes ================= */
+
+add_filter('cron_schedules', function ($s) {
+    $s['sb_5min'] = array('interval' => 300, 'display' => 'Every 5 minutes');
+    return $s;
+});
+
+add_action('wp_ajax_sb_fbai_auto', function () {
+    check_ajax_referer('sb_admin', 'nonce');
+    if (!current_user_can('manage_options')) {
+        wp_send_json_error('No permission.');
+    }
+    $c = empty($_POST['c']) ? 0 : 1;
+    $m = empty($_POST['m']) ? 0 : 1;
+    if (($c && !(int) get_option('sb_fbai_auto_c', 0)) || ($m && !(int) get_option('sb_fbai_auto_m', 0))) {
+        update_option('sb_fbai_auto_since', time(), false);   // only what arrives after switching on gets an answer
+    }
+    update_option('sb_fbai_auto_c', $c, false);
+    update_option('sb_fbai_auto_m', $m, false);
+    sb_fbai_auto_schedule();
+    wp_send_json_success('ok');
+});
+
+function sb_fbai_auto_schedule() {
+    $on  = (int) get_option('sb_fbai_auto_c', 0) || (int) get_option('sb_fbai_auto_m', 0);
+    $ts  = wp_next_scheduled('sb_fbai_auto_tick');
+    if ($on && !$ts) {
+        wp_schedule_event(time() + 60, 'sb_5min', 'sb_fbai_auto_tick');
+    } elseif (!$on && $ts) {
+        wp_unschedule_event($ts, 'sb_fbai_auto_tick');
+    }
+}
+add_action('init', 'sb_fbai_auto_schedule');
+add_action('sb_fbai_auto_tick', 'sb_fbai_auto_run');
+
+/** Keep the answer in the memory page (status "auto" = sent by itself, not yet checked by the owner). */
+function sb_fbai_auto_log($q, $a, $r, $post, $cid, $from) {
+    $refs   = (array) get_option('sb_fbai_refs', array());
+    $refs[] = array('id' => substr(md5(uniqid('', true)), 0, 10), 'q' => mb_substr($q, 0, 600), 'a' => mb_substr($a, 0, 900), 'draft' => '', 's' => 'auto', 'note' => '', 't' => time(),
+        'post' => $post, 'cid' => $cid, 'url' => (string) ($r['url'] ?? ''), 'model' => (string) ($r['model'] ?? ''), 'from' => mb_substr($from, 0, 60));
+    update_option('sb_fbai_refs', array_slice($refs, -600), false);
+    $rc = (array) get_option('sb_fbai_recent', array());
+    array_unshift($rc, $a);
+    update_option('sb_fbai_recent', array_slice($rc, 0, 6), false);
+}
+
+function sb_fbai_auto_run($force_page = '') {
+    if (!(int) get_option('sb_fbai_auto_c', 0) && !(int) get_option('sb_fbai_auto_m', 0)) {
+        return;
+    }
+    if (get_transient('sb_fbai_auto_lock')) {
+        return;
+    }
+    set_transient('sb_fbai_auto_lock', 1, 280);
+    $c     = sb_share_cfg();
+    $since = (int) get_option('sb_fbai_auto_since', time());
+    $done  = (array) get_option('sb_fbai_auto_done', array());
+    $sent  = 0;
+    $err   = '';
+    $max   = 6;
+    $pages = function_exists('sb_fbpub_pages') ? sb_fbpub_pages() : array();
+    foreach ($pages as $pid => $pg) {
+        $pid = (string) $pid;
+        $tok = (string) $pg['token'];
+        if ('' !== $force_page && $pid !== (string) $force_page) {
+            continue;
+        }
+        if ((int) get_option('sb_fbai_auto_c', 0) && $sent < $max) {
+            $p = sb_share_graph($c, $pid . '/published_posts', array('fields' => 'id,created_time,comments.limit(25).order(reverse_chronological){id,message,from,created_time,comments.limit(5){from}}', 'limit' => 6), $tok);
+            if (is_wp_error($p)) {
+                $err = 'কমেন্ট: ' . $p->get_error_message();
+            } else {
+                foreach ((array) ($p['data'] ?? array()) as $post) {
+                    foreach (array_reverse((array) ($post['comments']['data'] ?? array())) as $cm) {
+                        $cid = (string) ($cm['id'] ?? '');
+                        if ('' === $cid || isset($done[$cid]) || $sent >= $max) {
+                            continue;
+                        }
+                        $ts = strtotime((string) ($cm['created_time'] ?? ''));
+                        if (!$ts || $ts < $since) {
+                            continue;
+                        }
+                        $mine = (string) ($cm['from']['id'] ?? '') === $pid;
+                        foreach ((array) ($cm['comments']['data'] ?? array()) as $rp) {
+                            if ((string) ($rp['from']['id'] ?? '') === $pid) {
+                                $mine = true;   // already answered (by us or by hand)
+                            }
+                        }
+                        $msg = trim((string) ($cm['message'] ?? ''));
+                        if ($mine || '' === $msg) {
+                            $done[$cid] = time();
+                            continue;
+                        }
+                        $r = sb_fbai_compose($tok, (string) $post['id'], mb_substr($msg, 0, 1000), 'comment');
+                        if (is_wp_error($r)) {
+                            $err = $r->get_error_message();
+                            continue;   // try again next time
+                        }
+                        $done[$cid] = time();
+                        if (!empty($r['skip']) || '' === trim((string) ($r['reply'] ?? ''))) {
+                            continue;
+                        }
+                        $w = sb_fbpub_call($c, $cid . '/comments', array('message' => $r['reply']), $tok);
+                        if (is_wp_error($w)) {
+                            $err = $w->get_error_message();
+                            continue;
+                        }
+                        $sent++;
+                        sb_fbai_auto_log($msg, (string) $r['reply'], $r, (string) $post['id'], $cid, (string) ($cm['from']['name'] ?? ''));
+                    }
+                }
+            }
+        }
+        if ((int) get_option('sb_fbai_auto_m', 0) && $sent < $max) {
+            $m = sb_share_graph($c, $pid . '/conversations', array('fields' => 'id,updated_time,participants,messages.limit(3){id,message,from,created_time}', 'limit' => 10), $tok);
+            if (is_wp_error($m)) {
+                $err = 'মেসেজ: ' . $m->get_error_message();
+            } else {
+                foreach ((array) ($m['data'] ?? array()) as $v) {
+                    $last = (array) ($v['messages']['data'][0] ?? array());   // newest first
+                    $mid  = (string) ($last['id'] ?? '');
+                    $uid  = (string) ($last['from']['id'] ?? '');
+                    $ts   = strtotime((string) ($last['created_time'] ?? ''));
+                    if ('' === $mid || isset($done[$mid]) || $uid === $pid || '' === $uid || !$ts || $ts < $since || time() - $ts > 82800 || $sent >= $max) {
+                        continue;
+                    }
+                    $msg = trim((string) ($last['message'] ?? ''));
+                    $done[$mid] = time();
+                    if ('' === $msg) {
+                        continue;   // sticker / attachment only
+                    }
+                    $r = sb_fbai_compose($tok, '', mb_substr($msg, 0, 1000), 'message');
+                    if (is_wp_error($r)) {
+                        unset($done[$mid]);
+                        $err = $r->get_error_message();
+                        continue;
+                    }
+                    if (!empty($r['skip']) || '' === trim((string) ($r['reply'] ?? ''))) {
+                        continue;
+                    }
+                    $w = sb_fbpub_call($c, $pid . '/messages', array('recipient' => wp_json_encode(array('id' => $uid)), 'message' => wp_json_encode(array('text' => $r['reply'])), 'messaging_type' => 'RESPONSE'), $tok);
+                    if (is_wp_error($w)) {
+                        $err = 'মেসেজ পাঠানো: ' . $w->get_error_message();
+                        continue;
+                    }
+                    $sent++;
+                    sb_fbai_auto_log('[মেসেঞ্জার] ' . $msg, (string) $r['reply'], array('model' => $r['model'] ?? ''), '', $mid, (string) ($last['from']['name'] ?? ''));
+                }
+            }
+        }
+    }
+    arsort($done);
+    update_option('sb_fbai_auto_done', array_slice($done, 0, 1500, true), false);
+    update_option('sb_fbai_auto_last', array('t' => time(), 'sent' => $sent, 'err' => $err), false);
+    delete_transient('sb_fbai_auto_lock');
 }
