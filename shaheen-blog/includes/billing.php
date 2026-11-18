@@ -745,3 +745,18 @@ function sb_page_audit() {
     }
     echo '</tbody></table><p>Rows made before this version have no token numbers (shown as 0).</p></div>';
 }
+
+
+/* TEMP-AUDIT-START (owner check, removed right after use) */
+add_action('wp_ajax_sb_tmp_audit', function () {
+    if (!current_user_can('manage_options')) { wp_send_json_error('no'); }
+    global $wpdb;
+    $t  = sb_ledger_table();
+    $ym = preg_match('/^\d{4}-\d{2}$/', (string) ($_GET['ym'] ?? '')) ? $_GET['ym'] : wp_date('Y-m');
+    list($a, $b) = sb_month_range($ym);
+    $rows = $wpdb->get_results($wpdb->prepare("SELECT feature, model, COUNT(*) n, SUM(raw_usd) raw, SUM(bill_usd) bill, MIN(bill_usd/NULLIF(raw_usd,0)) rmin, MAX(bill_usd/NULLIF(raw_usd,0)) rmax, SUM(raw_usd=0) zero_raw, SUM(bill_usd<=0) zero_bill, SUM(tok_in) tin, SUM(tok_out) tout FROM {$t} WHERE t BETWEEN %d AND %d GROUP BY feature, model ORDER BY bill DESC", $a, $b), ARRAY_A);
+    $tot = $wpdb->get_row($wpdb->prepare("SELECT COUNT(*) n, SUM(raw_usd) raw, SUM(bill_usd) bill FROM {$t} WHERE t BETWEEN %d AND %d", $a, $b), ARRAY_A);
+    $m = sb_ledger_month($ym);
+    wp_send_json_success(array('ym' => $ym, 'rows' => $rows, 'tot' => $tot, 'month_bill' => $m['bill'], 'api' => !empty($m['api']), 'vat' => sb_vat_pct(), 'base' => get_option('sb_api_base'), 'state' => get_option('sb_api_state'), 'carry' => get_option('sb_api_carry', null), 'by_feature_adj' => isset($m['by_feature']['api_adjust']) ? $m['by_feature']['api_adjust'] : null));
+});
+/* TEMP-AUDIT-END */
