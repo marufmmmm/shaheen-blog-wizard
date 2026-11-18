@@ -741,6 +741,12 @@ add_action('wp_ajax_sb_share_addpages', function () {
                 break;
             }
         }
+        if (!$hit) {   // ask for the page directly (works even when me/accounts is empty, e.g. pages granted one by one)
+            $dr = sb_share_graph($c, $key, array('fields' => 'id,name,access_token'), $ut);
+            if (!is_wp_error($dr) && !empty($dr['id']) && !empty($dr['access_token'])) {
+                $hit = $dr;
+            }
+        }
         if (!$hit) {   // slug that me/accounts does not show by username: look the id up
             $lk = sb_share_graph($c, $key, array('fields' => 'id,name'), $ut);
             if (!is_wp_error($lk) && !empty($lk['id'])) {
