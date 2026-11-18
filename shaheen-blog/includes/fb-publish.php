@@ -329,6 +329,9 @@ function sb_page_fbpost() {
             <details style="margin-bottom:8px"><summary><b>👥 Groups</b> <span class="description">(Facebook does not let any tool post into groups; saved groups open for a manual share after you send)</span></summary>
                 <textarea id="fp-gt" rows="5" style="width:100%" placeholder="One per line:  Group name | https://www.facebook.com/groups/…"></textarea>
                 <button type="button" class="button" id="fp-gs">Save groups</button> <span id="fp-gm" class="description"></span></details>
+            <div style="margin-bottom:8px;padding:8px;background:#f0f6ff;border-radius:6px"><b>🤝 Facebook collab</b> <span class="description">(Facebook has no API for collab; it must be added while the post is created in Business Suite)</span><br>
+                Collaborator page / profile (name or link): <input type="text" id="fp-cf" style="width:100%;max-width:420px" placeholder="https://www.facebook.com/…">
+                <button type="button" class="button" id="fp-cb">📋 Copy text &amp; open Business Suite</button> <span id="fp-cm" class="description"></span></div>
             <p><label><input type="checkbox" id="fp-ig" <?php disabled('' === $c['ig_id']); ?>> Also post to Instagram</label>
                 &nbsp; Collab (up to 3 usernames): <input type="text" id="fp-co" placeholder="user1, user2" style="width:240px"></p>
             <p>When: <input type="datetime-local" id="fp-w"> <span class="description">(empty = now; scheduling applies to Facebook only)</span><br>
@@ -380,6 +383,10 @@ function sb_page_fbpost() {
                 var ok=j.data.log.length>0&&j.data.log.every(function(l){return l.ok;});if(ok){ls('sb_fp_draft',null);}
                 var firstOk=j.data.log.filter(function(l){return l.ok&&/^\d+_\d+$/.test(l.msg);})[0];
                 $('#fp-log').innerHTML=j.data.log.map(function(l){var s=document.createElement('div');s.textContent=(l.ok?'✅ ':'❌ ')+l.to+' — '+l.msg;return s.outerHTML;}).join('')+(firstOk&&!d.draft?window.sbFpGroupPanel('https://www.facebook.com/'+firstOk.msg,d.text):'');});};
+        $('#fp-cf').value=ls('sb_fp_collab');$('#fp-cf').oninput=function(){ls('sb_fp_collab',this.value);};
+        $('#fp-cb').onclick=function(){var t=$('#fp-t').value;try{navigator.clipboard.writeText(t);}catch(e){}
+            $('#fp-cm').textContent='✅ Text copied. In Business Suite: paste the text, add media, open Collaborator and search: '+($('#fp-cf').value||'(enter the page name)');
+            window.open('https://business.facebook.com/latest/composer?asset_id='+<?php echo wp_json_encode((string) $c['page_id']); ?>,'_blank');};
         var groups=[];
         function gpost(set){var b={action:'sb_fbpub_groups',nonce:nn};if(set!==undefined){b.set=set;}return fetch(aj,{method:'POST',credentials:'same-origin',body:new URLSearchParams(b)}).then(function(r){return r.json();});}
         gpost().then(function(j){if(j.success){groups=j.data;$('#fp-gt').value=groups.map(function(g){return g.n+' | '+g.u;}).join('\n');}});
