@@ -57,6 +57,48 @@ function sb_press_url_exists($url) {
     return !empty($q);
 }
 
+/** Date (Y-m-d) of an already imported press card for this link, or '' when it has none / no real date. */
+function sb_press_existing_date($url) {
+    $q = get_posts(array('post_type' => 'sb_post', 'post_status' => 'any', 'numberposts' => 1, 'fields' => 'ids',
+        'meta_query' => array(array('key' => '_sb_press_url', 'value' => sb_url_variants($url), 'compare' => 'IN'))));
+    if (empty($q)) {
+        return '';
+    }
+    return get_post_meta($q[0], '_sb_press_dated', true) || get_post_meta($q[0], '_sb_press_assumed', true) ? get_the_date('Y-m-d', $q[0]) : '';
+}
+
+/**
+ * A news link whose page shows no date: take the date of the nearest news line just before it in the same list
+ * (a real date from its page, or from a card already imported); if none before it, the nearest one after it.
+ * Returns Y-m-d (never in the future) or '' when no neighbour has a date.
+ */
+function sb_press_assumed_date($url, $cands) {
+    $urls = array_keys($cands);
+    $pos  = array_search($url, $urls, true);
+    if ($pos === false) {
+        return '';
+    }
+    $look = function ($u) {
+        $d = sb_press_existing_date($u);
+        if ($d === '' && function_exists('csa_ev_og_row')) {
+            $r = csa_ev_og_row($u);
+            $d = (is_array($r) && !empty($r['ok']) && preg_match('/^\d{4}-\d{2}-\d{2}$/', (string) ($r['pub'] ?? ''))) ? (string) $r['pub'] : '';
+        }
+        return ($d !== '' && $d <= wp_date('Y-m-d')) ? $d : '';
+    };
+    for ($i = $pos - 1; $i >= 0; $i--) {
+        if (($d = $look($urls[$i])) !== '') {
+            return $d;
+        }
+    }
+    for ($i = $pos + 1; $i < count($urls); $i++) {
+        if (($d = $look($urls[$i])) !== '') {
+            return $d;
+        }
+    }
+    return '';
+}
+
 add_action('wp_ajax_sb_press_import', function () {
     sb_ajax_guard();
     $cat   = (int) sb_req('category', 0);
@@ -82,12 +124,18 @@ add_action('wp_ajax_sb_press_import', function () {
             update_option('sb_press_skip', array_slice(array_unique(array_merge((array) get_option('sb_press_skip', array()), array($u))), -200), false);
             continue;
         }
-        $id = sb_press_make($v[0], $u, $v[1], (string) $row['pub'], (string) $row['d'], (string) $row['img'], $cat);
+        $pub = (string) $row['pub'];
+        $assumed = 0;
+        if (!preg_match('/^\d{4}-\d{2}-\d{2}$/', $pub) || $pub > wp_date('Y-m-d')) {   // no usable date on the article page
+            $pub = sb_press_assumed_date($u, $cands);
+            $assumed = $pub !== '' ? 1 : 0;
+        }
+        $id = sb_press_make($v[0], $u, $v[1], $pub, (string) $row['d'], (string) $row['img'], $cat, $assumed);
         if (!$id) {
             continue;
         }
         $img = (int) get_post_thumbnail_id($id);
-        $done[] = array('id' => $id, 'title' => $v[0], 'img' => $img ? 1 : 0, 'pub' => $row['pub']);
+        $done[] = array('id' => $id, 'title' => $v[0], 'img' => $img ? 1 : 0, 'pub' => $pub, 'assumed' => $assumed);
     }
     $left = count($todo) - count($done) - count($skip);
     wp_send_json_success(array('done' => $done, 'skipped' => $skip, 'left' => max(0, $left), 'total' => count($cands)));
@@ -119,7 +167,7 @@ function sb_press_sideload($img_url, $post_id, $title) {
     return (int) $aid;
 }
 
-function sb_press_make($title, $url, $paper, $pub, $excerpt, $img_url, $cat) {
+function sb_press_make($title, $url, $paper, $pub, $excerpt, $img_url, $cat, $assumed = 0) {
     require_once ABSPATH . 'wp-admin/includes/file.php';
     require_once ABSPATH . 'wp-admin/includes/media.php';
     require_once ABSPATH . 'wp-admin/includes/image.php';
@@ -138,7 +186,7 @@ function sb_press_make($title, $url, $paper, $pub, $excerpt, $img_url, $cat) {
     wp_update_post(array('ID' => $id, 'post_name' => 'press-' . $id));
     update_post_meta($id, '_sb_press_slugged', 1);
     if (!empty($dated)) {
-        update_post_meta($id, '_sb_press_dated', 1);   // the card sits on the date of the event itself
+        update_post_meta($id, $assumed ? '_sb_press_assumed' : '_sb_press_dated', 1);   // the card sits on the date of the event itself (assumed = taken from the neighbouring news)
     }
     update_post_meta($id, '_sb_press_url', esc_url_raw($url));
     update_post_meta($id, '_sb_press_paper', $paper !== '' ? $paper : (string) wp_parse_url($url, PHP_URL_HOST));
