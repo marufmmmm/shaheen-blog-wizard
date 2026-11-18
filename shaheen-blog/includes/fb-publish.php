@@ -78,7 +78,24 @@ function sb_fbpub_page($c, $pid, $tok, $o) {
         } elseif ('video' === $o['mtype']) {
             $j = sb_fbpub_call($c, $pid . '/videos', array_merge(array('file_url' => $o['media'], 'description' => $o['text']), $sched), $tok);
         } else {
-            $j = sb_fbpub_call($c, $pid . '/feed', array_merge(array('message' => $o['text']), $sched), $tok);
+            $ph = array_values(array_filter((array) ($o['photos'] ?? array())));
+            if (count($ph) > 1) {   // album-style post: each photo is uploaded unpublished, then attached to one feed post
+                $att = array();
+                foreach ($ph as $i => $u) {
+                    $r = sb_fbpub_call($c, $pid . '/photos', array('url' => $u, 'published' => 'false'), $tok);
+                    if (is_wp_error($r) || empty($r['id'])) {
+                        return is_wp_error($r) ? $r : new WP_Error('sb_fbp', 'Photo ' . ($i + 1) . ' could not be uploaded.');
+                    }
+                    $att['attached_media[' . $i . ']'] = wp_json_encode(array('media_fbid' => $r['id']));
+                }
+                $j = sb_fbpub_call($c, $pid . '/feed', array_merge(array('message' => $o['text']), $att, $sched), $tok);
+            } else {
+                $args = array('message' => $o['text']);
+                if (!empty($o['link'])) {
+                    $args['link'] = $o['link'];
+                }
+                $j = sb_fbpub_call($c, $pid . '/feed', array_merge($args, $sched), $tok);
+            }
         }
         return is_wp_error($j) ? $j : (string) ($j['post_id'] ?? $j['id'] ?? 'ok');
     }
@@ -209,6 +226,21 @@ add_action('wp_ajax_sb_fbpub_send', function () {
     if ('' === $o['media']) {
         $o['mtype'] = 'none';
     }
+    $o['link']   = esc_url_raw((string) ($d['link'] ?? ''));
+    $o['photos'] = array();
+    if ('post' === $o['kind'] && 'photo' === $o['mtype']) {
+        foreach (array_slice((array) ($d['photos'] ?? array()), 0, 10) as $u) {
+            $u = esc_url_raw((string) $u);
+            if ('' !== $u) {
+                $o['photos'][] = $u;
+            }
+        }
+        if (count($o['photos']) > 1) {
+            $o['media'] = $o['photos'][0];
+        } else {
+            $o['photos'] = array();
+        }
+    }
     $all  = sb_fbpub_pages();
     $pick = array_map('strval', (array) ($d['pages'] ?? array()));
     $log  = array();
@@ -232,20 +264,43 @@ add_action('wp_ajax_sb_fbpub_send', function () {
     wp_send_json_success(array('log' => $log));
 });
 
+
+/** DELETE helper for the Facebook Graph API (used by the post manager and the inbox). */
+function sb_fbpub_delete($c, $path, $token) {
+    $r = wp_remote_request('https://graph.facebook.com/' . $c['api_ver'] . '/' . ltrim($path, '/') . '?' . http_build_query(array('access_token' => $token)), array('method' => 'DELETE', 'timeout' => 40));
+    if (is_wp_error($r)) {
+        return $r;
+    }
+    $j = json_decode((string) wp_remote_retrieve_body($r), true);
+    if (!is_array($j) || isset($j['error'])) {
+        return new WP_Error('sb_fbp', is_array($j) && isset($j['error']['message']) ? (string) $j['error']['message'] : 'No answer (HTTP ' . (int) wp_remote_retrieve_response_code($r) . ')');
+    }
+    return $j;
+}
+
 function sb_page_fbpost() {
     $pages = sb_fbpub_pages();
     $c     = sb_share_cfg();
+    $blog  = array();
+    foreach (get_posts(array('post_type' => 'post', 'post_status' => 'publish', 'numberposts' => 15)) as $bp) {
+        $blog[] = array('t' => html_entity_decode(get_the_title($bp), ENT_QUOTES, 'UTF-8'), 'u' => get_permalink($bp), 'img' => (string) get_the_post_thumbnail_url($bp, 'large'));
+    }
     ?>
     <div class="wrap">
         <h1>📘 Facebook Post</h1>
-        <p class="description">Write once, choose the type and the pages. Instagram collab invites are accepted by the other account in the Instagram app. Facebook has no collaborator API, so "more pages" means the same post on each page you manage.</p>
-        <div style="max-width:760px;background:#fff;border:1px solid #d1d5db;border-radius:8px;padding:14px">
+        <p class="description">Write once, choose the type and the pages. Instagram collab invites are accepted by the other account in the Instagram app. Facebook has no collaborator API, so "more pages" means the same post on each page you manage. Posts already published are managed in <b>🗂 Post Manager</b>.</p>
+        <div style="display:flex;gap:18px;flex-wrap:wrap;align-items:flex-start">
+        <div style="flex:1 1 460px;max-width:760px;background:#fff;border:1px solid #d1d5db;border-radius:8px;padding:14px">
             <p><b>Type</b> &nbsp;
                 <label><input type="radio" name="fp-k" value="post" checked> Post</label> &nbsp;
                 <label><input type="radio" name="fp-k" value="reel"> Reel (video)</label> &nbsp;
                 <label><input type="radio" name="fp-k" value="story"> Story (photo/video)</label></p>
-            <p><textarea id="fp-t" rows="5" style="width:100%" placeholder="Text / caption"></textarea></p>
-            <p><input type="file" id="fp-f" accept="image/*,video/*"> <span id="fp-fs" class="description"></span></p>
+            <p><select id="fp-b" style="max-width:100%"><option value="">📰 Fill from a blog post…</option>
+                <?php foreach ($blog as $i => $b) : ?><option value="<?php echo (int) $i; ?>"><?php echo esc_html(wp_trim_words($b['t'], 12, '…')); ?></option><?php endforeach; ?></select></p>
+            <p><textarea id="fp-t" rows="6" style="width:100%" placeholder="Text / caption"></textarea><span id="fp-n" class="description"></span></p>
+            <p id="fp-lw">🔗 Link (shows a preview card, text posts only): <input type="url" id="fp-l" style="width:100%" placeholder="https://shaheen.edu.bd/…"></p>
+            <p><input type="file" id="fp-f" accept="image/*,video/*" multiple> <span id="fp-fs" class="description">Several photos = one album post (up to 10). A video must be sent alone.</span></p>
+            <div id="fp-th" style="display:flex;gap:6px;flex-wrap:wrap"></div>
             <p><b>Pages</b><br>
                 <?php if (!$pages) : ?><span class="description">No pages connected yet.</span><?php endif; ?>
                 <?php foreach ($pages as $id => $p) : ?>
@@ -255,8 +310,18 @@ function sb_page_fbpost() {
                 &nbsp; Collab (up to 3 usernames): <input type="text" id="fp-co" placeholder="user1, user2" style="width:240px"></p>
             <p>When: <input type="datetime-local" id="fp-w"> <span class="description">(empty = now; scheduling applies to Facebook only)</span><br>
                 <label><input type="checkbox" id="fp-d"> Test mode: save as private/unpublished, nothing goes public</label></p>
-            <p><button type="button" class="button button-primary" id="fp-go">📤 Send</button> <span id="fp-m" class="description"></span></p>
+            <p><button type="button" class="button button-primary" id="fp-go">📤 Send</button> <button type="button" class="button" id="fp-clr">🧹 Clear</button> <span id="fp-m" class="description"></span></p>
             <div id="fp-log"></div>
+        </div>
+        <div style="flex:0 1 340px;min-width:260px">
+            <h3 style="margin-top:0">Preview</h3>
+            <div style="background:#fff;border:1px solid #d1d5db;border-radius:8px;overflow:hidden">
+                <div style="padding:10px;font-weight:600">Shaheen Education Family <span class="description" style="font-weight:400">· now</span></div>
+                <div id="fp-pt" style="padding:0 10px 10px;white-space:pre-wrap;word-break:break-word"></div>
+                <div id="fp-pm"></div>
+            </div>
+            <p class="description">The draft is kept in this browser until you press Send or Clear.</p>
+        </div>
         </div>
         <?php $h = (array) get_option('sb_fbpub_log', array()); if ($h) : ?>
             <h3>Recent</h3><ul>
@@ -266,15 +331,32 @@ function sb_page_fbpost() {
         <?php endif; ?>
     </div>
     <script>
-    (function(){var $=function(s){return document.querySelector(s);},aj=<?php echo wp_json_encode(admin_url('admin-ajax.php')); ?>,nn=<?php echo wp_json_encode(wp_create_nonce('sb_admin')); ?>,media='',mtype='none';
-        $('#fp-f').onchange=function(){var f=this.files[0];if(!f){return;}$('#fp-fs').textContent='Uploading…';var fd=new FormData();fd.append('action','sb_fbpub_upload');fd.append('nonce',nn);fd.append('f',f);
-            fetch(aj,{method:'POST',credentials:'same-origin',body:fd}).then(function(r){return r.json();}).then(function(j){if(j.success){media=j.data.url;mtype=j.data.mtype;$('#fp-fs').textContent='✅ '+mtype+' ready';}else{media='';mtype='none';$('#fp-fs').textContent='❌ '+j.data;}});};
+    (function(){var $=function(s){return document.querySelector(s);},aj=<?php echo wp_json_encode(admin_url('admin-ajax.php')); ?>,nn=<?php echo wp_json_encode(wp_create_nonce('sb_admin')); ?>,blog=<?php echo wp_json_encode($blog); ?>,files=[];
+        function ls(k,v){try{if(v===undefined){return localStorage.getItem(k)||'';}if(v===null){localStorage.removeItem(k);}else{localStorage.setItem(k,v);}}catch(e){}return '';}
+        function kind(){return document.querySelector('input[name=fp-k]:checked').value;}
+        function refresh(){var t=$('#fp-t').value;$('#fp-n').textContent=' '+t.length+' characters';$('#fp-pt').textContent=t||'Your text appears here…';
+            $('#fp-lw').style.display=kind()==='post'?'':'none';var pm=$('#fp-pm');pm.textContent='';
+            files.forEach(function(f,i){var b=document.createElement(f.mtype==='video'?'video':'img');b.src=f.url;if(f.mtype==='video'){b.controls=true;}b.style.cssText='width:100%;display:block;border-top:1px solid #eee';pm.appendChild(b);});
+            var th=$('#fp-th');th.textContent='';files.forEach(function(f,i){var w=document.createElement('span');w.style.cssText='background:#eef2ff;border-radius:4px;padding:2px 6px';w.textContent=(f.mtype==='video'?'🎬 ':'🖼 ')+(i+1)+' ';var x=document.createElement('a');x.href='#';x.textContent='✕';x.onclick=function(e){e.preventDefault();files.splice(i,1);refresh();};w.appendChild(x);th.appendChild(w);});
+            ls('sb_fp_draft',JSON.stringify({t:t,l:$('#fp-l').value}));}
+        var dr=ls('sb_fp_draft');if(dr){try{var o=JSON.parse(dr);$('#fp-t').value=o.t||'';$('#fp-l').value=o.l||'';}catch(e){}}
+        $('#fp-t').oninput=refresh;$('#fp-l').oninput=refresh;[].forEach.call(document.querySelectorAll('input[name=fp-k]'),function(r){r.onchange=refresh;});
+        $('#fp-b').onchange=function(){var b=blog[this.value];if(!b){return;}$('#fp-t').value=b.t+'\n\n'+b.u;$('#fp-l').value=b.u;refresh();};
+        $('#fp-clr').onclick=function(){$('#fp-t').value='';$('#fp-l').value='';files=[];$('#fp-f').value='';ls('sb_fp_draft',null);refresh();};
+        function up(f){var fd=new FormData();fd.append('action','sb_fbpub_upload');fd.append('nonce',nn);fd.append('f',f);
+            return fetch(aj,{method:'POST',credentials:'same-origin',body:fd}).then(function(r){return r.json();});}
+        $('#fp-f').onchange=function(){var fl=[].slice.call(this.files);if(!fl.length){return;}var self=this,n=0;$('#fp-fs').textContent='Uploading…';
+            (function next(){if(!fl.length){$('#fp-fs').textContent='✅ '+files.length+' file(s) ready';self.value='';refresh();return;}
+                up(fl.shift()).then(function(j){if(j.success){if(j.data.mtype==='video'){files=[j.data];}else if(!files.length||files[0].mtype!=='video'){files.push(j.data);}files=files.slice(0,10);}else{$('#fp-fs').textContent='❌ '+j.data;}next();}).catch(function(){$('#fp-fs').textContent='❌ upload failed';next();});})();};
         $('#fp-go').onclick=function(){var pages=[].slice.call(document.querySelectorAll('.fp-pg:checked')).map(function(x){return x.value;});
-            var d={kind:document.querySelector('input[name=fp-k]:checked').value,text:$('#fp-t').value,media:media,mtype:mtype,pages:pages,ig:$('#fp-ig').checked,collab:$('#fp-co').value,when:$('#fp-w').value.replace('T',' '),draft:$('#fp-d').checked};
+            var first=files[0]||{url:'',mtype:'none'};var photos=files.filter(function(f){return f.mtype==='photo';}).map(function(f){return f.url;});
+            var d={kind:kind(),text:$('#fp-t').value,link:$('#fp-l').value,media:first.url,mtype:first.mtype,photos:photos,pages:pages,ig:$('#fp-ig').checked,collab:$('#fp-co').value,when:$('#fp-w').value.replace('T',' '),draft:$('#fp-d').checked};
             $('#fp-m').textContent='Sending… (videos can take a minute)';$('#fp-go').disabled=true;
             fetch(aj,{method:'POST',credentials:'same-origin',body:new URLSearchParams({action:'sb_fbpub_send',nonce:nn,d:JSON.stringify(d)})}).then(function(r){return r.json();}).then(function(j){$('#fp-go').disabled=false;
                 if(!j.success){$('#fp-m').textContent='❌ '+j.data;return;}$('#fp-m').textContent='Done.';
+                var ok=j.data.log.length>0&&j.data.log.every(function(l){return l.ok;});if(ok){ls('sb_fp_draft',null);}
                 $('#fp-log').innerHTML=j.data.log.map(function(l){var s=document.createElement('div');s.textContent=(l.ok?'✅ ':'❌ ')+l.to+' — '+l.msg;return s.outerHTML;}).join('');});};
+        refresh();
     })();
     </script>
     <?php

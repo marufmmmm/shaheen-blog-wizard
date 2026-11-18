@@ -29,30 +29,50 @@ add_action('wp_ajax_sb_fbin_load', function () {
         wp_send_json_error('Page not connected.');
     }
     $c   = sb_share_cfg();
-    $out = array('posts' => array(), 'convs' => array(), 'err' => array());
-    $p = sb_share_graph($c, $pid . '/published_posts', array(
-        'fields' => 'id,message,created_time,permalink_url,comments.summary(true).limit(15).order(reverse_chronological){id,message,from,created_time,is_hidden,can_hide,can_comment}',
+    $out = array('posts' => array(), 'convs' => array(), 'err' => array(), 'pafter' => '', 'cafter' => '');
+    $pa  = preg_replace('/[^\w=\-]/', '', (string) ($_POST['pafter'] ?? ''));
+    $ca  = preg_replace('/[^\w=\-]/', '', (string) ($_POST['cafter'] ?? ''));
+    $part = (string) ($_POST['part'] ?? 'both');
+    $pargs = array(
+        'fields' => 'id,message,created_time,permalink_url,comments.summary(true).limit(15).order(reverse_chronological){id,message,from,created_time,is_hidden,can_hide,can_comment,comment_count,like_count,user_likes}',
         'limit'  => 8,
-    ), $tok);
+    );
+    if ('' !== $pa) {
+        $pargs['after'] = $pa;
+    }
+    $p = 'convs' === $part ? new WP_Error('skip', '') : sb_share_graph($c, $pid . '/published_posts', $pargs, $tok);
     if (is_wp_error($p)) {
-        $out['err']['comments'] = $p->get_error_message();
+        if ('skip' !== $p->get_error_code()) {
+            $out['err']['comments'] = $p->get_error_message();
+        }
     } else {
+        $out['pafter'] = (string) ($p['paging']['cursors']['after'] ?? '');
+        if (empty($p['paging']['next'])) {
+            $out['pafter'] = '';
+        }
         foreach ((array) ($p['data'] ?? array()) as $x) {
             $cm = array();
             foreach ((array) ($x['comments']['data'] ?? array()) as $k) {
-                $cm[] = array('id' => $k['id'], 'msg' => (string) ($k['message'] ?? ''), 'from' => (string) ($k['from']['name'] ?? 'Someone'), 'time' => (string) ($k['created_time'] ?? ''), 'hidden' => !empty($k['is_hidden']));
+                $cm[] = array('id' => $k['id'], 'msg' => (string) ($k['message'] ?? ''), 'from' => (string) ($k['from']['name'] ?? 'Someone'), 'time' => (string) ($k['created_time'] ?? ''), 'hidden' => !empty($k['is_hidden']), 'likes' => (int) ($k['like_count'] ?? 0), 'liked' => !empty($k['user_likes']), 'replies' => (int) ($k['comment_count'] ?? 0));
             }
             $out['posts'][] = array('id' => $x['id'], 'msg' => wp_trim_words((string) ($x['message'] ?? '(no text)'), 18, '…'), 'time' => (string) ($x['created_time'] ?? ''),
                 'url' => (string) ($x['permalink_url'] ?? ''), 'total' => (int) ($x['comments']['summary']['total_count'] ?? 0), 'comments' => $cm);
         }
     }
-    $m = sb_share_graph($c, $pid . '/conversations', array(
-        'fields' => 'id,updated_time,unread_count,participants,messages.limit(4){message,from,created_time}',
+    $margs = array(
+        'fields' => 'id,updated_time,unread_count,participants,messages.limit(6){message,from,created_time,attachments}',
         'limit'  => 15,
-    ), $tok);
+    );
+    if ('' !== $ca) {
+        $margs['after'] = $ca;
+    }
+    $m = 'posts' === $part ? new WP_Error('skip', '') : sb_share_graph($c, $pid . '/conversations', $margs, $tok);
     if (is_wp_error($m)) {
-        $out['err']['messages'] = $m->get_error_message();
+        if ('skip' !== $m->get_error_code()) {
+            $out['err']['messages'] = $m->get_error_message();
+        }
     } else {
+        $out['cafter'] = empty($m['paging']['next']) ? '' : (string) ($m['paging']['cursors']['after'] ?? '');
         foreach ((array) ($m['data'] ?? array()) as $v) {
             $who = '';
             $psid = '';
@@ -64,7 +84,7 @@ add_action('wp_ajax_sb_fbin_load', function () {
             }
             $ms = array();
             foreach (array_reverse((array) ($v['messages']['data'] ?? array())) as $mm) {
-                $ms[] = array('msg' => (string) ($mm['message'] ?? '(attachment)'), 'me' => (string) ($mm['from']['id'] ?? '') === $pid, 'time' => (string) ($mm['created_time'] ?? ''));
+                $ms[] = array('msg' => '' !== (string) ($mm['message'] ?? '') ? (string) $mm['message'] : '📎 (attachment)', 'me' => (string) ($mm['from']['id'] ?? '') === $pid, 'time' => (string) ($mm['created_time'] ?? ''));
             }
             $out['convs'][] = array('id' => $v['id'], 'who' => $who, 'psid' => $psid, 'unread' => (int) ($v['unread_count'] ?? 0), 'time' => (string) ($v['updated_time'] ?? ''), 'msgs' => $ms);
         }
@@ -90,12 +110,40 @@ add_action('wp_ajax_sb_fbin_act', function () {
         $r = sb_fbpub_call($c, $id . '/comments', array('message' => $text), $tok);
     } elseif ('hide' === $what || 'unhide' === $what) {
         $r = sb_fbpub_call($c, $id, array('is_hidden' => 'hide' === $what ? 'true' : 'false'), $tok);
+    } elseif ('like' === $what) {
+        $r = sb_fbpub_call($c, $id . '/likes', array(), $tok);
+    } elseif ('delete' === $what) {
+        $r = sb_fbpub_delete($c, $id, $tok);
+    } elseif ('private' === $what && '' !== $text) {   // one private Messenger reply to a commenter (within 7 days of the comment)
+        $r = sb_fbpub_call($c, $id . '/private_replies', array('message' => $text), $tok);
+    } elseif ('seen' === $what) {
+        $r = sb_fbpub_call($c, $pid . '/messages', array('recipient' => wp_json_encode(array('id' => $id)), 'sender_action' => 'mark_seen'), $tok);
     } elseif ('msg' === $what && '' !== $text) {
-        $r = sb_fbpub_call($c, $pid . '/messages', array('recipient' => wp_json_encode(array('id' => $id)), 'messaging_type' => 'RESPONSE', 'message' => wp_json_encode(array('text' => $text))), $tok);
+        $base = array('recipient' => wp_json_encode(array('id' => $id)), 'message' => wp_json_encode(array('text' => $text)));
+        $r = sb_fbpub_call($c, $pid . '/messages', array_merge($base, array('messaging_type' => 'RESPONSE')), $tok);
+        if (is_wp_error($r)) {   // outside the 24-hour window: try the 7-day human-agent tag (needs that permission)
+            $r2 = sb_fbpub_call($c, $pid . '/messages', array_merge($base, array('messaging_type' => 'MESSAGE_TAG', 'tag' => 'HUMAN_AGENT')), $tok);
+            if (!is_wp_error($r2)) {
+                $r = $r2;
+            }
+        }
     } else {
         wp_send_json_error('Nothing to do.');
     }
     is_wp_error($r) ? wp_send_json_error($r->get_error_message()) : wp_send_json_success('ok');
+});
+
+/** Saved quick replies (shared by all admins). */
+add_action('wp_ajax_sb_fbin_quick', function () {
+    check_ajax_referer('sb_admin', 'nonce');
+    if (!current_user_can('manage_options')) {
+        wp_send_json_error('No permission.');
+    }
+    if (isset($_POST['set'])) {
+        $l = array_slice(array_values(array_filter(array_map('trim', explode("\n", sanitize_textarea_field(wp_unslash((string) $_POST['set'])))))), 0, 20);
+        update_option('sb_fbin_quick', $l, false);
+    }
+    wp_send_json_success(array_values((array) get_option('sb_fbin_quick', array())));
 });
 
 function sb_page_fbinbox() {
@@ -103,39 +151,58 @@ function sb_page_fbinbox() {
     ?>
     <div class="wrap">
         <h1>💬 Facebook Inbox</h1>
-        <p class="description">Recent comments on your posts and Messenger conversations. Messages can be answered only within 24 hours of the person's last message (Facebook's rule).</p>
+        <p class="description">Recent comments on your posts and Messenger conversations. A message can be answered within 24 hours of the person's last message (Facebook's rule); older ones are tried with Facebook's 7-day human-agent tag. "Private reply" sends one Messenger message to a commenter.</p>
         <p><select id="fi-pg"><?php foreach ($pages as $id => $p) : ?><option value="<?php echo esc_attr($id); ?>"><?php echo esc_html($p['name']); ?></option><?php endforeach; ?></select>
-            <button class="button button-primary" id="fi-go">🔄 Load</button> <span id="fi-m" class="description"></span></p>
+            <button class="button button-primary" id="fi-go">🔄 Load</button>
+            <label><input type="checkbox" id="fi-un"> Unread messages only</label>
+            <label><input type="checkbox" id="fi-nc"> Comments needing a reply only</label>
+            <button class="button" id="fi-q">⚡ Quick replies</button> <span id="fi-m" class="description"></span></p>
+        <div id="fi-qe" hidden style="max-width:640px;margin-bottom:10px"><textarea id="fi-qt" rows="6" style="width:100%" placeholder="One quick reply per line"></textarea><button class="button" id="fi-qs">Save quick replies</button> <span id="fi-qm" class="description"></span></div>
         <div style="display:flex;gap:16px;flex-wrap:wrap">
-            <div style="flex:1 1 420px;min-width:300px"><h2>Comments</h2><div id="fi-c"></div></div>
-            <div style="flex:1 1 420px;min-width:300px"><h2>Messages</h2><div id="fi-s"></div></div>
+            <div style="flex:1 1 420px;min-width:300px"><h2>Comments</h2><div id="fi-c"></div><button class="button" id="fi-cm" hidden>⬇ Older posts</button></div>
+            <div style="flex:1 1 420px;min-width:300px"><h2>Messages</h2><div id="fi-s"></div><button class="button" id="fi-sm" hidden>⬇ Older conversations</button></div>
         </div>
     </div>
     <script>
-    (function(){var $=function(s){return document.querySelector(s);},aj=<?php echo wp_json_encode(admin_url('admin-ajax.php')); ?>,nn=<?php echo wp_json_encode(wp_create_nonce('sb_admin')); ?>;
+    (function(){var $=function(s){return document.querySelector(s);},aj=<?php echo wp_json_encode(admin_url('admin-ajax.php')); ?>,nn=<?php echo wp_json_encode(wp_create_nonce('sb_admin')); ?>,pg='',pa='',ca='',quick=[];
         function el(t,css,txt){var e=document.createElement(t);if(css){e.style.cssText=css;}if(txt!==undefined){e.textContent=txt;}return e;}
         function post(x){return fetch(aj,{method:'POST',credentials:'same-origin',body:new URLSearchParams(Object.assign({nonce:nn},x))}).then(function(r){return r.json();});}
+        function sm(b,txt,css){b.className='button button-small';b.style.marginRight='4px';return b;}
+        function qsel(i){if(!quick.length){return null;}var s=el('select','max-width:140px');var o=el('option','','⚡');o.value='';s.appendChild(o);quick.forEach(function(q){var op=el('option','',q.slice(0,40));op.value=q;s.appendChild(op);});s.onchange=function(){if(s.value){i.value=s.value;s.value='';}};return s;}
         function box(parent,ph,btn,fn){var w=el('div','display:flex;gap:6px;margin-top:4px'),i=el('input','flex:1');i.placeholder=ph;var b=el('button','',btn);b.className='button';
-            b.onclick=function(){if(!i.value.trim()){return;}b.disabled=true;fn(i.value,function(ok,msg){b.disabled=false;if(ok){i.value='';b.textContent='✅ sent';}else{b.textContent='❌ '+msg;}});};w.appendChild(i);w.appendChild(b);parent.appendChild(w);}
-        function load(){var pg=$('#fi-pg').value;$('#fi-m').textContent='Loading…';$('#fi-c').textContent='';$('#fi-s').textContent='';
-            post({action:'sb_fbin_load',page:pg}).then(function(j){if(!j.success){$('#fi-m').textContent='❌ '+j.data;return;}var d=j.data;$('#fi-m').textContent='';
-                if(d.err.comments){$('#fi-c').appendChild(el('div','color:#b32d2e','⚠ '+d.err.comments));}
-                d.posts.forEach(function(p){var card=el('div','border:1px solid #d1d5db;border-radius:8px;padding:8px;margin-bottom:10px;background:#fff');
-                    var h=el('div','font-weight:600',p.msg+'  ('+p.total+' comments)');card.appendChild(h);
-                    p.comments.forEach(function(c){var r=el('div','border-top:1px solid #eee;margin-top:6px;padding-top:6px'+(c.hidden?';opacity:.5':''));
-                        r.appendChild(el('div','',c.from+': '+c.msg));
-                        var act=el('div','margin-top:3px');var hb=el('button','',c.hidden?'Unhide':'Hide');hb.className='button button-small';
-                        hb.onclick=function(){post({action:'sb_fbin_act',page:pg,what:c.hidden?'unhide':'hide',id:c.id}).then(function(x){hb.textContent=x.success?'✅':'❌ '+x.data;});};act.appendChild(hb);r.appendChild(act);
-                        box(r,'Reply…','Reply',function(t,cb){post({action:'sb_fbin_act',page:pg,what:'reply',id:c.id,text:t}).then(function(x){cb(x.success,x.data);});});card.appendChild(r);});
-                    $('#fi-c').appendChild(card);});
-                if(d.err.messages){$('#fi-s').appendChild(el('div','color:#b32d2e','⚠ '+d.err.messages));}
-                d.convs.forEach(function(v){var card=el('div','border:1px solid #d1d5db;border-radius:8px;padding:8px;margin-bottom:10px;background:#fff');
-                    card.appendChild(el('div','font-weight:600',v.who+(v.unread?'  · '+v.unread+' unread':'')));
-                    v.msgs.forEach(function(m){card.appendChild(el('div','margin-top:3px;'+(m.me?'text-align:right;color:#1d4ed8':''),m.msg));});
-                    box(card,'Reply…','Send',function(t,cb){post({action:'sb_fbin_act',page:pg,what:'msg',id:v.psid,text:t}).then(function(x){cb(x.success,x.data);});});
-                    $('#fi-s').appendChild(card);});
-                if(!d.posts.length&&!d.err.comments){$('#fi-c').textContent='No posts.';}if(!d.convs.length&&!d.err.messages){$('#fi-s').textContent='No conversations.';}});}
-        $('#fi-go').onclick=load;
+            b.onclick=function(){if(!i.value.trim()){return;}b.disabled=true;fn(i.value,function(ok,msg){b.disabled=false;if(ok){i.value='';b.textContent='✅ sent';}else{b.textContent='❌ '+msg;}});};
+            var q=qsel(i);if(q){w.appendChild(q);}w.appendChild(i);w.appendChild(b);parent.appendChild(w);}
+        function act(x,b,done){b.textContent='…';post(Object.assign({action:'sb_fbin_act',page:pg},x)).then(function(r){if(r.success){b.textContent='✅';if(done){done();}}else{b.textContent='❌ '+r.data;}});}
+        function addPosts(d){var nc=$('#fi-nc').checked;
+            if(d.err.comments){$('#fi-c').appendChild(el('div','color:#b32d2e','⚠ '+d.err.comments));}
+            d.posts.forEach(function(p){var card=el('div','border:1px solid #d1d5db;border-radius:8px;padding:8px;margin-bottom:10px;background:#fff');var n=0;
+                var h=el('div','font-weight:600',p.msg+'  ('+p.total+' comments)');if(p.url){var a=el('a','margin-left:6px;font-weight:400','View');a.href=p.url;a.target='_blank';a.rel='noopener';h.appendChild(a);}card.appendChild(h);
+                p.comments.forEach(function(c){if(nc&&c.replies>0){return;}n++;var r=el('div','border-top:1px solid #eee;margin-top:6px;padding-top:6px'+(c.hidden?';opacity:.5':''));
+                    r.appendChild(el('div','',c.from+': '+c.msg));r.appendChild(el('div','color:#6b7280',new Date(c.time).toLocaleString()+(c.likes?'  ·  👍 '+c.likes:'')+(c.replies?'  ·  ↩ '+c.replies+' replies':'')));
+                    var ac=el('div','margin-top:3px');
+                    var hb=sm(el('button','',c.hidden?'Unhide':'Hide'));hb.onclick=function(){act({what:c.hidden?'unhide':'hide',id:c.id},hb);};ac.appendChild(hb);
+                    var lb=sm(el('button','',c.liked?'👍 Liked':'👍 Like'));lb.onclick=function(){act({what:'like',id:c.id},lb);};ac.appendChild(lb);
+                    var db=sm(el('button','','🗑 Delete'));db.onclick=function(){if(db.dataset.s!=='1'){db.dataset.s='1';db.textContent='⚠ Confirm';return;}act({what:'delete',id:c.id},db,function(){r.remove();});};ac.appendChild(db);r.appendChild(ac);
+                    box(r,'Reply publicly…','Reply',function(t,cb){post({action:'sb_fbin_act',page:pg,what:'reply',id:c.id,text:t}).then(function(x){cb(x.success,x.data);});});
+                    box(r,'Private reply on Messenger…','Send privately',function(t,cb){post({action:'sb_fbin_act',page:pg,what:'private',id:c.id,text:t}).then(function(x){cb(x.success,x.data);});});
+                    card.appendChild(r);});
+                if(!nc||n){$('#fi-c').appendChild(card);}});}
+        function addConvs(d){var un=$('#fi-un').checked;
+            if(d.err.messages){$('#fi-s').appendChild(el('div','color:#b32d2e','⚠ '+d.err.messages));}
+            d.convs.forEach(function(v){if(un&&!v.unread){return;}var card=el('div','border:1px solid #d1d5db;border-radius:8px;padding:8px;margin-bottom:10px;background:'+(v.unread?'#fffbeb':'#fff'));
+                var h=el('div','font-weight:600',v.who+(v.unread?'  · '+v.unread+' unread':''));card.appendChild(h);
+                if(v.unread){var sb=sm(el('button','','Mark read'));sb.style.marginLeft='6px';sb.onclick=function(){act({what:'seen',id:v.psid},sb,function(){card.style.background='#fff';});};h.appendChild(sb);}
+                v.msgs.forEach(function(m){card.appendChild(el('div','margin-top:3px;white-space:pre-wrap;'+(m.me?'text-align:right;color:#1d4ed8':''),m.msg));});
+                box(card,'Reply…','Send',function(t,cb){post({action:'sb_fbin_act',page:pg,what:'msg',id:v.psid,text:t}).then(function(x){cb(x.success,x.data);});});
+                $('#fi-s').appendChild(card);});}
+        function fetchQ(){return post({action:'sb_fbin_quick'}).then(function(j){quick=j.success?j.data:[];$('#fi-qt').value=quick.join('\n');});}
+        function load(part){pg=$('#fi-pg').value;var first=part==='both';if(first){pa='';ca='';$('#fi-c').textContent='';$('#fi-s').textContent='';}$('#fi-m').textContent='Loading…';
+            post({action:'sb_fbin_load',page:pg,part:part,pafter:part==='convs'?'':pa,cafter:part==='posts'?'':ca}).then(function(j){if(!j.success){$('#fi-m').textContent='❌ '+j.data;return;}var d=j.data;$('#fi-m').textContent='';
+                if(part!=='convs'){addPosts(d);pa=d.pafter;$('#fi-cm').hidden=!pa;if(first&&!d.posts.length&&!d.err.comments){$('#fi-c').textContent='No posts.';}}
+                if(part!=='posts'){addConvs(d);ca=d.cafter;$('#fi-sm').hidden=!ca;if(first&&!d.convs.length&&!d.err.messages){$('#fi-s').textContent='No conversations.';}}});}
+        $('#fi-go').onclick=function(){fetchQ().then(function(){load('both');});};$('#fi-cm').onclick=function(){load('posts');};$('#fi-sm').onclick=function(){load('convs');};
+        $('#fi-q').onclick=function(){$('#fi-qe').hidden=!$('#fi-qe').hidden;};
+        $('#fi-qs').onclick=function(){post({action:'sb_fbin_quick',set:$('#fi-qt').value}).then(function(j){if(j.success){quick=j.data;$('#fi-qm').textContent='✅ saved ('+quick.length+')';}else{$('#fi-qm').textContent='❌ '+j.data;}});};
     })();
     </script>
     <?php
