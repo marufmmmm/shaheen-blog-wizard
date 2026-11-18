@@ -12,13 +12,14 @@ function sb_fbhub_tabs() {
         'post'    => array('✍️ পোস্ট লিখুন', 'sb_page_fbpost'),
         'manager' => array('🗂 পোস্ট ম্যানেজার', 'sb_page_fbmanager'),
         'inbox'   => array('💬 ইনবক্স', 'sb_page_fbinbox'),
+        'memory'  => array('🧠 উত্তরের মেমোরি', 'sb_page_fbmemory'),
         'share'   => array('🔁 অটো-শেয়ার ও সোশ্যাল', 'sb_page_social'),
         'token'   => array('🔑 টোকেন', 'sb_page_fbtoken'),
     );
 }
 
 add_action('admin_menu', function () {
-    add_submenu_page('sb-dashboard', 'Facebook', '📘 Facebook', 'manage_options', 'sb-facebook', 'sb_page_facebook');
+    add_menu_page('Facebook', 'Facebook', 'manage_options', 'sb-facebook', 'sb_page_facebook', 'dashicons-facebook-alt', 27);
 }, 31);
 
 function sb_fbhub_tab() {

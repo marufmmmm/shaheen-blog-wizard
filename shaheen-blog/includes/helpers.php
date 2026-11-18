@@ -368,6 +368,7 @@ function sb_feature_labels() {
         'imgmeta'   => 'ছবির alt/শিরোনাম/ক্যাপশন (AI)',
         'legacy'    => 'আগের ব্যবহার (খাতা চালুর আগের)',
         'agent_chat'  => 'Site Agent — চ্যাট ও পেজ এডিট',
+        'agent_fb_reply' => 'Facebook কমেন্টের উত্তর (AI)',
         'agent_seo'   => 'Site Agent — SEO',
         'agent_blog'  => 'Site Agent — ব্লগ লেখা',
         'agent_bulk'  => 'Site Agent — বাল্ক কাজ',
