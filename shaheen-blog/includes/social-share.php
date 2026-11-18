@@ -760,6 +760,12 @@ add_action('wp_ajax_sb_share_addpages', function () {
         if ($hit && !empty($hit['access_token'])) {
             if ((string) $hit['id'] !== (string) $c['page_id']) {
                 $have[(string) $hit['id']] = array('name' => (string) ($hit['name'] ?? ''), 'token' => (string) $hit['access_token']);
+            } else {   // the main page: replace its saved token with the new one (which can post)
+                $o2 = get_option('sb_share', array());
+                $o2 = is_array($o2) ? $o2 : array();
+                $o2['page_token'] = (string) $hit['access_token'];
+                update_option('sb_share', $o2, false);
+                $c['page_token'] = $o2['page_token'];
             }
             $rep[] = '✅ ' . ($hit['name'] ?? $hit['id']);
         } else {
