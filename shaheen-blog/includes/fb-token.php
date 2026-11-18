@@ -100,8 +100,11 @@ add_action('wp_ajax_sb_fbtok_go', function () {
         } elseif (isset($have[$pid])) {
             $have[$pid]['token'] = (string) $a['access_token'];
             $rep[] = '✅ ' . $a['name'] . ' — token replaced' . ('' !== $ex ? ', ' . $ex : '');
+        } elseif (!empty($_POST['add_all'])) {
+            $have[$pid] = array('name' => (string) $a['name'], 'token' => (string) $a['access_token']);
+            $rep[] = '➕ ' . $a['name'] . ' (' . $pid . ') — connected' . ('' !== $ex ? ', ' . $ex : '');
         } else {
-            $rep[] = '➖ ' . $a['name'] . ' (' . $pid . ') — found, not connected here (add it in the auto-share panel)';
+            $rep[] = '➖ ' . $a['name'] . ' (' . $pid . ') — found, not connected (tick "connect all my pages" and run again)';
         }
     }
     update_option('sb_share', $o2, false);
@@ -120,6 +123,7 @@ function sb_page_fbtoken() {
             <p>User token (short-lived)<br><input type="password" id="ft-u" style="width:100%" autocomplete="off"></p>
             <p>App ID<br><input type="text" id="ft-i" style="width:100%" value="<?php echo esc_attr($k['app_id']); ?>"></p>
             <p>App Secret <span class="description"><?php echo '' !== $k['app_secret'] ? '(saved — leave empty to keep)' : '(Meta app → Settings → Basic; stored on this site only, never shown again)'; ?></span><br><input type="password" id="ft-s" style="width:100%" autocomplete="off"></p>
+            <p><label><input type="checkbox" id="ft-all"> Also connect every other page this account manages (they then show in Facebook Post / Manager / Inbox)</label></p>
             <p><button class="button button-primary" id="ft-go">♾ Make permanent page tokens</button> <button class="button" id="ft-ck">🔎 Check current tokens</button> <span id="ft-m" class="description"></span></p>
             <div id="ft-r"></div>
         </div>
@@ -127,7 +131,7 @@ function sb_page_fbtoken() {
     <script>
     (function(){var $=function(s){return document.querySelector(s);},aj=<?php echo wp_json_encode(admin_url('admin-ajax.php')); ?>,nn=<?php echo wp_json_encode(wp_create_nonce('sb_admin')); ?>;
         function run(mode){$('#ft-m').textContent='Working…';$('#ft-r').textContent='';
-            fetch(aj,{method:'POST',credentials:'same-origin',body:new URLSearchParams({action:'sb_fbtok_go',nonce:nn,mode:mode,user_token:$('#ft-u').value,app_id:$('#ft-i').value,app_secret:$('#ft-s').value})}).then(function(r){return r.json();}).then(function(j){
+            fetch(aj,{method:'POST',credentials:'same-origin',body:new URLSearchParams({action:'sb_fbtok_go',nonce:nn,mode:mode,user_token:$('#ft-u').value,app_id:$('#ft-i').value,app_secret:$('#ft-s').value,add_all:$('#ft-all').checked?'1':''})}).then(function(r){return r.json();}).then(function(j){
                 if(!j.success){$('#ft-m').textContent='❌ '+j.data;return;}$('#ft-m').textContent='';$('#ft-u').value='';$('#ft-s').value='';
                 j.data.report.forEach(function(t){var d=document.createElement('div');d.textContent=t;$('#ft-r').appendChild(d);});});}
         $('#ft-go').onclick=function(){run('go');};$('#ft-ck').onclick=function(){run('check');};

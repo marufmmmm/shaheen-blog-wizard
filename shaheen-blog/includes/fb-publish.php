@@ -278,6 +278,26 @@ function sb_fbpub_delete($c, $path, $token) {
     return $j;
 }
 
+/** Saved Facebook groups (name | url per line). Facebook's API cannot post into groups, so these are opened for a manual share. */
+add_action('wp_ajax_sb_fbpub_groups', function () {
+    check_ajax_referer('sb_admin', 'nonce');
+    if (!current_user_can('manage_options')) {
+        wp_send_json_error('No permission.');
+    }
+    if (isset($_POST['set'])) {
+        $out = array();
+        foreach (explode("\n", (string) wp_unslash($_POST['set'])) as $ln) {
+            $pt = array_map('trim', explode('|', $ln, 2));
+            $u  = esc_url_raw(count($pt) > 1 ? $pt[1] : $pt[0]);
+            if ('' !== $u && preg_match('#^https://(www\.|m\.)?facebook\.com/groups/#', $u)) {
+                $out[] = array('n' => sanitize_text_field(count($pt) > 1 ? $pt[0] : $u), 'u' => $u);
+            }
+        }
+        update_option('sb_fbpub_groups', array_slice($out, 0, 60), false);
+    }
+    wp_send_json_success(array_values((array) get_option('sb_fbpub_groups', array())));
+});
+
 function sb_page_fbpost() {
     $pages = sb_fbpub_pages();
     $c     = sb_share_cfg();
@@ -306,6 +326,9 @@ function sb_page_fbpost() {
                 <?php foreach ($pages as $id => $p) : ?>
                     <label style="display:block"><input type="checkbox" class="fp-pg" value="<?php echo esc_attr($id); ?>" <?php checked($id === (string) $c['page_id']); ?>> <?php echo esc_html($p['name']); ?> <span class="description">(<?php echo esc_html($id); ?>)</span></label>
                 <?php endforeach; ?></p>
+            <details style="margin-bottom:8px"><summary><b>👥 Groups</b> <span class="description">(Facebook does not let any tool post into groups; saved groups open for a manual share after you send)</span></summary>
+                <textarea id="fp-gt" rows="5" style="width:100%" placeholder="One per line:  Group name | https://www.facebook.com/groups/…"></textarea>
+                <button type="button" class="button" id="fp-gs">Save groups</button> <span id="fp-gm" class="description"></span></details>
             <p><label><input type="checkbox" id="fp-ig" <?php disabled('' === $c['ig_id']); ?>> Also post to Instagram</label>
                 &nbsp; Collab (up to 3 usernames): <input type="text" id="fp-co" placeholder="user1, user2" style="width:240px"></p>
             <p>When: <input type="datetime-local" id="fp-w"> <span class="description">(empty = now; scheduling applies to Facebook only)</span><br>
@@ -355,7 +378,18 @@ function sb_page_fbpost() {
             fetch(aj,{method:'POST',credentials:'same-origin',body:new URLSearchParams({action:'sb_fbpub_send',nonce:nn,d:JSON.stringify(d)})}).then(function(r){return r.json();}).then(function(j){$('#fp-go').disabled=false;
                 if(!j.success){$('#fp-m').textContent='❌ '+j.data;return;}$('#fp-m').textContent='Done.';
                 var ok=j.data.log.length>0&&j.data.log.every(function(l){return l.ok;});if(ok){ls('sb_fp_draft',null);}
-                $('#fp-log').innerHTML=j.data.log.map(function(l){var s=document.createElement('div');s.textContent=(l.ok?'✅ ':'❌ ')+l.to+' — '+l.msg;return s.outerHTML;}).join('');});};
+                var firstOk=j.data.log.filter(function(l){return l.ok&&/^\d+_\d+$/.test(l.msg);})[0];
+                $('#fp-log').innerHTML=j.data.log.map(function(l){var s=document.createElement('div');s.textContent=(l.ok?'✅ ':'❌ ')+l.to+' — '+l.msg;return s.outerHTML;}).join('')+(firstOk&&!d.draft?window.sbFpGroupPanel('https://www.facebook.com/'+firstOk.msg,d.text):'');});};
+        var groups=[];
+        function gpost(set){var b={action:'sb_fbpub_groups',nonce:nn};if(set!==undefined){b.set=set;}return fetch(aj,{method:'POST',credentials:'same-origin',body:new URLSearchParams(b)}).then(function(r){return r.json();});}
+        gpost().then(function(j){if(j.success){groups=j.data;$('#fp-gt').value=groups.map(function(g){return g.n+' | '+g.u;}).join('\n');}});
+        $('#fp-gs').onclick=function(){gpost($('#fp-gt').value).then(function(j){if(j.success){groups=j.data;$('#fp-gm').textContent='✅ saved '+groups.length;}else{$('#fp-gm').textContent='❌ '+j.data;}});};
+        function groupPanel(link,text){if(!groups.length||!link){return '';}var w=document.createElement('div');w.style.cssText='margin-top:10px;padding:8px;border:1px dashed #9ca3af;border-radius:6px';
+            var h=document.createElement('div');h.textContent='👥 Share to groups (manual): copy, open the group, paste.';w.appendChild(h);
+            var cp=document.createElement('button');cp.type='button';cp.className='button button-small';cp.textContent='Copy post link';cp.onclick=function(){try{navigator.clipboard.writeText(link);cp.textContent='✅ copied';}catch(e){cp.textContent=link;}};w.appendChild(cp);
+            var ct=document.createElement('button');ct.type='button';ct.className='button button-small';ct.style.marginLeft='6px';ct.textContent='Copy text';ct.onclick=function(){try{navigator.clipboard.writeText(text);ct.textContent='✅ copied';}catch(e){}};w.appendChild(ct);
+            groups.forEach(function(g){var d=document.createElement('div');var a=document.createElement('a');a.href=g.u;a.target='_blank';a.rel='noopener';a.textContent='Open '+g.n;d.appendChild(a);w.appendChild(d);});return w.outerHTML;}
+        window.sbFpGroupPanel=groupPanel;
         refresh();
     })();
     </script>
