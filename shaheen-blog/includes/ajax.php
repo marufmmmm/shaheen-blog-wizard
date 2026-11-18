@@ -404,6 +404,12 @@ function sb_pdf_docs($arr) {
 /** Post-processes a finished result and charges the credits. */
 function sb_ai_finish($uid, $feature, $ctx, $cost, $research, $result, &$notes) {
     $post_id = (int) $ctx['post_id'];
+    // remember what this charge was for (shown in the usage list)
+    $n = trim(implode(' | ', array_filter(array(
+        !empty($ctx['title']) ? $ctx['title'] : (!empty($ctx['topic']) ? $ctx['topic'] : ''),
+        !empty($ctx['instruction']) ? mb_substr(preg_replace('/\s+/u', ' ', $ctx['instruction']), 0, 120) : '',
+    ))));
+    $GLOBALS['sb_ledger_note'] = mb_substr($n, 0, 255);
     if ($feature === 'custom') {
         $result = sb_custom_result($result, $ctx);
     }

@@ -203,7 +203,7 @@ function sb_ledger_table() {
 }
 
 add_action('init', function () {
-    if (get_option('sb_usage_db') === '3') {
+    if (get_option('sb_usage_db') === '4') {
         return;
     }
     global $wpdb;
@@ -223,10 +223,11 @@ add_action('init', function () {
         tok_out int(11) unsigned NOT NULL DEFAULT 0,
         tok_cached int(11) unsigned NOT NULL DEFAULT 0,
         calls smallint(5) unsigned NOT NULL DEFAULT 0,
+        note varchar(255) NOT NULL DEFAULT '',
         PRIMARY KEY  (id),
         KEY t (t)
     ) " . $wpdb->get_charset_collate() . ';');
-    update_option('sb_usage_db', '3');
+    update_option('sb_usage_db', '4');
 }, 5);
 
 function sb_ledger_add($user_id, $feature, $credits, $post_id = 0, $real_usd = null) {
@@ -237,7 +238,10 @@ function sb_ledger_add($user_id, $feature, $credits, $post_id = 0, $real_usd = n
     }
     $tk = isset($GLOBALS['sb_meter_last']) ? $GLOBALS['sb_meter_last'] : array();
     unset($GLOBALS['sb_meter_last']);
+    $note = isset($GLOBALS['sb_ledger_note']) ? (string) $GLOBALS['sb_ledger_note'] : '';
+    unset($GLOBALS['sb_ledger_note']);
     $wpdb->insert(sb_ledger_table(), array(
+        'note'       => $note,
         'model'      => !empty($tk['model']) ? $tk['model'] : (isset($GLOBALS['sb_ledger_model']) ? substr((string) $GLOBALS['sb_ledger_model'], 0, 60) : ''),
         'tok_in'     => isset($tk['in']) ? (int) $tk['in'] : 0,
         'tok_out'    => isset($tk['out']) ? (int) $tk['out'] : 0,
@@ -258,7 +262,7 @@ function sb_ledger_recent($limit = 500) {
     global $wpdb;
     $t    = sb_ledger_table();
     $from = (new DateTimeImmutable('first day of last month 00:00:00', wp_timezone()))->getTimestamp();
-    $rows = (array) $wpdb->get_results($wpdb->prepare("SELECT t, user_id, feature, post_id, bill_usd, model, tok_in, tok_out, calls FROM {$t} WHERE t >= %d AND bill_usd > 0 ORDER BY t DESC, id DESC LIMIT %d", $from, (int) $limit), ARRAY_A);
+    $rows = (array) $wpdb->get_results($wpdb->prepare("SELECT t, user_id, feature, post_id, bill_usd, model, tok_in, tok_out, calls, note FROM {$t} WHERE t >= %d AND bill_usd > 0 ORDER BY t DESC, id DESC LIMIT %d", $from, (int) $limit), ARRAY_A);
     $lab  = sb_feature_labels();
     foreach ($rows as $i => $r) {
         $title = $r['post_id'] ? get_the_title((int) $r['post_id']) : '';
