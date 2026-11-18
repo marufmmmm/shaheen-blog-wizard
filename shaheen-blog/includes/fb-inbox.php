@@ -173,6 +173,19 @@ function sb_page_fbinbox() {
             b.onclick=function(){if(!i.value.trim()){return;}b.disabled=true;fn(i.value,function(ok,msg){b.disabled=false;if(ok){i.value='';b.textContent='✅ sent';}else{b.textContent='❌ '+msg;}});};
             var q=qsel(i);if(q){w.appendChild(q);}w.appendChild(i);w.appendChild(b);parent.appendChild(w);}
         function act(x,b,done){b.textContent='…';post(Object.assign({action:'sb_fbin_act',page:pg},x)).then(function(r){if(r.success){b.textContent='✅';if(done){done();}}else{b.textContent='❌ '+r.data;}});}
+        function aiDraft(r,c,p,ab){var old=r.querySelector('.ai-d');if(old){old.remove();}var w=el('div','margin-top:6px;padding:8px;background:#f0f9ff;border:1px solid #bae6fd;border-radius:6px');w.className='ai-d';r.appendChild(w);w.textContent='🤖 লিখছে…';ab.disabled=true;
+            post({action:'sb_fbai_draft',page:pg,id:c.id,post:p.id,msg:c.msg}).then(function(j){ab.disabled=false;w.textContent='';
+                if(!j.success){w.appendChild(el('div','color:#b32d2e','❌ '+j.data));return;}
+                var d=j.data;
+                if(d.skip){w.appendChild(el('div','','👍 '+d.why+' — উত্তর লাগবে না, লাইকই যথেষ্ট।'));return;}
+                w.appendChild(el('div','color:#6b7280;font-size:12px',d.info));
+                var ta=el('textarea','width:100%;margin-top:4px');ta.rows=3;ta.value=d.reply||'';w.appendChild(ta);
+                if(!d.reply){w.appendChild(el('div','color:#b45309','ℹ '+(d.why||'এই তথ্য পাইনি')+' — চাইলে নিজে লিখে পাঠান (এটাও শেখা হবে)।'));}
+                var row=el('div','margin-top:4px'),ok=sm(el('button','','✔ পাঠান')),bad=sm(el('button','','✖ ঠিক নয়')),rg=sm(el('button','','↻ আবার লিখুন'));ok.className='button button-primary button-small';
+                ok.onclick=function(){var t=ta.value.trim();if(!t){return;}ok.disabled=true;ok.textContent='…';post({action:'sb_fbin_act',page:pg,what:'reply',id:c.id,text:t}).then(function(x){if(x.success){ok.textContent='✅ পাঠানো হয়েছে';bad.remove();post({action:'sb_fbai_feedback',verdict:(t===(d.reply||''))?'ok':'edit',q:c.msg,a:t});}else{ok.disabled=false;ok.textContent='❌ '+x.data;}});};
+                bad.onclick=function(){bad.style.display='none';var i=el('input','width:60%');i.placeholder='কেন ঠিক নয়? (ঐচ্ছিক)';var g=sm(el('button','','জমা দিন'));g.onclick=function(){post({action:'sb_fbai_feedback',verdict:'bad',q:c.msg,a:ta.value,note:i.value}).then(function(){w.textContent='✖ বাতিল — এভাবে আর লিখবে না।';});};row.appendChild(i);row.appendChild(g);};
+                rg.onclick=function(){aiDraft(r,c,p,ab);};
+                row.appendChild(ok);row.appendChild(bad);row.appendChild(rg);w.appendChild(row);});}
         function addPosts(d){var nc=$('#fi-nc').checked;
             if(d.err.comments){$('#fi-c').appendChild(el('div','color:#b32d2e','⚠ '+d.err.comments));}
             d.posts.forEach(function(p){var card=el('div','border:1px solid #d1d5db;border-radius:8px;padding:8px;margin-bottom:10px;background:#fff');var n=0;
@@ -182,7 +195,7 @@ function sb_page_fbinbox() {
                     var ac=el('div','margin-top:3px');
                     var hb=sm(el('button','',c.hidden?'Unhide':'Hide'));hb.onclick=function(){act({what:c.hidden?'unhide':'hide',id:c.id},hb);};ac.appendChild(hb);
                     var lb=sm(el('button','',c.liked?'👍 Liked':'👍 Like'));lb.onclick=function(){act({what:'like',id:c.id},lb);};ac.appendChild(lb);
-                    var db=sm(el('button','','🗑 Delete'));db.onclick=function(){if(db.dataset.s!=='1'){db.dataset.s='1';db.textContent='⚠ Confirm';return;}act({what:'delete',id:c.id},db,function(){r.remove();});};ac.appendChild(db);r.appendChild(ac);
+                    var db=sm(el('button','','🗑 Delete'));db.onclick=function(){if(db.dataset.s!=='1'){db.dataset.s='1';db.textContent='⚠ Confirm';return;}act({what:'delete',id:c.id},db,function(){r.remove();});};ac.appendChild(db);var ab=sm(el('button','','🤖 AI উত্তর'));ab.onclick=function(){aiDraft(r,c,p,ab);};ac.appendChild(ab);r.appendChild(ac);
                     box(r,'Reply publicly…','Reply',function(t,cb){post({action:'sb_fbin_act',page:pg,what:'reply',id:c.id,text:t}).then(function(x){cb(x.success,x.data);});});
                     box(r,'Private reply on Messenger…','Send privately',function(t,cb){post({action:'sb_fbin_act',page:pg,what:'private',id:c.id,text:t}).then(function(x){cb(x.success,x.data);});});
                     card.appendChild(r);});
