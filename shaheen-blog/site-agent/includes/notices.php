@@ -381,6 +381,11 @@ function csa_sn_btn_label( $label, $kind ) {
 	return $d[ $kind ] ?? 'বিস্তারিত দেখুন';
 }
 
+/** Spelling the way the site writes it: "মাদারীপুর শাখা-এর" -> "মাদারীপুর শাখার". */
+function csa_sn_polish( $t ) {
+	return preg_replace( '/শাখা[\s\x{2010}-\x{2015}\-]+এর(?![\x{0980}-\x{09FF}])/u', 'শাখার', (string) $t );
+}
+
 /** Gemini reads a notice PDF (a Drive link or a file of this site) and returns {summary, facts[{l,v}], phones[]}; null when it cannot. */
 function csa_sn_pdf_read( $url, $branch = '' ) {
 	if ( ! function_exists( 'sb_share_gemini' ) || ! function_exists( 'sb_share_cfg' ) ) {
@@ -416,7 +421,7 @@ function csa_sn_pdf_read( $url, $branch = '' ) {
 			$facts[] = array( 'l' => sanitize_text_field( $f['l'] ), 'v' => sanitize_text_field( $f['v'] ) );
 		}
 	}
-	return array( 'summary' => sanitize_textarea_field( (string) ( $r['summary'] ?? '' ) ), 'facts' => $facts, 'phones' => array_values( array_filter( array_map( 'sanitize_text_field', (array) ( $r['phones'] ?? array() ) ) ) ) );
+	return array( 'summary' => csa_sn_polish( sanitize_textarea_field( (string) ( $r['summary'] ?? '' ) ) ), 'facts' => $facts, 'phones' => array_values( array_filter( array_map( 'sanitize_text_field', (array) ( $r['phones'] ?? array() ) ) ) ) );
 }
 
 function csa_sn_pdf_viewer( $u ) {
@@ -2072,6 +2077,31 @@ add_action( 'wp_ajax_csa_sn_purge', function () {
 		wp_send_json_error( 'No permission.' );
 	}
 	$id = absint( $_POST['id'] ?? 0 );
+	clean_post_cache( $id );
+	do_action( 'litespeed_purge_post', $id );
+	wp_send_json_success( 'ok' );
+} );
+
+/** Free (no AI): apply the site's spelling to the stored text and summary of one notice. */
+add_action( 'wp_ajax_csa_sn_polish', function () {
+	check_ajax_referer( 'sb_admin', 'nonce' );
+	if ( ! current_user_can( 'manage_options' ) ) {
+		wp_send_json_error( 'No permission.' );
+	}
+	$id = absint( $_POST['id'] ?? 0 );
+	$d  = csa_sn_get( $id );
+	if ( ! $d ) {
+		wp_send_json_error( 'Not a notice.' );
+	}
+	foreach ( $d['blocks'] as $i => $b ) {
+		if ( 'text' === ( $b['t'] ?? '' ) ) {
+			$d['blocks'][ $i ]['body'] = csa_sn_polish( $b['body'] ?? '' );
+		}
+	}
+	$d['summary'] = csa_sn_polish( $d['summary'] ?? '' );
+	$d['seo_d']   = csa_sn_polish( $d['seo_d'] ?? '' );
+	update_post_meta( $id, '_sn', wp_slash( $d ) );
+	wp_update_post_excerpt_safe( $id, $d['summary'] );
 	clean_post_cache( $id );
 	do_action( 'litespeed_purge_post', $id );
 	wp_send_json_success( 'ok' );
