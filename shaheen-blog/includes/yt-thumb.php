@@ -123,58 +123,137 @@ function sb_thumb_build($c, $e, $dr) {
         $hook = sb_thumb_hook_from((string) ($dr['yt_title'] ?? ''));
     }
     $refs = array(array('path' => $frame, 'cat' => 'frame', 'name' => 'video frame'));
-    $inst = '';
     $all  = function_exists('sb_logos') ? sb_logos() : array();
-    $ev   = sb_thumb_event(array((string) ($e['msg'] ?? ''), (string) ($dr['yt_title'] ?? ''), (string) ($dr['yt_desc'] ?? ''), $hook));
-    $evn  = 0;
-    if ($ev) {
-        $refs[] = array('att' => (int) $ev['att'], 'cat' => 'logo', 'name' => $ev['name']);
-        $evn    = count($refs);
-    }
-    $txt_all = mb_strtolower(implode(' ', array((string) ($e['msg'] ?? ''), (string) ($dr['yt_title'] ?? ''), (string) ($dr['yt_desc'] ?? ''), $hook)));
+    $hay  = array((string) ($e['msg'] ?? ''), (string) ($dr['yt_title'] ?? ''), (string) ($dr['yt_desc'] ?? ''), $hook);
+    $ev   = sb_thumb_event($hay);
+    $txt_all = mb_strtolower(implode(' ', $hay));
     $order   = array('family', 'school');
     if (preg_match('/ইসলামিক|ইসলামী|ইসলাম শিক্ষা|মাদ্রাসা|মাদরাসা|কুরআন|কোরআন|হিফজ|নাযেরা|দ্বীনি|islamic|madrasa|quran|hifz/u', $txt_all) && isset($all['islamic'])) {
         $order = array('islamic', 'family', 'school');
     }
+    $logo_files = array();   // logos are laid on top by the site itself (exact, whole, never cropped)
+    if ($ev && ($f = get_attached_file((int) $ev['att']))) {
+        $logo_files['ev'] = $f;
+    }
     foreach ($order as $k) {
-        if (isset($all[$k])) {
-            $refs[] = array('att' => $all[$k]['att'], 'cat' => 'logo', 'name' => $all[$k]['label']);
-            $inst   = $all[$k]['label'];
-            $instn  = count($refs);
+        if (isset($all[$k]) && ($f = get_attached_file((int) $all[$k]['att']))) {
+            $logo_files['inst'] = $f;
             break;
         }
     }
+    // the thumbnail has the video's own shape: wide video -> 16:9, square -> 1:1, tall -> 9:16
+    $gi = @getimagesize($frame);
+    $ratio = ($gi && $gi[1] > 0) ? $gi[0] / $gi[1] : 1.7778;
+    if ($ratio >= 1.3) {
+        $gen = '1536x1024'; $W = 1280; $H = 720; $shape = 'wide 16:9 landscape';
+    } elseif ($ratio <= 0.77) {
+        $gen = '1024x1536'; $W = 720; $H = 1280; $shape = 'tall 9:16 portrait';
+    } else {
+        $gen = '1024x1024'; $W = 1080; $H = 1080; $shape = 'square 1:1';
+    }
     $idea   = trim((string) ($dr['thumb_idea'] ?? ''));
-    $prompt = 'Create a scroll-stopping YouTube thumbnail (landscape). Use reference image 1 — a real frame from the video — as the base: keep the real people, place and clothes exactly as they are, but make it brighter, sharper and richer in colour, with strong contrast, a clean uncluttered composition and a clear focal point' . ('' !== $idea ? ' (direction from the video analysis: ' . $idea . ')' : '') . '. '
+    $prompt = 'Create a scroll-stopping YouTube thumbnail, ' . $shape . ' shape. Use reference image 1 — a real frame from the video — as the base: keep the real people, place and clothes exactly as they are, but make it brighter, sharper and richer in colour, with strong contrast, a clean uncluttered composition and a clear focal point' . ('' !== $idea ? ' (direction from the video analysis: ' . $idea . ')' : '') . '. '
         . 'Add ONE huge bold headline in Bangla, exactly this text and nothing else: "' . $hook . '". Use a thick, clean Bengali typeface, white or bright yellow on a solid dark or red band (or with a heavy dark outline), so it stays readable even when the thumbnail is tiny; correct Bengali conjunct letters, no spelling changes. '
-        . 'The picture will be cropped to 16:9 (the top and bottom 15% are cut off), so keep the headline, every logo and the main subject fully inside the central 70% of the height and at least 6% away from the left and right edges: nothing may touch an edge or be cut. '
-        . ($evn ? 'Reference image ' . $evn . ' is the official logo of the event "' . $ev['name'] . '": copy it faithfully and completely, unaltered, never cropped or covered, once, fairly prominent, in the upper-left area. ' : '')
-        . ('' !== $inst ? 'Reference image ' . $instn . ' is the institution\'s logo (' . $inst . '): show the WHOLE logo, every emblem and every line of its text, completely visible, unaltered, never cropped, covered or shrunk to just one part of it; place it once in the upper-' . ($evn ? 'right' : 'left') . ' area on a small clean white rounded badge so it stays readable, at a clearly legible size (about 15% of the picture width). ' : '')
-        . 'Make it look professional and eye-catching: vivid saturated colours, glowing edge light around the main subject, crisp edges, a balanced layout that makes a viewer want to click. No other text, no watermark, no extra logos, no frames or borders.';
+        . ('wide 16:9 landscape' === $shape ? 'The picture will be cropped to 16:9 (the top and bottom 15% are cut off), so keep the headline and the main subject fully inside the central 70% of the height. ' : '')
+        . 'Keep the headline at least 6% away from every edge. Keep the top-left and top-right corners (each about 28% of the width and 24% of the height) free of faces and text: logos will be placed there later. '
+        . 'Make it look professional and eye-catching: vivid saturated colours, glowing edge light around the main subject, crisp edges, a balanced layout that makes a viewer want to click. Do NOT draw any logo, watermark, frame or border, and no other text.';
     $model = array_keys(sb_img_models())[0];
-    $res   = sb_img_call($model, $prompt, '1536x1024', 'medium', $refs);
+    $res   = sb_img_call($model, $prompt, $gen, 'medium', $refs);
     @unlink($frame);
     if (is_wp_error($res)) {
         return $res;
     }
     list($bytes, $usage) = $res;
-    $raw = $dir . 'sbthumb-raw-' . preg_replace('/\W/', '', (string) ($e['vid'] ?: md5((string) ($e['link'] ?? '')))) . '.webp';
+    $key = preg_replace('/\W/', '', (string) ($e['vid'] ?: md5((string) ($e['link'] ?? ''))));
+    $raw = $dir . 'sbthumb-raw-' . $key . '.webp';
     file_put_contents($raw, $bytes);   // phpcs:ignore
     $ed = wp_get_image_editor($raw);
     if (is_wp_error($ed)) {
         @unlink($raw);
         return $ed;
     }
-    $ed->resize(1280, 720, true);
-    $ed->set_quality(88);
-    $out = $dir . 'sbthumb-' . preg_replace('/\W/', '', (string) ($e['vid'] ?: md5((string) ($e['link'] ?? '')))) . '.jpg';
-    $sv  = $ed->save($out, 'image/jpeg');
+    $ed->resize($W, $H, true);
+    $ed->set_quality(90);
+    $mid = $dir . 'sbthumb-mid-' . $key . '.png';
+    $sv  = $ed->save($mid, 'image/png');
     @unlink($raw);
-    if (is_wp_error($sv) || !is_file($out) || filesize($out) > 1900000) {
+    if (is_wp_error($sv) || !is_file($mid)) {
+        @unlink($mid);
+        return new WP_Error('sb_th', 'থাম্বনেইল ফাইল তৈরি করা যায়নি।');
+    }
+    $out = $dir . 'sbthumb-' . $key . '.jpg';
+    $ok  = sb_thumb_compose($mid, $out, $W, $H, $logo_files);
+    @unlink($mid);
+    if (!$ok || !is_file($out) || filesize($out) > 1900000) {
         @unlink($out);
         return new WP_Error('sb_th', 'থাম্বনেইল ফাইল তৈরি করা যায়নি।');
     }
     return array($out, sb_img_cost($model, $usage), $model, $hook);
+}
+
+/** lays the logos on the finished picture with GD: event logo top-left (large), institution logo top-right on a white rounded badge. Both always whole, inside the margins. */
+function sb_thumb_compose($src, $dst, $W, $H, $logos) {
+    if (!function_exists('imagecreatefromstring') || !function_exists('imagejpeg')) {
+        return false;
+    }
+    $base = @imagecreatefromstring((string) file_get_contents($src));   // phpcs:ignore
+    if (!$base) {
+        return false;
+    }
+    imagealphablending($base, true);
+    $load = function ($path) {
+        $b = is_file($path) ? @file_get_contents($path) : false;   // phpcs:ignore
+        return $b ? @imagecreatefromstring($b) : false;
+    };
+    $fit = function ($im, $maxw, $maxh) {
+        $w = imagesx($im);
+        $h = imagesy($im);
+        $k = min($maxw / $w, $maxh / $h);
+        $nw = max(1, (int) round($w * $k));
+        $nh = max(1, (int) round($h * $k));
+        $t = imagecreatetruecolor($nw, $nh);
+        imagealphablending($t, false);
+        imagesavealpha($t, true);
+        imagefill($t, 0, 0, imagecolorallocatealpha($t, 0, 0, 0, 127));
+        imagecopyresampled($t, $im, 0, 0, 0, 0, $nw, $nh, $w, $h);
+        return $t;
+    };
+    $m = (int) round(min($W, $H) * 0.035);   // margin from the edges
+    if (!empty($logos['ev']) && ($im = $load($logos['ev']))) {
+        $t = $fit($im, (int) round($W * 0.27), (int) round($H * 0.24));
+        imagealphablending($base, true);
+        imagecopy($base, $t, $m, $m, 0, 0, imagesx($t), imagesy($t));
+        imagedestroy($t);
+        imagedestroy($im);
+    }
+    if (!empty($logos['inst']) && ($im = $load($logos['inst']))) {
+        $pad = (int) round(min($W, $H) * 0.012);
+        $t   = $fit($im, (int) round($W * 0.22), (int) round($H * 0.14));
+        $bw  = imagesx($t) + 2 * $pad;
+        $bh  = imagesy($t) + 2 * $pad;
+        $x   = $W - $m - $bw;
+        $y   = $m;
+        $white = imagecolorallocate($base, 255, 255, 255);
+        $r = (int) round(min($bw, $bh) * 0.22);
+        imagefilledrectangle($base, $x + $r, $y, $x + $bw - $r, $y + $bh, $white);
+        imagefilledrectangle($base, $x, $y + $r, $x + $bw, $y + $bh - $r, $white);
+        foreach (array(array($x + $r, $y + $r), array($x + $bw - $r, $y + $r), array($x + $r, $y + $bh - $r), array($x + $bw - $r, $y + $bh - $r)) as $cc) {
+            imagefilledellipse($base, $cc[0], $cc[1], 2 * $r, 2 * $r, $white);
+        }
+        imagecopy($base, $t, $x + $pad, $y + $pad, 0, 0, imagesx($t), imagesy($t));
+        imagedestroy($t);
+        imagedestroy($im);
+    }
+    $ok = false;
+    foreach (array(90, 84, 78, 70) as $q) {
+        imagejpeg($base, $dst, $q);
+        if (is_file($dst) && filesize($dst) <= 1900000) {
+            $ok = true;
+            break;
+        }
+    }
+    imagedestroy($base);
+    return $ok;
 }
 
 function sb_thumb_set($c, $yt_id, $file) {
