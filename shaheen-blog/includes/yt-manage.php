@@ -21,7 +21,7 @@ const SB_YTM_END     = '━━━━━━━━━━━━━━━━━━';
 
 function sb_ytm_cfg() {
     $o = get_option('sb_ytm', array());
-    return array_merge(array('auto' => 0, 'ai' => 0, 'hash' => '', 'last' => 0, 'block' => '', 'note' => ''), is_array($o) ? $o : array());
+    return array_merge(array('auto' => 0, 'ai' => 0, 'hash' => '', 'last' => 0, 'block' => '', 'note' => '', 'campus' => '', 'kw' => 'শাহীন স্কুল ও ক্যাডেট কোচিং, ক্যাডেট কলেজ ভর্তি প্রস্তুতি, শাহীন শিক্ষা পরিবার, টাঙ্গাইল', 'thumb' => 1), is_array($o) ? $o : array());
 }
 
 function sb_ytm_save($patch) {
@@ -162,6 +162,10 @@ function sb_ytm_facts() {
         }
         $f[$k] = sb_ytm_bn($mm[1]);
     }
+    $ov = (int) sb_ytm_bn2en((string) sb_ytm_cfg()['campus']);   // a number the owner wants shown before the site itself says it; the site wins once it reaches it
+    if ($ov > (int) sb_ytm_bn2en($f['campus'])) {
+        $f['campus'] = sb_ytm_bn((string) $ov);
+    }
     $f['phone'] = preg_match('#href=["\']tel:(\+?\d+)#i', $html, $mm) ? $mm[1] : '+8801622222111';
     $f['text']  = mb_substr($txt, 0, 6000);
     return $f;
@@ -172,7 +176,8 @@ function sb_ytm_stats_line($f) {
 }
 
 function sb_ytm_block($f, $stats = '') {
-    return SB_YTM_START . "\n" . ('' !== $stats ? $stats : sb_ytm_stats_line($f)) . "\n🌐 " . home_url('/') . "\n📞 " . $f['phone'] . "\n👍 https://www.facebook.com/shaheen.edu.bd/\n" . SB_YTM_END;
+    $kw = trim((string) sb_ytm_cfg()['kw']);
+    return SB_YTM_START . "\n" . ('' !== $stats ? $stats : sb_ytm_stats_line($f)) . ('' !== $kw ? "\n🔎 " . $kw : '') . "\n🌐 " . home_url('/') . "\n📞 " . $f['phone'] . "\n👍 https://www.facebook.com/shaheen.edu.bd/\n" . SB_YTM_END;
 }
 
 function sb_ytm_channel_text($f, $stats) {
@@ -668,7 +673,7 @@ function sb_ytm_state() {
     $j   = sb_ytm_job();
     $pl  = get_option('sb_ytm_plan', array());
     $out = array(
-        'auto' => (int) $cfg['auto'], 'ai' => (int) $cfg['ai'], 'last' => $cfg['last'] ? wp_date('j M Y, g:i A', (int) $cfg['last']) : '', 'block' => $cfg['block'],
+        'auto' => (int) $cfg['auto'], 'ai' => (int) $cfg['ai'], 'thumb' => (int) $cfg['thumb'], 'campus' => $cfg['campus'], 'kw' => $cfg['kw'], 'last' => $cfg['last'] ? wp_date('j M Y, g:i A', (int) $cfg['last']) : '', 'block' => $cfg['block'],
         'job' => $j ? array('type' => $j['type'], 'state' => $j['state'], 'i' => (int) ($j['i'] ?? $j['li'] ?? 0), 'n' => count($j['ids'] ?? $j['lists'] ?? array()), 'ok' => (int) ($j['ok'] ?? $j['added'] ?? 0), 'err' => (string) ($j['err'] ?? ''), 'bill' => $j['bill'] ?? null) : null,
         'plan' => null,
         'quota' => (int) get_transient('sb_ytm_q_' . wp_date('Ymd')),
@@ -810,7 +815,7 @@ add_action('wp_ajax_sb_ytm', function () {
     $do  = sanitize_key((string) ($_POST['do'] ?? ''));
     $msg = '';
     if ('save' === $do) {
-        sb_ytm_save(array('auto' => empty($_POST['auto']) ? 0 : 1, 'ai' => empty($_POST['ai']) ? 0 : 1));
+        sb_ytm_save(array('auto' => empty($_POST['auto']) ? 0 : 1, 'ai' => empty($_POST['ai']) ? 0 : 1, 'thumb' => empty($_POST['thumb']) ? 0 : 1, 'campus' => preg_replace('/[^0-9০-৯]/u', '', (string) ($_POST['campus'] ?? '')), 'kw' => mb_substr(sanitize_text_field((string) wp_unslash($_POST['kw'] ?? '')), 0, 200)));
         $msg = 'সেভ হয়েছে।';
     } elseif ('preview' === $do) {
         $f = sb_ytm_facts();
@@ -883,6 +888,8 @@ function sb_ytm_panel() {
         <b>▶️ ইউটিউব ম্যানেজার: তথ্য মিলানো ও প্লেলিস্ট</b>
         <p class="sba-muted" style="margin:4px 0 8px">সাইটের তথ্য (ক্যাম্পাস, জেলা, অভিজ্ঞতা, ফোন) বদলালে শেষ ১০০ ভিডিওর বিবরণ ও চ্যানেলের বিবরণ নিজে হালনাগাদ হয়; না বদলালেও মাসে একবার। খরচ: AI ছাড়া ০.২০ ডলার; AI লাগলে আসল খরচ ×১.৫ (কমপক্ষে ০.২০)।</p>
         <p><label><input type="checkbox" id="ym-auto"> <b>নিজে নিজে চালু</b></label> &nbsp; <label><input type="checkbox" id="ym-ai"> AI দিয়ে বিশেষ সাফল্যের লাইনও যোগ হোক</label> <button class="button" id="ym-save">সেভ</button></p>
+        <p><label><input type="checkbox" id="ym-th"> নতুন ভিডিওর থাম্বনেইল AI দিয়ে (হুক লেখা + লোগো) নিজে বানাও</label></p>
+        <p><label>ক্যাম্পাস সংখ্যা (সাইটে এখনো না বদলালে এটাই বসবে; সাইট এতে পৌঁছালে সাইটের সংখ্যা চলবে): <input type="text" id="ym-campus" size="5"></label> &nbsp; <label>SEO কীওয়ার্ড লাইন: <input type="text" id="ym-kw" style="width:100%"></label></p>
         <p><button class="button" id="ym-preview">যে ব্লক বসবে দেখুন</button> <button class="button button-primary" id="ym-sync">এখনই ১০০ ভিডিওর বিবরণ হালনাগাদ</button> <button class="button" id="ym-stop">থামান</button></p>
         <pre id="ym-block" style="white-space:pre-wrap;background:#fff;border:1px solid #e5e7eb;padding:8px;display:none"></pre>
         <p><b>প্লেলিস্ট:</b> <button class="button" id="ym-plan0">নিয়ম দিয়ে ভাগ (০.২০)</button> <button class="button" id="ym-plan1">AI দিয়ে ভাগ</button></p>
@@ -896,7 +903,7 @@ function sb_ytm_panel() {
             function esc(s){var d=document.createElement('div');d.textContent=s;return d.innerHTML;}
             var plan=null;
             function show(d){
-                $('#ym-auto').checked=!!d.auto;$('#ym-ai').checked=!!d.ai;
+                $('#ym-auto').checked=!!d.auto;$('#ym-ai').checked=!!d.ai;$('#ym-th').checked=!!d.thumb;if(document.activeElement!==$('#ym-campus'))$('#ym-campus').value=d.campus||'';if(document.activeElement!==$('#ym-kw'))$('#ym-kw').value=d.kw||'';
                 var j=d.job,t=(d.msg?d.msg+' · ':'')+(d.last?'শেষ হালনাগাদ: '+d.last+' · ':'')+'আজ ইউটিউব সীমা ব্যবহার: '+d.quota+'/১০০০০';
                 if(j){t+=' · কাজ: '+(j.type==='sync'?'বিবরণ':'প্লেলিস্ট')+' '+j.state+' ('+j.i+'/'+j.n+')'+(j.err?' — '+j.err:'')+(j.bill?' · খরচ $'+Number(j.bill).toFixed(2):'');}
                 if(d.perr)t+=' · ❌ '+d.perr;if(d.busy)t+=' · পরিকল্পনা বানানো চলছে… '+(d.plog||'');
@@ -910,7 +917,7 @@ function sb_ytm_panel() {
                 if($('#ym-apply'))$('#ym-apply').onclick=function(){var s=[];document.querySelectorAll('.ym-on').forEach(function(c){var i=c.dataset.i;s.push({i:+i,on:c.checked,name:document.querySelector('.ym-nm[data-i="'+i+'"]').value});});go({do:'apply',lists:JSON.stringify(s)});};
             }
             function go(x){$('#ym-st').textContent='…';call(x).then(function(r){if(!r.success){$('#ym-st').textContent='❌ '+r.data;return;}show(r.data);});}
-            $('#ym-save').onclick=function(){go({do:'save',auto:$('#ym-auto').checked?1:'',ai:$('#ym-ai').checked?1:''});};
+            $('#ym-save').onclick=function(){go({do:'save',auto:$('#ym-auto').checked?1:'',ai:$('#ym-ai').checked?1:'',thumb:$('#ym-th').checked?1:'',campus:$('#ym-campus').value,kw:$('#ym-kw').value});};
             $('#ym-preview').onclick=function(){go({do:'preview'});};
             $('#ym-sync').onclick=function(){go({do:'sync'});};
             $('#ym-stop').onclick=function(){go({do:'stop'});};

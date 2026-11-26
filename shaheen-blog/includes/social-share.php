@@ -244,6 +244,12 @@ function sb_share_run($id) {
         }
         sb_share_set($id, array('steps' => $S));
     }
+
+    // 5. YouTube thumbnail made from the video's own frame (hook + logo); a failure here never fails the share
+    if ($video && !empty($S['yt']) && 0 === strpos($S['yt'], 'ok:') && empty($S['thumb']) && (!function_exists('sb_ytm_cfg') || !isset(sb_ytm_cfg()['thumb']) || !empty(sb_ytm_cfg()['thumb'])) && function_exists('sb_thumb_step')) {
+        $S['thumb'] = sb_thumb_step($c, sb_share_queue()[$id], (array) $dr, substr($S['yt'], 3));
+        sb_share_set($id, array('steps' => $S));
+    }
     sb_share_finish($id, $S, $file);
 }
 
@@ -268,6 +274,9 @@ function sb_share_finish($id, $S, $file) {
     }
     if (!empty($S['yt']) && false !== stripos($S['yt'], 'expired or revoked')) {
         $L[] = '🔑 YouTube token needs renewing: WordPress → Facebook → auto-share → "ইউটিউব সংযোগ করুন", press Allow once.';
+    }
+    if (!empty($S['thumb'])) {
+        $L[] = '🖼️ Thumbnail: ' . (0 === strpos($S['thumb'], 'ok:') ? 'set ✅ (“' . esc_html(substr($S['thumb'], 3)) . '”)' : esc_html($S['thumb']));
     }
     if (!empty($S['dl'])) {
         $L[] = '⚠️ ' . esc_html($S['dl']);
@@ -305,7 +314,7 @@ function sb_share_ai($c, $video, $file, $msg, $fb) {
     );
     $sys = 'তুমি শাহীন শিক্ষা পরিবারের (বাংলাদেশের স্কুল ও ক্যাডেট কোচিং নেটওয়ার্ক) সোশ্যাল মিডিয়া ও SEO সম্পাদক। শুধু ' . ($video ? 'ভিডিওতে যা দেখা ও শোনা যায়' : 'ছবিতে যা দেখা যায়') . ' এবং দেওয়া পোস্টের লেখার ভিতরে থাকবে; কোনো তথ্য, সংখ্যা, নাম, তারিখ বা উদ্ধৃতি বানাবে না। '
          . 'বাংলায় (প্রয়োজনে সহজ ইংরেজি কীওয়ার্ডসহ), আন্তরিক ও সার্চ-বান্ধব ভাষায় লিখবে। শুধু "শাহীন" একা লিখবে না: স্কুল/কোচিং হলে "শাহীন স্কুল ও ক্যাডেট কোচিং", পুরো প্রতিষ্ঠান হলে "শাহীন শিক্ষা পরিবার"। '
-         . 'শুধু এই JSON দেবে: {"yt_title":"সর্বোচ্চ ৯০ অক্ষর, মূল কীওয়ার্ড শুরুতে","yt_desc":"প্রথম দুই লাইনে মূল কথা ও কীওয়ার্ড, মোট ৪-৮ লাইন, লিংক ছাড়া","ig":"ইনস্টাগ্রাম ক্যাপশন ২-৪ লাইন, শেষে ৫-৮টি হ্যাশট্যাগ","tags":["৬-১০টি ট্যাগ, # ছাড়া"]}';
+         . 'শুধু এই JSON দেবে: {"yt_title":"সর্বোচ্চ ৯০ অক্ষর, মূল কীওয়ার্ড শুরুতে","yt_desc":"প্রথম দুই লাইনে মূল কথা ও কীওয়ার্ড, মোট ৪-৮ লাইন, লিংক ছাড়া","ig":"ইনস্টাগ্রাম ক্যাপশন ২-৪ লাইন, শেষে ৫-৮টি হ্যাশট্যাগ","tags":["৬-১০টি ট্যাগ, # ছাড়া"],"hook":"থাম্বনেইলের জন্য ৩-৬ শব্দের আকর্ষণীয় হুক (প্রশ্ন বা চমক), ভিডিওর সত্যের মধ্যে, কোনো সংখ্যা বা তথ্য বানাবে না"}';
     $usr = "ফেসবুক পোস্টের লেখা: " . mb_substr($msg, 0, 1500);
     $d = null;
     if ('' !== $c['gem_key'] && is_file($file)) {
@@ -332,6 +341,7 @@ function sb_share_ai($c, $video, $file, $msg, $fb) {
         'yt_desc'  => trim($desc . sb_share_footer() . ($tags ? "\n\n" . implode(' ', array_map(function ($t) { return '#' . preg_replace('/\s+/u', '', $t); }, array_slice($tags, 0, 8))) : '')),   // a space ends a hashtag, so each one is written joined
         'ig'       => mb_substr(sanitize_textarea_field((string) $d['ig']), 0, 2000),
         'tags'     => $tags ?: $plain['tags'],
+        'hook'     => mb_substr(trim(sanitize_text_field((string) ($d['hook'] ?? ''))), 0, 60),
         'ai'       => 1,
     );
 }

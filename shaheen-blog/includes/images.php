@@ -241,7 +241,7 @@ function sb_img_call($model, $prompt, $size, $quality, $refs) {
     if ($refs) {
         $files = array();
         foreach ($refs as $r) {
-            $path = get_attached_file((int) $r['att']);
+            $path = !empty($r['path']) ? $r['path'] : get_attached_file((int) $r['att']);
             if (!$path || !is_readable($path)) {
                 continue;
             }
