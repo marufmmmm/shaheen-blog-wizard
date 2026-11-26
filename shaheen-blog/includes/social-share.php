@@ -944,6 +944,49 @@ add_action('admin_post_sb_yt_cb', function () {
     $o = get_option('sb_share', array());
     $o = is_array($o) ? $o : array();
     $o['yt_rt'] = (string) $j['refresh_token'];
+    $o['yt_rt_t'] = time();   // when this token was made (a Google app in Testing mode lets it die after about 7 days)
     update_option('sb_share', $o, false);
     $back(true);
+});
+
+
+/* ------------------------------------------------------------ YouTube token watch: once a day, warns on Telegram before / when the token dies */
+add_action('init', function () {
+    if (!wp_next_scheduled('sb_yt_watch')) {
+        wp_schedule_event(time() + 600, 'daily', 'sb_yt_watch');
+    }
+});
+add_action('sb_yt_watch', function () {
+    $c = sb_share_cfg();
+    if (empty($c['yt_on']) || '' === $c['yt_rt'] || '' === $c['yt_cid']) {
+        return;
+    }
+    $cfg = function_exists('sb_notify_cfg') ? sb_notify_cfg() : array('tg_chat' => '');
+    if ('' === (string) $cfg['tg_chat'] || !function_exists('sb_tg_api')) {
+        return;
+    }
+    if (empty($c['yt_rt_t'])) {   // token made before this watch existed: count from now
+        $o = get_option('sb_share', array());
+        $o = is_array($o) ? $o : array();
+        $o['yt_rt_t'] = time();
+        update_option('sb_share', $o, false);
+        $c['yt_rt_t'] = $o['yt_rt_t'];
+    }
+    $link = admin_url('admin.php?page=sb-research');
+    $age  = !empty($c['yt_rt_t']) ? (time() - (int) $c['yt_rt_t']) / DAY_IN_SECONDS : -1;
+    $tok  = sb_share_yt_token($c);
+    if (is_wp_error($tok)) {
+        if (get_transient('sb_yt_warned_dead')) {
+            return;   // one message per day at most
+        }
+        set_transient('sb_yt_warned_dead', 1, 20 * HOUR_IN_SECONDS);
+        sb_tg_api('sendMessage', array('chat_id' => $cfg['tg_chat'], 'parse_mode' => 'HTML', 'disable_web_page_preview' => 'true',
+            'text' => "🔑 <b>YouTube token has expired.</b>\nVideos will not go to YouTube until it is renewed.\nOpen: " . esc_url_raw($link) . "\nPress <b>ইউটিউব সংযোগ করুন</b>, then Allow (one click)."));
+        return;
+    }
+    if ($age >= 5.5 && !get_transient('sb_yt_warned_soon')) {
+        set_transient('sb_yt_warned_soon', 1, 20 * HOUR_IN_SECONDS);
+        sb_tg_api('sendMessage', array('chat_id' => $cfg['tg_chat'], 'parse_mode' => 'HTML', 'disable_web_page_preview' => 'true',
+            'text' => "🔑 <b>YouTube token will expire in about a day or two</b> (the Google app is in Testing mode).\nRenew it now: " . esc_url_raw($link) . "\nPress <b>ইউটিউব সংযোগ করুন</b>, then Allow (one click)."));
+    }
 });
