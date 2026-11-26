@@ -218,7 +218,7 @@ function sb_ytm_ai($sys, $usr) {
         return array(null, 0.0);
     }
     sb_meter_take();
-    $r    = wp_remote_post(SB_AI::ENDPOINT, array('timeout' => 120, 'headers' => array('Authorization' => 'Bearer ' . $key, 'Content-Type' => 'application/json'),
+    $r    = wp_remote_post(SB_AI::ENDPOINT, array('timeout' => 70, 'headers' => array('Authorization' => 'Bearer ' . $key, 'Content-Type' => 'application/json'),
         'body' => wp_json_encode(array('model' => sb_model_for('bulk'), 'response_format' => array('type' => 'json_object'), 'messages' => array(array('role' => 'system', 'content' => $sys), array('role' => 'user', 'content' => $usr))))));
     $real = sb_meter_take();
     if (is_wp_error($r) || 200 !== (int) wp_remote_retrieve_response_code($r)) {
@@ -663,6 +663,7 @@ function sb_ytm_state() {
         'quota' => (int) get_transient('sb_ytm_q_' . wp_date('Ymd')),
         'busy' => (time() - (int) get_option('sb_ytm_plan_busy', 0)) < 600 ? 1 : 0,
         'perr' => (string) get_option('sb_ytm_plan_err', ''),
+        'plog' => (string) (get_option('sb_ytm_plan_st', array())['log'] ?? ''),
     );
     if (!empty($pl['lists'])) {
         $out['plan'] = array('ai' => (int) $pl['ai'], 'lists' => array_map(function ($l) use ($pl) {
@@ -708,20 +709,38 @@ add_action('sb_ytm_plan_run', function ($ai) {
                 $vids[$id] = array('t' => (string) $s['title'], 'p' => (string) ($s['publishedAt'] ?? ''), 'd' => mb_substr(trim(preg_replace('/\s+/u', ' ', (string) $s['description'])), 0, 90));
             }
         }
-        $st = array('vids' => $vids, 'order' => array_keys($vids), 'i' => 0, 'lists' => array(), 'desc' => array(), 'real' => 0.0, 'ok' => 0);
+        $st = array('vids' => $vids, 'order' => array_keys($vids), 'i' => 0, 'lists' => array(), 'desc' => array(), 'real' => 0.0, 'ok' => 0, 'tries' => 0, 'log' => 'ভিডিও তালিকা পড়া হয়েছে: ' . count($vids));
+        update_option('sb_ytm_plan_st', $st, false);
+        update_option('sb_ytm_plan_busy', time(), false);
+        sb_ytm_plan_next();
+        return;
     }
     $vids  = $st['vids'];
-    $batch = array_slice($st['order'], (int) $st['i'], 50);
+    $batch = array_slice($st['order'], (int) $st['i'], 25);
+    // if this batch has already died twice (time limit, error), it goes by the keyword rules instead of the AI
+    $st['tries'] = (int) $st['tries'] + 1;
+    update_option('sb_ytm_plan_st', $st, false);
+    update_option('sb_ytm_plan_busy', time(), false);
+    $finished = false;
+    register_shutdown_function(function () use (&$finished) {
+        if (!$finished) {
+            sb_ytm_plan_next(20);   // the batch was cut off: try again
+        }
+    });
     $rows  = array();
     foreach ($batch as $id) {
         $rows[] = $id . ' | ' . $vids[$id]['t'] . ' | ' . $vids[$id]['d'];
     }
-    list($r, $real) = sb_ytm_ai(
+    $r = null;
+    $real = 0.0;
+    if ((int) $st['tries'] <= 2) {
+        list($r, $real) = sb_ytm_ai(
         'তুমি একটি স্কুল-কোচিং প্রতিষ্ঠানের ইউটিউব ভিডিও প্লেলিস্টে সাজাচ্ছ। নিচের ভিডিওগুলো প্রতিটি সবচেয়ে মানানসই একটি প্লেলিস্টে দাও। এই প্লেলিস্টগুলো অবশ্যই ব্যবহার করবে যেখানে মানায়: "প্রশংসা ও সম্মাননা" (অভিভাবক/অতিথির মতামত, সম্মাননা, অভিনন্দন), "ক্লাস লেকচার (বাংলা)", "ক্লাস লেকচার (ইংরেজি)"; এছাড়া বিষয় দেখে অন্য প্লেলিস্ট (সব মিলিয়ে ৪ থেকে ৯টির বেশি হবে না)। নাম সহজ চলতি বাংলায়, ৬০ অক্ষরের মধ্যে, নামে "শাহীন" একা লিখবে না; বর্ণনা এক বাক্যে।'
         . ($st['lists'] ? ' এই প্লেলিস্টগুলো আগেই হয়েছে; মানালে হুবহু এই নামই ব্যবহার করবে, একেবারে নতুন বিষয় হলে তবেই নতুন নাম দেবে: ' . implode(' | ', array_keys($st['lists'])) . '.' : '')
         . ' ভিডিওর আইডি বানাবে না। শুধু এই JSON: {"lists":[{"name":"...","desc":"...","ids":["..."]}]}',
         implode("\n", $rows)
-    );
+        );
+    }
     $st['real'] += $real;
     $done = array();
     if (!empty($r['lists']) && is_array($r['lists'])) {
@@ -750,7 +769,10 @@ add_action('sb_ytm_plan_run', function ($ai) {
             }
         }
     }
-    $st['i'] = (int) $st['i'] + 50;
+    $st['i'] = (int) $st['i'] + 25;
+    $st['tries'] = 0;
+    $st['log'] = 'দেখা হয়েছে ' . min($st['i'], count($st['order'])) . '/' . count($st['order']);
+    $finished = true;
     if ($st['i'] < count($st['order'])) {
         update_option('sb_ytm_plan_st', $st, false);
         update_option('sb_ytm_plan_busy', time(), false);
@@ -853,7 +875,7 @@ function sb_ytm_panel() {
                 $('#ym-auto').checked=!!d.auto;$('#ym-ai').checked=!!d.ai;
                 var j=d.job,t=(d.msg?d.msg+' · ':'')+(d.last?'শেষ হালনাগাদ: '+d.last+' · ':'')+'আজ ইউটিউব সীমা ব্যবহার: '+d.quota+'/১০০০০';
                 if(j){t+=' · কাজ: '+(j.type==='sync'?'বিবরণ':'প্লেলিস্ট')+' '+j.state+' ('+j.i+'/'+j.n+')'+(j.err?' — '+j.err:'')+(j.bill?' · খরচ $'+Number(j.bill).toFixed(2):'');}
-                if(d.perr)t+=' · ❌ '+d.perr;if(d.busy)t+=' · পরিকল্পনা বানানো চলছে…';
+                if(d.perr)t+=' · ❌ '+d.perr;if(d.busy)t+=' · পরিকল্পনা বানানো চলছে… '+(d.plog||'');
                 $('#ym-st').textContent=t;if(d.busy)setTimeout(function(){call({do:'state'}).then(function(r){if(r.success)show(r.data);});},6000);
                 if(d.block){$('#ym-block').style.display='block';$('#ym-block').textContent=d.block;}
                 plan=d.plan;var h='';
