@@ -51,7 +51,7 @@
     });
   }
 
-  $('#img-describe').addEventListener('click', function () {
+  [].forEach.call(document.querySelectorAll('.img-describe'), function (bn) { bn.addEventListener('click', function () {
     var id = window.sbFeat ? sbFeat.get() : 0;
     if (!id) { say('আগে ফিচার্ড ছবি বেছে নিন বা AI দিয়ে বানান।', true); return; }
     var f = fields();
@@ -62,7 +62,7 @@
       setFields(d); return post('sb_img_meta', Object.assign({ id: id }, { alt: d.alt, imgtitle: d.title, caption: d.caption, details: d.details }));
     }).then(function () { say('✓ লেখা হয়েছে এবং ছবিতে সেভ হয়েছে। দরকার হলে বদলে নিন।'); })
       .catch(function (e) { say(e.message, true); }).then(function () { busy = false; b.disabled = false; });
-  });
+  }); });
   $('#img-mkprompt').addEventListener('click', function () {
     if (busy) { return; } busy = true; var b = this; b.disabled = true; say('⏳ প্রম্পট তৈরি হচ্ছে…');
     mkPrompt().then(function (d) { say('✓ প্রম্পট তৈরি হয়েছে' + (d.uniforms ? ' (ইউনিফর্ম রেফারেন্স সহ)' : '') + '। ঠিক থাকলে "ছবি বানান" চাপুন।' + (d.note ? ' ' + d.note : '')); })

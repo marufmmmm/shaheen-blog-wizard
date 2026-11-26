@@ -334,19 +334,18 @@ $costs['research'] = max(0, (int) sb_get('cost_research'));
                     </div>
                 </div>
             </div>
-            <details class="sba-imgstudio" id="img-studio" style="margin:10px 0 16px">
-                <summary><strong>🎨 ছবির তথ্য ও AI ছবি</strong> <small class="sba-muted">(ঐচ্ছিক — ছবি নিজে দিলেও নিচের তথ্যগুলো লিখে রাখা যায়)</small></summary>
-                <div class="sba-row" style="margin-top:8px">
-                    <label>Alt text (SEO)<input type="text" id="img-alt" placeholder="ছবিতে আসলে কী দেখা যাচ্ছে"></label>
-                    <label>ছবির শিরোনাম<input type="text" id="img-title"></label>
-                    <label>ক্যাপশন<input type="text" id="img-caption"></label>
-                </div>
-                <p style="margin:0 0 6px"><button type="button" class="button" id="img-describe">🤖 AI দিয়ে alt, শিরোনাম, ক্যাপশন ও বিবরণ লিখুন</button> <small class="sba-muted">(AI ছবিটা, নিচের প্রম্পট এবং আর্টিকেল তিনটিই দেখে লেখে; ছোট খরচ)</small></p>
-                <label>ছবির বিবরণ <small>(এই ছবি কী এবং লেখার সাথে কেন মেলে)</small><textarea id="img-details" rows="2"></textarea></label>
-                <hr>
+            <details class="sba-imgstudio" id="img-studio" open style="margin:10px 0 16px">
+                <summary><strong>🎨 ফিচার্ড ছবি: AI দিয়ে বানান ও ছবির তথ্য</strong> <small class="sba-muted">(ঐচ্ছিক — ছবি নিজে দিলেও নিচের তথ্যগুলো লিখে রাখা যায়)</small></summary>
+                <?php $io = sb_img_opts(); ?>
+
+                <h4 style="margin:12px 0 4px">ধাপ ১: ছবির নির্দেশ (প্রম্পট)</h4>
+                <label><small>ছবিটা কেমন হবে, সেটা ইংরেজিতে লেখা হয়। নিজে লিখতে পারেন, অথবা পাশের বাটনে AI আর্টিকেল পড়ে লিখে দেবে। ফাঁকা রেখে "ছবি বানান" চাপলেও AI নিজে লিখে নেবে।</small>
+                    <textarea id="img-prompt" rows="4" placeholder="ইংরেজিতে বিস্তারিত নির্দেশ, অথবা নিচের বাটনে AI লিখে দেবে"></textarea></label>
+                <p style="margin:6px 0"><button type="button" class="button" id="img-mkprompt">✍️ AI দিয়ে প্রম্পট লিখুন</button></p>
+
+                <h4 style="margin:12px 0 4px">ধাপ ২: ছবির সেটিং <small class="sba-muted">(না বদলালেও চলবে)</small></h4>
                 <div class="sba-row">
                     <label>মডেল<select id="img-model"><option value="auto">স্বয়ংক্রিয় (প্রস্তাবিত)</option><option value="gpt-image-2.5-sunburst">Sunburst — সবচেয়ে নির্ভুল</option><option value="gpt-image-2.5-flare">Flare — দ্রুত</option></select></label>
-                    <?php $io = sb_img_opts(); ?>
                     <label>কার ছবি<?php echo sb_img_select('img-subject', $io['subjects']); ?></label>
                     <label>ড্রেস<?php echo sb_img_select('img-uniform', $io['uniforms']); ?></label>
                     <label>মাপ<select id="img-size"><option value="1536x1024">আড়াআড়ি (১৫৩৬×১০২৪)</option><option value="1024x1024">চৌকো (১০২৪×১০২৪)</option><option value="1024x1536">লম্বা (১০২৪×১৫৩৬)</option></select></label>
@@ -356,16 +355,24 @@ $costs['research'] = max(0, (int) sb_get('cost_research'));
                     <label>লোগো<?php echo sb_img_select('img-logo', $io['logos']); ?></label>
                     <label>লোগো কোথায় বসবে<?php echo sb_img_select('img-logoat', $io['places']); ?></label>
                 </div>
-                <p style="margin:8px 0">
+
+                <h4 style="margin:12px 0 4px">ধাপ ৩: ছবি বানান</h4>
+                <p style="margin:4px 0">
                     <button type="button" class="button button-primary button-hero" id="img-make">🎨 ছবি বানান</button>
                     <span class="sba-muted" id="img-msg"></span>
                 </p>
-                <p class="sba-muted" style="margin-top:0">এক ক্লিকেই হবে: AI আগে আর্টিকেল পড়ে ছবির নির্দেশ লেখে, তারপর ছবি বানায়। আলাদা করে প্রম্পট বানাতে হয় না।</p>
-                <details style="margin:6px 0"><summary>⚙️ চাইলে নির্দেশ (প্রম্পট) নিজে দেখুন বা বদলান</summary>
-                    <label>ছবির নির্দেশ (প্রম্পট) <small>(ফাঁকা থাকলে "ছবি বানান" চাপলে AI নিজেই লিখে নেবে; আগে লেখা থাকলে সেটাই ব্যবহার হবে)</small><textarea id="img-prompt" rows="4" placeholder="ইংরেজিতে বিস্তারিত নির্দেশ"></textarea></label>
-                    <p><button type="button" class="button" id="img-mkprompt">✍️ শুধু নির্দেশটা বানিয়ে দেখান</button></p>
-                </details>
-                <p class="sba-muted">একবার চাপলে একটি ছবি তৈরি হয় এবং তখনই শুধু বিল যোগ হয়। ছবি ব্যর্থ হলে কোনো বিল নেই। ছবি WebP ফরম্যাটে সেভ হয়।</p>
+                <p class="sba-muted" style="margin-top:0">একবার চাপলে একটি ছবি তৈরি হয় এবং তখনই শুধু বিল যোগ হয়। ছবি ব্যর্থ হলে কোনো বিল নেই। ছবি WebP ফরম্যাটে সেভ হয়।</p>
+
+                <h4 style="margin:12px 0 4px">ধাপ ৪: ছবির তথ্য (SEO) <small class="sba-muted">নিজে লিখুন বা AI লিখে দেবে</small></h4>
+                <div class="sba-row">
+                    <label>Alt text (SEO)<input type="text" id="img-alt" placeholder="ছবিতে আসলে কী দেখা যাচ্ছে"></label>
+                    <label>ছবির শিরোনাম<input type="text" id="img-title"></label>
+                    <label>ক্যাপশন<input type="text" id="img-caption"></label>
+                </div>
+                <div style="display:flex;justify-content:space-between;align-items:center;gap:8px;flex-wrap:wrap"><strong>ছবির বিবরণ</strong> <button type="button" class="button button-small img-describe">🤖 AI দিয়ে লিখুন</button></div>
+                <label><small>(এই ছবি কী এবং লেখার সাথে কেন মেলে)</small>
+                    <textarea id="img-details" rows="2"></textarea></label>
+                <p style="margin:6px 0"><button type="button" class="button img-describe" id="img-describe">🤖 AI দিয়ে alt, শিরোনাম, ক্যাপশন ও বিবরণ লিখুন</button> <small class="sba-muted">(AI ছবিটা, প্রম্পট ও আর্টিকেল তিনটিই দেখে লেখে; ছোট খরচ)</small></p>
                 <hr>
                 <div id="img-extra" data-opts="<?php echo esc_attr(wp_json_encode($io)); ?>">
                     <h4 style="margin:6px 0">🖼️ আর্টিকেলের ভেতরের ছবি <small class="sba-muted">(ফিচার্ড ছাড়া)</small></h4>
