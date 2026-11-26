@@ -49,7 +49,7 @@ function sb_ytm_call($method, $path, $query = array(), $body = null, $cost = 1) 
     if ('' === $c['yt_cid'] || '' === $c['yt_sec'] || '' === $c['yt_rt']) {
         return new WP_Error('sb_ytm', 'ইউটিউব সংযোগ দেওয়া নেই।');
     }
-    $qk = 'sb_ytm_q_' . wp_date('Ymd');
+    $qk = 'sb_ytm_q_' . wp_date('Ymd', null, new DateTimeZone('America/Los_Angeles'));
     $qn = (int) get_transient($qk);
     if ($qn + $cost > SB_YTM_QUOTA) {
         return new WP_Error('sb_quota', 'আজকের ইউটিউব সীমা প্রায় শেষ।');
@@ -683,7 +683,7 @@ function sb_ytm_state() {
         'auto' => (int) $cfg['auto'], 'ai' => (int) $cfg['ai'], 'thumb' => (int) $cfg['thumb'], 'campus' => $cfg['campus'], 'kw' => $cfg['kw'], 'last' => $cfg['last'] ? wp_date('j M Y, g:i A', (int) $cfg['last']) : '', 'block' => $cfg['block'],
         'job' => $j ? array('type' => $j['type'], 'state' => $j['state'], 'i' => (int) ($j['i'] ?? $j['li'] ?? 0), 'n' => count($j['ids'] ?? $j['lists'] ?? array()), 'ok' => (int) ($j['ok'] ?? $j['added'] ?? 0), 'err' => (string) ($j['err'] ?? ''), 'bill' => $j['bill'] ?? null) : null,
         'plan' => null,
-        'quota' => (int) get_transient('sb_ytm_q_' . wp_date('Ymd')),
+        'quota' => (int) get_transient('sb_ytm_q_' . wp_date('Ymd', null, new DateTimeZone('America/Los_Angeles'))),
         'busy' => (time() - (int) get_option('sb_ytm_plan_busy', 0)) < 600 ? 1 : 0,
         'perr' => (string) get_option('sb_ytm_plan_err', ''),
         'plog' => (string) (get_option('sb_ytm_plan_st', array())['log'] ?? ''),

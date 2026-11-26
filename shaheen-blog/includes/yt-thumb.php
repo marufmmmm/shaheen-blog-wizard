@@ -40,6 +40,23 @@ function sb_thumb_frame($c, $e, $dir) {
     return $path;
 }
 
+/** a short hook from a title when the AI gave none: the part after "|" if it is short (it is usually the catchy one), else the first words, never cut inside a word */
+function sb_thumb_hook_from($title) {
+    $parts = array_values(array_filter(array_map('trim', preg_split('/\s*[|:–]\s*/u', $title))));
+    $pick  = $parts ? end($parts) : $title;
+    if (mb_strlen($pick) > 34 && count($parts) > 1) {
+        $pick = $parts[0];
+    }
+    $out = '';
+    foreach (preg_split('/\s+/u', $pick) as $w) {
+        if ('' !== $out && mb_strlen($out . ' ' . $w) > 34) {
+            break;
+        }
+        $out .= ('' === $out ? '' : ' ') . $w;
+    }
+    return $out;
+}
+
 /** returns array(jpeg_path, real_usd, model, hook) or WP_Error. Nothing is set on YouTube here. */
 function sb_thumb_build($c, $e, $dr) {
     if (!function_exists('sb_img_call') || !function_exists('sb_img_models') || !sb_img_models()) {
@@ -52,7 +69,7 @@ function sb_thumb_build($c, $e, $dr) {
     }
     $hook = trim((string) ($dr['hook'] ?? ''));
     if ('' === $hook) {
-        $hook = trim(mb_substr((string) preg_replace('/\s*[|:–-].*$/u', '', (string) ($dr['yt_title'] ?? '')), 0, 40));
+        $hook = sb_thumb_hook_from((string) ($dr['yt_title'] ?? ''));
     }
     $refs = array(array('path' => $frame, 'cat' => 'frame', 'name' => 'video frame'));
     $logo = '';
