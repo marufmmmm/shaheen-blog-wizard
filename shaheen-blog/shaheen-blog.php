@@ -15,7 +15,7 @@ if (!defined('ABSPATH')) {
     exit;
 }
 
-define('SB_VERSION', '3.10.91');
+define('SB_VERSION', '3.10.92');
 define('SB_FILE', __FILE__);
 define('SB_PATH', plugin_dir_path(__FILE__));
 define('SB_URL', plugin_dir_url(__FILE__));

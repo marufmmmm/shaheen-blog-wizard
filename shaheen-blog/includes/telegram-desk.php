@@ -245,15 +245,15 @@ function sb_desk_steps($flow, $d) {
 
 /** The ONE question for a notice: a fill-in list, built from what the site's old notices really contain. */
 function sb_desk_template($type) {
-    $tail = "\n\n📎 If you have a picture/poster or PDF, send it together with this (before or after this text). Leave a field empty if you do not have the information; the AI will not invent it. You can also paste the text of a Facebook post directly.\nWhen everything is sent, press <b>✅ Done</b> below.";
+    $tail = "\n\n📎 Have a poster, picture or PDF? Send it too (before or after this message).\n💡 Leave a line empty if you do not know it. The AI will not make up anything.\n📞 No need to write the phone number. It is added from the branch page.\n\nWhen you have sent everything, press <b>✅ Done</b>.";
     $t = array(
-        'niyog' => "Branch: \nPost and year: (e.g. Assistant Teacher, 2027)\nApplication deadline: (date and time)\nWritten test time: \nTest venue (address): \nConditions: (one per line)\nGoogle Form link: \nFacebook post link: \nPhone number: ",
-        'niyog_result' => "Branch: \nResult PDF/Drive link: \nViva date and time: \nNext step: \nSpecial notes/conditions: (one per line)\nPhone number: ",
-        'britti' => "Title: (e.g. Scholarship Exam 2027)\nApplication deadline: \nExam date: \nExam schedule: \nExam venue: \nSyllabus/circular PDF link: \nApplication link: \nConditions: (one per line)",
-        'britti_result' => "Title: \nResult PDF/link: \nResult date: \nScholarship amount: \nSpecial notes: ",
-        'form' => "Title: \nApplication deadline: \nForm link (a Google Form is embedded in the page): \nConditions: ",
+        'niyog' => "Branch: (e.g. Madaripur)\nJob and year: (e.g. Assistant Teacher, 2027)\nLast date to apply: (date and time)\nWritten test date and time: \nTest place (address): \nRules: (one per line)\nGoogle Form link: \nFacebook post link: ",
+        'niyog_result' => "Branch: (e.g. Madaripur)\nResult PDF or Drive link: \nViva date and time: \nWhat to do next: \nImportant notes: (one per line)",
+        'britti' => "Title: (e.g. Scholarship Exam 2027)\nLast date to apply: \nExam date: \nExam time: \nExam place: \nSyllabus or circular PDF link: \nApply link: \nRules: (one per line)",
+        'britti_result' => "Title: \nResult PDF or link: \nResult date: \nScholarship amount: \nImportant notes: ",
+        'form' => "Title: \nLast date to apply: \nForm link (a Google Form shows inside the page): \nRules: ",
     );
-    return isset($t[$type]) ? "<code>" . esc_html($t[$type]) . "</code>" . $tail : "<code>" . esc_html("Title: \nBranch (if any): \nMain facts and dates: \nConditions: (one per line)\nApplication/form link: \nDownload (PDF) link: \nPhone number: ") . "</code>" . $tail;
+    return isset($t[$type]) ? "<code>" . esc_html($t[$type]) . "</code>" . $tail : "<code>" . esc_html("Title: \nBranch (if any): \nMain facts and dates: \nRules: (one per line)\nApply or form link: \nPDF download link: ") . "</code>" . $tail;
 }
 
 function sb_desk_ask($m, $s) {
@@ -344,14 +344,14 @@ function sb_desk_ask($m, $s) {
             foreach ((array) csa_sn_opt('types') as $key => $t) {
                 $row[] = array(sb_desk_btn($t['label'], 't:' . $key));
             }
-            $row[] = array(sb_desk_btn('📄 Other / general notice', 't:'), $x);
-            return sb_desk_say($m, "📢 <b>What kind of notice?</b>", $row);
+            $row[] = array(sb_desk_btn('📄 Something else', 't:'), $x);
+            return sb_desk_say($m, "📢 <b>What is this notice about?</b>\nTap one button.", $row);
         case 'branch':
             return sb_desk_say($m, "📍 <b>Which branch or place?</b> (e.g. Madaripur branch)\nType it, or let the AI take it from the notice.", array(array(sb_desk_btn('🤖 AI decides / for everyone', 'skip'), $x)));
         case 'details':
             $n = count($s['d']['aids'] ?? array());
             $tl = ($s['d']['type'] ?? '') !== '' ? (csa_sn_opt('types')[$s['d']['type']]['label'] ?? '') : 'General';
-            return sb_desk_say($m, "📝 <b>" . esc_html($tl) . " notice details</b> — copy the list below, fill it in and send it in one message:\n\n" . sb_desk_template($s['d']['type'] ?? '') . ($n ? "\n\nSo far: " . $n . ' picture(s)' . (!empty($s['d']['text']) ? ' + text' : '') : ''), array(array(sb_desk_btn('✅ Done', 'done'), sb_desk_btn('❌ Cancel', 'cancel'))));
+            return sb_desk_say($m, "📝 <b>" . esc_html($tl) . " notice</b>\nStep 1: Copy the list below.\nStep 2: Fill it in and send it as one message.\n\n" . sb_desk_template($s['d']['type'] ?? '') . ($n ? "\n\n✅ Received so far: " . $n . ' picture(s)' . (!empty($s['d']['text']) ? ' and your text' : '') : ''), array(array(sb_desk_btn('✅ Done', 'done'), sb_desk_btn('❌ Cancel', 'cancel'))));
         case 'pdf':
             return sb_desk_say($m, "📎 <b>Is there a PDF/file to download?</b>\nSend the PDF directly, or send the download link.", array(array($skip, $x)));
         case 'apply':
@@ -399,12 +399,12 @@ function sb_desk_ask($m, $s) {
             }
             if ('notice' === $s['flow']) {
                 $tl = ($d['type'] ?? '') !== '' ? (csa_sn_opt('types')[$d['type']]['label'] ?? $d['type']) : 'General';
-                $sum = "📢 <b>Notice</b>\nType: " . esc_html($tl) . "\nPictures: " . count($d['aids'] ?? array()) . "; PDF: " . (!empty($d['pdf_aid']) ? 'yes' : 'no') . "; Text: " . (!empty($d['text']) ? mb_strlen($d['text']) . ' characters' : 'none') . "\n\nBefore publishing, the AI will organise dates, phones, links and conditions separately.";
+                $sum = "📢 <b>Notice</b>\nType: " . esc_html($tl) . "\nPictures: " . count($d['aids'] ?? array()) . "; PDF: " . (!empty($d['pdf_aid']) ? 'yes' : 'no') . "; Text: " . (!empty($d['text']) ? mb_strlen($d['text']) . ' characters' : 'none') . "\n\nThe AI will arrange the dates, links and rules neatly. The phone numbers come from the branch page.";
             } else {
                 $bm = array('ai' => 'AI writes it all', 'desc' => 'AI from your description', 'paste' => 'Your own text');
                 $sum = "✍️ <b>Blog</b>\nTopic: " . esc_html($d['topic']) . "\nTitle: " . esc_html(($d['title'] ?? '') ?: 'AI') . "\nKeywords: " . esc_html(($d['keywords'] ?? '') ?: 'AI') . "\nText: " . $bm[$d['body'] ?? 'ai'] . "\nLength: " . esc_html($d['length'] ?? 'medium') . "\nPicture: " . (count($d['aids'] ?? array()) ? count($d['aids']) . ' (yours)' : ('none' === ($d['imgmode'] ?? 'auto') ? 'not needed' : 'AI makes it, dress: ' . esc_html(sb_desk_dress_label(($d['uniform'] ?? 'auto') ?: 'auto')))) . "\nSEO: English title, simple slug, alt text, meta and keywords are all automatic";
             }
-            return sb_desk_say($m, $sum . "\n\nThis is the last look before publishing. What next?", array(array(sb_desk_btn('✅ Publish', 'go:publish')), array(sb_desk_btn('📝 Draft only', 'go:draft'), $x)));
+            return sb_desk_say($m, $sum . "\n\nWhat do you want to do?\n✅ Publish = goes live now.\n📝 Draft only = saved, not shown to the public.", array(array(sb_desk_btn('✅ Publish', 'go:publish')), array(sb_desk_btn('📝 Draft only', 'go:draft'), $x)));
     }
 }
 
@@ -696,7 +696,7 @@ function sb_desk_step($m, $in) {
                 if ($now && count($now['d']['aids'] ?? array()) === count($d2['aids'] ?? array()) && ($now['d']['pdf_aid'] ?? 0) === ($d2['pdf_aid'] ?? 0) && ($now['d']['text'] ?? '') === ($d2['text'] ?? '') && empty($now['ack'])) {
                     $now['ack'] = 1;
                     sb_desk_save($m, $now);
-                    sb_desk_say($m, '👍 Got it (' . count($d2['aids']) . ' picture(s)' . (!empty($d2['pdf_aid']) ? ' + PDF' : '') . (!empty($d2['text']) ? ' + text' : '') . '). Send more if there is more, otherwise press "✅ Done".', array(array(sb_desk_btn('✅ Done', 'done'), sb_desk_btn('❌ Cancel', 'cancel'))));
+                    sb_desk_say($m, '👍 Got it (' . count($d2['aids']) . ' picture(s)' . (!empty($d2['pdf_aid']) ? ', PDF' : '') . (!empty($d2['text']) ? ', text' : '') . '). Send more if you have it. If not, press "✅ Done".', array(array(sb_desk_btn('✅ Done', 'done'), sb_desk_btn('❌ Cancel', 'cancel'))));
                     $now['ack'] = 0;
                     sb_desk_save($m, $now);
                 }
