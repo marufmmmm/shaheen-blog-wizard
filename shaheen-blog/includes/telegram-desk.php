@@ -1258,11 +1258,11 @@ function sb_desk_tgnote($html) {
 }
 
 /** AI picture for a blog post: prompt from the article (+ the chosen dress), image, alt / title / caption, set as the main picture. Returns attachment id or WP_Error. */
-function sb_desk_autoimage($post_id, $title, $slug, $o, $html, $uniform = '') {
+function sb_desk_autoimage($post_id, $title, $slug, $o, $html, $uniform = '', $subject = 'auto') {
     @set_time_limit(600);
     $uni = '' !== $uniform ? $uniform : (($o['uniform'] ?? '') !== '' ? (string) $o['uniform'] : 'auto');
     sb_desk_tgnote("🎨 <b>AI picture started</b>\nPost: " . esc_html(mb_substr((string) $title, 0, 90)) . "\nDress: " . esc_html(sb_desk_dress_label($uni)) . "\n⏳ Takes 1–2 minutes; I will tell you when it is done. Cost about 7 cents.");
-    $p = sb_desk_ajax('sb_img_prompt', array('title' => $title, 'content' => wp_strip_all_tags((string) $html), 'category' => '', 'subject' => 'auto',
+    $p = sb_desk_ajax('sb_img_prompt', array('title' => $title, 'content' => wp_strip_all_tags((string) $html), 'category' => '', 'subject' => $subject,
         'uniform' => $uni, 'logo' => (string) ($o['logo'] ?? 'none'), 'logo_at' => 'chest', 'size' => '1536x1024', 'post_id' => (int) $post_id));
     if (empty($p['success'])) {
         $msg = (string) ($p['data']['message'] ?? 'The picture prompt failed');
@@ -1271,7 +1271,7 @@ function sb_desk_autoimage($post_id, $title, $slug, $o, $html, $uniform = '') {
     }
     $d = $p['data'];
     $m = sb_desk_ajax('sb_img_make', array('job' => 'd' . (int) $post_id . wp_generate_password(6, false, false), 'prompt' => $d['prompt'], 'size' => '1536x1024', 'quality' => 'medium',
-        'title' => $title, 'content' => wp_strip_all_tags((string) $html), 'category' => '', 'subject' => 'auto', 'uniform' => $uni, 'logo' => (string) ($o['logo'] ?? 'none'), 'logo_at' => 'chest',
+        'title' => $title, 'content' => wp_strip_all_tags((string) $html), 'category' => '', 'subject' => $subject, 'uniform' => $uni, 'logo' => (string) ($o['logo'] ?? 'none'), 'logo_at' => 'chest',
         'alt' => (string) $d['alt'], 'imgtitle' => (string) $d['title'], 'caption' => (string) $d['caption'], 'details' => (string) $d['details'], 'file_slug' => (string) $slug, 'post_id' => (int) $post_id));
     if (empty($m['success']) || empty($m['data']['id'])) {
         $msg = (string) ($m['data']['message'] ?? 'The picture was not created');
@@ -1965,7 +1965,15 @@ function sb_desk_notice($text, $aids, $status = 'publish', $o = array()) {
         set_post_thumbnail($id, (int) $aids[0]);
     } elseif (!isset($o['ai_img']) || $o['ai_img']) {   // no picture sent: the AI makes ONE related picture (billed x1.5), with full image SEO
         $GLOBALS['sb_img_mult'] = 1.5;
-        $ai = sb_desk_autoimage($id, $title, (string) ($d['slug'] ?? ''), array(), wp_strip_all_tags($title . ' ' . ($d['summary'] ?? '') . ' ' . ($d['branch'] ?? '') . ' ' . ($d['topic'] ?? '')), '');
+        $about = wp_strip_all_tags($title . ' ' . ($d['summary'] ?? '') . ' ' . ($d['topic'] ?? ''));
+        if (in_array($d['type'], array('niyog', 'niyog_result'), true) || preg_match('/নিয়োগ|শিক্ষক\s*(পদ|নিয়োগ)|চাকরি|recruit|vacanc|teacher\s*(post|job)/iu', $about)) {
+            $who = 'teacher';   // a job notice shows a teacher, never students
+        } elseif (in_array($d['type'], array('britti', 'britti_result'), true) || preg_match('/ভর্তি|বৃত্তি|শিক্ষার্থী|ছাত্র|ছাত্রী|admission|scholarship|student/iu', $about)) {
+            $who = 'student';
+        } else {
+            $who = 'none';      // anything else: the campus, books and classroom, no people (nothing can be mistaken)
+        }
+        $ai = sb_desk_autoimage($id, $title, (string) ($d['slug'] ?? ''), array(), $about . ' ' . ($d['branch'] ?? ''), '', $who);
         unset($GLOBALS['sb_img_mult']);
         if (!is_wp_error($ai) && (int) $ai) {
             $ai   = (int) $ai;
