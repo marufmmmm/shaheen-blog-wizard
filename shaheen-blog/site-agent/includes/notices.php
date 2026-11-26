@@ -2026,6 +2026,7 @@ function csa_sn_describe( $id ) {
 	if ( function_exists( 'csa_seo_set' ) && function_exists( 'csa_seo_plugin' ) && csa_seo_plugin() ) {
 		csa_seo_set( $id, array( 'description' => $d['seo_d'] ), 'Notice description' );
 	}
+	do_action( 'litespeed_purge_post', $id );   // the public page must not stay cached with the old text
 	return $pr['summary'];
 }
 
@@ -2036,4 +2037,15 @@ add_action( 'wp_ajax_csa_sn_describe', function () {
 	}
 	$r = csa_sn_describe( absint( $_POST['id'] ?? 0 ) );
 	is_wp_error( $r ) ? wp_send_json_error( $r->get_error_message() ) : wp_send_json_success( $r );
+} );
+
+add_action( 'wp_ajax_csa_sn_purge', function () {
+	check_ajax_referer( 'sb_admin', 'nonce' );
+	if ( ! current_user_can( 'manage_options' ) ) {
+		wp_send_json_error( 'No permission.' );
+	}
+	$id = absint( $_POST['id'] ?? 0 );
+	clean_post_cache( $id );
+	do_action( 'litespeed_purge_post', $id );
+	wp_send_json_success( 'ok' );
 } );
