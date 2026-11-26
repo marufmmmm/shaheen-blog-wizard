@@ -2,6 +2,7 @@
 if (!defined('ABSPATH')) {
     exit;
 }
+$rw   = !empty($GLOBALS['sb_wizard_mode']) && 'rewrite' === $GLOBALS['sb_wizard_mode'];   // Rewrite = the same wizard; only the first page's source part differs
 $pid  = isset($_GET['post']) ? (int) $_GET['post'] : 0; // phpcs:ignore WordPress.Security.NonceVerification
 $post = null;
 if ($pid) {
@@ -57,7 +58,8 @@ $costs['custom3'] = sb_custom_cost(3);
 $costs['research'] = max(0, (int) sb_get('cost_research'));
 ?>
 <div class="wrap sba">
-    <h1><?php echo $post ? 'পোস্ট এডিট করুন' : 'নতুন পোস্ট তৈরি করুন'; ?></h1>
+    <h1><?php echo $post ? 'পোস্ট এডিট করুন' : ($rw ? '🔁 রিরাইট করে পোস্ট' : 'নতুন পোস্ট তৈরি করুন'); ?></h1>
+    <?php if ($rw) : ?><div class="sba-note">🔁 <strong>রিরাইট:</strong> শুধু পেজ ১-এর "কার লেখা" অংশটুকু আলাদা: অন্যের লেখা পেস্ট করুন বা তার লিংক দিন। AI তথ্য ঠিক রেখে সহজ নিজের ভাষায় নতুন করে লিখবে। এরপর পেজ ২ (ঠিক করুন) ও পেজ ৩ (সামারি, FAQ, SEO, ছবি) নতুন লেখার মতোই।</div><script>window.SB_REWRITE = true;</script><?php endif; ?>
     <?php sb_credit_pill(); ?>
 
     <div class="sba-note">✏️ পোস্টের লেখা, ছবি, ক্যাটাগরি, তারিখ এডিট করতে <strong>কোনো খরচ লাগে না</strong>। খরচ হয় শুধু AI বাটনে ক্লিক করলে।</div>
@@ -102,9 +104,17 @@ $costs['research'] = max(0, (int) sb_get('cost_research'));
             <input type="hidden" id="f-topic" value="<?php echo esc_attr($d['topic']); ?>">
 
             <div class="sba-ai sba-write">
-                <div class="sba-ai-head"><h3>✍️ কী লিখবেন <small>(১ম পেজের সব কাজ এখানে)</small></h3></div>
+                <div class="sba-ai-head"><h3><?php echo $rw ? '🔁 কার লেখা রিরাইট করবেন? <small>(মূল লেখা পেস্ট করুন বা লিংক দিন)</small>' : '✍️ কী লিখবেন <small>(১ম পেজের সব কাজ এখানে)</small>'; ?></h3></div>
 
-                <label><strong>৩. বিবরণ</strong> <small>(বিষয়টি নিয়ে আপনার জানা আসল তথ্য ও নির্দেশ: কী লিখবে, কাদের জন্য, কোন তথ্য থাকবে। এটাই লেখার মূল প্রম্পট)</small>
+                <?php if ($rw) : ?>
+                <div id="rw-src-first" style="margin-bottom:10px">
+                    <label><strong>৩. মূল লেখা</strong> <small>(যে লেখাটি নতুন করে লিখবেন সেটি এখানে পেস্ট করুন, কমপক্ষে ২০০ অক্ষর। লিংক দিলে পেস্ট না করলেও চলে)</small>
+                    <textarea id="rw-paste-first" rows="8" style="width:100%" placeholder="এখানে অন্যের লেখা পেস্ট করুন"></textarea></label>
+                    <label><strong>অথবা লিংক</strong> <small>(প্রতি লাইনে একটি, ৩–৪টি হলে ভালো; AI সবগুলো পড়ে একটিই সম্পূর্ণ নতুন লেখা লিখবে)</small>
+                    <textarea id="rw-links-first" rows="3" style="width:100%" placeholder="https://site-1.com/news&#10;https://site-2.com/news"></textarea></label>
+                </div>
+                <?php endif; ?>
+                <label><strong><?php echo $rw ? '৪. আপনার নির্দেশ (ঐচ্ছিক)' : '৩. বিবরণ'; ?></strong> <small>(<?php echo $rw ? 'যেমন: কাদের জন্য, কী সুরে, কোন তথ্য বেশি জোর দেবে। না লিখলেও চলবে' : 'বিষয়টি নিয়ে আপনার জানা আসল তথ্য ও নির্দেশ: কী লিখবে, কাদের জন্য, কোন তথ্য থাকবে। এটাই লেখার মূল প্রম্পট'; ?>)</small>
                 <div id="ansi-note" class="sba-muted" hidden>🔤 This text looks like old Bijoy (ANSI). AI will decode it to Unicode Bangla first.</div>
                 <textarea id="f-custom" rows="8" style="width:100%" placeholder="যেমন: ক্যাডেট কলেজ ভর্তি নিয়ে লিখুন। ষষ্ঠ শ্রেণি, ছেলেদের জন্য। আবেদন ১–১৫ নভেম্বর। ফি … । অভিভাবকদের উদ্দেশে, আন্তরিক সুরে।"></textarea></label>
 
@@ -119,17 +129,17 @@ $costs['research'] = max(0, (int) sb_get('cost_research'));
                     <label>👥 পাঠক <select id="f-aud"><?php foreach (sb_audiences() as $ak => $av) : ?><option value="<?php echo esc_attr($ak); ?>"><?php echo esc_html($av[0]); ?></option><?php endforeach; ?></select></label>
                     <label>🎙️ সুর <select id="f-tone"><?php foreach (sb_tones() as $tk => $tv) : ?><option value="<?php echo esc_attr($tk); ?>"><?php echo esc_html($tv[0]); ?></option><?php endforeach; ?></select></label>
                 </div>
-                <label class="sba-comp" style="display:block;margin-top:10px"><strong>৪. Websites to beat</strong> <small class="sba-muted">(প্রতি লাইনে একটি লিংক, সর্বোচ্চ ৫টি)</small>
+                <label class="sba-comp" style="display:block;margin-top:10px<?php echo $rw ? ';display:none' : ''; ?>"><strong>৪. Websites to beat</strong> <small class="sba-muted">(প্রতি লাইনে একটি লিংক, সর্বোচ্চ ৫টি)</small>
                     <textarea id="f-comp" rows="3" style="width:100%" placeholder="https://site-1.com/their-article&#10;https://site-2.com/their-article"></textarea>
                     <small class="sba-muted">AI এই পেজগুলো পড়ে দেখবে ওরা কী বলেছে ও কী বলেনি, তারপর আপনার কীওয়ার্ড ও বিবরণ মিশিয়ে নিজের ভাষায় নতুন লেখা লিখবে (হুবহু কপি নয়)।</small></label>
 
-                <fieldset class="sba-mode" style="margin-top:10px;border:1px solid #dcdcde;padding:8px 12px;border-radius:6px">
+                <fieldset class="sba-mode" <?php echo $rw ? 'hidden' : ''; ?> style="margin-top:10px;border:1px solid #dcdcde;padding:8px 12px;border-radius:6px">
                     <legend><strong>৫. লেখা কোন উৎস থেকে হবে?</strong></legend>
                     <label class="sba-inline-check" style="display:block"><input type="radio" name="f-mode" value="links"> (ক) শুধু ওপরের লিংকগুলো থেকে পড়ে, কীওয়ার্ড ও বিবরণ মিশিয়ে</label>
                     <label class="sba-inline-check" style="display:block"><input type="radio" name="f-mode" value="paste"> (খ) নিচের বক্সে পেস্ট করা লেখা থেকে, কীওয়ার্ড ও বিবরণ মিশিয়ে</label>
                     <label class="sba-inline-check" style="display:block"><input type="radio" name="f-mode" value="both" checked> (গ) লিংক ও পেস্ট করা লেখা দুটোই</label>
                 </fieldset>
-                <div id="paste-wrap" style="margin-top:8px">
+                <div id="paste-wrap" style="margin-top:8px<?php echo $rw ? ';display:none' : ''; ?>">
                     <label>📋 পেস্ট করা লেখা <small>(অন্য কোথাও থেকে কপি করা লেখা বা নিজের নোট; AI নিজের ভাষায় নতুন করে লিখবে, হুবহু কপি নয়)</small>
                     <textarea id="f-paste" rows="6" style="width:100%" placeholder="এখানে লেখা পেস্ট করুন (ঐচ্ছিক)"></textarea></label>
                 </div>
@@ -182,7 +192,7 @@ $costs['research'] = max(0, (int) sb_get('cost_research'));
                 <p class="sba-muted" style="margin:10px 0 0">💡 <strong>আগে বুঝে নিন:</strong> AI পুরো লেখা না লিখে আপনার তথ্য, সাইট ও ইন্টারনেট ঘেঁটে বলবে সে কী বুঝেছে, কী জানতে চায় ও কী যোগ করলে লেখা তথ্যবহুল হবে। আপনি ঠিক করে দিলে তবেই লেখা শুরু হবে।</p>
                 <div style="margin-top:8px;display:flex;gap:10px;align-items:center;flex-wrap:wrap">
                     <button type="button" class="button button-primary" id="brief-go">🧭 আগে বুঝে নিন</button>
-                    <button type="button" class="button" data-ai="custom">🤖 সরাসরি লিখুন</button>
+                    <button type="button" class="button<?php echo $rw ? ' button-primary' : ''; ?>" data-ai="custom"><?php echo $rw ? '🤖 নতুন করে লিখুন' : '🤖 সরাসরি লিখুন'; ?></button>
                 </div>
                 <div id="brief-box" class="sba-brief" hidden></div>
             </div>

@@ -45,7 +45,7 @@ function sb_admin_assets() {
     wp_enqueue_style('sb-admin', SB_URL . 'assets/css/admin.css', array('sb-fonts'), SB_VERSION . '.' . filemtime(SB_PATH . 'assets/css/admin.css'));
     wp_enqueue_script('sb-admin', SB_URL . 'assets/js/admin.js', array(), SB_VERSION . '.' . filemtime(SB_PATH . 'assets/js/admin.js'), true);
 
-    if ($page === 'sb-new') {
+    if ($page === 'sb-new' || $page === 'sb-rewrite') {
         wp_enqueue_script('sb-images', SB_URL . 'assets/js/images.js', array('sb-admin'), SB_VERSION . '.' . filemtime(SB_PATH . 'assets/js/images.js'), true);
     }
     if ($page === 'sb-uniforms') {
@@ -132,7 +132,7 @@ function sb_credit_pill() {
 
 function sb_page_dashboard() { include SB_PATH . 'views/dashboard.php'; }
 function sb_page_new()       { include SB_PATH . 'views/wizard.php'; }
-function sb_page_rewrite()   { include SB_PATH . 'views/rewrite.php'; }
+function sb_page_rewrite()   { $GLOBALS['sb_wizard_mode'] = 'rewrite'; include SB_PATH . 'views/wizard.php'; }
 function sb_page_memory()    { include SB_PATH . 'views/memory.php'; }
 function sb_page_social()    { include SB_PATH . 'views/social.php'; }
 function sb_page_press()     { include SB_PATH . 'views/press.php'; }

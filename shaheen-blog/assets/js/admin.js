@@ -710,11 +710,14 @@
   function modeVal() { var r = $('input[name="f-mode"]:checked'); return r ? r.value : 'both'; }
   function aiPayload(feature) {
     var extra = {};
-    if (feature === 'custom' || feature === 'brief') { extra = { style: val('#f-style') || 'para', words: val('#f-words'), mode: modeVal(), paste: val('#f-paste'), ptype: val('#f-ptype') || 'general', aud: val('#f-aud') || 'all', tone: val('#f-tone') || 'warm', brief: (feature === 'custom') ? (SB.briefText || '') : '', comp: val('#f-comp'), ansi: looksAnsi(val('#f-custom')) ? '1' : '0', tier: val('#f-clen') || '1', model: val('#f-cmodel'), urls: val('#f-curls'), files: [].slice.call(($('#f-cfiles') || {}).files || []) }; }
+    if (window.SB_REWRITE && $('#rw-paste-first')) {   // Rewrite: the first-page source boxes feed the normal paste / links fields
+      var _p = $('#f-paste'), _c = $('#f-comp'); if (_p) { _p.value = val('#rw-paste-first'); } if (_c) { _c.value = val('#rw-links-first'); }
+    }
+    if (feature === 'custom' || feature === 'brief') { extra = { style: val('#f-style') || 'para', words: val('#f-words'), mode: window.SB_REWRITE ? (val('#rw-paste-first').trim().length >= 200 ? (val('#rw-links-first').trim() ? 'both' : 'paste') : 'links') : modeVal(), paste: val('#f-paste'), ptype: val('#f-ptype') || 'general', aud: val('#f-aud') || 'all', tone: val('#f-tone') || 'warm', brief: (feature === 'custom') ? (SB.briefText || '') : '', comp: val('#f-comp'), ansi: looksAnsi(val('#f-custom')) ? '1' : '0', tier: val('#f-clen') || '1', model: val('#f-cmodel'), urls: val('#f-curls'), files: [].slice.call(($('#f-cfiles') || {}).files || []) }; }
     var base = {
       feature: feature, post_id: postId, lang: val('#f-lang') || '', title: val('#f-title'), topic: val('#f-topic'), excerpt: val('#f-excerpt'),
       content: editorContent(), keywords: keywords(), length: val('#f-length'),
-      source: val('#f-source'), instruction: (feature === 'custom' || feature === 'brief') ? val('#f-custom') : '', faq_count: val('#f-faqn') || '5',
+      source: val('#f-source'), instruction: (feature === 'custom' || feature === 'brief') ? ((window.SB_REWRITE ? 'এটি রিরাইট: উৎস লেখা (পেস্ট করা লেখা ও লিংকের লেখা) পড়ে বিষয়টি বুঝে, সব তথ্য, সংখ্যা ও তারিখ ঠিক রেখে সম্পূর্ণ নিজের সহজ ভাষায় নতুন করে লেখো; উৎসের কোনো বাক্য হুবহু বা সামান্য বদলে রাখবে না; উৎসে নেই এমন তথ্য যোগ করবে না।\n' : '') + val('#f-custom')) : '', faq_count: val('#f-faqn') || '5',
       research: ($('#f-research') && $('#f-research').checked) ? '1' : '0'
     };
     Object.keys(extra).forEach(function (k) { base[k] = extra[k]; });
@@ -1187,6 +1190,8 @@
       var f = btn.dataset.ai;
       if (f === 'rewrite') {
         if (val('#f-source').trim().length < 200) { toast('আগে কপি করা লেখা (কমপক্ষে ২০০ অক্ষর) পেস্ট করুন।', 'err'); return; }
+      } else if (f === 'custom' && window.SB_REWRITE) {
+        if (val('#rw-paste-first').trim().length < 200 && !val('#rw-links-first').trim()) { toast('কমপক্ষে ২০০ অক্ষরের মূল লেখা পেস্ট করুন, অথবা লিংক দিন।', 'err'); return; }
       } else if (f === 'custom') {
         if (val('#f-custom').trim().length < 30) { toast('প্রম্পট বক্সে বিস্তারিত নির্দেশ ও তথ্য লিখুন।', 'err'); return; }
       } else if ((f === 'headlines' || f === 'subtitle' || f === 'meta' || f === 'article') && keywords().length < 2) {
@@ -1196,7 +1201,7 @@
       if ((f === 'summary' || f === 'faq' || f === 'caption') && editorContent().replace(/<[^>]+>/g, '').trim().length < 80) {
         toast('সামারি/FAQ মূল পোস্ট থেকে তৈরি হয়। আগে আর্টিকেল লিখুন বা তৈরি করুন।', 'err'); return;
       }
-      if (f === 'custom' && !SB.briefText && !window.confirm('আপনি "🧭 আগে বুঝে নিন" চালাননি। এতে AI আগে জানতে চায় কোন তথ্য লাগবে (ফি, তারিখ, শাখা…); না চালালে লেখায় তথ্যের ঘাটতি থাকতে পারে।\n\nতবুও এখনই লিখবেন?')) { return; }
+      if (f === 'custom' && !window.SB_REWRITE && !SB.briefText && !window.confirm('আপনি "🧭 আগে বুঝে নিন" চালাননি। এতে AI আগে জানতে চায় কোন তথ্য লাগবে (ফি, তারিখ, শাখা…); না চালালে লেখায় তথ্যের ঘাটতি থাকতে পারে।\n\nতবুও এখনই লিখবেন?')) { return; }
       var chain = [];
       if (f === 'article' || f === 'custom' || f === 'rewrite') { if ($('#inc-summary').checked) { chain.push('summary'); } if ($('#inc-faq').checked) { chain.push('faq'); } if ($('#inc-related').checked) { chain.push('related'); } }
       var cost = (f === 'custom' ? customPrice() : SB.costs[f]) + ((f === 'article' || f === 'custom') && $('#f-research') && $('#f-research').checked ? SB.costs.research : 0);
