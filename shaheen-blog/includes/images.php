@@ -37,6 +37,9 @@ function sb_img_cost($model, $usage) {
 
 /** What the client pays: cost / 0.70, rounded UP to $0.0001. */
 function sb_img_price($real) {
+    if (!empty($GLOBALS['sb_img_mult'])) {   // fixed multiplier for a feature (e.g. notice picture x1.5)
+        return ceil($real * (float) $GLOBALS['sb_img_mult'] * 10000 - 1e-9) / 10000;
+    }
     return ceil(($real / (1 - SB_IMG_MARGIN)) * 10000 - 1e-9) / 10000;
 }
 

@@ -399,7 +399,7 @@ function sb_desk_ask($m, $s) {
             }
             if ('notice' === $s['flow']) {
                 $tl = ($d['type'] ?? '') !== '' ? (csa_sn_opt('types')[$d['type']]['label'] ?? $d['type']) : 'General';
-                $sum = "📢 <b>Notice</b>\nType: " . esc_html($tl) . "\nPictures: " . count($d['aids'] ?? array()) . "; PDF: " . (!empty($d['pdf_aid']) ? 'yes' : 'no') . "; Text: " . (!empty($d['text']) ? mb_strlen($d['text']) . ' characters' : 'none') . "\n\nThe AI will arrange the dates, links and rules neatly. The phone numbers come from the branch page.";
+                $sum = "📢 <b>Notice</b>\nType: " . esc_html($tl) . "\nPictures: " . count($d['aids'] ?? array()) . "; PDF: " . (!empty($d['pdf_aid']) ? 'yes' : 'no') . "; Text: " . (!empty($d['text']) ? mb_strlen($d['text']) . ' characters' : 'none') . "\n\nThe AI will arrange the dates, links and rules neatly. The phone numbers come from the branch page." . (empty($d['aids']) ? "\n🎨 No picture sent, so the AI will make one related picture (with alt text and SEO)." : '');
             } else {
                 $bm = array('ai' => 'AI writes it all', 'desc' => 'AI from your description', 'paste' => 'Your own text');
                 $sum = "✍️ <b>Blog</b>\nTopic: " . esc_html($d['topic']) . "\nTitle: " . esc_html(($d['title'] ?? '') ?: 'AI') . "\nKeywords: " . esc_html(($d['keywords'] ?? '') ?: 'AI') . "\nText: " . $bm[$d['body'] ?? 'ai'] . "\nLength: " . esc_html($d['length'] ?? 'medium') . "\nPicture: " . (count($d['aids'] ?? array()) ? count($d['aids']) . ' (yours)' : ('none' === ($d['imgmode'] ?? 'auto') ? 'not needed' : 'AI makes it, dress: ' . esc_html(sb_desk_dress_label(($d['uniform'] ?? 'auto') ?: 'auto')))) . "\nSEO: English title, simple slug, alt text, meta and keywords are all automatic";
@@ -1963,6 +1963,27 @@ function sb_desk_notice($text, $aids, $status = 'publish', $o = array()) {
     }
     if ($aids) {
         set_post_thumbnail($id, (int) $aids[0]);
+    } elseif (!isset($o['ai_img']) || $o['ai_img']) {   // no picture sent: the AI makes ONE related picture (billed x1.5), with full image SEO
+        $GLOBALS['sb_img_mult'] = 1.5;
+        $ai = sb_desk_autoimage($id, $title, (string) ($d['slug'] ?? ''), array(), wp_strip_all_tags($title . ' ' . ($d['summary'] ?? '') . ' ' . ($d['branch'] ?? '') . ' ' . ($d['topic'] ?? '')), '');
+        unset($GLOBALS['sb_img_mult']);
+        if (!is_wp_error($ai) && (int) $ai) {
+            $ai   = (int) $ai;
+            $alt  = trim((string) get_post_meta($ai, '_wp_attachment_image_alt', true));
+            $kw   = trim((string) ($d['seo_k'] ?? ''));
+            $lead = trim(('' !== (string) ($d['branch'] ?? '') ? wp_strip_all_tags($d['branch']) . ' – ' : '') . ($d['topic'] ?: $title));
+            if ('' === $alt || ('' !== $kw && false === mb_stripos($alt, $kw) && false === mb_stripos($alt, $lead))) {
+                $alt = trim(mb_substr($lead . ($alt !== '' ? ' – ' . $alt : ''), 0, 125));
+            }
+            update_post_meta($ai, '_wp_attachment_image_alt', $alt);
+            wp_update_post(array('ID' => $ai, 'post_title' => mb_substr($lead, 0, 100), 'post_excerpt' => mb_substr($lead, 0, 140)));
+            set_post_thumbnail($id, $ai);
+            array_unshift($d['blocks'], array('t' => 'image', 'ids' => array($ai), 'cap' => ''));
+            update_post_meta($id, '_sn', wp_slash($d));
+            if (function_exists('csa_seo_set') && function_exists('csa_seo_plugin') && csa_seo_plugin()) {
+                // the social-share (Open Graph) picture is the post's featured image, which is set above
+            }
+        }
     }
     if (function_exists('csa_seo_set') && function_exists('csa_seo_plugin') && csa_seo_plugin()) {
         csa_seo_set($id, array('title' => $d['seo_t'], 'description' => $d['seo_d'], 'keyword' => $d['seo_k']), 'Notice SEO');
