@@ -299,11 +299,15 @@ function sb_ytm_tick() {
         return;
     }
     $pause = false;
-    if ('sync' === $j['type']) {
-        $j = sb_ytm_step_sync($j, $pause);
-    } elseif ('apply' === $j['type']) {
-        $j = sb_ytm_step_apply($j, $pause);
-    }
+    $t0    = microtime(true);
+    do {   // as many steps as fit in about 40 seconds (the host's cron may only come round now and then)
+        if ('sync' === $j['type']) {
+            $j = sb_ytm_step_sync($j, $pause);
+        } elseif ('apply' === $j['type']) {
+            $j = sb_ytm_step_apply($j, $pause);
+        }
+        sb_ytm_job_save($j);
+    } while ('run' === $j['state'] && !$pause && microtime(true) - $t0 < 40);
     sb_ytm_job_save($j);
     delete_transient('sb_ytm_lock');
     if ('done' === $j['state'] && 'apply' === $j['type'] && get_option('sb_ytm_chain_sync')) {   // playlists finished: now the descriptions
@@ -831,6 +835,11 @@ add_action('wp_ajax_sb_ytm', function () {
     } elseif ('plan_step' === $do) {   // the open admin page drives the batches one by one (a background cron alone was not reliable on this host)
         if ((time() - (int) get_option('sb_ytm_plan_busy', 0)) < 600) {
             do_action('sb_ytm_plan_run', 1);
+        }
+    } elseif ('tick' === $do) {   // the open admin page can also push a running job forward
+        $j = sb_ytm_job();
+        if (!empty($j) && 'run' === ($j['state'] ?? '')) {
+            sb_ytm_tick();
         }
     } elseif ('apply' === $do) {
         $pl  = get_option('sb_ytm_plan', array());
