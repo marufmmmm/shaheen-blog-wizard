@@ -165,7 +165,7 @@
       + '<label>মাপ<select class="s-size"><option value="1536x1024">আড়াআড়ি</option><option value="1024x1024">চৌকো</option><option value="1024x1536">লম্বা</option></select></label>'
       + '<label>মান<select class="s-quality"><option value="low">কম (সস্তা)</option><option value="medium" selected>মাঝারি</option><option value="high">উচ্চ (দামি)</option></select></label></div>'
       + '<label>প্রম্পট <small>(ইংরেজিতে; AI দিয়ে তৈরি করুন বা নিজে লিখুন)</small><textarea class="s-prompt" rows="3"></textarea></label>'
-      + '<p><button type="button" class="button s-mkp">✍️ প্রম্পট তৈরি করুন</button> <button type="button" class="button button-primary s-make">🎨 ছবি বানান ও বসান</button> <span class="s-msg sba-muted"></span></p>'
+      + '<p><button type="button" class="button s-mkp">✍️ শুধু প্রম্পট দেখান</button> <button type="button" class="button button-primary s-make">🎨 ছবি বানান ও বসান</button> <span class="s-msg sba-muted"></span></p>'
       + '<div class="s-res" hidden><img class="s-thumb" style="max-width:220px;max-height:140px;border:1px solid #ddd;vertical-align:top;margin-right:10px">'
       + '<div style="display:inline-block;width:calc(100% - 240px);min-width:260px"><div class="sba-row"><label>Alt text<input type="text" class="s-alt"></label><label>শিরোনাম<input type="text" class="s-title"></label><label>ক্যাপশন<input type="text" class="s-caption"></label></div>'
       + '<label>বিবরণ (শুধু ব্যাকএন্ড)<textarea class="s-details" rows="2"></textarea></label>'
@@ -200,8 +200,11 @@
       if (sl.id && !window.confirm('এই জায়গার ছবি আগেই আছে। নতুন ছবি বানালে পুরনোটির বদলে বসবে এবং নতুন বিল যোগ হবে। এগোবেন?')) { return; }
       run(this, '⏳ ছবি তৈরি হচ্ছে… (১ মিনিট পর্যন্ত লাগতে পারে, পেজ বন্ধ করবেন না)', function () {
         var c = common(), job = 'j' + Date.now() + Math.random().toString(36).slice(2, 8), f = sl.draft || {};
-        return post('sb_img_make', Object.assign(c, { job: job, prompt: sl.q('.s-prompt').value, model: sl.q('.s-model').value, quality: sl.q('.s-quality').value,
-          alt: sl.q('.s-alt').value || f.alt || '', imgtitle: sl.q('.s-title').value || f.title || '', caption: sl.q('.s-caption').value || f.caption || '', details: sl.q('.s-details').value || f.details || '' })).then(function (d) {
+        var pre = sl.q('.s-prompt').value.trim().length >= 20 ? Promise.resolve() : (msg('⏳ আগে ছবির নির্দেশ লেখা হচ্ছে…'), post('sb_img_prompt', c).then(function (d) {
+          sl.q('.s-prompt').value = d.prompt; f = sl.draft = { alt: d.alt, title: d.title, caption: d.caption, details: d.details }; msg('⏳ ছবি তৈরি হচ্ছে… (১ মিনিট পর্যন্ত লাগতে পারে, পেজ বন্ধ করবেন না)');
+        }));
+        return pre.then(function () { return post('sb_img_make', Object.assign(c, { job: job, prompt: sl.q('.s-prompt').value, model: sl.q('.s-model').value, quality: sl.q('.s-quality').value,
+          alt: sl.q('.s-alt').value || f.alt || '', imgtitle: sl.q('.s-title').value || f.title || '', caption: sl.q('.s-caption').value || f.caption || '', details: sl.q('.s-details').value || f.details || '' })); }).then(function (d) {
           var oldId = sl.id; if (oldId) { unplace(sl); }
           sl.id = d.id; sl.src = d.src; sl.w = d.w; sl.h = d.h; sl.q('.s-thumb').src = d.url; sl.q('.s-res').hidden = false;
           var okp = place(sl);

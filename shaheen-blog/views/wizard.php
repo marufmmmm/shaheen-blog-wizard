@@ -293,11 +293,11 @@ $costs['research'] = max(0, (int) sb_get('cost_research'));
             </div>
 
             <label>SEO টাইটেল <small>— গুগলের ফলাফলে নীল শিরোনাম। ফাঁকা রাখলে পোস্টের শিরোনাম ও সাইটের নাম নিজে বসবে। ৬০ অক্ষরের মধ্যে ভালো। <span id="seot-count"></span></small>
-                <input type="text" id="f-seotitle" maxlength="70" value="<?php echo esc_attr($d['seo_title']); ?>">
+                <input type="text" id="f-seotitle" maxlength="70" value="<?php echo esc_attr($d['seo_title']); ?>"> <button type="button" class="button sb-fieldai" data-field="seo_title" style="margin-left:6px">🤖 AI দিয়ে লিখুন</button><small class="sba-muted" style="display:block">নিজে লিখুন, অথবা বাটনে AI লিখে দেবে। দুটোই চলবে।</small>
             </label>
 
             <label>ইংরেজি শিরোনাম <small>— শুধু ব্যাকএন্ডের জন্য (সহজ ইংরেজি স্লাগ, ছবির ফাইলের নাম ও গুগলের বিকল্প শিরোনাম)। পাঠক দেখে না।</small>
-                <input type="text" id="f-entitle" maxlength="120" value="<?php echo esc_attr($d['en_title']); ?>">
+                <input type="text" id="f-entitle" maxlength="120" value="<?php echo esc_attr($d['en_title']); ?>"> <button type="button" class="button sb-fieldai" data-field="en_title" style="margin-left:6px">🤖 AI দিয়ে লিখুন</button>
             </label>
 
             <div class="sba-ai">
@@ -309,6 +309,7 @@ $costs['research'] = max(0, (int) sb_get('cost_research'));
 
             <label>সারাংশ (কার্ডে দেখাবে) <small>— এখন ফাঁকা রাখতে পারেন। আর্টিকেল তৈরি/লেখার পর পেজ ৩-এ "সারাংশ" বানালে এটা নিজে ভরে যাবে</small>
                 <textarea id="f-excerpt" rows="3" placeholder="২-৩ লাইনের সংক্ষিপ্ত বিবরণ"><?php echo esc_textarea($d['excerpt']); ?></textarea>
+                <button type="button" class="button sb-fieldai" data-field="excerpt" style="margin-left:6px">🤖 AI দিয়ে লিখুন</button><small class="sba-muted">নিজে লিখুন বা AI দিয়ে লিখুন।</small>
             </label>
             <div class="sba-row">
                 <label>লেখকের নাম <small>(ফাঁকা থাকলে আপনার নাম)</small>
@@ -318,7 +319,7 @@ $costs['research'] = max(0, (int) sb_get('cost_research'));
                     <input type="date" id="f-date" value="<?php echo esc_attr($d['date']); ?>">
                 </label>
                 <label>লিংকের নাম <small>(ইংরেজি, ঐচ্ছিক)</small>
-                    <input type="text" id="f-slug" value="<?php echo esc_attr($d['slug']); ?>" placeholder="যেমন: cadet-admission-tips">
+                    <input type="text" id="f-slug" value="<?php echo esc_attr($d['slug']); ?>" placeholder="যেমন: cadet-admission-tips"> <button type="button" class="button sb-fieldai" data-field="slug" style="margin-left:6px">🤖 AI দিয়ে লিখুন</button>
                 </label>
             </div>
             

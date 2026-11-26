@@ -161,6 +161,7 @@ function sb_ajax_ai() {
         'words'    => max(0, min(5000, (int) sb_req('words', 0))),
         'mode'     => in_array(sb_req('mode'), array('links', 'paste', 'both'), true) ? sb_req('mode') : 'both',
         'paste'    => mb_substr(sanitize_textarea_field(sb_req('paste')), 0, 40000),
+        'field'    => in_array(sb_req('field'), array('excerpt', 'seo_title', 'en_title', 'slug'), true) ? sb_req('field') : '',
         'lang'     => in_array(sb_req('lang'), array('bn', 'en'), true) ? sb_req('lang') : '',
         'ptype'    => isset(sb_ptypes()[sb_req('ptype')]) ? sb_req('ptype') : 'general',
         'aud'      => isset(sb_audiences()[sb_req('aud')]) ? sb_req('aud') : 'all',
@@ -418,7 +419,7 @@ function sb_ai_finish($uid, $feature, $ctx, $cost, $research, $result, &$notes) 
         $why = !empty($result['no_article']) ? ' AI বলছে: "' . $result['no_article'] . '"' : '';
         return array('ok' => false, 'message' => 'AI আর্টিকেল লেখেনি, তাই বিল যোগ হয়নি।' . $why . ' আবার "লিখুন" চাপুন; বারবার হলে প্রম্পট বক্সে "আগে অনুমোদন নাও/প্রশ্ন করো" ধরনের কথা থাকলে মুছে দিন।');
     }
-    $result = sb_words_apply_result($feature, $result);
+    $result = sb_brand_fix_deep(sb_words_apply_result($feature, $result));
     $bh = sb_beat_hosts(isset($ctx['beat_urls']) ? $ctx['beat_urls'] : '');
     if (in_array($feature, array('custom', 'rewrite_post'), true) && !empty($result['text'])) {
         $result['text'] = sb_ref_clean($result['text'], $bh);

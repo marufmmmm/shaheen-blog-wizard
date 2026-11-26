@@ -751,3 +751,30 @@ add_action('init', function () {
     update_option('sb_settings', $s);
     update_option('sb_code_prices', '1', false);
 }, 7);
+
+
+/**
+ * House naming rule, enforced in code: the AI may never write just "শাহীন" / "Shaheen".
+ * The group is "শাহীন শিক্ষা পরিবার" (Shaheen Education Family); the schools are "শাহীন স্কুল ও ক্যাডেট কোচিং".
+ * Full names are left alone, and so is the Chairman's own name (…আমিন শাহীন / Amin Shaheen).
+ */
+function sb_brand_fix($t) {
+    if (!is_string($t) || '' === $t || (false === mb_strpos($t, 'শাহীন') && false === stripos($t, 'shaheen'))) {
+        return $t;
+    }
+    $t = preg_replace('/(?<![\p{L}\p{M}])(?<!আমিন )(?<!আমিন\x{00A0})শাহীন(ের|কে)?(?![\p{L}\p{M}]|\s*(?:শিক্ষা|স্কুল|ক্যাডেট|এডুকেশন|এন্ড|কোচিং|পরিবার|ফ্যামিলি|গ্রুপ))/u', 'শাহীন শিক্ষা পরিবার$1', $t);
+    $t = preg_replace('/(?<![\p{L}\p{M}])(?<!Amin )Shaheen(\'s)?(?![\p{L}\p{M}]|\s+(?:Education|School|Cadet|Coaching|Family|and|&|Group))/u', 'Shaheen Education Family$1', $t);
+    return $t;
+}
+
+function sb_brand_fix_deep($v) {
+    if (is_string($v)) {
+        return sb_brand_fix($v);
+    }
+    if (is_array($v)) {
+        foreach ($v as $k => $x) {
+            $v[$k] = sb_brand_fix_deep($x);
+        }
+    }
+    return $v;
+}

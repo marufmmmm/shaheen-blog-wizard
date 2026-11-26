@@ -370,9 +370,9 @@ add_action('wp_ajax_sb_img_prompt', function () {
     SB_Credits::charge($uid, 'imgprompt', max(1, (int) ceil($real / SB_RAW_USD_PER_CREDIT)), (int) sb_req('post_id', 0));
     unset($GLOBALS['sb_real_charge']);
     wp_send_json_success(array(
-        'prompt' => sanitize_textarea_field($j['prompt']), 'alt' => sanitize_text_field(isset($j['alt']) ? $j['alt'] : ''),
-        'title' => sanitize_text_field(isset($j['title']) ? $j['title'] : ''), 'caption' => sanitize_text_field(isset($j['caption']) ? $j['caption'] : ''),
-        'details' => sanitize_textarea_field(isset($j['details']) ? $j['details'] : ''), 'note' => $note, 'uniforms' => count($refs), 'logo' => $logoref ? 1 : 0,
+        'prompt' => sanitize_textarea_field($j['prompt']), 'alt' => sb_brand_fix(sanitize_text_field(isset($j['alt']) ? $j['alt'] : '')),
+        'title' => sb_brand_fix(sanitize_text_field(isset($j['title']) ? $j['title'] : '')), 'caption' => sb_brand_fix(sanitize_text_field(isset($j['caption']) ? $j['caption'] : '')),
+        'details' => sb_brand_fix(sanitize_textarea_field(isset($j['details']) ? $j['details'] : '')), 'note' => $note, 'uniforms' => count($refs), 'logo' => $logoref ? 1 : 0,
     ));
 });
 

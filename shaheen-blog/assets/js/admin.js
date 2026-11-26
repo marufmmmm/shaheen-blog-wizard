@@ -1111,6 +1111,23 @@
         .then(function () { onlyBtn.disabled = false; onlyBtn.innerHTML = old; });
     });
   }
+  // small fields: type it yourself OR let AI write it (card summary, SEO title, English title, link name)
+  $$('.sb-fieldai').forEach(function (b) {
+    b.addEventListener('click', function () {
+      var f = b.dataset.field, map = { excerpt: '#f-excerpt', seo_title: '#f-seotitle', en_title: '#f-entitle', slug: '#f-slug' }, t = $(map[f]);
+      if (!t) { return; }
+      if (editorContent().replace(/<[^>]+>/g, '').trim().length < 80 && !val('#f-title').trim()) { toast('আগে শিরোনাম বা আর্টিকেল লিখুন।', 'err'); return; }
+      if (t.value.trim() && !window.confirm('আগের লেখা বদলে যাবে। ঠিক আছে?')) { return; }
+      var old = b.innerHTML; b.disabled = true; b.textContent = '⏳ লিখছে…';
+      var pl = aiPayload('meta'); pl.field = f; pl.excerpt = val('#f-excerpt');
+      post('sb_ai', pl).then(function (d) {
+        var v = String(d.result.text || '').replace(/^["'\s]+|["'\s]+$/g, '');
+        if (f === 'slug') { v = v.toLowerCase().replace(/[^a-z0-9-]+/g, '-').replace(/^-+|-+$/g, ''); }
+        t.value = v; t.dispatchEvent(new Event('input', { bubbles: true })); t.dispatchEvent(new Event('change', { bubbles: true }));
+        toast('✓ লেখা হয়েছে। দরকার হলে বদলে নিন।', 'ok');
+      }).catch(function (e) { toast(e.message, 'err'); }).then(function () { b.disabled = false; b.innerHTML = old; });
+    });
+  });
   $$('[data-ai]').forEach(function (btn) {
     btn.addEventListener('click', function () {
       var f = btn.dataset.ai;

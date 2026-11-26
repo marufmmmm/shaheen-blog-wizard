@@ -127,6 +127,18 @@ class SB_AI {
                 break;
 
             case 'meta':
+                if (!empty($c['field']) && in_array($c['field'], array('excerpt', 'seo_title', 'en_title', 'slug'), true)) {   // one small field of the post, written by AI on request
+                    $fx = array(
+                        'excerpt'   => 'পোস্ট কার্ডে দেখানোর ২-৩ লাইনের সংক্ষিপ্ত বিবরণ লেখো (১৫০ থেকে ২৩০ অক্ষর), পাঠককে পড়তে আগ্রহী করবে, নতুন তথ্য বানাবে না।',
+                        'seo_title' => 'গুগলের ফলাফলে দেখানোর SEO টাইটেল লেখো: সর্বোচ্চ ৬০ অক্ষর, মূল কীওয়ার্ড শুরুর দিকে, সাইটের নাম যোগ করবে না।',
+                        'en_title'  => 'Write a natural English title for this post, 4 to 9 simple words (used for the URL, image file names and Google). English only, no quotes.',
+                        'slug'      => 'Write the URL slug for this post: 3 to 6 simple English words, lowercase, joined with hyphens, only a-z, 0-9 and hyphens. Nothing else.',
+                    );
+                    $user = $fx[$c['field']] . "\nশিরোনাম: {$title}\n" . ($kw ? "কীওয়ার্ড: {$kw}\n" : '') . (!empty($c['excerpt']) ? "বর্তমান লেখা: {$c['excerpt']}\n" : '')
+                        . "পোস্টের লেখা:\n" . mb_substr(wp_strip_all_tags((string) ($c['content'] ?? '')), 0, 3500) . "\nশুধু ফলাফলটি দাও, অন্য কিছু নয়।";
+                    $max = 200;
+                    break;
+                }
                 $user = "নিচের পোস্টের জন্য SEO মেটা বর্ণনা লেখো (১২০ থেকে ১৬০ অক্ষর), যাতে মূল কীওয়ার্ড থাকবে।\nশিরোনাম: {$title}\n"
                     . ($kw ? "কীওয়ার্ড: {$kw}\n" : '') . (!empty($c['excerpt']) ? "সারাংশ: {$c['excerpt']}\n" : '')
                     . 'শুধু বর্ণনাটি দাও।';
