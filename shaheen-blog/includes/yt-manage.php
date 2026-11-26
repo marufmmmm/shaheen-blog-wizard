@@ -680,7 +680,7 @@ function sb_ytm_state() {
     $j   = sb_ytm_job();
     $pl  = get_option('sb_ytm_plan', array());
     $out = array(
-        'auto' => (int) $cfg['auto'], 'ai' => (int) $cfg['ai'], 'thumb' => (int) $cfg['thumb'], 'campus' => $cfg['campus'], 'kw' => $cfg['kw'], 'last' => $cfg['last'] ? wp_date('j M Y, g:i A', (int) $cfg['last']) : '', 'block' => $cfg['block'],
+        'evlogos' => function_exists('sb_ev_logos_text') ? sb_ev_logos_text() : '', 'auto' => (int) $cfg['auto'], 'ai' => (int) $cfg['ai'], 'thumb' => (int) $cfg['thumb'], 'campus' => $cfg['campus'], 'kw' => $cfg['kw'], 'last' => $cfg['last'] ? wp_date('j M Y, g:i A', (int) $cfg['last']) : '', 'block' => $cfg['block'],
         'job' => $j ? array('type' => $j['type'], 'state' => $j['state'], 'i' => (int) ($j['i'] ?? $j['li'] ?? 0), 'n' => count($j['ids'] ?? $j['lists'] ?? array()), 'ok' => (int) ($j['ok'] ?? $j['added'] ?? 0), 'err' => (string) ($j['err'] ?? ''), 'bill' => $j['bill'] ?? null) : null,
         'plan' => null,
         'quota' => (int) get_transient('sb_ytm_q_' . wp_date('Ymd', null, new DateTimeZone('America/Los_Angeles'))),
@@ -848,6 +848,9 @@ add_action('wp_ajax_sb_ytm', function () {
         if ((time() - (int) get_option('sb_ytm_plan_busy', 0)) < 600) {
             do_action('sb_ytm_plan_run', 1);
         }
+    } elseif ('evlogos' === $do) {
+        sb_ev_logos_save((string) wp_unslash($_POST['lines'] ?? ''));
+        $msg = 'ইভেন্ট লোগো সেভ হয়েছে।';
     } elseif ('tokentest' === $do) {   // is the saved YouTube refresh token alive? (shows Google's own answer and when the token was saved)
         $c = sb_share_cfg();
         $t = sb_share_yt_token($c);
@@ -910,6 +913,7 @@ function sb_ytm_panel() {
         <p class="sba-muted" style="margin:4px 0 8px">সাইটের তথ্য (ক্যাম্পাস, জেলা, অভিজ্ঞতা, ফোন) বদলালে শেষ ১০০ ভিডিওর বিবরণ ও চ্যানেলের বিবরণ নিজে হালনাগাদ হয়; না বদলালেও মাসে একবার। খরচ: AI ছাড়া ০.২০ ডলার; AI লাগলে আসল খরচ ×১.৫ (কমপক্ষে ০.২০)।</p>
         <p><label><input type="checkbox" id="ym-auto"> <b>নিজে নিজে চালু</b></label> &nbsp; <label><input type="checkbox" id="ym-ai"> AI দিয়ে বিশেষ সাফল্যের লাইনও যোগ হোক</label> <button class="button" id="ym-save">সেভ</button></p>
         <p><label><input type="checkbox" id="ym-th"> নতুন ভিডিওর থাম্বনেইল AI দিয়ে (হুক লেখা + লোগো) নিজে বানাও</label></p>
+        <p><b>ইভেন্ট লোগো</b> <span class="description">(ভিডিওর লেখায় এই শব্দ থাকলে সেই ইভেন্টের লোগো থাম্বনেইলে বসে। প্রতি লাইনে: নাম ; শব্দ (| দিয়ে আলাদা) ; মিডিয়া লাইব্রেরির ছবির আইডি)</span><br><textarea id="ym-ev" rows="3" style="width:100%"></textarea> <button class="button" id="ym-evsave">লোগো তালিকা সেভ</button></p>
         <p><label>ক্যাম্পাস সংখ্যা (সাইটে এখনো না বদলালে এটাই বসবে; সাইট এতে পৌঁছালে সাইটের সংখ্যা চলবে): <input type="text" id="ym-campus" size="5"></label> &nbsp; <label>SEO কীওয়ার্ড লাইন: <input type="text" id="ym-kw" style="width:100%"></label></p>
         <p><button class="button" id="ym-preview">যে ব্লক বসবে দেখুন</button> <button class="button button-primary" id="ym-sync">এখনই ১০০ ভিডিওর বিবরণ হালনাগাদ</button> <button class="button" id="ym-stop">থামান</button></p>
         <pre id="ym-block" style="white-space:pre-wrap;background:#fff;border:1px solid #e5e7eb;padding:8px;display:none"></pre>
@@ -924,7 +928,7 @@ function sb_ytm_panel() {
             function esc(s){var d=document.createElement('div');d.textContent=s;return d.innerHTML;}
             var plan=null;
             function show(d){
-                $('#ym-auto').checked=!!d.auto;$('#ym-ai').checked=!!d.ai;$('#ym-th').checked=!!d.thumb;if(document.activeElement!==$('#ym-campus'))$('#ym-campus').value=d.campus||'';if(document.activeElement!==$('#ym-kw'))$('#ym-kw').value=d.kw||'';
+                $('#ym-auto').checked=!!d.auto;$('#ym-ai').checked=!!d.ai;$('#ym-th').checked=!!d.thumb;if(document.activeElement!==$('#ym-ev'))$('#ym-ev').value=d.evlogos||'';if(document.activeElement!==$('#ym-campus'))$('#ym-campus').value=d.campus||'';if(document.activeElement!==$('#ym-kw'))$('#ym-kw').value=d.kw||'';
                 var j=d.job,t=(d.msg?d.msg+' · ':'')+(d.last?'শেষ হালনাগাদ: '+d.last+' · ':'')+'আজ ইউটিউব সীমা ব্যবহার: '+d.quota+'/১০০০০';
                 if(j){t+=' · কাজ: '+(j.type==='sync'?'বিবরণ':'প্লেলিস্ট')+' '+j.state+' ('+j.i+'/'+j.n+')'+(j.err?' — '+j.err:'')+(j.bill?' · খরচ $'+Number(j.bill).toFixed(2):'');}
                 if(d.perr)t+=' · ❌ '+d.perr;if(d.busy)t+=' · পরিকল্পনা বানানো চলছে… '+(d.plog||'');
@@ -939,6 +943,7 @@ function sb_ytm_panel() {
             }
             function go(x){$('#ym-st').textContent='…';call(x).then(function(r){if(!r.success){$('#ym-st').textContent='❌ '+r.data;return;}show(r.data);});}
             $('#ym-save').onclick=function(){go({do:'save',auto:$('#ym-auto').checked?1:'',ai:$('#ym-ai').checked?1:'',thumb:$('#ym-th').checked?1:'',campus:$('#ym-campus').value,kw:$('#ym-kw').value});};
+            $('#ym-evsave').onclick=function(){go({do:'evlogos',lines:$('#ym-ev').value});};
             $('#ym-preview').onclick=function(){go({do:'preview'});};
             $('#ym-sync').onclick=function(){go({do:'sync'});};
             $('#ym-stop').onclick=function(){go({do:'stop'});};

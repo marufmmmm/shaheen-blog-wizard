@@ -40,6 +40,51 @@ function sb_thumb_frame($c, $e, $dir) {
     return $path;
 }
 
+/** Event logos: when the video talks about an event (Spelling Star, Khude Star …) that event's logo is used. Lines: "name ; words separated by | ; media id". */
+function sb_ev_logos() {
+    $o = get_option('sb_ev_logos', null);
+    if (!is_array($o)) {
+        $o = array(
+            array('name' => 'স্পেলিং স্টার', 'words' => 'স্পেলিং স্টার|স্পেলিং স্টার|spelling star|spellingstar|SPL', 'att' => 29447),
+            array('name' => 'ক্ষুদে স্টার', 'words' => 'ক্ষুদে স্টার|খুদে স্টার|khude star|khudestar|kshude', 'att' => 31558),
+        );
+    }
+    return array_values(array_filter($o, function ($l) {
+        return !empty($l['att']) && get_attached_file((int) $l['att']);
+    }));
+}
+
+function sb_ev_logos_text() {
+    $o = get_option('sb_ev_logos', null);
+    $o = is_array($o) ? $o : sb_ev_logos();
+    return implode("\n", array_map(function ($l) {
+        return $l['name'] . ' ; ' . $l['words'] . ' ; ' . (int) $l['att'];
+    }, $o));
+}
+
+function sb_ev_logos_save($text) {
+    $out = array();
+    foreach (preg_split('/\R/u', (string) $text) as $ln) {
+        $p = array_map('trim', explode(';', $ln));
+        if (count($p) >= 3 && '' !== $p[0] && '' !== $p[1] && (int) $p[2] > 0) {
+            $out[] = array('name' => sanitize_text_field($p[0]), 'words' => sanitize_text_field($p[1]), 'att' => (int) $p[2]);
+        }
+    }
+    update_option('sb_ev_logos', $out, false);
+}
+
+function sb_thumb_event($texts) {
+    $hay = mb_strtolower(implode(' ', $texts));
+    foreach (sb_ev_logos() as $l) {
+        foreach (array_filter(array_map('trim', explode('|', $l['words']))) as $w) {
+            if (false !== mb_strpos($hay, mb_strtolower($w))) {
+                return $l;
+            }
+        }
+    }
+    return null;
+}
+
 /** a short hook from a title when the AI gave none: the part after "|" if it is short (it is usually the catchy one), else the first words, never cut inside a word */
 function sb_thumb_hook_from($title) {
     $parts = array_values(array_filter(array_map('trim', preg_split('/\s*[|:–]\s*/u', $title))));
@@ -72,19 +117,28 @@ function sb_thumb_build($c, $e, $dr) {
         $hook = sb_thumb_hook_from((string) ($dr['yt_title'] ?? ''));
     }
     $refs = array(array('path' => $frame, 'cat' => 'frame', 'name' => 'video frame'));
-    $logo = '';
+    $inst = '';
     $all  = function_exists('sb_logos') ? sb_logos() : array();
+    $ev   = sb_thumb_event(array((string) ($e['msg'] ?? ''), (string) ($dr['yt_title'] ?? ''), (string) ($dr['yt_desc'] ?? ''), $hook));
+    $evn  = 0;
+    if ($ev) {
+        $refs[] = array('att' => (int) $ev['att'], 'cat' => 'logo', 'name' => $ev['name']);
+        $evn    = count($refs);
+    }
     foreach (array('family', 'school') as $k) {
         if (isset($all[$k])) {
             $refs[] = array('att' => $all[$k]['att'], 'cat' => 'logo', 'name' => $all[$k]['label']);
-            $logo   = $all[$k]['label'];
+            $inst   = $all[$k]['label'];
+            $instn  = count($refs);
             break;
         }
     }
-    $prompt = 'Create a YouTube thumbnail (landscape). Use reference image 1 — a real frame from the video — as the base: keep the real people, place and clothes exactly as they are, but make it brighter, sharper and richer in colour with a clean, uncluttered, eye-catching composition. '
-        . 'Add ONE big bold headline in Bangla, exactly this text and nothing else: "' . $hook . '". Use a thick, clean Bengali typeface in white with a dark outline or on a solid colour band, very easy to read, with correct Bengali conjunct letters and no spelling changes. '
+    $idea   = trim((string) ($dr['thumb_idea'] ?? ''));
+    $prompt = 'Create a scroll-stopping YouTube thumbnail (landscape). Use reference image 1 — a real frame from the video — as the base: keep the real people, place and clothes exactly as they are, but make it brighter, sharper and richer in colour, with strong contrast, a clean uncluttered composition and a clear focal point' . ('' !== $idea ? ' (direction from the video analysis: ' . $idea . ')' : '') . '. '
+        . 'Add ONE huge bold headline in Bangla, exactly this text and nothing else: "' . $hook . '". Use a thick, clean Bengali typeface, white or bright yellow on a solid dark or red band (or with a heavy dark outline), so it stays readable even when the thumbnail is tiny; correct Bengali conjunct letters, no spelling changes. '
         . 'Keep the headline and the main subject well inside the central area (the top and bottom tenth of the picture may be cropped away). '
-        . ('' !== $logo ? 'Reference image 2 is the official logo (' . $logo . '): copy it faithfully, unaltered, small, once, in the top-left corner. ' : '')
+        . ($evn ? 'Reference image ' . $evn . ' is the official logo of the event "' . $ev['name'] . '": copy it faithfully, unaltered, once, fairly prominent, in the top-left corner. ' : '')
+        . ('' !== $inst ? 'Reference image ' . $instn . ' is the institution\'s logo (' . $inst . '): copy it faithfully, unaltered, small, once, in the ' . ($evn ? 'top-right' : 'top-left') . ' corner. ' : '')
         . 'No other text, no watermark, no extra logos, no frames or borders.';
     $model = array_keys(sb_img_models())[0];
     $res   = sb_img_call($model, $prompt, '1536x1024', 'medium', $refs);
