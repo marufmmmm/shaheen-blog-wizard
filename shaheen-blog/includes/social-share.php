@@ -266,6 +266,9 @@ function sb_share_finish($id, $S, $file) {
         $yt = $S['yt'] ?? (empty(sb_share_cfg()['yt_on']) ? 'not connected yet' : '—');
         $L[] = '▶️ YouTube: ' . (0 === strpos($yt, 'ok:') ? 'uploaded ✅ (private), will go public after ' . (int) sb_share_cfg()['yt_delay'] . ' minutes' : esc_html($yt));
     }
+    if (!empty($S['yt']) && false !== stripos($S['yt'], 'expired or revoked')) {
+        $L[] = '🔑 YouTube token needs renewing: WordPress → Facebook → auto-share → "ইউটিউব সংযোগ করুন", press Allow once.';
+    }
     if (!empty($S['dl'])) {
         $L[] = '⚠️ ' . esc_html($S['dl']);
     }
@@ -861,6 +864,17 @@ function sb_share_panel() {
         <p><label>OpenRouter key (খালি রাখলে প্লাগইনের আগের OpenRouter key নেবে; Gemini মডেল দিয়ে চলে, ২৫ MB-র ছোট ফাইল)<br><input type="password" id="sh-ok" autocomplete="off" placeholder="<?php echo esc_attr($ph('' !== $c['or_key'])); ?>" style="width:100%"></label></p>
         <p><label>OpenRouter মডেল<br><input type="text" id="sh-om" value="<?php echo esc_attr($c['or_model']); ?>" style="width:100%"></label></p>
         <p><label><input type="checkbox" id="sh-yt" <?php checked($c['yt_on'], 1); ?>> ইউটিউবে আপলোড (OAuth বসানোর পর)</label> &nbsp; <label>পাবলিক হবে <input type="number" id="sh-yd" min="1" max="1440" value="<?php echo (int) $c['yt_delay']; ?>" style="width:70px"> মিনিট পর</label></p>
+        <?php $yt_redirect = admin_url('admin-post.php?action=sb_yt_cb'); $yt_ready = '' !== $c['yt_cid'] && '' !== $c['yt_sec']; ?>
+        <p>🔗 <b>ইউটিউব সংযোগ (নতুন টোকেন এক ক্লিকে)</b><br>
+            <?php if ($yt_ready) : ?>
+                <a class="button button-primary" href="<?php echo esc_url(wp_nonce_url(admin_url('admin-post.php?action=sb_yt_connect'), 'sb_yt_connect')); ?>">ইউটিউব সংযোগ করুন / নতুন টোকেন নিন</a>
+                <span class="description">গুগলে "Allow" চাপলেই নতুন টোকেন নিজে সেভ হবে, কিছু কপি করতে হবে না।</span><br>
+                <span class="description">Google Cloud → Credentials → আপনার OAuth client → "Authorized redirect URIs"-এ এই ঠিকানা যোগ করা থাকতে হবে: <code><?php echo esc_html($yt_redirect); ?></code> আর OAuth consent screen "In production" করে নিন, নইলে টোকেন ৭ দিনে মরে যায়।</span>
+            <?php else : ?>
+                <span class="description">আগে ইউটিউবের Client ID ও Client secret সেভ করুন, তারপর এখানে সংযোগ বোতাম আসবে।</span>
+            <?php endif; ?>
+            <?php if (!empty($_GET['yt'])) : // phpcs:ignore WordPress.Security.NonceVerification ?><br><b><?php echo 'ok' === $_GET['yt'] ? '✅ ইউটিউব সংযুক্ত হয়েছে, নতুন টোকেন সেভ হয়েছে।' : '⚠️ ইউটিউব সংযোগ হয়নি: ' . esc_html(sanitize_text_field(wp_unslash((string) ($_GET['why'] ?? '')))); ?></b><?php endif; // phpcs:ignore ?>
+        </p>
         <p><b>➕ আরও ফেসবুক পেজ</b> <span class="description">(আপনি যে পেজগুলোর অ্যাডমিন; যুক্ত আছে: <?php echo (int) count((array) get_option('sb_share_pages', array())); ?>টি)</span><br>
             <textarea id="sh-xp" rows="3" style="width:100%" placeholder="প্রতি লাইনে একটি পেজের লিংক"></textarea><br>
             <input type="password" id="sh-xt" autocomplete="off" placeholder="আপনার ফেসবুক ইউজার টোকেন (সেভ হয় না, শুধু পেজ-টোকেন আনতে লাগে)" style="width:70%"> <button type="button" class="button" id="sh-xadd">যুক্ত করুন</button></p>
@@ -879,3 +893,57 @@ function sb_share_panel() {
     </script>
     <?php
 }
+
+
+/* ------------------------------------------------------------ YouTube: one-click connect (Google asks the owner to press Allow; the new refresh token is saved by the site) */
+add_action('admin_post_sb_yt_connect', function () {
+    if (!current_user_can('manage_options')) {
+        wp_die('অনুমতি নেই।');
+    }
+    check_admin_referer('sb_yt_connect');
+    $c = sb_share_cfg();
+    if ('' === $c['yt_cid'] || '' === $c['yt_sec']) {
+        wp_safe_redirect(admin_url('admin.php?page=sb-facebook&tab=share&yt=err&why=' . rawurlencode('Client ID/secret নেই')));
+        exit;
+    }
+    $state = wp_generate_password(24, false, false);
+    set_transient('sb_yt_state_' . get_current_user_id(), $state, 15 * MINUTE_IN_SECONDS);
+    $url = 'https://accounts.google.com/o/oauth2/v2/auth?' . http_build_query(array(
+        'client_id' => $c['yt_cid'], 'redirect_uri' => admin_url('admin-post.php?action=sb_yt_cb'), 'response_type' => 'code',
+        'scope' => 'https://www.googleapis.com/auth/youtube.upload https://www.googleapis.com/auth/youtube', 'access_type' => 'offline', 'prompt' => 'consent', 'state' => $state));
+    wp_redirect($url); // phpcs:ignore WordPress.Security.SafeRedirect
+    exit;
+});
+
+add_action('admin_post_sb_yt_cb', function () {
+    if (!current_user_can('manage_options')) {
+        wp_die('অনুমতি নেই।');
+    }
+    $back = function ($ok, $why = '') {
+        wp_safe_redirect(admin_url('admin.php?page=sb-facebook&tab=share&yt=' . ($ok ? 'ok' : 'err') . ($why !== '' ? '&why=' . rawurlencode($why) : '')));
+        exit;
+    };
+    $uid   = get_current_user_id();
+    $state = (string) get_transient('sb_yt_state_' . $uid);
+    delete_transient('sb_yt_state_' . $uid);
+    $got   = isset($_GET['state']) ? sanitize_text_field(wp_unslash($_GET['state'])) : ''; // phpcs:ignore WordPress.Security.NonceVerification
+    if ($state === '' || !hash_equals($state, $got)) {
+        $back(false, 'নিরাপত্তা যাচাই মেলেনি, আবার চেষ্টা করুন');
+    }
+    if (!empty($_GET['error'])) { // phpcs:ignore WordPress.Security.NonceVerification
+        $back(false, sanitize_text_field(wp_unslash($_GET['error']))); // phpcs:ignore WordPress.Security.NonceVerification
+    }
+    $code = isset($_GET['code']) ? sanitize_text_field(wp_unslash($_GET['code'])) : ''; // phpcs:ignore WordPress.Security.NonceVerification
+    $c    = sb_share_cfg();
+    $r = wp_remote_post('https://oauth2.googleapis.com/token', array('timeout' => 30, 'body' => array(
+        'code' => $code, 'client_id' => $c['yt_cid'], 'client_secret' => $c['yt_sec'], 'redirect_uri' => admin_url('admin-post.php?action=sb_yt_cb'), 'grant_type' => 'authorization_code')));
+    $j = is_wp_error($r) ? null : json_decode((string) wp_remote_retrieve_body($r), true);
+    if (empty($j['refresh_token'])) {
+        $back(false, is_array($j) && isset($j['error_description']) ? (string) $j['error_description'] : 'Google টোকেন দেয়নি');
+    }
+    $o = get_option('sb_share', array());
+    $o = is_array($o) ? $o : array();
+    $o['yt_rt'] = (string) $j['refresh_token'];
+    update_option('sb_share', $o, false);
+    $back(true);
+});
