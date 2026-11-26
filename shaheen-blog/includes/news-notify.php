@@ -332,4 +332,7 @@ function sb_notify_panel() {
     if (function_exists('sb_share_panel')) {
         sb_share_panel();
     }
+    if (function_exists('sb_ytm_panel')) {
+        sb_ytm_panel();
+    }
 }
