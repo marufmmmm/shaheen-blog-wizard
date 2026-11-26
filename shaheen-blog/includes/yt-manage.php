@@ -400,6 +400,13 @@ function sb_ytm_fail($j, $e, &$pause) {
         $j['err']  = 'ইউটিউবের দৈনিক সীমা ছুঁয়েছে; কিছুক্ষণ পর বাকিটা নিজে চলবে।';
         return $j;
     }
+    $j['tok_fail'] = (int) ($j['tok_fail'] ?? 0) + 1;
+    if (false !== stripos($e->get_error_message(), 'token') && $j['tok_fail'] <= 4) {   // Google sometimes answers "expired or revoked" once and then works again: wait and retry
+        $pause    = true;
+        $j['err'] = 'ইউটিউব টোকেন একবার সাড়া দেয়নি; আবার চেষ্টা হবে (' . $j['tok_fail'] . ')।';
+        delete_transient('sb_ytm_tok');
+        return $j;
+    }
     $j['state'] = 'error';
     $j['err']   = $e->get_error_message();
     sb_ytm_notify("▶️ <b>ইউটিউব ম্যানেজার থেমে গেছে</b>\n" . esc_html($j['err']));
@@ -845,6 +852,16 @@ add_action('wp_ajax_sb_ytm', function () {
         $c = sb_share_cfg();
         $t = sb_share_yt_token($c);
         wp_send_json_success(array('tok' => is_wp_error($t) ? $t->get_error_message() : 'ok', 'saved' => !empty($c['yt_rt_t']) ? wp_date('j M g:i:s A', (int) $c['yt_rt_t']) : '', 'now' => wp_date('j M g:i:s A'), 'len' => strlen((string) $c['yt_rt'])));
+    } elseif ('resume' === $do) {
+        $j = sb_ytm_job();
+        if (!empty($j) && 'error' === ($j['state'] ?? '')) {
+            $j['state'] = 'run';
+            $j['err']   = '';
+            $j['tok_fail'] = 0;
+            sb_ytm_job_save($j);
+            sb_ytm_schedule(5);
+        }
+        $msg = 'আবার চালু করা হয়েছে।';
     } elseif ('tick' === $do) {   // the open admin page can also push a running job forward
         $j = sb_ytm_job();
         if (!empty($j) && 'run' === ($j['state'] ?? '')) {

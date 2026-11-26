@@ -985,6 +985,10 @@ add_action('sb_yt_watch', function () {
     $link = admin_url('admin.php?page=sb-research');
     $age  = !empty($c['yt_rt_t']) ? (time() - (int) $c['yt_rt_t']) / DAY_IN_SECONDS : -1;
     $tok  = sb_share_yt_token($c);
+    if (is_wp_error($tok)) {   // Google can answer "expired or revoked" once and then accept the same token: ask again before raising the alarm
+        sleep(20);
+        $tok = sb_share_yt_token($c);
+    }
     if (is_wp_error($tok)) {
         if (get_transient('sb_yt_warned_dead')) {
             return;   // one message per day at most
