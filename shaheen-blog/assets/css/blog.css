@@ -1071,3 +1071,8 @@ html.sb-modal-open{overflow:hidden}
 
 .sb-modal-frame.is-tall .sb-modal-spin{box-shadow:0 0 0 14px #fff;background:#fff}
 .sb-modal-frame iframe{z-index:1}
+
+/* Pictures inside the article: always centred, full text-column width (embeds keep their own 540px rule above) */
+.shb .sb-fig.wp-block-image, .shb-single figure.wp-block-image.sb-fig { margin: 26px auto; max-width: 100%; width: 100%; text-align: center; }
+.shb .sb-fig.wp-block-image img, .shb-single figure.wp-block-image.sb-fig img { display: block; width: 100%; max-width: 100%; height: auto; margin: 0 auto; border-radius: 10px; }
+.shb .sb-fig.wp-block-image figcaption, .shb-single figure.wp-block-image.sb-fig figcaption { text-align: center; margin: 9px auto 0; max-width: 92%; font-size: 14px; line-height: 1.55; color: #4b5a53; }

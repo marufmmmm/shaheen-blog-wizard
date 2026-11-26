@@ -235,7 +235,16 @@
     var s = sl.q('.s-pos'), v = keep || s.value, list = positions();
     s.innerHTML = list.map(function (o) { return '<option value="' + esc(o[0]) + '">' + esc(o[1]) + '</option>'; }).join('');
     if (v && [].some.call(s.options, function (o) { return o.value === v; })) { s.value = v; }
-    else if (!keep) { s.selectedIndex = Math.min(s.options.length - 1, Math.max(1, slots.indexOf(sl) + 1) * 2); }
+    else if (!keep) {   // spread the pictures through the article: each one after a different paragraph
+      var ps = [], k, idx = slots.indexOf(sl) >= 0 ? slots.indexOf(sl) : slots.length, n = Math.max(parseInt(($('#img-count') || {}).value, 10) || 1, idx + 1), used = {};
+      for (k = 0; k < list.length; k++) { if (list[k][0].indexOf('p|') === 0) { ps.push(k); } }
+      slots.forEach(function (o) { if (o !== sl) { used[o.q('.s-pos').value] = 1; } });
+      if (ps.length) {
+        var at = Math.min(ps.length - 1, Math.floor((idx + 1) * ps.length / (n + 1)));
+        while (at < ps.length - 1 && used[list[ps[at]][0]]) { at++; }
+        s.selectedIndex = ps[at];
+      } else { s.selectedIndex = Math.min(s.options.length - 1, Math.max(1, idx + 1) * 2); }
+    }
   }
   $('#img-count').addEventListener('change', function () {
     var n = parseInt(this.value, 10) || 0;
