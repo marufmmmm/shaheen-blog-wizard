@@ -39,6 +39,7 @@ $cost = sb_feature_cost('rewrite_post');
             <div class="sba-image-actions">
                 <button type="button" class="button" id="rw-pick">🖼 ফিচার্ড ছবি বেছে নিন</button>
                 <button type="button" class="button-link-delete" id="rw-unpick" hidden>ছবি সরান</button>
+                <label style="display:block;margin:8px 0"><input type="checkbox" id="rw-aiimg" checked> 🎨 ছবি না বেছে থাকলে সেভের সময় AI দিয়ে সম্পর্কিত ছবি বানান (alt, শিরোনাম, ক্যাপশন সহ)</label>
                 <small>লেখার ভেতরে আরও ছবি দিতে নিচের এডিটরে "Add Media" ব্যবহার করুন।</small>
             </div>
         </div>

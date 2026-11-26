@@ -406,17 +406,37 @@
       var btn = this, t = val('#rw-new-title').trim();
       if (!t) { toast('শিরোনাম লিখুন।', 'err'); return; }
       var st = $('input[name="rw-status"]:checked');
-      btn.disabled = true;
-      post('sb_save_post', {
-        id: rwId, title: t, excerpt: val('#rw-new-excerpt'), meta_desc: val('#rw-new-excerpt'), content: rwGet(), category: val('#rw-cat'),
-        keywords: rwKw(), image_id: val('#rw-image-id'), status: st ? st.value : 'draft'
-      }).then(function (d) {
-        rwId = d.id; var box = $('#rw-saved'); box.innerHTML = '';
+      var box = $('#rw-saved');
+      function payload(imgId) {
+        return { id: rwId, title: t, excerpt: val('#rw-new-excerpt'), meta_desc: val('#rw-new-excerpt'), content: rwGet(), category: val('#rw-cat'),
+          keywords: rwKw(), image_id: imgId, status: st ? st.value : 'draft' };
+      }
+      function showSaved(d, extra) {
+        box.innerHTML = '';
         var p = document.createElement('div'); p.className = 'notice notice-success inline';
         var tx = document.createElement('p'); tx.textContent = d.status === 'publish' ? '✓ প্রকাশিত হয়েছে। ' : '✓ খসড়া সেভ হয়েছে। ';
         if (d.status === 'publish') { var a = document.createElement('a'); a.href = d.url; a.target = '_blank'; a.textContent = 'পোস্ট দেখুন ↗'; tx.appendChild(a); tx.appendChild(document.createTextNode('  ')); }
         var e2 = document.createElement('a'); e2.href = d.edit; e2.textContent = 'আরও এডিট (ওয়িজার্ডে)'; tx.appendChild(e2);
+        if (extra) { tx.appendChild(document.createTextNode('  ' + extra)); }
         p.appendChild(tx); box.appendChild(p);
+      }
+      btn.disabled = true;
+      post('sb_save_post', payload(val('#rw-image-id'))).then(function (d) {
+        rwId = d.id; showSaved(d);
+        var ai = $('#rw-aiimg');
+        if (Number(val('#rw-image-id')) || !ai || !ai.checked) { return; }
+        // no picture chosen: make a related AI picture (prompt, then photo, then alt/title/caption), set it as the featured image
+        var c = rwGet(), job = 'r' + Date.now() + Math.random().toString(36).slice(2, 8), meta;
+        showSaved(d, '⏳ এখন AI ছবি বানানো হচ্ছে… (১–২ মিনিট, পেজ বন্ধ করবেন না)');
+        return post('sb_img_prompt', { title: t, content: c, category: '', uniform: 'auto', subject: 'auto', logo: 'none', logo_at: 'chest', size: '1536x1024', post_id: rwId }).then(function (pr) {
+          meta = pr;
+          return post('sb_img_make', { job: job, prompt: pr.prompt, size: '1536x1024', quality: 'medium', title: t, content: c, category: '', subject: 'auto', uniform: 'auto', logo: 'none', logo_at: 'chest',
+            alt: pr.alt || '', imgtitle: pr.title || '', caption: pr.caption || '', details: pr.details || '', file_slug: '', post_id: rwId });
+        }).then(function (im) {
+          $('#rw-image-id').value = im.id; var el = $('#rw-img'); el.src = im.url; el.hidden = false; $('#rw-unpick').hidden = false;
+          return post('sb_save_post', payload(im.id));
+        }).then(function (d2) { showSaved(d2, '🎨 AI ছবি বসেছে ✓'); toast('✓ AI ছবি তৈরি হয়ে ফিচার্ড ছবিতে বসেছে।', 'ok'); })
+          .catch(function (e) { showSaved(d, '⚠️ AI ছবি হয়নি: ' + e.message + ' (ছবি বেছে নিয়ে আবার সেভ করুন)'); });
       }).catch(function (e) { toast(e.message, 'err'); }).then(function () { btn.disabled = false; });
     });
   }
