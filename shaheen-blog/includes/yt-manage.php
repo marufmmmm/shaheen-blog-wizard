@@ -977,7 +977,7 @@ function sb_ytm_panel() {
         <div id="ym-plan"></div>
         <p id="ym-st" class="description"></p>
         <script>
-        (function(){
+        window.addEventListener('load',function(){
             var $=function(s){return document.querySelector(s);},aj=(window.SB&&SB.ajax)||window.ajaxurl,nn=window.SB&&SB.nonce;
             if(!nn){var m=document.documentElement.innerHTML.match(/"nonce":"([a-z0-9]+)"/);nn=m&&m[1];}
             function call(x){return fetch(aj,{method:'POST',credentials:'same-origin',body:new URLSearchParams(Object.assign({action:'sb_ytm',nonce:nn},x))}).then(function(r){return r.json();});}
@@ -1006,7 +1006,7 @@ function sb_ytm_panel() {
             $('#ym-plan0').onclick=function(){go({do:'plan'});};
             $('#ym-plan1').onclick=function(){go({do:'plan',ai:1});};
             go({do:'state'});
-        })();
+        });
         </script>
     </div>
     <?php
