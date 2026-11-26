@@ -431,7 +431,7 @@ function csa_sn_pdf_viewer( $u ) {
 		return '';
 	}
 	// On phones the embedded viewer often stays blank: show the first page as a picture with an open button instead.
-	$mob = '<div class="sn-pdfm"><a href="' . esc_url( $open ) . '" target="_blank" rel="noopener">' . ( '' !== $th ? '<img src="' . esc_url( $th ) . '" alt="PDF-এর প্রথম পৃষ্ঠা" loading="lazy">' : '<span class="ic">📄</span>' ) . '<b>📄 পুরো PDF খুলুন</b></a></div>';
+	$mob = '<div class="sn-pdfm"><a href="' . esc_url( $open ) . '" target="_blank" rel="noopener">' . ( '' !== $th ? '<img src="' . esc_url( $th ) . '" alt="PDF-এর প্রথম পৃষ্ঠা" data-no-lazy="1" data-skip-lazy="" class="skip-lazy no-lazy">' : '<span class="ic">📄</span>' ) . '<b>📄 পুরো PDF খুলুন</b></a></div>';
 	return '<div class="sn-pdfv"><iframe src="' . esc_url( $src ) . '" data-no-lazy="1" data-skip-lazy="" class="skip-lazy no-lazy" allow="fullscreen" title="PDF"></iframe></div>' . $mob;
 }
 
