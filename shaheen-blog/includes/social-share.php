@@ -329,7 +329,7 @@ function sb_share_ai($c, $video, $file, $msg, $fb) {
     $desc = mb_substr(sanitize_textarea_field((string) ($d['yt_desc'] ?? '')), 0, 3800);
     return array(
         'yt_title' => mb_substr(sanitize_text_field((string) ($d['yt_title'] ?? $plain['yt_title'])), 0, 95),
-        'yt_desc'  => trim($desc . sb_share_footer() . ($tags ? "\n\n#" . implode(' #', array_slice($tags, 0, 8)) : '')),
+        'yt_desc'  => trim($desc . sb_share_footer() . ($tags ? "\n\n" . implode(' ', array_map(function ($t) { return '#' . preg_replace('/\s+/u', '', $t); }, array_slice($tags, 0, 8))) : '')),   // a space ends a hashtag, so each one is written joined
         'ig'       => mb_substr(sanitize_textarea_field((string) $d['ig']), 0, 2000),
         'tags'     => $tags ?: $plain['tags'],
         'ai'       => 1,
