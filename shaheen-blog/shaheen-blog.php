@@ -3,7 +3,7 @@
  * Plugin Name: Shaheen Blog
  * Plugin URI:  https://shaheen.edu.bd
  * Description: শাহীন শিক্ষা পরিবারের ব্লগ: নিজস্ব ডিজাইনের ব্লগ পেজ, AI দিয়ে পোস্ট তৈরির উইজার্ড, ক্রেডিট সিস্টেম ও অ্যাডমিন প্যানেল।
- * Version:     3.10.91
+ * Version:     3.10.92
  * Requires at least: 6.0
  * Author:      Shaheen Education Family
  * Text Domain: shaheen-blog
