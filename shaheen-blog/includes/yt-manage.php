@@ -841,6 +841,10 @@ add_action('wp_ajax_sb_ytm', function () {
         if ((time() - (int) get_option('sb_ytm_plan_busy', 0)) < 600) {
             do_action('sb_ytm_plan_run', 1);
         }
+    } elseif ('tokentest' === $do) {   // is the saved YouTube refresh token alive? (shows Google's own answer and when the token was saved)
+        $c = sb_share_cfg();
+        $t = sb_share_yt_token($c);
+        wp_send_json_success(array('tok' => is_wp_error($t) ? $t->get_error_message() : 'ok', 'saved' => !empty($c['yt_rt_t']) ? wp_date('j M g:i:s A', (int) $c['yt_rt_t']) : '', 'now' => wp_date('j M g:i:s A'), 'len' => strlen((string) $c['yt_rt'])));
     } elseif ('tick' === $do) {   // the open admin page can also push a running job forward
         $j = sb_ytm_job();
         if (!empty($j) && 'run' === ($j['state'] ?? '')) {
