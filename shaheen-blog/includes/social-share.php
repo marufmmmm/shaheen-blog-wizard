@@ -352,10 +352,10 @@ function sb_share_openai_text($sys, $usr) {
 }
 
 /** Gemini sees/hears the file. Video goes through the Files API (deleted right after), a picture goes inline. */
-function sb_share_gemini($c, $sys, $usr, $file, $video) {
+function sb_share_gemini($c, $sys, $usr, $file, $video, $mime_in = '') {
     $key  = $c['gem_key'];
     $base = 'https://generativelanguage.googleapis.com';
-    $mime = $video ? 'video/mp4' : 'image/jpeg';
+    $mime = $video ? 'video/mp4' : ('' !== $mime_in ? $mime_in : 'image/jpeg');
     $part = null;
     $name = '';
     if ($video) {

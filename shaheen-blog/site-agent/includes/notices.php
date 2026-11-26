@@ -271,6 +271,7 @@ function csa_sn_css() {
 		. ".sn-ck{list-style:none;margin:0;padding:0}.sn-ck li{padding:10px 0 10px 36px;border-bottom:1px dashed #cfd8d1;position:relative}.sn-ck li:last-child{border-bottom:0}.sn-ck li:before{content:'✓';position:absolute;left:0;top:12px;width:25px;height:25px;border-radius:50%;background:var(--p);color:#fff;font-size:15px;display:grid;place-items:center;line-height:1}"
 		. ".sn-note{background:#fff7e0;border-left:4px solid var(--a);padding:10px 14px;border-radius:8px;margin:0 0 12px}.sn-txt p{margin:0 0 .6em}"
 		. ".sn-im{display:grid;gap:10px;margin:0 0 12px}.sn-im img{width:100%;height:auto;border-radius:var(--r);display:block}.sn-im.g2{grid-template-columns:1fr 1fr}.sn-cap{text-align:center;font-size:.85em;color:#556;margin:-6px 0 12px}"
+		. ".sn-pdfm{display:none;margin:0 0 14px}.sn-pdfm a{display:block;border:1px solid #d9e3dc;border-radius:14px;overflow:hidden;background:#f6f8f6;text-decoration:none!important;text-align:center}.sn-pdfm img{display:block;width:100%;height:auto;min-height:220px;background:#eef2ee}.sn-pdfm .ic{display:block;font-size:48px;padding:26px 0 6px}.sn-pdfm b{display:block;background:var(--a);color:#fff;padding:13px;font-size:1.05em}@media(max-width:859px){.sn-pdfv{display:none}.sn-pdfm{display:block}}.sn-chips{position:relative;display:flex;flex-wrap:wrap;gap:8px;align-items:center;margin-top:6px}.sn-chips .sn-sub{font-size:clamp(14px,3.4vw,18px);padding:3px 14px}.sn-chips .sn-yr{margin-left:0;font-size:clamp(14px,3.4vw,18px);padding:3px 12px}.sn-chips .sn-st{margin-top:0}.sn-brc{display:inline-block;background:rgba(255,255,255,.22);border-radius:999px;padding:3px 14px;font-weight:700;font-size:clamp(14px,3.4vw,18px)}.sn-bt.sn-bt2{font-size:clamp(23px,5.6vw,40px)}.sn-adr{margin:0 0 8px;color:#445;font-size:.95em}.sn-call{display:none}@media(max-width:859px){.sn-call{display:flex;position:fixed;left:12px;bottom:14px;z-index:99;align-items:center;gap:6px;background:var(--p);color:#fff!important;text-decoration:none!important;font-weight:700;border-radius:999px;padding:12px 18px;box-shadow:0 4px 14px rgba(0,0,0,.3)}.sn{padding-bottom:64px}}"
 		. ".sn-pdfv{margin:0 0 14px;border:1px solid #d9e3dc;border-radius:14px;overflow:hidden;background:#f6f8f6}.sn-pdfv iframe{display:block;width:100%;height:min(82vh,860px);min-height:480px;border:0}"
 		. ".sn-btns{display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:10px;margin:0 0 12px}.sn-btn{display:flex;align-items:center;justify-content:center;gap:6px;padding:14px 18px;border-radius:12px;font-weight:700;text-decoration:none!important;color:#fff!important;background:var(--p);text-align:center}.sn-btn.pdf{background:var(--a)}.sn-btn.fb{background:#1877f2}.sn-btn.oth{background:var(--k)}"
 		. ".sn-note{display:block!important;width:100%!important;max-width:100%!important;box-sizing:border-box!important;margin-left:0!important;margin-right:0!important;padding:12px 14px!important;text-indent:0!important;text-align:left!important;text-wrap:wrap!important;word-break:normal!important;overflow-wrap:break-word!important;hyphens:none!important;letter-spacing:normal!important;word-spacing:normal!important;float:none!important;columns:auto!important;column-count:1!important}.sn-note *{text-wrap:wrap!important;max-width:none!important;display:inline!important}.sn-ph{display:flex;flex-wrap:wrap;gap:10px}.sn-ph a.sn-em{background:#fff;color:var(--p)!important;border:2px solid var(--p);text-transform:none}.sn-ph a{display:inline-block;max-width:100%;overflow-wrap:anywhere}.sn-ph a{background:var(--p);color:#fff!important;border-radius:10px;padding:8px 16px;font-weight:700;text-decoration:none!important;font-size:1.05em}"
@@ -296,18 +297,142 @@ function csa_sn_css() {
 	return '<style>' . $css . '</style>';
 }
 
+/** The branch-directory entry for a branch name written in Bangla or English as the notice has it; null when it is not clear which one. */
+function csa_sn_branch_hit( $texts ) {
+	if ( ! function_exists( 'csa_br_list' ) ) {
+		return null;
+	}
+	$strip = function ( $s ) {
+		return mb_strtolower( trim( preg_replace( '/\s*(শাখা|ক্যাম্পাস|ক্যাম্পাস-?[\d০-৯]*|branch|campus)\s*$/iu', '', trim( wp_strip_all_tags( (string) $s ) ) ) ) );
+	};
+	$list = csa_br_list();
+	foreach ( (array) $texts as $t ) {
+		$t = $strip( $t );
+		if ( mb_strlen( $t ) < 3 || ! preg_match( '/[\x{0980}-\x{09FF}]/u', $t ) ) {
+			continue;   // English or empty: the AI's Bangla spelling is tried instead
+		}
+		foreach ( $list as $b ) {
+			if ( $strip( $b['name'] ?? '' ) === $t ) {
+				return $b;
+			}
+		}
+		$part = array();
+		foreach ( $list as $b ) {
+			$k = $strip( $b['name'] ?? '' );
+			if ( mb_strlen( $k ) >= 3 && ( false !== mb_strpos( $t, $k ) || false !== mb_strpos( $k, $t ) ) ) {
+				$part[] = $b;
+			}
+		}
+		if ( 1 === count( $part ) ) {
+			return $part[0];
+		}
+		$dist = array();
+		foreach ( $list as $b ) {
+			if ( $strip( $b['district'] ?? '' ) === $t ) {
+				$dist[] = $b;
+			}
+		}
+		if ( 1 === count( $dist ) ) {
+			return $dist[0];
+		}
+		$main = array_values( array_filter( $dist ?: $part, function ( $b ) {
+			return 'main' === ( $b['type'] ?? 'main' );
+		} ) );
+		if ( 1 === count( $main ) ) {
+			return $main[0];
+		}
+	}
+	return null;
+}
+
+/** Branch phones as a list (the branch page is the one source). */
+function csa_sn_branch_phones( $b ) {
+	$ph = is_array( $b ) ? ( $b['phones'] ?? array() ) : array();
+	return is_array( $ph ) ? array_values( array_filter( array_map( 'trim', $ph ) ) ) : array();
+}
+
+/** Blocks in reading order: the contact box always last, filled with the branch page's numbers when the branch is known. */
+function csa_sn_arrange_blocks( $blocks, $hit ) {
+	$main  = array();
+	$phone = array();
+	foreach ( (array) $blocks as $b ) {
+		if ( 'phones' === ( $b['t'] ?? '' ) ) {
+			$phone[] = $b;
+		} else {
+			$main[] = $b;
+		}
+	}
+	$bp = csa_sn_branch_phones( $hit );
+	if ( $bp ) {
+		$phone = array( array( 't' => 'phones', 'h' => ( $phone[0]['h'] ?? '' ) ?: 'বিস্তারিত জানতে যোগাযোগ করুন:', 'nums' => implode( "\n", $bp ), 'addr' => (string) ( $hit['addr'] ?? '' ) ) );
+	} elseif ( count( $phone ) > 1 ) {
+		$phone = array( $phone[0] );
+	}
+	return array_merge( $main, $phone );
+}
+
+/** Words on a button: an English field name of the Telegram form becomes a Bangla label. */
+function csa_sn_btn_label( $label, $kind ) {
+	$label = trim( (string) $label );
+	if ( '' !== $label && preg_match( '/[\x{0980}-\x{09FF}]/u', $label ) ) {
+		return $label;
+	}
+	$d = array( 'pdf' => 'PDF ডাউনলোড করুন', 'apply' => 'আবেদন করুন', 'fb' => 'ফেসবুক পোস্ট দেখুন', 'oth' => 'বিস্তারিত দেখুন' );
+	return $d[ $kind ] ?? 'বিস্তারিত দেখুন';
+}
+
+/** Gemini reads a notice PDF (a Drive link or a file of this site) and returns {summary, facts[{l,v}], phones[]}; null when it cannot. */
+function csa_sn_pdf_read( $url ) {
+	if ( ! function_exists( 'sb_share_gemini' ) || ! function_exists( 'sb_share_cfg' ) ) {
+		return null;
+	}
+	$c = sb_share_cfg();
+	if ( empty( $c['gem_key'] ) ) {
+		return null;
+	}
+	require_once ABSPATH . 'wp-admin/includes/file.php';
+	$tmp = download_url( csa_sn_drive( $url ), 60 );
+	if ( is_wp_error( $tmp ) ) {
+		return null;
+	}
+	$ok = filesize( $tmp ) > 100 && filesize( $tmp ) < 12 * 1024 * 1024 && '%PDF' === file_get_contents( $tmp, false, null, 0, 4 );
+	if ( ! $ok ) {
+		@unlink( $tmp );
+		return null;
+	}
+	$sys = 'You read a notice PDF of a Bangladeshi school network (Bangla or English) so that a web page can describe it. Return ONLY JSON: {"summary":"2-3 plain Bangla sentences saying what the document is and the one thing the reader should do or look for (for a result: that the result is published and how to find the roll); never invent","facts":[{"l":"short Bangla label such as পরীক্ষার তারিখ, ফলাফল প্রকাশের তারিখ, ভাইভার সময়, আবেদনের শেষ তারিখ, পরবর্তী ধাপ","v":"value exactly as written"}],"phones":["numbers exactly as written"]}. At most 5 facts, only ones written in the document; empty list when none. Never invent dates, numbers, names.';
+	$r   = sb_share_gemini( $c, $sys, 'Read this notice PDF.', $tmp, false, 'application/pdf' );
+	@unlink( $tmp );
+	if ( ! is_array( $r ) ) {
+		return null;
+	}
+	$facts = array();
+	foreach ( array_slice( (array) ( $r['facts'] ?? array() ), 0, 5 ) as $f ) {
+		if ( ! empty( $f['l'] ) && ! empty( $f['v'] ) ) {
+			$facts[] = array( 'l' => sanitize_text_field( $f['l'] ), 'v' => sanitize_text_field( $f['v'] ) );
+		}
+	}
+	return array( 'summary' => sanitize_textarea_field( (string) ( $r['summary'] ?? '' ) ), 'facts' => $facts, 'phones' => array_values( array_filter( array_map( 'sanitize_text_field', (array) ( $r['phones'] ?? array() ) ) ) ) );
+}
+
 function csa_sn_pdf_viewer( $u ) {
 	$u = trim( (string) $u );
 	$src = '';
+	$th  = '';
+	$open = $u;
 	if ( preg_match( '#drive\.google\.com/file/d/([\w-]+)#', $u, $m ) || preg_match( '#drive\.google\.com/(?:open|uc)\?(?:.*&)?id=([\w-]+)#', $u, $m ) ) {
-		$src = 'https://drive.google.com/file/d/' . $m[1] . '/preview';
+		$src  = 'https://drive.google.com/file/d/' . $m[1] . '/preview';
+		$th   = 'https://drive.google.com/thumbnail?id=' . $m[1] . '&sz=w1400';
+		$open = 'https://drive.google.com/file/d/' . $m[1] . '/view';
 	} elseif ( preg_match( '#^https://[^?\s]+\.pdf(\?.*)?$#i', $u ) && 0 === strpos( $u, home_url( '/' ) ) ) {
 		$src = $u . ( false === strpos( $u, '#' ) ? '#view=FitH' : '' );
 	}
 	if ( '' === $src ) {
 		return '';
 	}
-	return '<div class="sn-pdfv"><iframe src="' . esc_url( $src ) . '" data-no-lazy="1" data-skip-lazy="" class="skip-lazy no-lazy" allow="fullscreen" title="PDF"></iframe></div>';
+	// On phones the embedded viewer often stays blank: show the first page as a picture with an open button instead.
+	$mob = '<div class="sn-pdfm"><a href="' . esc_url( $open ) . '" target="_blank" rel="noopener">' . ( '' !== $th ? '<img src="' . esc_url( $th ) . '" alt="PDF-এর প্রথম পৃষ্ঠা" loading="lazy">' : '<span class="ic">📄</span>' ) . '<b>📄 পুরো PDF খুলুন</b></a></div>';
+	return '<div class="sn-pdfv"><iframe src="' . esc_url( $src ) . '" data-no-lazy="1" data-skip-lazy="" class="skip-lazy no-lazy" allow="fullscreen" title="PDF"></iframe></div>' . $mob;
 }
 
 function csa_sn_drive( $u ) {
@@ -392,7 +517,7 @@ function csa_sn_block( $b ) {
 				if ( 'apply' === $k && '' === $gf && preg_match( '#^https://docs\.google\.com/forms/#i', $u ) ) { // an "apply" button that points to a Google Form also shows the form right on the page
 					$gf = csa_sn_block( array( 't' => 'gform', 'h' => ( $it['label'] ?? '' ) ?: 'অনলাইনে আবেদন করুন', 'url' => $u, 'height' => 900, 'nolink' => 1 ) );
 				}
-				$o .= '<a class="sn-btn ' . ( 'apply' === $k ? '' : $k ) . '" target="_blank" rel="noopener" href="' . esc_url( $u ) . '">' . $ic[ $k ] . ' ' . esc_html( ( $it['label'] ?? '' ) ?: 'লিংক' ) . '</a>';
+				$o .= '<a class="sn-btn ' . ( 'apply' === $k ? '' : $k ) . '" target="_blank" rel="noopener" href="' . esc_url( $u ) . '">' . $ic[ $k ] . ' ' . esc_html( csa_sn_btn_label( $it['label'] ?? '', $k ) ) . '</a>';
 				if ( 'pdf' === $k && '' === $pv ) { // a PDF button also shows the PDF in a viewer right on the page
 					$pv = csa_sn_pdf_viewer( (string) ( $it['url'] ?? '' ) );
 				}
@@ -415,7 +540,7 @@ function csa_sn_block( $b ) {
 				}
 				$o .= '<a href="tel:' . esc_attr( $dg ) . '">📞 ' . esc_html( $n ) . '</a>';
 			}
-			return $o ? '<div class="sn-card"><b>' . esc_html( ( $b['h'] ?? '' ) ?: 'বিস্তারিত যোগাযোগ করুন:' ) . '</b><div class="sn-ph" style="margin-top:8px">' . $o . '</div></div>' : '';
+			return $o ? '<div class="sn-card"><b>' . esc_html( ( $b['h'] ?? '' ) ?: 'বিস্তারিত যোগাযোগ করুন:' ) . '</b>' . ( ! empty( $b['addr'] ) ? '<div class="sn-adr">📍 ' . esc_html( $b['addr'] ) . '</div>' : '' ) . '<div class="sn-ph" style="margin-top:8px">' . $o . '</div></div>' : '';
 		case 'gform':
 			$u = trim( (string) ( $b['url'] ?? '' ) );
 			if ( ! preg_match( '#^https://(docs\.google\.com/forms/|forms\.gle/)#i', $u ) ) {
@@ -448,13 +573,31 @@ function csa_sn_render( $id ) {
 	$tl     = $types[ $d['type'] ?? '' ]['label'] ?? '';
 	$topic  = ( $d['topic'] ?? '' ) ?: ( $types[ $d['type'] ?? '' ]['topic'] ?? get_the_title( $id ) );
 	$branch = trim( (string) ( $d['branch'] ?? '' ) );
+	$hit    = csa_sn_branch_hit( array( $branch, $d['topic'] ?? '', get_the_title( $id ) ) );
+	if ( $hit ) {
+		$branch = trim( wp_strip_all_tags( (string) $hit['name'] ) );   // the branch page spells the name
+	} elseif ( '' !== $branch && ! preg_match( '/[\x{0980}-\x{09FF}]/u', $branch ) ) {
+		$branch = '';   // an English field name from the form, not a branch we can name
+	}
 	$exp    = csa_sn_expired( $id );
 	$brand  = trim( (string) $o['brand'] );
 	$pub    = '<div class="sn-pub">প্রকাশ: ' . esc_html( csa_sn_date( (int) get_post_time( 'U', true, $id ) ) ) . '</div>';
-	$bn     = '<div class="sn-bn">' . ( $brand ? '<div class="sn-brand">' . esc_html( $brand ) . '</div>' : '' ) . ( $branch ? '<div class="sn-bt">' . esc_html( $branch ) . '</div>' : '' ) . '<span class="sn-sub">' . esc_html( $topic ) . '</span>' . ( ! empty( $d['year'] ) ? '<span class="sn-yr">' . esc_html( $d['year'] ) . '</span>' : '' ) . ( get_post_meta( $id, '_sn_expiry', true ) ? '<div><span class="sn-st' . ( $exp ? ' x' : '' ) . '">' . ( $exp ? 'আবেদনের মেয়াদ শেষ' : 'চলমান' ) . '</span></div>' : '' ) . $pub . '</div>';
+	$bn     = '<div class="sn-bn">' . ( $brand ? '<div class="sn-brand">' . esc_html( $brand ) . '</div>' : '' ) . '<div class="sn-bt sn-bt2">' . esc_html( get_the_title( $id ) ) . '</div><div class="sn-chips">' . ( $branch ? '<span class="sn-brc">📍 ' . esc_html( $branch ) . '</span>' : '' ) . '<span class="sn-sub">' . esc_html( $tl ?: $topic ) . '</span>' . ( ! empty( $d['year'] ) ? '<span class="sn-yr">' . esc_html( $d['year'] ) . '</span>' : '' ) . ( get_post_meta( $id, '_sn_expiry', true ) ? '<span class="sn-st' . ( $exp ? ' x' : '' ) . '">' . ( $exp ? 'আবেদনের মেয়াদ শেষ' : 'চলমান' ) . '</span>' : '' ) . '</div>' . $pub . '</div>';
 	$main   = '';
-	foreach ( (array) ( $d['blocks'] ?? array() ) as $b ) {
+	$blocks = csa_sn_arrange_blocks( (array) ( $d['blocks'] ?? array() ), $hit );
+	foreach ( $blocks as $b ) {
 		$main .= csa_sn_block( $b );
+	}
+	$call = '';
+	foreach ( $blocks as $b ) {
+		if ( 'phones' === ( $b['t'] ?? '' ) ) {
+			foreach ( preg_split( '/[\r\n,;،、]+/u', (string) ( $b['nums'] ?? '' ) ) as $n ) {
+				$dg = preg_replace( '/[^\d+]/', '', strtr( trim( $n ), array( '০' => '0', '১' => '1', '২' => '2', '৩' => '3', '৪' => '4', '৫' => '5', '৬' => '6', '৭' => '7', '৮' => '8', '৯' => '9' ) ) );
+				if ( '' === $call && strlen( $dg ) >= 5 && false === strpos( $n, '@' ) ) {
+					$call = '<a class="sn-call" href="tel:' . esc_attr( $dg ) . '">📞 কল করুন</a>';
+				}
+			}
+		}
 	}
 	$prev = '';
 	$seen = array( $id );
@@ -499,7 +642,7 @@ function csa_sn_render( $id ) {
 	};
 	$pn    = $adj( 'older' ) . $adj( 'newer' );
 	// The side list already shows the other notices, so no separate previous/next cards.
-	return csa_sn_css() . '<div class="sn">' . $bn . '<div class="sn-lay' . ( $side ? '' : ' sn-1' ) . '"><div>' . $main . $share . '</div>' . $side . '</div></div>';
+	return csa_sn_css() . '<div class="sn">' . $bn . '<div class="sn-lay' . ( $side ? '' : ' sn-1' ) . '"><div>' . $main . $share . '</div>' . $side . '</div>' . $call . '</div>';
 }
 
 add_filter( 'the_content', function ( $c ) {

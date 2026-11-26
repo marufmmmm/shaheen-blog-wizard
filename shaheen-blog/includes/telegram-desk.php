@@ -1822,6 +1822,15 @@ function sb_desk_notice($text, $aids, $status = 'publish', $o = array()) {
     if (!function_exists('csa_sn_ai_fill')) {
         return new WP_Error('sb_desk', 'The notice system (Site Agent) is not active.');
     }
+    $pdfurl = !empty($o['pdf_aid']) ? (string) wp_get_attachment_url((int) $o['pdf_aid']) : (!empty($o['pdf_url']) ? (string) $o['pdf_url'] : '');
+    $pr     = ('' !== $pdfurl && function_exists('csa_sn_pdf_read')) ? csa_sn_pdf_read($pdfurl) : null;
+    if ($pr && !$aids && mb_strlen(trim((string) $text)) < 15) {   // only a PDF was sent: what Gemini read from it is the text
+        $facts = array();
+        foreach ($pr['facts'] as $f) {
+            $facts[] = $f['l'] . ': ' . $f['v'];
+        }
+        $text = trim((string) $text . "\n" . $pr['summary'] . "\n" . implode("\n", $facts));
+    }
     $r = csa_sn_ai_fill($text, $aids);
     if (is_wp_error($r)) {
         return $r;
@@ -1831,12 +1840,43 @@ function sb_desk_notice($text, $aids, $status = 'publish', $o = array()) {
     if (!empty($o['type']) && isset($types[$o['type']])) {
         $type = $o['type'];
     }
-    if (!empty($o['branch'])) {
+    // The branch name and its phones come from the branch page (the directory), whatever spelling the message used.
+    $hit = function_exists('csa_sn_branch_hit') ? csa_sn_branch_hit(array($r['branch'] ?? '', $o['branch'] ?? '')) : null;
+    if ($hit) {
+        $r['branch'] = trim(wp_strip_all_tags((string) $hit['name']));
+    } elseif (!empty($o['branch'])) {
         $r['branch'] = $o['branch'];
     }
     $blocks = array();
+    // A PDF (typed link, uploaded file or a link the AI found) is read once by Gemini: short description + the facts it states.
+    if ('' === $pdfurl) {
+        foreach ((array) ($r['links'] ?? array()) as $l) {
+            if (!empty($l['url']) && 'pdf' === ($l['kind'] ?? '') && preg_match('#^https?://#i', $l['url'])) {
+                $pdfurl = $l['url'];
+                break;
+            }
+        }
+    }
+    if (!$pr && '' !== $pdfurl && function_exists('csa_sn_pdf_read')) {
+        $pr = csa_sn_pdf_read($pdfurl);
+    }
+    if ($pr && '' !== $pr['summary']) {
+        $r['summary'] = $pr['summary'];
+        $blocks[] = array('t' => 'text', 'h' => '', 'body' => $pr['summary']);
+    }
     if ($aids) {
         $blocks[] = array('t' => 'image', 'ids' => array_map('intval', $aids), 'cap' => '');
+    }
+    if ($pr && $pr['facts']) {
+        $have = array();
+        foreach ((array) ($r['cards'] ?? array()) as $c) {
+            $have[] = (string) ($c['l'] ?? '');
+        }
+        foreach ($pr['facts'] as $f) {
+            if (!in_array($f['l'], $have, true)) {
+                $r['cards'][] = $f;
+            }
+        }
     }
     $rows = array();
     foreach ((array) ($r['cards'] ?? array()) as $c) {
@@ -1855,8 +1895,10 @@ function sb_desk_notice($text, $aids, $status = 'publish', $o = array()) {
         $blocks[] = array('t' => 'note', 'body' => $r['note']);
     }
     $ph = array_values(array_filter(array_map('trim', (array) ($r['phones'] ?? array()))));
-    if ($ph) {
-        $blocks[] = array('t' => 'phones', 'h' => 'যোগাযোগ', 'nums' => implode("\n", $ph));
+    if ($hit && function_exists('csa_sn_branch_phones') && csa_sn_branch_phones($hit)) {
+        $ph = csa_sn_branch_phones($hit);   // the branch page's numbers win over numbers typed or read from the notice
+    } elseif ($pr && !$ph) {
+        $ph = $pr['phones'];
     }
     $btn = array();
     foreach ((array) ($r['links'] ?? array()) as $l) {
@@ -1870,7 +1912,7 @@ function sb_desk_notice($text, $aids, $status = 'publish', $o = array()) {
     }
     $pdf = !empty($o['pdf_aid']) ? wp_get_attachment_url((int) $o['pdf_aid']) : (!empty($o['pdf_url']) ? $o['pdf_url'] : '');
     if ($pdf) {
-        $btn[] = array('label' => 'ডাউনলোড করুন', 'url' => $pdf, 'kind' => 'pdf');
+        $btn[] = array('label' => 'PDF ডাউনলোড করুন', 'url' => $pdf, 'kind' => 'pdf');
     }
     $gform = '';
     if (!empty($o['apply'])) {
@@ -1885,6 +1927,9 @@ function sb_desk_notice($text, $aids, $status = 'publish', $o = array()) {
     }
     if ($gform) {
         $blocks[] = array('t' => 'gform', 'h' => 'অনলাইনে আবেদন করুন', 'url' => $gform, 'height' => 900);
+    }
+    if ($ph) {
+        $blocks[] = array('t' => 'phones', 'h' => 'বিস্তারিত জানতে যোগাযোগ করুন:', 'nums' => implode("\n", $ph));   // contact box last
     }
     $d = csa_sn_clean(array('type' => $type, 'branch' => $r['branch'] ?? '', 'topic' => $r['topic'] ?? '', 'year' => $r['year'] ?? '', 'expiry' => $r['expiry'] ?? '', 'summary' => $r['summary'] ?? '', 'blocks' => $blocks));
     $s = csa_sn_sum_run($d);
