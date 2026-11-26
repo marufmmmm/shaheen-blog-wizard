@@ -306,6 +306,13 @@ function sb_ytm_tick() {
     }
     sb_ytm_job_save($j);
     delete_transient('sb_ytm_lock');
+    if ('done' === $j['state'] && 'apply' === $j['type'] && get_option('sb_ytm_chain_sync')) {   // playlists finished: now the descriptions
+        delete_option('sb_ytm_chain_sync');
+        $r = sb_ytm_start_sync();
+        if (is_wp_error($r)) {
+            sb_ytm_notify("▶️ <b>বিবরণ হালনাগাদ শুরু হয়নি</b>\n" . esc_html($r->get_error_message()));
+        }
+    }
     if ('run' === $j['state']) {
         sb_ytm_schedule($pause ? 3 * HOUR_IN_SECONDS : 30);
     }
@@ -845,6 +852,9 @@ add_action('wp_ajax_sb_ytm', function () {
         }
         sb_ytm_job_save(array('type' => 'apply', 'state' => 'run', 'lists' => $L, 'li' => 0, 'added' => 0, 'placed' => array(), 'err' => '', 'ai' => (int) $pl['ai'], 'real' => (float) $pl['real'], 't' => time()));
         delete_option('sb_ytm_plan');
+        if (!empty($_POST['chain'])) {
+            update_option('sb_ytm_chain_sync', 1, false);
+        }
         sb_ytm_schedule(5);
         $msg = 'প্লেলিস্ট বানানো শুরু হয়েছে; শেষে টেলিগ্রামে জানাব।';
     } elseif ('stop' === $do) {
