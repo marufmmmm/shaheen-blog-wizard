@@ -17,7 +17,7 @@
   function say(t, bad) { var m = $('#img-msg'); m.textContent = t || ''; m.style.color = bad ? '#b32d2e' : ''; }
   function ctx() {
     var cat = $('#f-category'); var catName = cat && cat.options && cat.selectedIndex >= 0 ? cat.options[cat.selectedIndex].text : '';
-    return { title: ($('#f-title') || {}).value || '', content: window.sbEditorContent ? window.sbEditorContent() : '', category: catName };
+    return { title: ($('#f-title') || {}).value || '', content: window.sbEditorContent ? window.sbEditorContent() : '', category: catName, file_slug: (($('#f-slug') || {}).value || '').trim() };
   }
   function fields() { return { alt: $('#img-alt').value, imgtitle: $('#img-title').value, caption: $('#img-caption').value, details: $('#img-details').value }; }
   function setFields(o) { $('#img-alt').value = o.alt || ''; $('#img-title').value = o.title || ''; $('#img-caption').value = o.caption || ''; $('#img-details').value = o.details || ''; }
@@ -45,7 +45,7 @@
   function make() {
     var c = ctx(), f = fields(), job = 'j' + Date.now() + Math.random().toString(36).slice(2, 8);
     return post('sb_img_make', Object.assign({ job: job, prompt: $('#img-prompt').value, model: $('#img-model').value, uniform: $('#img-uniform').value, subject: $('#img-subject').value, logo: $('#img-logo').value, logo_at: $('#img-logoat').value, size: $('#img-size').value,
-      quality: $('#img-quality').value, title: c.title, content: c.content, category: c.category, post_id: (window.SB_POST && SB_POST.id) || 0 }, f)).then(function (d) {
+      quality: $('#img-quality').value, file_slug: c.file_slug, title: c.title, content: c.content, category: c.category, post_id: (window.SB_POST && SB_POST.id) || 0 }, f)).then(function (d) {
       if (window.sbFeat) { sbFeat.set(d.id, d.url); }
       return d;
     });
@@ -177,7 +177,7 @@
     function msg(t, bad) { var m = sl.q('.s-msg'); m.textContent = t || ''; m.style.color = bad ? '#b32d2e' : ''; }
     function common() {
       var c = ctx();
-      return { title: c.title, content: c.content, category: c.category, post_id: (window.SB_POST && SB_POST.id) || 0, subject: sl.q('.s-subject').value, uniform: sl.q('.s-uniform').value,
+      return { title: c.title, file_slug: c.file_slug, content: c.content, category: c.category, post_id: (window.SB_POST && SB_POST.id) || 0, subject: sl.q('.s-subject').value, uniform: sl.q('.s-uniform').value,
         logo: sl.q('.s-logo').value, logo_at: sl.q('.s-logoat').value, size: sl.q('.s-size').value, section: sectionText(sl.q('.s-pos').value) };
     }
     function run(btn, wait, fn) {
@@ -201,7 +201,7 @@
       run(this, '⏳ ছবি তৈরি হচ্ছে… (১ মিনিট পর্যন্ত লাগতে পারে, পেজ বন্ধ করবেন না)', function () {
         var c = common(), job = 'j' + Date.now() + Math.random().toString(36).slice(2, 8), f = sl.draft || {};
         var pre = sl.q('.s-prompt').value.trim().length >= 20 ? Promise.resolve() : (msg('⏳ আগে ছবির নির্দেশ লেখা হচ্ছে…'), post('sb_img_prompt', c).then(function (d) {
-          sl.q('.s-prompt').value = d.prompt; f = sl.draft = { alt: d.alt, title: d.title, caption: d.caption, details: d.details }; msg('⏳ ছবি তৈরি হচ্ছে… (১ মিনিট পর্যন্ত লাগতে পারে, পেজ বন্ধ করবেন না)');
+          sl.q('.s-prompt').value = d.prompt; setF(d); f = sl.draft = { alt: d.alt, title: d.title, caption: d.caption, details: d.details }; msg('⏳ ছবি তৈরি হচ্ছে… (১ মিনিট পর্যন্ত লাগতে পারে, পেজ বন্ধ করবেন না)');
         }));
         return pre.then(function () { return post('sb_img_make', Object.assign(c, { job: job, prompt: sl.q('.s-prompt').value, model: sl.q('.s-model').value, quality: sl.q('.s-quality').value,
           alt: sl.q('.s-alt').value || f.alt || '', imgtitle: sl.q('.s-title').value || f.title || '', caption: sl.q('.s-caption').value || f.caption || '', details: sl.q('.s-details').value || f.details || '' })); }).then(function (d) {
