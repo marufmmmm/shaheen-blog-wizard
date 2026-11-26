@@ -292,7 +292,7 @@ function sb_ca_panel() {
         </div>
         <p><button type="button" class="button" id="ca-addt">➕ নতুন বিষয়</button></p>
         <p style="margin:8px 0"><label>আরও নির্দেশ (ঐচ্ছিক) <input type="text" id="ca-extra" value="<?php echo esc_attr($c['extra']); ?>" style="width:100%" placeholder="যেমন: রাজনীতির খবর বাদ দাও"></label></p>
-        <p style="margin:8px 0"><label><input type="checkbox" id="ca-disc" <?php checked($c['disc'], 1); ?>> 🔎 নতুন সংবাদ <b>নিজে নিজে খুঁজুন</b> (প্রতি ৬ ঘণ্টায় একবার; খোঁজার খরচ প্রতি বার $০.০১, পাওয়া প্রতিটি পেজ AI যাচাইয়ের খরচ আলাদা)</label></p>
+        <p style="margin:8px 0"><label><input type="checkbox" id="ca-disc" <?php checked($c['disc'], 1); ?>> 🔎 নতুন সংবাদ <b>নিজে নিজে খুঁজুন</b> (প্রতি ৬ ঘণ্টায় একবার)</label></p>
         <div id="ca-link" style="border:1px dashed #94a3b8;border-radius:6px;padding:8px;margin:10px 0;background:#fff">
             <b>🔗 লিংক দিয়ে সরাসরি বসান</b>
             <p class="sba-muted" style="margin:4px 0">খবরের লিংক, ফেসবুক পোস্ট বা ভিডিও লিংক, ইউটিউব লিংক — প্রতি লাইনে একটি। ফেসবুক/ইউটিউবের ছবি নিজে থেকে আসবে; খবর হলে নেতিবাচক-শব্দ ও AI যাচাই হবে।</p>

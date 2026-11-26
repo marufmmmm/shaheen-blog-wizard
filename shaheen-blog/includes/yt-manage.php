@@ -390,7 +390,7 @@ function sb_ytm_step_sync($j, &$pause) {
     sb_ytm_save(array('hash' => $j['hash'], 'last' => time(), 'block' => $j['block'], 'note' => ''));
     $j['state'] = 'done';
     $j['bill']  = $bill;
-    sb_ytm_notify("▶️ <b>ইউটিউব তথ্য হালনাগাদ হয়েছে</b>\nবদলেছে: " . (int) $j['ok'] . 'টি ভিডিও · আগেই ঠিক ছিল: ' . (int) $j['same'] . ' · ব্যর্থ: ' . (int) $j['fail'] . "\nচ্যানেলের বিবরণও নতুন করা হয়েছে।\nখরচ: $" . number_format($bill, 2) . (!empty($j['ai']) ? ' (AI সহ)' : '') . ('' !== $j['err'] ? "\n⚠️ " . esc_html($j['err']) : ''));
+    sb_ytm_notify("▶️ <b>ইউটিউব তথ্য হালনাগাদ হয়েছে</b>\nবদলেছে: " . (int) $j['ok'] . 'টি ভিডিও · আগেই ঠিক ছিল: ' . (int) $j['same'] . ' · ব্যর্থ: ' . (int) $j['fail'] . "\nচ্যানেলের বিবরণও নতুন করা হয়েছে।" . ('' !== $j['err'] ? "\n⚠️ " . esc_html($j['err']) : ''));
     return $j;
 }
 
@@ -544,7 +544,7 @@ function sb_ytm_step_apply($j, &$pause) {
         $j['bill']  = $bill;
         $pl = get_option('sb_ytm_placed', array());
         update_option('sb_ytm_placed', array_merge(is_array($pl) ? $pl : array(), (array) ($j['placed'] ?? array())), false);
-        sb_ytm_notify((!empty($j['auto']) ? "▶️ <b>নতুন ভিডিও প্লেলিস্টে বসেছে</b>" : "▶️ <b>ইউটিউব প্লেলিস্ট তৈরি হয়েছে</b>") . "\nপ্লেলিস্ট: " . count($L) . ' · ভিডিও বসেছে: ' . (int) $j['added'] . "\nখরচ: $" . number_format($bill, 2) . (!empty($j['ai']) ? ' (AI সহ)' : ''));
+        sb_ytm_notify((!empty($j['auto']) ? "▶️ <b>নতুন ভিডিও প্লেলিস্টে বসেছে</b>" : "▶️ <b>ইউটিউব প্লেলিস্ট তৈরি হয়েছে</b>") . "\nপ্লেলিস্ট: " . count($L) . ' · ভিডিও বসেছে: ' . (int) $j['added'] );
         return $j;
     }
     $cur = &$L[(int) $j['li']];
@@ -930,7 +930,7 @@ function sb_ytm_panel() {
             function show(d){
                 $('#ym-auto').checked=!!d.auto;$('#ym-ai').checked=!!d.ai;$('#ym-th').checked=!!d.thumb;if(document.activeElement!==$('#ym-ev'))$('#ym-ev').value=d.evlogos||'';if(document.activeElement!==$('#ym-campus'))$('#ym-campus').value=d.campus||'';if(document.activeElement!==$('#ym-kw'))$('#ym-kw').value=d.kw||'';
                 var j=d.job,t=(d.msg?d.msg+' · ':'')+(d.last?'শেষ হালনাগাদ: '+d.last+' · ':'')+'আজ ইউটিউব সীমা ব্যবহার: '+d.quota+'/১০০০০';
-                if(j){t+=' · কাজ: '+(j.type==='sync'?'বিবরণ':'প্লেলিস্ট')+' '+j.state+' ('+j.i+'/'+j.n+')'+(j.err?' — '+j.err:'')+(j.bill?' · খরচ $'+Number(j.bill).toFixed(2):'');}
+                if(j){t+=' · কাজ: '+(j.type==='sync'?'বিবরণ':'প্লেলিস্ট')+' '+j.state+' ('+j.i+'/'+j.n+')'+(j.err?' — '+j.err:'');}
                 if(d.perr)t+=' · ❌ '+d.perr;if(d.busy)t+=' · পরিকল্পনা বানানো চলছে… '+(d.plog||'');
                 $('#ym-st').textContent=t;if(d.busy)setTimeout(function(){call({do:'plan_step'}).then(function(r){if(r.success)show(r.data);});},1500);
                 if(d.block){$('#ym-block').style.display='block';$('#ym-block').textContent=d.block;}

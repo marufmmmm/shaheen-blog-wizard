@@ -129,8 +129,6 @@ function sb_thumb_build($c, $e, $dr) {
     $order   = array('family', 'school');
     if (preg_match('/ইসলামিক|ইসলামী|ইসলাম শিক্ষা|মাদ্রাসা|মাদরাসা|কুরআন|কোরআন|হিফজ|নাযেরা|দ্বীনি|islamic|madrasa|quran|hifz/u', $txt_all) && isset($all['islamic'])) {
         $order = array('islamic', 'family', 'school');
-    } elseif (preg_match('/ক্যাডেট|cadet/u', $txt_all) && isset($all['cadet'])) {
-        $order = array('cadet', 'family', 'school');
     }
     foreach ($order as $k) {
         if (isset($all[$k])) {
@@ -143,9 +141,9 @@ function sb_thumb_build($c, $e, $dr) {
     $idea   = trim((string) ($dr['thumb_idea'] ?? ''));
     $prompt = 'Create a scroll-stopping YouTube thumbnail (landscape). Use reference image 1 — a real frame from the video — as the base: keep the real people, place and clothes exactly as they are, but make it brighter, sharper and richer in colour, with strong contrast, a clean uncluttered composition and a clear focal point' . ('' !== $idea ? ' (direction from the video analysis: ' . $idea . ')' : '') . '. '
         . 'Add ONE huge bold headline in Bangla, exactly this text and nothing else: "' . $hook . '". Use a thick, clean Bengali typeface, white or bright yellow on a solid dark or red band (or with a heavy dark outline), so it stays readable even when the thumbnail is tiny; correct Bengali conjunct letters, no spelling changes. '
-        . 'Keep the headline and the main subject well inside the central area (the top and bottom tenth of the picture may be cropped away). '
-        . ($evn ? 'Reference image ' . $evn . ' is the official logo of the event "' . $ev['name'] . '": copy it faithfully, unaltered, once, fairly prominent, in the top-left corner. ' : '')
-        . ('' !== $inst ? 'Reference image ' . $instn . ' is the institution\'s logo (' . $inst . '): copy it faithfully, unaltered, small, once, in the ' . ($evn ? 'top-right' : 'top-left') . ' corner. ' : '')
+        . 'The picture will be cropped to 16:9 (the top and bottom 15% are cut off), so keep the headline, every logo and the main subject fully inside the central 70% of the height and at least 6% away from the left and right edges: nothing may touch an edge or be cut. '
+        . ($evn ? 'Reference image ' . $evn . ' is the official logo of the event "' . $ev['name'] . '": copy it faithfully and completely, unaltered, never cropped or covered, once, fairly prominent, in the upper-left area. ' : '')
+        . ('' !== $inst ? 'Reference image ' . $instn . ' is the institution\'s logo (' . $inst . '): copy it faithfully and completely, unaltered, never cropped or covered, small, once, in the upper-' . ($evn ? 'right' : 'left') . ' area. ' : '')
         . 'Make it look professional and eye-catching: vivid saturated colours, glowing edge light around the main subject, crisp edges, a balanced layout that makes a viewer want to click. No other text, no watermark, no extra logos, no frames or borders.';
     $model = array_keys(sb_img_models())[0];
     $res   = sb_img_call($model, $prompt, '1536x1024', 'medium', $refs);
