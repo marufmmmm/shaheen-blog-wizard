@@ -51,7 +51,7 @@ function sb_ytm_call($method, $path, $query = array(), $body = null, $cost = 1) 
     }
     $qk = 'sb_ytm_q_' . wp_date('Ymd', null, new DateTimeZone('America/Los_Angeles'));
     $qn = (int) get_transient($qk);
-    if ($qn + $cost > SB_YTM_QUOTA) {
+    if ($qn + $cost > ($cost < 5 ? 9800 : SB_YTM_QUOTA)) {   // reading costs 1 unit: it may use the last part of the day's 10000; writes stop at the lower cap
         return new WP_Error('sb_quota', 'আজকের ইউটিউব সীমা প্রায় শেষ।');
     }
     $tok = get_transient('sb_ytm_tok');
