@@ -212,13 +212,13 @@ function sb_ytm_apply_block($desc, $block) {
 }
 
 /* ------------------------------------------------------------ AI (own metering, own price) */
-function sb_ytm_ai($sys, $usr) {
+function sb_ytm_ai($sys, $usr, $timeout = 70) {
     $key = function_exists('sb_get') ? sb_get('api_key') : '';
     if ('' === (string) $key) {
         return array(null, 0.0);
     }
     sb_meter_take();
-    $r    = wp_remote_post(SB_AI::ENDPOINT, array('timeout' => 70, 'headers' => array('Authorization' => 'Bearer ' . $key, 'Content-Type' => 'application/json'),
+    $r    = wp_remote_post(SB_AI::ENDPOINT, array('timeout' => (int) $timeout, 'headers' => array('Authorization' => 'Bearer ' . $key, 'Content-Type' => 'application/json'),
         'body' => wp_json_encode(array('model' => sb_model_for('bulk'), 'response_format' => array('type' => 'json_object'), 'messages' => array(array('role' => 'system', 'content' => $sys), array('role' => 'user', 'content' => $usr))))));
     $real = sb_meter_take();
     if (is_wp_error($r) || 200 !== (int) wp_remote_retrieve_response_code($r)) {
@@ -738,7 +738,8 @@ add_action('sb_ytm_plan_run', function ($ai) {
         'তুমি একটি স্কুল-কোচিং প্রতিষ্ঠানের ইউটিউব ভিডিও প্লেলিস্টে সাজাচ্ছ। নিচের ভিডিওগুলো প্রতিটি সবচেয়ে মানানসই একটি প্লেলিস্টে দাও। এই প্লেলিস্টগুলো অবশ্যই ব্যবহার করবে যেখানে মানায়: "প্রশংসা ও সম্মাননা" (অভিভাবক/অতিথির মতামত, সম্মাননা, অভিনন্দন), "ক্লাস লেকচার (বাংলা)", "ক্লাস লেকচার (ইংরেজি)"; এছাড়া বিষয় দেখে অন্য প্লেলিস্ট (সব মিলিয়ে ৪ থেকে ৯টির বেশি হবে না)। নাম সহজ চলতি বাংলায়, ৬০ অক্ষরের মধ্যে, নামে "শাহীন" একা লিখবে না; বর্ণনা এক বাক্যে।'
         . ($st['lists'] ? ' এই প্লেলিস্টগুলো আগেই হয়েছে; মানালে হুবহু এই নামই ব্যবহার করবে, একেবারে নতুন বিষয় হলে তবেই নতুন নাম দেবে: ' . implode(' | ', array_keys($st['lists'])) . '.' : '')
         . ' ভিডিওর আইডি বানাবে না। শুধু এই JSON: {"lists":[{"name":"...","desc":"...","ids":["..."]}]}',
-        implode("\n", $rows)
+        implode("\n", $rows),
+        45
         );
     }
     $st['real'] += $real;
@@ -820,6 +821,10 @@ add_action('wp_ajax_sb_ytm', function () {
         wp_schedule_single_event(time() + 2, 'sb_ytm_plan_run', array(!empty($_POST['ai']) ? 1 : 0));
         spawn_cron();
         $msg = 'সব ভিডিও দেখে পরিকল্পনা বানানো শুরু হয়েছে (১-২ মিনিট লাগতে পারে)।';
+    } elseif ('plan_step' === $do) {   // the open admin page drives the batches one by one (a background cron alone was not reliable on this host)
+        if ((time() - (int) get_option('sb_ytm_plan_busy', 0)) < 600) {
+            do_action('sb_ytm_plan_run', 1);
+        }
     } elseif ('apply' === $do) {
         $pl  = get_option('sb_ytm_plan', array());
         $sel = json_decode((string) wp_unslash($_POST['lists'] ?? '[]'), true);
@@ -876,7 +881,7 @@ function sb_ytm_panel() {
                 var j=d.job,t=(d.msg?d.msg+' · ':'')+(d.last?'শেষ হালনাগাদ: '+d.last+' · ':'')+'আজ ইউটিউব সীমা ব্যবহার: '+d.quota+'/১০০০০';
                 if(j){t+=' · কাজ: '+(j.type==='sync'?'বিবরণ':'প্লেলিস্ট')+' '+j.state+' ('+j.i+'/'+j.n+')'+(j.err?' — '+j.err:'')+(j.bill?' · খরচ $'+Number(j.bill).toFixed(2):'');}
                 if(d.perr)t+=' · ❌ '+d.perr;if(d.busy)t+=' · পরিকল্পনা বানানো চলছে… '+(d.plog||'');
-                $('#ym-st').textContent=t;if(d.busy)setTimeout(function(){call({do:'state'}).then(function(r){if(r.success)show(r.data);});},6000);
+                $('#ym-st').textContent=t;if(d.busy)setTimeout(function(){call({do:'plan_step'}).then(function(r){if(r.success)show(r.data);});},1500);
                 if(d.block){$('#ym-block').style.display='block';$('#ym-block').textContent=d.block;}
                 plan=d.plan;var h='';
                 if(plan){h='<p><b>পরিকল্পনা ('+(plan.ai?'AI':'নিয়ম')+'):</b> বাদ দিতে টিক তুলুন, নাম বদলাতে পারেন।</p>';
