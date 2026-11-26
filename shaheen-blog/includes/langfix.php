@@ -53,17 +53,15 @@ add_action('wp_ajax_sb_langfix_scan', function () {
     wp_send_json_success(array('found' => sb_lang_scan($c)));
 });
 
-add_action('wp_ajax_sb_langfix_run', function () {
-    sb_ajax_guard();
-    $cur = isset($_POST['content']) ? trim((string) wp_unslash($_POST['content'])) : ''; // phpcs:ignore WordPress.Security.NonceVerification
-    if (mb_strlen(wp_strip_all_tags($cur)) < 120) {
-        wp_send_json_error(array('message' => 'আগে আর্টিকেল লিখুন।'));
-    }
-    $uid   = get_current_user_id();
+/**
+ * The whole language fix on one HTML text. Returns array(text, before, after, cost, balance) or WP_Error.
+ * Nothing is charged unless the result passes the guards (same headings, pictures, links and numbers).
+ */
+function sb_langfix_core($uid, $cur, $title, $post_id) {
     $cost  = sb_feature_cost('langfix');
     $state = SB_Credits::state($uid);
     if ($cost && $state['remaining'] < $cost) {
-        wp_send_json_error(array('message' => 'ব্যবহারের সীমা শেষ।', 'balance' => $state));
+        return new WP_Error('sb_limit', 'ব্যবহারের সীমা শেষ।');
     }
     $found = sb_lang_scan($cur);
     $pairs = array();
@@ -77,33 +75,51 @@ add_action('wp_ajax_sb_langfix_run', function () {
         . "- যে বাক্য বইয়ের মতো লাগে, সেটি ছোট ও সোজা করে নতুন করে লেখো। লম্বা বাক্য ভাঙো।\n"
         . "- শুধু শব্দ ও বাক্যের গড়ন বদলাবে। তথ্য, সংখ্যা, নাম, তারিখ, শিরোনাম (h2/h3), অনুচ্ছেদের ক্রম, ছবি ও ক্যাপশন, লিংক একদম একই রাখো। নতুন তথ্য যোগ করবে না, কিছু বাদ দেবে না।\n"
         . "- শাহীনের নাম লিখতে হলে শুধু “শাহীন শিক্ষা পরিবার” বা “শাহীন স্কুল ও ক্যাডেট কোচিং” লিখবে।";
-    $ctx = array('title' => sanitize_text_field(isset($_POST['title']) ? wp_unslash($_POST['title']) : ''), 'topic' => '', 'excerpt' => '', 'content' => $cur, // phpcs:ignore WordPress.Security.NonceVerification
-        'keywords' => array(), 'post_id' => (int) sb_req('post_id', 0), 'instruction' => $ins, 'tier' => 1, 'model' => '');
-    $notes = array();
+    $ctx = array('title' => $title, 'topic' => '', 'excerpt' => '', 'content' => $cur, 'keywords' => array(), 'post_id' => (int) $post_id,
+        'instruction' => $ins, 'tier' => 1, 'model' => '');
     $res = SB_AI::generate('edit', $ctx);
     if (is_wp_error($res)) {
-        wp_send_json_error(array('message' => $res->get_error_message(), 'balance' => $state));
+        return $res;
     }
     $new = isset($res['text']) ? (string) $res['text'] : '';
-    // guard: the structure and the numbers must survive (nothing is charged if not)
-    $cnt = function ($h, $re) {
-        return preg_match_all($re, $h);
-    };
     foreach (array('/<h2\b/i', '/<h3\b/i', '/<img\b/i', '/<figure\b/i', '/<a\s/i') as $re) {
-        if ($cnt($cur, $re) !== $cnt($new, $re)) {
-            wp_send_json_error(array('message' => 'AI লেখার কাঠামো (শিরোনাম/ছবি/লিংক) বদলে ফেলেছিল, তাই কিছু বদলানো হয়নি এবং বিল যোগ হয়নি। আবার চেষ্টা করুন।', 'balance' => $state));
+        if (preg_match_all($re, $cur) !== preg_match_all($re, $new)) {
+            return new WP_Error('sb_struct', 'AI লেখার কাঠামো (শিরোনাম/ছবি/লিংক) বদলে ফেলেছিল, তাই কিছু বদলানো হয়নি এবং বিল যোগ হয়নি।');
         }
     }
     $miss = array_diff(sb_numbers(wp_strip_all_tags($cur)), sb_numbers(wp_strip_all_tags($new)));
     if ($miss) {
-        wp_send_json_error(array('message' => 'AI কিছু সংখ্যা বদলে ফেলেছিল (' . implode(', ', array_map('sb_bn_digits', $miss)) . '), তাই বদলানো হয়নি এবং বিল যোগ হয়নি।', 'balance' => $state));
+        return new WP_Error('sb_nums', 'AI কিছু সংখ্যা বদলে ফেলেছিল (' . implode(', ', array_map('sb_bn_digits', $miss)) . '), তাই বদলানো হয়নি এবং বিল যোগ হয়নি।');
     }
+    $notes = array();
     $GLOBALS['sb_mult_force'] = SB_LANGFIX_MULT;
     $out = sb_ai_finish($uid, 'langfix', $ctx, $cost, false, $res, $notes);
     unset($GLOBALS['sb_mult_force']);
     if (empty($out['ok'])) {
-        wp_send_json_error(array('message' => $out['message'], 'balance' => $state));
+        return new WP_Error('sb_fin', $out['message']);
     }
     $d = $out['data'];
-    wp_send_json_success(array('text' => $d['result']['text'], 'before' => $found, 'after' => sb_lang_scan($d['result']['text']), 'cost' => $d['cost'], 'balance' => $d['balance']));
+    return array('text' => $d['result']['text'], 'before' => $found, 'after' => sb_lang_scan($d['result']['text']), 'cost' => $d['cost'], 'balance' => $d['balance']);
+}
+
+/** Automatic step after an article is written: only when bookish words are really there, and only if the fix is safe. */
+function sb_langfix_auto($uid, $html, $title, $post_id) {
+    if (sb_get('lang_auto') === '0' || mb_strlen(wp_strip_all_tags((string) $html)) < 300 || !sb_lang_scan($html)) {
+        return null;
+    }
+    $r = sb_langfix_core($uid, $html, $title, $post_id);
+    return is_wp_error($r) ? null : $r;
+}
+
+add_action('wp_ajax_sb_langfix_run', function () {
+    sb_ajax_guard();
+    $cur = isset($_POST['content']) ? trim((string) wp_unslash($_POST['content'])) : ''; // phpcs:ignore WordPress.Security.NonceVerification
+    if (mb_strlen(wp_strip_all_tags($cur)) < 120) {
+        wp_send_json_error(array('message' => 'আগে আর্টিকেল লিখুন।'));
+    }
+    $r = sb_langfix_core(get_current_user_id(), $cur, sanitize_text_field(isset($_POST['title']) ? wp_unslash($_POST['title']) : ''), (int) sb_req('post_id', 0)); // phpcs:ignore WordPress.Security.NonceVerification
+    if (is_wp_error($r)) {
+        wp_send_json_error(array('message' => $r->get_error_message(), 'balance' => SB_Credits::state(get_current_user_id())));
+    }
+    wp_send_json_success($r);
 });

@@ -494,6 +494,16 @@ function sb_ai_finish($uid, $feature, $ctx, $cost, $research, $result, &$notes) 
     if (is_wp_error($new)) {
         return array('ok' => false, 'message' => $new->get_error_message());
     }
+    // automatic language check: a freshly written article gets everyday-Bangla wording by itself (billed separately, real cost x 1.4)
+    if (in_array($feature, array('article', 'custom', 'rewrite', 'rewrite_post', 'edit_new'), true) && !empty($result['text']) && function_exists('sb_langfix_auto')) {
+        $lf = sb_langfix_auto($uid, $result['text'], isset($ctx['title']) ? (string) $ctx['title'] : '', $post_id);
+        if ($lf) {
+            $result['text'] = $lf['text'];
+            $result['langfix'] = count($lf['before']);
+            $cost += (int) $lf['cost'];
+            $new = $lf['balance'];
+        }
+    }
     $result['notes'] = $notes;
     return array('ok' => true, 'data' => array('result' => $result, 'cost' => $cost, 'balance' => $new));
 }

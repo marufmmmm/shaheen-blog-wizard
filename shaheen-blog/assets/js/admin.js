@@ -1220,7 +1220,7 @@
     else if (f === 'meta') { $('#f-meta').value = r.text; metaCount(); }
     else if (f === 'article' || f === 'custom' || f === 'rewrite') {
       setEditorContent(r.text);
-      setTimeout(function () { if (window.sbLangAutoScan) { window.sbLangAutoScan(); } }, 600);   // free language check right after writing
+      if (r.langfix) { toast('🗣️ ভাষা নিজে থেকে যাচাই করে সহজ করা হয়েছে (' + bn(r.langfix) + 'টি কঠিন শব্দ ঠিক)।', 'ok'); }
       var sb = $('#article-sources'), mb = $('#article-missing');
       sb.innerHTML = ''; mb.innerHTML = '';
       if (r.sources && r.sources.length) {
