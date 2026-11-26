@@ -14,6 +14,34 @@ $blog_page = (int) get_option('sb_blog_page_id');
 <div class="wrap sba">
     <h1>Blog Write .ai — Dashboard</h1>
 
+    <div class="sba-card" style="margin-bottom:16px">
+        <h2 style="margin-top:0">🧭 আপনি কী করতে চান?</h2>
+        <p class="sba-muted" style="margin-top:0">নিচের একটি বাটন বেছে নিন। কোনটা কখন, পাশে লেখা আছে।</p>
+        <div class="sba-grid sba-grid--2" style="gap:12px">
+            <div style="border:1px solid #dcdcde;border-radius:8px;padding:12px">
+                <h3 style="margin:0 0 4px">✍️ নতুন লেখা</h3>
+                <p class="sba-muted" style="margin:0 0 8px"><strong>কখন:</strong> আপনার কাছে শিরোনাম, কীওয়ার্ড বা কিছু তথ্য আছে, কিন্তু লেখা নেই। AI আপনার তথ্য ও ইন্টারনেট দেখে একদম নতুন লেখা লিখবে। বাংলা বা English, যেটা চান।</p>
+                <a class="button button-primary" href="<?php echo esc_url(admin_url('admin.php?page=sb-new')); ?>">✍️ নতুন লেখা শুরু করুন</a>
+            </div>
+            <div style="border:1px solid #dcdcde;border-radius:8px;padding:12px">
+                <h3 style="margin:0 0 4px">🔁 রিরাইট</h3>
+                <p class="sba-muted" style="margin:0 0 8px"><strong>কখন:</strong> আপনার হাতে অন্য কারো লেখা বা খবর আছে (পেস্ট বা লিংক)। AI তথ্য একদম ঠিক রেখে ভাষা পুরো বদলে সহজ বাংলায় নতুন করে লিখবে।</p>
+                <a class="button button-primary" href="<?php echo esc_url(admin_url('admin.php?page=sb-rewrite')); ?>">🔁 রিরাইট করুন</a>
+            </div>
+            <div style="border:1px solid #dcdcde;border-radius:8px;padding:12px">
+                <h3 style="margin:0 0 4px">📰 পত্রিকার খবর (Press)</h3>
+                <p class="sba-muted" style="margin:0 0 8px"><strong>কখন:</strong> শাহীনকে নিয়ে পত্রিকা বা সাইটে খবর এসেছে। লিংক দিলে সেটার ছোট কার্ড হবে। লেখা বানানো নয়।</p>
+                <a class="button" href="<?php echo esc_url(admin_url('admin.php?page=sb-press')); ?>">📰 Press খুলুন</a>
+            </div>
+            <div style="border:1px solid #dcdcde;border-radius:8px;padding:12px">
+                <h3 style="margin:0 0 4px">📥 পুরনো পোস্ট আনুন (Import)</h3>
+                <p class="sba-muted" style="margin:0 0 8px"><strong>কখন:</strong> আগের কোনো লেখা আছে, শুধু এই ব্লগে তুলতে চান। AI দিয়ে নতুন কিছু লেখা হয় না।</p>
+                <a class="button" href="<?php echo esc_url(admin_url('admin.php?page=sb-import')); ?>">📥 Import খুলুন</a>
+            </div>
+        </div>
+        <p class="sba-muted" style="margin:10px 0 0">💡 <strong>সহজ নিয়ম:</strong> নিজের তথ্য থেকে লিখতে চাইলে <strong>নতুন লেখা</strong>। অন্যের লেখা বদলাতে চাইলে <strong>রিরাইট</strong>। টেলিগ্রামেও একই দুটো নাম থাকবে।</p>
+    </div>
+
     <div class="sba-grid">
         <div class="sba-card sba-card--credit">
             <h2><?php echo $st['unlimited'] ? '💵 এই মাসের বিল (VAT সহ)' : '💵 AI Balance (USD)'; ?></h2>

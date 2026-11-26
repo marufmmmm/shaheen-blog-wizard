@@ -26,6 +26,7 @@ $d = array(
     'author_name' => $post ? get_post_meta($pid, '_sb_author_name', true) : '',
     'keywords'    => $post ? (array) get_post_meta($pid, '_sb_keywords', true) : array(),
     'topic'       => $post ? get_post_meta($pid, '_sb_topic', true) : '',
+    'lang'        => $post ? (get_post_meta($pid, '_sb_lang', true) ?: '') : '',
     'blocks'      => $post ? (array) get_post_meta($pid, '_sb_blocks', true) : array(),
     'block_ids'   => $post ? (array) get_post_meta($pid, '_sb_block_ids', true) : array(),
     'no_social'   => $post ? (int) get_post_meta($pid, '_sb_no_social', true) : 0,
@@ -79,6 +80,10 @@ $costs['research'] = max(0, (int) sb_get('cost_research'));
             <label><strong>১. শিরোনাম *</strong> <small>(আপনি নিজে লিখবেন, AI বদলাবে না)</small>
                 <input type="text" id="f-title" value="<?php echo esc_attr($d['title']); ?>" placeholder="পোস্টের শিরোনাম">
             </label>
+
+            <?php $pl = $d['lang'] !== '' ? $d['lang'] : (sb_get('ai_lang') === 'en' ? 'en' : 'bn'); ?>
+            <label style="display:block;margin:10px 0"><strong>🌐 কোন ভাষায় লিখবে?</strong> <small>(এই পোস্টের লেখা, সামারি, FAQ, মেটা সব এই ভাষায় হবে)</small>
+                <select id="f-lang"><option value="bn" <?php selected($pl, 'bn'); ?>>বাংলা</option><option value="en" <?php selected($pl, 'en'); ?>>English (ইংরেজি)</option></select></label>
 
             <div class="sba-ai">
                 <div class="sba-ai-head"><h3>৫টি শিরোনাম</h3>
@@ -350,12 +355,15 @@ $costs['research'] = max(0, (int) sb_get('cost_research'));
                     <label>লোগো<?php echo sb_img_select('img-logo', $io['logos']); ?></label>
                     <label>লোগো কোথায় বসবে<?php echo sb_img_select('img-logoat', $io['places']); ?></label>
                 </div>
-                <label>ছবির প্রম্পট <small>(তৈরি হলে নিজে বদলাতে পারবেন)</small><textarea id="img-prompt" rows="4" placeholder="ইংরেজিতে বিস্তারিত প্রম্পট — বা নিচের বোতামে AI দিয়ে তৈরি করুন"></textarea></label>
-                <p>
-                    <button type="button" class="button" id="img-mkprompt">✍️ প্রম্পট তৈরি করুন</button>
-                    <button type="button" class="button button-primary" id="img-make">🎨 এই প্রম্পটে ছবি বানান</button>
+                <p style="margin:8px 0">
+                    <button type="button" class="button button-primary button-hero" id="img-make">🎨 ছবি বানান</button>
                     <span class="sba-muted" id="img-msg"></span>
                 </p>
+                <p class="sba-muted" style="margin-top:0">এক ক্লিকেই হবে: AI আগে আর্টিকেল পড়ে ছবির নির্দেশ লেখে, তারপর ছবি বানায়। আলাদা করে প্রম্পট বানাতে হয় না।</p>
+                <details style="margin:6px 0"><summary>⚙️ চাইলে নির্দেশ (প্রম্পট) নিজে দেখুন বা বদলান</summary>
+                    <label>ছবির নির্দেশ (প্রম্পট) <small>(ফাঁকা থাকলে "ছবি বানান" চাপলে AI নিজেই লিখে নেবে; আগে লেখা থাকলে সেটাই ব্যবহার হবে)</small><textarea id="img-prompt" rows="4" placeholder="ইংরেজিতে বিস্তারিত নির্দেশ"></textarea></label>
+                    <p><button type="button" class="button" id="img-mkprompt">✍️ শুধু নির্দেশটা বানিয়ে দেখান</button></p>
+                </details>
                 <p class="sba-muted">একবার চাপলে একটি ছবি তৈরি হয় এবং তখনই শুধু বিল যোগ হয়। ছবি ব্যর্থ হলে কোনো বিল নেই। ছবি WebP ফরম্যাটে সেভ হয়।</p>
                 <hr>
                 <div id="img-extra" data-opts="<?php echo esc_attr(wp_json_encode($io)); ?>">

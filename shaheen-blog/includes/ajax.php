@@ -161,6 +161,7 @@ function sb_ajax_ai() {
         'words'    => max(0, min(5000, (int) sb_req('words', 0))),
         'mode'     => in_array(sb_req('mode'), array('links', 'paste', 'both'), true) ? sb_req('mode') : 'both',
         'paste'    => mb_substr(sanitize_textarea_field(sb_req('paste')), 0, 40000),
+        'lang'     => in_array(sb_req('lang'), array('bn', 'en'), true) ? sb_req('lang') : '',
         'ptype'    => isset(sb_ptypes()[sb_req('ptype')]) ? sb_req('ptype') : 'general',
         'aud'      => isset(sb_audiences()[sb_req('aud')]) ? sb_req('aud') : 'all',
         'tone'     => isset(sb_tones()[sb_req('tone')]) ? sb_req('tone') : 'warm',
@@ -782,6 +783,9 @@ function sb_ajax_save_post() {
     update_post_meta($id, '_sb_author_name', sanitize_text_field(sb_req('author_name')));
     update_post_meta($id, '_sb_keywords', sb_req_list('keywords', 10));
     update_post_meta($id, '_sb_topic', sanitize_text_field(sb_req('topic')));
+    if (in_array(sb_req('lang'), array('bn', 'en'), true)) {
+        update_post_meta($id, '_sb_lang', sb_req('lang'));
+    }
     update_post_meta($id, '_sb_seo_title', mb_substr(sanitize_text_field(sb_req('seo_title')), 0, 70));
     update_post_meta($id, '_sb_en_title', mb_substr(sanitize_text_field(sb_req('en_title')), 0, 120));
     sb_seo_sync($id);

@@ -69,8 +69,9 @@
       .catch(function (e) { say(e.message, true); }).then(function () { busy = false; b.disabled = false; });
   });
   $('#img-make').addEventListener('click', function () {
-    if (busy) { return; } busy = true; var b = this; b.disabled = true; say('⏳ ছবি তৈরি হচ্ছে… (১ মিনিট পর্যন্ত লাগতে পারে, পেজ বন্ধ করবেন না)');
-    make().then(function (d) { say('✓ ' + d.model + ' দিয়ে ছবি তৈরি হয়েছে এবং ফিচার্ড ছবিতে বসেছে। এই ছবির বিল ' + d.bill + (d.estimated ? ' (আনুমানিক)' : '') + '।' + (d.note ? ' ' + d.note : '')); })
+    if (busy) { return; } busy = true; var b = this; b.disabled = true;
+    var pre = $('#img-prompt').value.trim().length >= 20 ? Promise.resolve() : (say('⏳ আগে ছবির নির্দেশ লেখা হচ্ছে…'), mkPrompt());
+    pre.then(function () { say('⏳ ছবি তৈরি হচ্ছে… (১ মিনিট পর্যন্ত লাগতে পারে, পেজ বন্ধ করবেন না)'); return make(); }).then(function (d) { say('✓ ' + d.model + ' দিয়ে ছবি তৈরি হয়েছে এবং ফিচার্ড ছবিতে বসেছে। এই ছবির বিল ' + d.bill + (d.estimated ? ' (আনুমানিক)' : '') + '।' + (d.note ? ' ' + d.note : '')); })
       .catch(function (e) { say(e.message, true); }).then(function () { busy = false; b.disabled = false; });
   });
 

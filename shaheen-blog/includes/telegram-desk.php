@@ -240,7 +240,7 @@ function sb_desk_steps($flow, $d) {
     if (in_array($d['body'] ?? '', array('paste', 'desc'), true)) {
         $st[] = 'bodytext';
     }
-    return array_merge($st, array('length', 'image'), 'pick' === ($d['imgmode'] ?? '') ? array_merge(array('dress'), sb_desk_needs_who($d['uniform'] ?? '') ? array('who') : array()) : array(), array('confirm'));
+    return array_merge($st, array('length', 'lang', 'image'), 'pick' === ($d['imgmode'] ?? '') ? array_merge(array('dress'), sb_desk_needs_who($d['uniform'] ?? '') ? array('who') : array()) : array(), array('confirm'));
 }
 
 /** The ONE question for a notice: a fill-in list, built from what the site's old notices really contain. */
@@ -373,6 +373,8 @@ function sb_desk_ask($m, $s) {
             return sb_desk_say($m, ('paste' === $s['d']['body'] ? "📋 <b>Send the full text</b> (in one message)." : "📝 <b>Send your description.</b> The AI will write the full article from it."), array(array($x)));
         case 'length':
             return sb_desk_say($m, "📏 <b>How long should the article be?</b>", array(array(sb_desk_btn('Short', 'l:short'), sb_desk_btn('Medium', 'l:medium'), sb_desk_btn('Long', 'l:long')), array($x)));
+        case 'lang':
+            return sb_desk_say($m, "🌐 <b>Which language should the article be in?</b>\nTap one button.", array(array(sb_desk_btn('বাংলা (Bangla)', 'lg:bn'), sb_desk_btn('English', 'lg:en')), array($x)));
         case 'image':
             return sb_desk_say($m, "🖼️ <b>How should the picture be?</b>\n• If you have your own pictures, send them now (several are fine; the first is the main picture), then press \"✅ Pictures sent\".\n• Otherwise press \"AI picture\". I will then ask which dress the people wear.", array(
                 array(sb_desk_btn('🎨 Make an AI picture', 'img:pick')),
@@ -402,7 +404,7 @@ function sb_desk_ask($m, $s) {
                 $sum = "📢 <b>Notice</b>\nType: " . esc_html($tl) . "\nPictures: " . count($d['aids'] ?? array()) . "; PDF: " . (!empty($d['pdf_aid']) ? 'yes' : 'no') . "; Text: " . (!empty($d['text']) ? mb_strlen($d['text']) . ' characters' : 'none') . "\n\nThe AI will arrange the dates, links and rules neatly. The phone numbers come from the branch page." . (empty($d['aids']) ? "\n🎨 No picture sent, so the AI will make one related picture (with alt text and SEO)." : '');
             } else {
                 $bm = array('ai' => 'AI writes it all', 'desc' => 'AI from your description', 'paste' => 'Your own text');
-                $sum = "✍️ <b>Blog</b>\nTopic: " . esc_html($d['topic']) . "\nTitle: " . esc_html(($d['title'] ?? '') ?: 'AI') . "\nKeywords: " . esc_html(($d['keywords'] ?? '') ?: 'AI') . "\nText: " . $bm[$d['body'] ?? 'ai'] . "\nLength: " . esc_html($d['length'] ?? 'medium') . "\nPicture: " . (count($d['aids'] ?? array()) ? count($d['aids']) . ' (yours)' : ('none' === ($d['imgmode'] ?? 'auto') ? 'not needed' : 'AI makes it, dress: ' . esc_html(sb_desk_dress_label(($d['uniform'] ?? 'auto') ?: 'auto')))) . "\nSEO: English title, simple slug, alt text, meta and keywords are all automatic";
+                $sum = "✍️ <b>Blog</b>\nTopic: " . esc_html($d['topic']) . "\nTitle: " . esc_html(($d['title'] ?? '') ?: 'AI') . "\nKeywords: " . esc_html(($d['keywords'] ?? '') ?: 'AI') . "\nText: " . $bm[$d['body'] ?? 'ai'] . "\nLength: " . esc_html($d['length'] ?? 'medium') . "\nLanguage: " . ('en' === ($d['lang'] ?? '') ? 'English' : 'Bangla') . "\nPicture: " . (count($d['aids'] ?? array()) ? count($d['aids']) . ' (yours)' : ('none' === ($d['imgmode'] ?? 'auto') ? 'not needed' : 'AI makes it, dress: ' . esc_html(sb_desk_dress_label(($d['uniform'] ?? 'auto') ?: 'auto')))) . "\nSEO: English title, simple slug, alt text, meta and keywords are all automatic";
             }
             return sb_desk_say($m, $sum . "\n\nWhat do you want to do?\n✅ Publish = goes live now.\n📝 Draft only = saved, not shown to the public.", array(array(sb_desk_btn('✅ Publish', 'go:publish')), array(sb_desk_btn('📝 Draft only', 'go:draft'), $x)));
     }
@@ -771,6 +773,13 @@ function sb_desk_step($m, $in) {
         case 'length':
             if (0 === strpos($cb, 'l:')) {
                 $d['length'] = substr($cb, 2);
+            } else {
+                $stay = true;
+            }
+            break;
+        case 'lang':
+            if (in_array($cb, array('lg:bn', 'lg:en'), true)) {
+                $d['lang'] = substr($cb, 3);
             } else {
                 $stay = true;
             }
@@ -2035,6 +2044,7 @@ function sb_desk_blog($text, $aids, $status = 'publish', $o = array()) {
     }
     $ctx = array('title' => $title, 'topic' => sanitize_text_field($b['topic'] ?? ''), 'excerpt' => '', 'content' => '', 'keywords' => $kw, 'length' => $len,
         'research' => true, 'source' => '', 'instruction' => trim(sanitize_textarea_field($b['instruction'] ?? '') . (!empty($o['instruction']) ? "\n" . sanitize_textarea_field($o['instruction']) : '')), 'faq_count' => 5, 'post_id' => 0, 'tier' => 1, 'model' => '',
+        'lang' => (!empty($o['lang']) && in_array($o['lang'], array('bn', 'en'), true)) ? $o['lang'] : (preg_match('/[\x{0980}-\x{09FF}]/u', (string) $text) ? 'bn' : 'en'),   // no choice made: a topic with no Bangla letters means English
         'ansi' => false, 'style' => 'para', 'words' => 0, 'mode' => 'both', 'paste' => '', 'ptype' => 'general', 'aud' => 'all', 'tone' => 'warm', 'brief' => '', 'beat_urls' => '');
     $ready = ('paste' === ($o['body'] ?? '') && !empty($o['bodytext']));
     if ('desc' === ($o['body'] ?? '') && !empty($o['bodytext'])) {
@@ -2094,6 +2104,7 @@ function sb_desk_blog($text, $aids, $status = 'publish', $o = array()) {
     update_post_meta($id, '_sb_meta_desc', $meta);
     update_post_meta($id, '_sb_keywords', $kw);
     update_post_meta($id, '_sb_topic', $ctx['topic']);
+    update_post_meta($id, '_sb_lang', $ctx['lang']);
     update_post_meta($id, '_sb_seo_title', mb_substr($title, 0, 70));
     if ('' !== $en) {
         update_post_meta($id, '_sb_en_title', mb_substr($en, 0, 120));

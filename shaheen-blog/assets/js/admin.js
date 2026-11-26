@@ -692,7 +692,7 @@
     var extra = {};
     if (feature === 'custom' || feature === 'brief') { extra = { style: val('#f-style') || 'para', words: val('#f-words'), mode: modeVal(), paste: val('#f-paste'), ptype: val('#f-ptype') || 'general', aud: val('#f-aud') || 'all', tone: val('#f-tone') || 'warm', brief: (feature === 'custom') ? (SB.briefText || '') : '', comp: val('#f-comp'), ansi: looksAnsi(val('#f-custom')) ? '1' : '0', tier: val('#f-clen') || '1', model: val('#f-cmodel'), urls: val('#f-curls'), files: [].slice.call(($('#f-cfiles') || {}).files || []) }; }
     var base = {
-      feature: feature, post_id: postId, title: val('#f-title'), topic: val('#f-topic'), excerpt: val('#f-excerpt'),
+      feature: feature, post_id: postId, lang: val('#f-lang') || '', title: val('#f-title'), topic: val('#f-topic'), excerpt: val('#f-excerpt'),
       content: editorContent(), keywords: keywords(), length: val('#f-length'),
       source: val('#f-source'), instruction: (feature === 'custom' || feature === 'brief') ? val('#f-custom') : '', faq_count: val('#f-faqn') || '5',
       research: ($('#f-research') && $('#f-research').checked) ? '1' : '0'
@@ -1482,7 +1482,7 @@
     post('sb_save_post', { ack_missing: ack,
       id: postId, title: val('#f-title'), slug: val('#f-slug'), excerpt: val('#f-excerpt'), content: editorContent(),
       subtitle: val('#f-subtitle'), meta_desc: val('#f-meta'), seo_title: val('#f-seotitle'), en_title: val('#f-entitle'), summary: val('#f-summary'), summary_pos: val('#f-summary_pos') || 'top', author_name: val('#f-author'),
-      date: val('#f-date'), topic: val('#f-topic'), keywords: keywords(), category: val('#f-category'), category_extra: extraCats(),
+      date: val('#f-date'), lang: val('#f-lang') || '', topic: val('#f-topic'), keywords: keywords(), category: val('#f-category'), category_extra: extraCats(),
       image_id: imgId, faq: faqData(), inc_summary: $('#inc-summary').checked ? '1' : '0', inc_faq: $('#inc-faq').checked ? '1' : '0', related: rel.map(function (r) { return r.id; }), related_why: JSON.stringify(rel.reduce(function (o, r) { if (r.why) { o[r.id] = r.why; } return o; }, {})), blocks: pEd.get(), extras: JSON.stringify(exGet()), block_ids: picked, no_global: $('#no-global').checked ? '1' : '0', no_social: $('#no-social').checked ? '1' : '0', status: st ? st.value : 'draft'
     }).then(function (d) {
       postId = d.id;

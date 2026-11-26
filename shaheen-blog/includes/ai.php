@@ -55,8 +55,23 @@ class SB_AI {
         return "\n\nএই বাঁধা বুলিগুলো লেখায় রাখবে না, সরাসরি কাজের কথা বলবে: " . implode('; ', array_slice($ph, 0, 40)) . '।';
     }
 
+    public static $lang = '';   // per-request language chosen on the write page: bn | en (empty = Settings default)
+
+    /** Language for this request: the write-page choice wins over the global Settings default. */
+    protected static function cur_lang() {
+        return in_array(self::$lang, array('bn', 'en'), true) ? self::$lang : (string) sb_get('ai_lang');
+    }
+
+    /** Put in front of every user message when the output must be English, so the Bangla house rules cannot pull it back to Bangla. */
+    protected static function lang_user($text) {
+        if ('en' !== self::cur_lang() || !is_string($text)) {
+            return $text;
+        }
+        return "OUTPUT LANGUAGE = ENGLISH ONLY. Write the whole result (title, headings, article, summary, FAQ, meta, captions) in clear, simple, natural English. Wherever the instructions below say Bangla (বাংলা), read it as English. The instructions are in Bengali only because the site owner writes them; never answer in Bengali. Keep Bengali names and places transliterated.\n\n" . $text;
+    }
+
     protected static function lang_line() {
-        $l = sb_get('ai_lang');
+        $l = self::cur_lang();
         if ($l === 'en') {
             return "\n\nWRITING LANGUAGE: Write every article, subtitle, meta description, excerpt, summary, FAQ in clear, simple English (the instructions here are in Bengali, but your output must be English). Keep Bengali proper nouns transliterated sensibly.";
         }
@@ -76,6 +91,7 @@ class SB_AI {
      * @return array|WP_Error
      */
     public static function generate($feature, array $c) {
+        self::$lang = isset($c['lang']) && in_array($c['lang'], array('bn', 'en'), true) ? $c['lang'] : '';
         $key = sb_get('api_key');
         if (empty($key)) {
             return new WP_Error('sb_no_key', 'OpenAI API কী দেওয়া হয়নি। ব্লগ সেটিংসে কী যোগ করুন।');
@@ -457,7 +473,7 @@ class SB_AI {
             'model'    => $model,
             'messages' => array(
                 array('role' => 'system', 'content' => self::system_prompt(empty($sys_nomem))),
-                array('role' => 'user', 'content' => isset($content) ? $content : $user),
+                array('role' => 'user', 'content' => self::lang_user(isset($content) ? $content : $user)),
             ),
         );
         if (preg_match('/^(gpt-[5-9]|o\d)/i', $model)) {
@@ -784,7 +800,7 @@ class SB_AI {
             'model' => $model,
             'input' => array(
                 array('role' => 'system', 'content' => self::system_prompt()),
-                array('role' => 'user', 'content' => $parts ? self::bg_input($user, $parts) : $user),
+                array('role' => 'user', 'content' => $parts ? self::bg_input(self::lang_user($user), $parts) : self::lang_user($user)),
             ),
             'background' => true,
             'max_output_tokens' => $max * 2 + 2000,
@@ -894,7 +910,7 @@ class SB_AI {
                 'model' => $model !== '' ? $model : sb_model_for('article'),
                 'input' => array(
                     array('role' => 'system', 'content' => self::system_prompt()),
-                    array('role' => 'user', 'content' => $user),
+                    array('role' => 'user', 'content' => self::lang_user($user)),
                 ),
                 'tools' => array(array('type' => 'web_search_preview')),
                 'max_output_tokens' => $max + 1500,
