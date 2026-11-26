@@ -1011,3 +1011,15 @@ function sb_ytm_panel() {
     </div>
     <?php
 }
+
+
+/** its own admin page (Blog Write .ai -> YouTube): playlists, descriptions, thumbnails, Facebook video links */
+function sb_page_youtube() {
+    ?>
+    <div class="wrap sba">
+        <h1>▶️ YouTube</h1>
+        <p class="sba-muted">চ্যানেলের ভিডিও, প্লেলিস্ট, বিবরণ ও থাম্বনেইল এখান থেকে চলে। ফেসবুক ভিডিওর লিংক দিয়ে ইউটিউবে পোস্টও এখানে।</p>
+        <?php sb_ytm_panel(); ?>
+    </div>
+    <?php
+}

@@ -15,6 +15,7 @@ function sb_admin_menu() {
         add_submenu_page(null, 'Research', 'Research', 'edit_posts', 'sb-research', 'sb_page_research');
     }
     add_submenu_page(null, 'Social Media', '🌐 Social Media', 'manage_options', 'sb-social', 'sb_page_social');
+    add_submenu_page('sb-dashboard', 'YouTube', '▶️ YouTube', 'manage_options', 'sb-youtube', 'sb_page_youtube');
     add_submenu_page('sb-dashboard', 'Press', '📰 Press', 'edit_posts', 'sb-press', 'sb_page_press');
     add_submenu_page('sb-dashboard', 'Block Library', '📚 Block Library', 'manage_options', 'sb-blocks', 'sb_page_blocks');
     add_submenu_page('sb-dashboard', 'Mobile Models', '📱 Mobile Models', 'manage_options', 'sb-phones', 'sb_page_phones');
