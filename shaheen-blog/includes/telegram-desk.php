@@ -1823,7 +1823,9 @@ function sb_desk_notice($text, $aids, $status = 'publish', $o = array()) {
         return new WP_Error('sb_desk', 'The notice system (Site Agent) is not active.');
     }
     $pdfurl = !empty($o['pdf_aid']) ? (string) wp_get_attachment_url((int) $o['pdf_aid']) : (!empty($o['pdf_url']) ? (string) $o['pdf_url'] : '');
-    $pr     = ('' !== $pdfurl && function_exists('csa_sn_pdf_read')) ? csa_sn_pdf_read($pdfurl) : null;
+    $bh0    = function_exists('csa_sn_branch_hit') ? csa_sn_branch_hit(array($o['branch'] ?? '')) : null;
+    $bn0    = $bh0 ? trim(wp_strip_all_tags((string) $bh0['name'])) : '';
+    $pr     = ('' !== $pdfurl && function_exists('csa_sn_pdf_read')) ? csa_sn_pdf_read($pdfurl, $bn0) : null;
     if ($pr && !$aids && mb_strlen(trim((string) $text)) < 15) {   // only a PDF was sent: what Gemini read from it is the text
         $facts = array();
         foreach ($pr['facts'] as $f) {
@@ -1858,7 +1860,7 @@ function sb_desk_notice($text, $aids, $status = 'publish', $o = array()) {
         }
     }
     if (!$pr && '' !== $pdfurl && function_exists('csa_sn_pdf_read')) {
-        $pr = csa_sn_pdf_read($pdfurl);
+        $pr = csa_sn_pdf_read($pdfurl, !empty($hit) ? trim(wp_strip_all_tags((string) $hit['name'])) : '');
     }
     if ($pr && '' !== $pr['summary']) {
         $r['summary'] = $pr['summary'];

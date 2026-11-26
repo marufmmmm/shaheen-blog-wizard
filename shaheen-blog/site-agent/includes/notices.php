@@ -382,7 +382,7 @@ function csa_sn_btn_label( $label, $kind ) {
 }
 
 /** Gemini reads a notice PDF (a Drive link or a file of this site) and returns {summary, facts[{l,v}], phones[]}; null when it cannot. */
-function csa_sn_pdf_read( $url ) {
+function csa_sn_pdf_read( $url, $branch = '' ) {
 	if ( ! function_exists( 'sb_share_gemini' ) || ! function_exists( 'sb_share_cfg' ) ) {
 		return null;
 	}
@@ -400,7 +400,9 @@ function csa_sn_pdf_read( $url ) {
 		@unlink( $tmp );
 		return null;
 	}
-	$sys = 'You read a notice PDF of a Bangladeshi school network (Bangla or English) so that a web page can describe it. Return ONLY JSON: {"summary":"2-3 plain Bangla sentences saying what the document is and the one thing the reader should do or look for (for a result: that the result is published and how to find the roll); never invent","facts":[{"l":"short Bangla label such as পরীক্ষার তারিখ, ফলাফল প্রকাশের তারিখ, ভাইভার সময়, আবেদনের শেষ তারিখ, পরবর্তী ধাপ","v":"value exactly as written"}],"phones":["numbers exactly as written"]}. At most 5 facts, only ones written in the document; empty list when none. Never invent dates, numbers, names.';
+	$brand = trim( (string) csa_sn_opt( 'brand' ) );
+	$naming = ( $brand ? ' Always call the organisation exactly "' . $brand . '" (never just শাহীন or শাহীন স্কুল).' : '' ) . ( '' !== $branch ? ' The branch is named exactly "' . $branch . '" (copy this spelling; write it as "' . ( $brand ? $brand . ', ' : '' ) . $branch . '").' : '' );
+	$sys = 'You read a notice PDF of a Bangladeshi school network (Bangla or English) so that a web page can describe it. Return ONLY JSON: {"summary":"2-3 plain Bangla sentences saying what the document is and the one thing the reader should do or look for (for a result: that the result is published and how to find the roll); never invent","facts":[{"l":"short Bangla label such as পরীক্ষার তারিখ, ফলাফল প্রকাশের তারিখ, ভাইভার সময়, আবেদনের শেষ তারিখ, পরবর্তী ধাপ","v":"value exactly as written"}],"phones":["numbers exactly as written"]}. At most 5 facts, only ones written in the document; empty list when none. Never invent dates, numbers, names.' . $naming;
 	$GLOBALS['sb_mult_force'] = 1.5;   // PDF reading is billed at real cost x 1.5
 	$r   = sb_share_gemini( $c, $sys, 'Read this notice PDF.', $tmp, false, 'application/pdf' );
 	unset( $GLOBALS['sb_mult_force'] );
@@ -2005,7 +2007,8 @@ function csa_sn_describe( $id ) {
 	if ( '' === $url ) {
 		return new WP_Error( 'sn_nopdf', 'এই নোটিশে PDF বাটন নেই।' );
 	}
-	$pr = csa_sn_pdf_read( $url );
+	$hit = csa_sn_branch_hit( array( (string) ( $d['branch'] ?? '' ), (string) ( $d['topic'] ?? '' ), get_the_title( $id ) ) );
+	$pr  = csa_sn_pdf_read( $url, $hit ? trim( wp_strip_all_tags( (string) $hit['name'] ) ) : '' );
 	if ( ! $pr || '' === $pr['summary'] ) {
 		return new WP_Error( 'sn_pdfread', 'PDF পড়া যায়নি (ফাইল শেয়ার করা না থাকলে বা Gemini উত্তর না দিলে এমন হয়)।' );
 	}
