@@ -973,7 +973,7 @@ function sb_ytm_panel() {
         <p><label>ক্যাম্পাস সংখ্যা (সাইটে এখনো না বদলালে এটাই বসবে; সাইট এতে পৌঁছালে সাইটের সংখ্যা চলবে): <input type="text" id="ym-campus" size="5"></label> &nbsp; <label>SEO কীওয়ার্ড লাইন: <input type="text" id="ym-kw" style="width:100%"></label></p>
         <p><button class="button" id="ym-preview">যে ব্লক বসবে দেখুন</button> <button class="button button-primary" id="ym-sync">এখনই ১০০ ভিডিওর বিবরণ হালনাগাদ</button> <button class="button" id="ym-stop">থামান</button></p>
         <pre id="ym-block" style="white-space:pre-wrap;background:#fff;border:1px solid #e5e7eb;padding:8px;display:none"></pre>
-        <p><b>প্লেলিস্ট:</b> <button class="button" id="ym-plan0">নিয়ম দিয়ে ভাগ (০.২০)</button> <button class="button" id="ym-plan1">AI দিয়ে ভাগ</button></p>
+        <p><b>প্লেলিস্ট:</b> <button class="button" id="ym-plan0">নিয়ম দিয়ে ভাগ</button> <button class="button" id="ym-plan1">AI দিয়ে ভাগ</button></p>
         <div id="ym-plan"></div>
         <p id="ym-st" class="description"></p>
         <script>
