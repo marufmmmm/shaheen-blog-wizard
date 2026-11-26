@@ -427,22 +427,38 @@ function sb_ytm_is_en($title) {
 /** other categories (checked on title + start of the description, first match wins) */
 function sb_ytm_rules() {
     return array(
-        'ক্যাডেট কলেজ ভর্তি প্রস্তুতি'    => '/ক্যাডেট|cadet|ভর্তি/iu',
-        'ক্ষুদে স্টার ও শিশুদের অনুষ্ঠান'  => '/ক্ষুদে|খুদে|স্টার|star|শিশু/iu',
-        'ইসলামিক শিক্ষা ও নৈতিকতা'        => '/ইসলামিক|ইসলামি|নৈতিক|ধর্মীয়|কুরআন|হিফজ/iu',
-        'অনুষ্ঠান ও আয়োজন'              => '/অনুষ্ঠান|আয়োজন|প্রতিযোগিতা|উৎসব|দিবস/iu',
+        'স্পেলিং স্টার'                  => '/স্পেলিং\s*স্টার|spelling\s*star/iu',
+        'ক্ষুদে স্টার'                   => '/ক্ষুদে\s*স্টার|খুদে\s*স্টার|khude\s*star/iu',
+        'ইসলামিক ভিডিও'                 => '/ইসলামিক|ইসলামি|নৈতিক|ধর্মীয়|কুরআন|কোরআন|হিফজ|মাদ্রাসা|মাদরাসা/iu',
+        'ক্যাডেট কলেজ ভর্তি প্রস্তুতি'    => '/ক্যাডেট|cadet/iu',
         'সাফল্য ও ফলাফল'                => '/ফলাফল|সাফল্য|রেজাল্ট|result|চান্স|প্রথম স্থান/iu',
-        'স্কুল পরিচিতি ও ক্যাম্পাস'       => '/স্কুল|ক্যাম্পাস|শাখা|পরিচিতি|campus/iu',
+        'প্রচারণা ও পরিচিতি'             => '/ভর্তি|বিজ্ঞপ্তি|পরিচিতি|ক্যাম্পাস|campus|প্রচারণা|promo/iu',
     );
 }
 
-/** category by keywords (no AI): appreciation, class lectures (Bangla / English), then the rest */
+/** subject of a class lecture, for the subject-wise lecture lists */
+function sb_ytm_subject($title) {
+    $map = array(
+        'গণিত' => '/গণিত|অংক|অঙ্ক|math/iu',
+        'বিজ্ঞান' => '/বিজ্ঞান|science|physics|chemistry|biology|পদার্থ|রসায়ন|জীববিজ্ঞান/iu',
+        'ইসলাম শিক্ষা' => '/ইসলাম শিক্ষা|ইসলাম ধর্ম|ধর্ম শিক্ষা/iu',
+        'সাধারণ জ্ঞান' => '/সাধারণ জ্ঞান|general knowledge|\bgk\b/iu',
+    );
+    foreach ($map as $n => $re) {
+        if (preg_match($re, $title)) {
+            return $n;
+        }
+    }
+    return sb_ytm_is_en($title) ? 'ইংরেজি' : 'বাংলা';
+}
+
+/** category by keywords (no AI): appreciation, class lectures (by subject), then the rest. Nothing matches = no list. */
 function sb_ytm_rule_cat($title, $desc) {
     if (preg_match('/সম্মাননা|প্রশংসা|অভিনন্দন|কৃতজ্ঞতা|সংবর্ধনা|পুরস্কার|appreciation|testimonial|অভিভাবকের (মতামত|মন্তব্য)|মতামত/iu', $title . ' ' . mb_substr($desc, 0, 120))) {
         return 'প্রশংসা ও সম্মাননা';
     }
-    if (preg_match('/ক্লাস|লেকচার|lecture|class|lesson|পাঠ|অধ্যায়|পর্ব|part\s*\d|spelling|word formation|grammar|স্পেলিং|গ্রামার|কিভাবে পড়বে|কীভাবে পড়বে/iu', $title)) {
-        return sb_ytm_is_en($title) ? 'ক্লাস লেকচার (ইংরেজি)' : 'ক্লাস লেকচার (বাংলা)';
+    if (preg_match('/ক্লাস|লেকচার|lecture|class|lesson|পাঠ|অধ্যায়|পর্ব|part\s*\d|word formation|grammar|গ্রামার|কিভাবে পড়বে|কীভাবে পড়বে/iu', $title)) {
+        return 'ক্লাস লেকচার (' . sb_ytm_subject($title) . ')';
     }
     foreach (sb_ytm_rules() as $name => $re) {
         if (preg_match($re, $title . ' ' . $desc)) {
@@ -476,6 +492,17 @@ function sb_ytm_order($name, $ids, $vids) {
     return array_merge(array_keys($num), $rest);
 }
 
+
+/** the one instruction every playlist decision goes by (first full plan, batches, and new videos later) */
+function sb_ytm_plan_sys() {
+    return 'তুমি একটি স্কুল-কোচিং প্রতিষ্ঠানের ইউটিউব চ্যানেলের ভিডিও প্লেলিস্টে সাজানোর দায়িত্বে আছো। দর্শক যেন প্লেলিস্টে ঢুকে একই বিষয়ের ভিডিও পায়, সেটাই আসল কাজ। '
+        . 'এই প্লেলিস্টগুলো ব্যবহার করবে (যেখানে সত্যিই মানায়): "স্পেলিং স্টার" (স্পেলিং স্টার প্রতিযোগিতার ভিডিও), "ক্ষুদে স্টার" (ক্ষুদে স্টার অনুষ্ঠানের ভিডিও), "প্রশংসা ও সম্মাননা" (অভিভাবক/অতিথির মতামত, সম্মাননা, অভিনন্দন), "ইসলামিক ভিডিও" (ইসলামিক স্কুল ও মাদরাসা, কুরআন, নৈতিক শিক্ষা, ধর্মীয় বিষয়), "প্রচারণা ও পরিচিতি" (ভর্তি, ক্যাম্পাস/স্কুল পরিচিতি, বিজ্ঞপ্তি, প্রচারণামূলক ভিডিও)। '
+        . 'ক্লাস লেকচার বিষয় ধরে আলাদা আলাদা প্লেলিস্ট হবে, নাম এই ধাঁচে: "ক্লাস লেকচার (ইংরেজি)", "ক্লাস লেকচার (গণিত)", "ক্লাস লেকচার (বাংলা)", "ক্লাস লেকচার (বিজ্ঞান)" ইত্যাদি; সব বিষয় এক প্লেলিস্টে মেশাবে না। '
+        . 'এর বাইরে ভিডিওর আসল বিষয় দেখে দরকার হলে আরও প্লেলিস্ট দিতে পারো (যেমন বার্ষিক অনুষ্ঠান, সাফল্য ও ফলাফল, ক্যাডেট কলেজ ভর্তি প্রস্তুতি)। '
+        . 'কঠোর নিয়ম: (১) কোনো শাখা, ক্যাম্পাস বা জায়গার নামে (উত্তরা, টাঙ্গাইল, সফিপুর ইত্যাদি) প্লেলিস্ট বানাবে না; কোন শাখার ভিডিও সেটা বিষয় নয়, ভিডিওর বিষয় দেখে ভাগ করবে। (২) ভিডিও শুধু তখনই কোনো প্লেলিস্টে দেবে যখন নাম ও বিবরণ দেখে পরিষ্কার বোঝা যায় সেটা ওই বিষয়ের; সন্দেহ থাকলে সেই ভিডিও কোথাও দেবে না, বাদ রাখবে। (৩) প্রতিটি ভিডিও সবচেয়ে মানানসই একটি প্লেলিস্টেই যাবে। (৪) যে বিষয়ে ভিডিও নেই তার প্লেলিস্ট বানাবে না, আর খুব কম (২টির কম) ভিডিওর জন্য নতুন প্লেলিস্ট খুলবে না। '
+        . '"ids" তালিকা সেই ক্রমে দেবে যে ক্রমে দেখা উচিত: লেকচার/সিরিজে আগের বা সহজ পাঠ আগে (পর্ব/পার্ট নম্বর বা বিষয়ের ধারা দেখে), অন্য প্লেলিস্টে নতুন ভিডিও আগে। নাম সহজ চলতি বাংলায়, ৬০ অক্ষরের মধ্যে; বর্ণনা এক বাক্যে। নামে "শাহীন" একা লিখবে না। ভিডিওর আইডি বানাবে না, শুধু দেওয়া আইডি ব্যবহার করবে।';
+}
+
 /** $only = a list of video ids (new videos); null = every video of the channel (up to 500) is looked at first */
 function sb_ytm_make_plan($ai, $only = null, $known = array()) {
     $ids = null === $only ? sb_ytm_ids(500) : $only;
@@ -500,7 +527,7 @@ function sb_ytm_make_plan($ai, $only = null, $known = array()) {
             $rows[] = $id . ' | ' . substr($v['p'], 0, 10) . ' | ' . $v['t'] . ' | ' . $v['d'];
         }
         list($r, $real) = sb_ytm_ai(
-            'তুমি একটি স্কুল-কোচিং প্রতিষ্ঠানের ইউটিউব চ্যানেলের ভিডিও সাজাচ্ছ। প্রথমে সব ভিডিওর নাম ও বিবরণ দেখো, তারপর সেগুলোকে প্লেলিস্টে ভাগ করো যাতে দর্শক সহজে বোঝে কোনটা কী। অবশ্যই আলাদা প্লেলিস্ট থাকবে: (১) প্রশংসা ও সম্মাননা (অভিভাবক/অতিথির মতামত, সম্মাননা, অভিনন্দন), (২) ক্লাস লেকচার (বাংলা), (৩) ক্লাস লেকচার (ইংরেজি); এরপর বাকি ভিডিওর বিষয় দেখে আরও প্লেলিস্ট (মোট ৪ থেকে ৯টি)। যে ক্যাটাগরিতে ভিডিও নেই তার প্লেলিস্ট বানাবে না। প্রতিটি ভিডিও সবচেয়ে মানানসই একটি প্লেলিস্টে যাবে। "ids" তালিকা সেই ক্রমে দেবে যে ক্রমে দেখা উচিত: লেকচার/সিরিজে আগের বা সহজ পাঠ আগে (পর্ব/পার্ট নম্বর বা বিষয়ের ধারা দেখে), অন্য প্লেলিস্টে নতুন ভিডিও আগে। নাম সহজ চলতি বাংলায়, ৬০ অক্ষরের মধ্যে; বর্ণনা এক বাক্যে। নামে "শাহীন" একা লিখবে না। ভিডিওর আইডি বানাবে না, শুধু দেওয়া আইডি ব্যবহার করবে।'
+            sb_ytm_plan_sys()
             . ($known ? ' আগে থেকে এই প্লেলিস্টগুলো আছে, মানানসই হলে হুবহু এই নামই ব্যবহার করবে, নতুন বিষয় হলে তবেই নতুন নাম দেবে: ' . implode(' | ', $known) . '.' : '')
             . ' শুধু এই JSON: {"lists":[{"name":"...","desc":"...","ids":["..."]}]}',
             implode("\n", $rows)
@@ -758,7 +785,7 @@ add_action('sb_ytm_plan_run', function ($ai) {
     $real = 0.0;
     if ((int) $st['tries'] <= 2) {
         list($r, $real) = sb_ytm_ai(
-        'তুমি একটি স্কুল-কোচিং প্রতিষ্ঠানের ইউটিউব ভিডিও প্লেলিস্টে সাজাচ্ছ। নিচের ভিডিওগুলো প্রতিটি সবচেয়ে মানানসই একটি প্লেলিস্টে দাও। এই প্লেলিস্টগুলো অবশ্যই ব্যবহার করবে যেখানে মানায়: "প্রশংসা ও সম্মাননা" (অভিভাবক/অতিথির মতামত, সম্মাননা, অভিনন্দন), "ক্লাস লেকচার (বাংলা)", "ক্লাস লেকচার (ইংরেজি)"; এছাড়া বিষয় দেখে অন্য প্লেলিস্ট (সব মিলিয়ে ৪ থেকে ৯টির বেশি হবে না)। নাম সহজ চলতি বাংলায়, ৬০ অক্ষরের মধ্যে, নামে "শাহীন" একা লিখবে না; বর্ণনা এক বাক্যে।'
+        sb_ytm_plan_sys()
         . ($st['lists'] ? ' এই প্লেলিস্টগুলো আগেই হয়েছে; মানালে হুবহু এই নামই ব্যবহার করবে, একেবারে নতুন বিষয় হলে তবেই নতুন নাম দেবে: ' . implode(' | ', array_keys($st['lists'])) . '.' : '')
         . ' ভিডিওর আইডি বানাবে না। শুধু এই JSON: {"lists":[{"name":"...","desc":"...","ids":["..."]}]}',
         implode("\n", $rows),
@@ -855,6 +882,28 @@ add_action('wp_ajax_sb_ytm', function () {
         $c = sb_share_cfg();
         $t = sb_share_yt_token($c);
         wp_send_json_success(array('tok' => is_wp_error($t) ? $t->get_error_message() : 'ok', 'saved' => !empty($c['yt_rt_t']) ? wp_date('j M g:i:s A', (int) $c['yt_rt_t']) : '', 'now' => wp_date('j M g:i:s A'), 'len' => strlen((string) $c['yt_rt'])));
+    } elseif ('pls' === $do) {   // the channel's playlists (id, title, video count)
+        $out = array();
+        $pt  = '';
+        do {
+            $q = array('part' => 'snippet,contentDetails', 'mine' => 'true', 'maxResults' => 50);
+            if ('' !== $pt) {
+                $q['pageToken'] = $pt;
+            }
+            $ex = sb_ytm_call('GET', 'playlists', $q);
+            if (is_wp_error($ex)) {
+                wp_send_json_error($ex->get_error_message());
+            }
+            foreach ((array) ($ex['items'] ?? array()) as $p) {
+                $out[] = array($p['id'], (string) $p['snippet']['title'], (int) ($p['contentDetails']['itemCount'] ?? 0));
+            }
+            $pt = (string) ($ex['nextPageToken'] ?? '');
+        } while ('' !== $pt);
+        wp_send_json_success(array('pls' => $out));
+    } elseif ('pldel' === $do) {   // delete one playlist of the channel (the videos stay)
+        $id = preg_replace('/[^A-Za-z0-9_\-]/', '', (string) ($_POST['id'] ?? ''));
+        $r  = '' === $id ? new WP_Error('sb_ytm', 'id নেই') : sb_ytm_call('DELETE', 'playlists', array('id' => $id), null, 50);
+        wp_send_json_success(array('ok' => !is_wp_error($r), 'err' => is_wp_error($r) ? $r->get_error_message() : ''));
     } elseif ('resume' === $do) {
         $j = sb_ytm_job();
         if (!empty($j) && 'error' === ($j['state'] ?? '')) {

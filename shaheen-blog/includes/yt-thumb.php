@@ -143,7 +143,7 @@ function sb_thumb_build($c, $e, $dr) {
         . 'Add ONE huge bold headline in Bangla, exactly this text and nothing else: "' . $hook . '". Use a thick, clean Bengali typeface, white or bright yellow on a solid dark or red band (or with a heavy dark outline), so it stays readable even when the thumbnail is tiny; correct Bengali conjunct letters, no spelling changes. '
         . 'The picture will be cropped to 16:9 (the top and bottom 15% are cut off), so keep the headline, every logo and the main subject fully inside the central 70% of the height and at least 6% away from the left and right edges: nothing may touch an edge or be cut. '
         . ($evn ? 'Reference image ' . $evn . ' is the official logo of the event "' . $ev['name'] . '": copy it faithfully and completely, unaltered, never cropped or covered, once, fairly prominent, in the upper-left area. ' : '')
-        . ('' !== $inst ? 'Reference image ' . $instn . ' is the institution\'s logo (' . $inst . '): copy it faithfully and completely, unaltered, never cropped or covered, small, once, in the upper-' . ($evn ? 'right' : 'left') . ' area. ' : '')
+        . ('' !== $inst ? 'Reference image ' . $instn . ' is the institution\'s logo (' . $inst . '): show the WHOLE logo, every emblem and every line of its text, completely visible, unaltered, never cropped, covered or shrunk to just one part of it; place it once in the upper-' . ($evn ? 'right' : 'left') . ' area on a small clean white rounded badge so it stays readable, at a clearly legible size (about 15% of the picture width). ' : '')
         . 'Make it look professional and eye-catching: vivid saturated colours, glowing edge light around the main subject, crisp edges, a balanced layout that makes a viewer want to click. No other text, no watermark, no extra logos, no frames or borders.';
     $model = array_keys(sb_img_models())[0];
     $res   = sb_img_call($model, $prompt, '1536x1024', 'medium', $refs);
@@ -245,5 +245,5 @@ add_action('wp_ajax_sb_thumb_run', function () {
         sb_share_bill($real, $model, 'share_vid');
     }
     @unlink($file);
-    wp_send_json_success(array('url' => $prev, 'hook' => $hook, 'result' => $msg, 'yt' => $yid, 'real' => $real));
+    wp_send_json_success(array('url' => $prev, 'hook' => $hook, 'result' => $msg, 'yt' => $yid));
 });
