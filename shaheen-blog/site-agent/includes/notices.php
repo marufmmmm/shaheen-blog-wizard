@@ -401,7 +401,9 @@ function csa_sn_pdf_read( $url ) {
 		return null;
 	}
 	$sys = 'You read a notice PDF of a Bangladeshi school network (Bangla or English) so that a web page can describe it. Return ONLY JSON: {"summary":"2-3 plain Bangla sentences saying what the document is and the one thing the reader should do or look for (for a result: that the result is published and how to find the roll); never invent","facts":[{"l":"short Bangla label such as পরীক্ষার তারিখ, ফলাফল প্রকাশের তারিখ, ভাইভার সময়, আবেদনের শেষ তারিখ, পরবর্তী ধাপ","v":"value exactly as written"}],"phones":["numbers exactly as written"]}. At most 5 facts, only ones written in the document; empty list when none. Never invent dates, numbers, names.';
+	$GLOBALS['sb_mult_force'] = 1.5;   // PDF reading is billed at real cost x 1.5
 	$r   = sb_share_gemini( $c, $sys, 'Read this notice PDF.', $tmp, false, 'application/pdf' );
+	unset( $GLOBALS['sb_mult_force'] );
 	@unlink( $tmp );
 	if ( ! is_array( $r ) ) {
 		return null;
@@ -522,7 +524,7 @@ function csa_sn_block( $b ) {
 					$pv = csa_sn_pdf_viewer( (string) ( $it['url'] ?? '' ) );
 				}
 			}
-			return ( $o ? '<div class="sn-btns">' . $o . '</div>' : '' ) . $pv . $gf;
+			return $pv . ( $o ? '<div class="sn-btns">' . $o . '</div>' : '' ) . $gf;   // the PDF first, its download button under it
 		case 'phones':
 			$o = '';
 			// One box per number or e-mail address; separate them with a comma or a new line.
@@ -1982,3 +1984,49 @@ add_action( 'wp_footer', function () {
 	}
 	echo '<script>(function(){function f(){var t=document.querySelector(".sn")||document.querySelector(".sn-boardpage");if(!t)return;t.style.cssText+=";position:relative;left:0;margin-left:0;margin-right:0";if(window.innerWidth<800){t.style.width="";t.style.maxWidth="";t.style.left="0";return}var h=null,c=["#masthead",".site-header","header[role=banner]","header",".ast-primary-header-bar",".main-header-bar"];for(var i=0;i<c.length&&!h;i++){var e=document.querySelector(c[i]);if(e&&e.getBoundingClientRect().width>600)h=e}if(!h)return;var r=h.getBoundingClientRect(),W=document.documentElement.clientWidth;if(r.width>W-24){var best=null,bw=0,all=h.querySelectorAll("*");for(var j=0;j<all.length;j++){var q=all[j].getBoundingClientRect();if(q.width>600&&q.width<W-24&&q.width>bw){bw=q.width;best=q}}if(!best)return;r=best}t.style.width=r.width+"px";t.style.maxWidth="none";t.style.left="0";var s=t.getBoundingClientRect();t.style.left=(r.left-s.left)+"px"}window.addEventListener("load",f);window.addEventListener("resize",f);f();setTimeout(f,600)})();</script>';
 }, 99 );
+
+
+/** Add a short AI description (read from the notice's PDF) at the top of an existing notice. Returns the text or WP_Error. */
+function csa_sn_describe( $id ) {
+	$d   = csa_sn_get( $id );
+	$url = '';
+	foreach ( (array) ( $d['blocks'] ?? array() ) as $b ) {
+		foreach ( (array) ( $b['items'] ?? array() ) as $it ) {
+			if ( 'pdf' === ( $it['kind'] ?? '' ) && ! empty( $it['url'] ) ) {
+				$url = $it['url'];
+				break 2;
+			}
+		}
+	}
+	if ( '' === $url ) {
+		return new WP_Error( 'sn_nopdf', 'এই নোটিশে PDF বাটন নেই।' );
+	}
+	$pr = csa_sn_pdf_read( $url );
+	if ( ! $pr || '' === $pr['summary'] ) {
+		return new WP_Error( 'sn_pdfread', 'PDF পড়া যায়নি (ফাইল শেয়ার করা না থাকলে বা Gemini উত্তর না দিলে এমন হয়)।' );
+	}
+	$blocks = array_values( (array) ( $d['blocks'] ?? array() ) );
+	if ( $blocks && 'text' === ( $blocks[0]['t'] ?? '' ) && '' === ( $blocks[0]['h'] ?? '' ) ) {
+		$blocks[0]['body'] = $pr['summary'];   // an earlier description is replaced
+	} else {
+		array_unshift( $blocks, array( 't' => 'text', 'h' => '', 'body' => $pr['summary'] ) );
+	}
+	$d['blocks']  = $blocks;
+	$d['summary'] = $pr['summary'];
+	$d['seo_d']   = mb_substr( $pr['summary'], 0, 155 );
+	update_post_meta( $id, '_sn', wp_slash( $d ) );
+	wp_update_post_excerpt_safe( $id, $pr['summary'] );
+	if ( function_exists( 'csa_seo_set' ) && function_exists( 'csa_seo_plugin' ) && csa_seo_plugin() ) {
+		csa_seo_set( $id, array( 'description' => $d['seo_d'] ), 'Notice description' );
+	}
+	return $pr['summary'];
+}
+
+add_action( 'wp_ajax_csa_sn_describe', function () {
+	check_ajax_referer( 'sb_admin', 'nonce' );
+	if ( ! current_user_can( 'manage_options' ) ) {
+		wp_send_json_error( 'No permission.' );
+	}
+	$r = csa_sn_describe( absint( $_POST['id'] ?? 0 ) );
+	is_wp_error( $r ) ? wp_send_json_error( $r->get_error_message() ) : wp_send_json_success( $r );
+} );
