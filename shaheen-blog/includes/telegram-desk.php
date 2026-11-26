@@ -158,7 +158,7 @@ function sb_desk_hook(WP_REST_Request $req) {
 
 /* ------------------------------------------------------------ conversation engine */
 function sb_desk_help() {
-    return "📌 <b>Shaheen Desk</b>\n\n/menu — choose what to do (I will ask step by step)\n/cancel — cancel the current task\n\n<b>Shortcuts:</b>\n<code>/blog topic or keyword</code> — write and publish a blog directly\n<code>/notice text</code> — a notice directly\nSend a news link on its own (or <code>/news link</code>) to make a news card.\nSend a notice picture on its own to start the notice steps.\n<code>/dress</code> — add a dress sample photo (caption: <code>/dress cadet college girl</code>).\n<code>/held</code> — held-back news: keep or drop by number.";
+    return "📌 <b>Shaheen Desk</b>\n\n/menu — choose what to do (I will ask step by step)\n/cancel — cancel the current task\n\n<b>Shortcuts:</b>\n<code>/blog topic or keyword</code> — write and publish a blog directly\n<code>/notice text</code> — a notice directly\nSend a news link on its own (or <code>/news link</code>) to make a news card.\nSend a notice picture on its own to start the notice steps.\n<code>/yt link</code> or just a public Facebook video link — the video is posted on YouTube (AI title, description, thumbnail).\n<code>/dress</code> — add a dress sample photo (caption: <code>/dress cadet college girl</code>).\n<code>/held</code> — held-back news: keep or drop by number.";
 }
 
 function sb_desk_say($m, $html, $kb = array()) {
@@ -480,6 +480,15 @@ function sb_desk_message($m) {
         $s = sb_desk_state($m);
         if ($s && 'held' === $s['flow'] && 'cancel' === $cmd) {   // "বাতিল 2" is an answer in the held-news list, not a cancel
             $cmd = '';
+        }
+        // a public Facebook video link (or /yt links): straight to YouTube, no questions
+        if (function_exists('sb_fl_enqueue_many') && (('yt' === $cmd || 'youtube' === $cmd || 'ইউটিউব' === $cmd) || (!$s && '' === $cmd && !$fid && preg_match('#https?://([a-z0-9-]+\.)*(facebook\.com|fb\.watch|fb\.me)/\S*#i', $text) && mb_strlen(trim(preg_replace('#https?://\S+#i', '', $text))) < 12 && !preg_match('#facebook\.com/(permalink\.php|[^/?\s]+/posts/)#i', $text)))) {
+            sb_desk_unlock($lock);
+            list($n, $L) = sb_fl_enqueue_many($text, 10);
+            if ($L) {
+                sb_desk_say($m, "▶️ <b>ফেসবুক ভিডিও → ইউটিউব</b>\n" . implode("\n", $L) . ($n ? "\n\nAI ভিডিও দেখে শিরোনাম-বিবরণ-থাম্বনাইল বানিয়ে ইউটিউবে দেবে। শেষ হলে এখানে জানাব।" : ''));
+                return;
+            }
         }
         $newslink = !$s && '' === $cmd && !$fid && sb_desk_urls($text) && mb_strlen(trim(preg_replace('#https?://\S+#i', '', $text))) < 12;
         if (in_array($cmd, array('menu', 'help', 'cancel'), true) || ('' === $cmd && !$s && !$fid && !$newslink)) {
@@ -940,7 +949,7 @@ function sb_desk_quick($m, $cmd, $rest, $aids) {
 
 /** Splits "/blog text" style commands. Returns array(cmd, rest). */
 function sb_desk_cmd($text) {
-    if (preg_match('~^\s*(/?)(blog|ব্লগ|notice|নোটিশ|news|সংবাদ|dress|ড্রেস|held|আটকানো|help|সাহায্য|start|menu|মেনু|cancel|বাতিল)(?:@\w+)?(?=[\s:：\-–]|$)[\s:：\-–]*(.*)$~isu', $text, $mm) && ('/' === $mm[1] || !in_array(mb_strtolower($mm[2]), array('start', 'menu', 'cancel', 'help'), true))) {
+    if (preg_match('~^\s*(/?)(blog|ব্লগ|notice|নোটিশ|news|সংবাদ|yt|youtube|ইউটিউব|dress|ড্রেস|held|আটকানো|help|সাহায্য|start|menu|মেনু|cancel|বাতিল)(?:@\w+)?(?=[\s:：\-–]|$)[\s:：\-–]*(.*)$~isu', $text, $mm) && ('/' === $mm[1] || !in_array(mb_strtolower($mm[2]), array('start', 'menu', 'cancel', 'help'), true))) {
         $k   = mb_strtolower($mm[2]);
         $map = array('ব্লগ' => 'blog', 'নোটিশ' => 'notice', 'সংবাদ' => 'news', 'ড্রেস' => 'dress', 'আটকানো' => 'held', 'সাহায্য' => 'help', 'start' => 'menu', 'মেনু' => 'menu', 'বাতিল' => 'cancel');
         return array(isset($map[$k]) ? $map[$k] : $k, trim($mm[3]));

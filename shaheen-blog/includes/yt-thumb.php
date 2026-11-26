@@ -13,9 +13,15 @@ if (!defined('ABSPATH')) {
 function sb_thumb_frame($c, $e, $dir) {
     $xp  = !empty($e['pgid']) ? get_option('sb_share_pages', array()) : array();
     $tok = !empty($xp[$e['pgid']]['token']) ? $xp[$e['pgid']]['token'] : '';
-    $v   = sb_share_graph($c, $e['vid'], array('fields' => 'thumbnails{uri,is_preferred,width,height},picture'), $tok);
     $uri = '';
-    if (!is_wp_error($v)) {
+    $v   = null;
+    if (!empty($e['link'])) {   // link sent by the owner: the preview picture of the Facebook page is the frame
+        $uri = (string) ($e['img'] ?? '');
+        $e['vid'] = substr(md5((string) $e['link']), 0, 12);
+    } else {
+        $v = sb_share_graph($c, $e['vid'], array('fields' => 'thumbnails{uri,is_preferred,width,height},picture'), $tok);
+    }
+    if (null !== $v && !is_wp_error($v)) {
         $best = 0;
         foreach ((array) ($v['thumbnails']['data'] ?? array()) as $t) {
             $score = (!empty($t['is_preferred']) ? 1000000 : 0) + (int) ($t['width'] ?? 0);
@@ -31,7 +37,7 @@ function sb_thumb_frame($c, $e, $dir) {
     if ('' === $uri) {
         return new WP_Error('sb_th', 'ভিডিওর প্রিভিউ ছবি পাওয়া যায়নি।');
     }
-    $path = $dir . 'sbthumb-frame-' . preg_replace('/\W/', '', (string) $e['vid']) . '.jpg';
+    $path = $dir . 'sbthumb-frame-' . preg_replace('/\W/', '', (string) ($e['vid'] ?: md5((string) ($e['link'] ?? '')))) . '.jpg';
     $r    = wp_remote_get($uri, array('timeout' => 60, 'stream' => true, 'filename' => $path));
     if (is_wp_error($r) || 200 !== (int) wp_remote_retrieve_response_code($r) || !is_file($path) || filesize($path) < 2000) {
         @unlink($path);
@@ -152,7 +158,7 @@ function sb_thumb_build($c, $e, $dr) {
         return $res;
     }
     list($bytes, $usage) = $res;
-    $raw = $dir . 'sbthumb-raw-' . preg_replace('/\W/', '', (string) $e['vid']) . '.webp';
+    $raw = $dir . 'sbthumb-raw-' . preg_replace('/\W/', '', (string) ($e['vid'] ?: md5((string) ($e['link'] ?? '')))) . '.webp';
     file_put_contents($raw, $bytes);   // phpcs:ignore
     $ed = wp_get_image_editor($raw);
     if (is_wp_error($ed)) {
@@ -161,7 +167,7 @@ function sb_thumb_build($c, $e, $dr) {
     }
     $ed->resize(1280, 720, true);
     $ed->set_quality(88);
-    $out = $dir . 'sbthumb-' . preg_replace('/\W/', '', (string) $e['vid']) . '.jpg';
+    $out = $dir . 'sbthumb-' . preg_replace('/\W/', '', (string) ($e['vid'] ?: md5((string) ($e['link'] ?? '')))) . '.jpg';
     $sv  = $ed->save($out, 'image/jpeg');
     @unlink($raw);
     if (is_wp_error($sv) || !is_file($out) || filesize($out) > 1900000) {

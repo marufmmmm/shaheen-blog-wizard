@@ -188,7 +188,16 @@ function sb_share_run($id) {
     // 1. download (video: temporary file; photo: the picture, only to let the AI see it)
     if (empty($S['ai']) || ($video && (empty($S['ig']) || (!empty($c['yt_on']) && empty($S['yt'])))) ) {
         $src = $e['img'];
-        if ($video) {
+        if ($video && !empty($e['link'])) {   // a public Facebook link sent by the owner (fb-link-yt.php)
+            $rv = function_exists('sb_fl_resolve') ? sb_fl_resolve($e['link']) : new WP_Error('sb_fl', 'not available');
+            if (is_wp_error($rv) || empty($rv['src'])) {
+                $S['dl'] = 'Could not find the video file link: ' . (is_wp_error($rv) ? $rv->get_error_message() : 'empty');
+                sb_share_finish($id, $S, $file);
+                return;
+            }
+            $src = $rv['src'];
+            sb_share_set($id, array('src' => $src, 'img' => $rv['img'] ?: ($e['img'] ?? '')));
+        } elseif ($video) {
             $xp = !empty($e['pgid']) ? get_option('sb_share_pages', array()) : array();
             $v = sb_share_graph($c, $e['vid'], array('fields' => 'source,length'), !empty($xp[$e['pgid']]['token']) ? $xp[$e['pgid']]['token'] : '');
             if (is_wp_error($v) || empty($v['source'])) {
@@ -223,6 +232,10 @@ function sb_share_run($id) {
     }
 
     // 3. Instagram
+    if (empty($S['ig']) && !empty($e['yt_only'])) {
+        $S['ig'] = 'skipped (YouTube only)';
+        sb_share_set($id, array('steps' => $S));
+    }
     if (empty($S['ig'])) {
         if ('' === $c['ig_id'] || '' === $c['ig_token']) {
             $S['ig'] = 'The Instagram ID/token is missing.';
@@ -267,7 +280,9 @@ function sb_share_finish($id, $S, $file) {
     }
     sb_share_set($id, array('steps' => $S, 'status' => $ok ? 'done' : 'failed', 'draft' => $e['draft'] ?? null));
     $L = array();
-    $L[] = '📸 Instagram: ' . (isset($S['ig']) ? (0 === strpos($S['ig'], 'ok:') ? 'sent ✅' : esc_html($S['ig'])) : '—');
+    if (empty($e['yt_only'])) {
+        $L[] = '📸 Instagram: ' . (isset($S['ig']) ? (0 === strpos($S['ig'], 'ok:') ? 'sent ✅' : esc_html($S['ig'])) : '—');
+    }
     if ('video' === ($e['kind'] ?? '')) {
         $yt = $S['yt'] ?? (empty(sb_share_cfg()['yt_on']) ? 'not connected yet' : '—');
         $L[] = '▶️ YouTube: ' . (0 === strpos($yt, 'ok:') ? 'uploaded ✅ (private), will go public after ' . (int) sb_share_cfg()['yt_delay'] . ' minutes' : esc_html($yt));
@@ -285,7 +300,7 @@ function sb_share_finish($id, $S, $file) {
     if ('' !== (string) $cfg['tg_chat']) {
         $t = trim((string) ($e['draft']['yt_title'] ?? '')) ?: mb_substr(wp_strip_all_tags((string) ($e['msg'] ?? '')), 0, 70);
         sb_tg_api('sendMessage', array('chat_id' => $cfg['tg_chat'], 'parse_mode' => 'HTML', 'disable_web_page_preview' => 'true',
-            'text' => "📣 <b>Facebook post auto-shared</b>\n" . esc_html($t) . "\n\n" . implode("\n", $L) . "\n\n🗑️ The video/picture was deleted from the server." . (!empty($e['fb']) ? "\n" . esc_url_raw($e['fb']) : '')));
+            'text' => "📣 <b>" . (!empty($e['yt_only']) ? 'Facebook video → YouTube' : 'Facebook post auto-shared') . "</b>\n" . esc_html($t) . "\n\n" . implode("\n", $L) . "\n\n🗑️ The video/picture was deleted from the server." . (!empty($e['fb']) ? "\n" . esc_url_raw($e['fb']) : '')));
     }
 }
 

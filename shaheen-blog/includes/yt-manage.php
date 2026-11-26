@@ -875,6 +875,12 @@ add_action('wp_ajax_sb_ytm', function () {
         if ((time() - (int) get_option('sb_ytm_plan_busy', 0)) < 600) {
             do_action('sb_ytm_plan_run', 1);
         }
+    } elseif ('fblink' === $do) {   // public Facebook video links -> YouTube (fb-link-yt.php)
+        if (!function_exists('sb_fl_enqueue_many')) {
+            wp_send_json_error('ফিচার নেই।');
+        }
+        list($n, $L) = sb_fl_enqueue_many((string) wp_unslash($_POST['links'] ?? ''), 10);
+        $msg = $L ? wp_strip_all_tags(implode(' | ', $L)) . ($n ? ' — AI বিবরণ-থাম্বনাইল বানিয়ে ইউটিউবে দেবে, শেষ হলে টেলিগ্রামে জানাবে।' : '') : 'কোনো ফেসবুক লিংক পাইনি।';
     } elseif ('evlogos' === $do) {
         sb_ev_logos_save((string) wp_unslash($_POST['lines'] ?? ''));
         $msg = 'ইভেন্ট লোগো সেভ হয়েছে।';
@@ -963,6 +969,7 @@ function sb_ytm_panel() {
         <p><label><input type="checkbox" id="ym-auto"> <b>নিজে নিজে চালু</b></label> &nbsp; <label><input type="checkbox" id="ym-ai"> AI দিয়ে বিশেষ সাফল্যের লাইনও যোগ হোক</label> <button class="button" id="ym-save">সেভ</button></p>
         <p><label><input type="checkbox" id="ym-th"> নতুন ভিডিওর থাম্বনেইল AI দিয়ে (হুক লেখা + লোগো) নিজে বানাও</label></p>
         <p><b>ইভেন্ট লোগো</b> <span class="description">(ভিডিওর লেখায় এই শব্দ থাকলে সেই ইভেন্টের লোগো থাম্বনেইলে বসে। প্রতি লাইনে: নাম ; শব্দ (| দিয়ে আলাদা) ; মিডিয়া লাইব্রেরির ছবির আইডি)</span><br><textarea id="ym-ev" rows="3" style="width:100%"></textarea> <button class="button" id="ym-evsave">লোগো তালিকা সেভ</button></p>
+        <p><b>ফেসবুক ভিডিও → ইউটিউব</b> <span class="description">(পাবলিক ফেসবুক ভিডিওর লিংক, প্রতি লাইনে একটি। নিজের পেজ, অন্য পেজ বা পাবলিক গ্রুপ, সবই চলবে। টেলিগ্রাম ডেস্কে লিংক দিলেও একই কাজ হয়।)</span><br><textarea id="ym-fl" rows="3" style="width:100%" placeholder="https://www.facebook.com/…"></textarea> <button class="button" id="ym-flgo">ইউটিউবে পোস্ট করুন</button></p>
         <p><label>ক্যাম্পাস সংখ্যা (সাইটে এখনো না বদলালে এটাই বসবে; সাইট এতে পৌঁছালে সাইটের সংখ্যা চলবে): <input type="text" id="ym-campus" size="5"></label> &nbsp; <label>SEO কীওয়ার্ড লাইন: <input type="text" id="ym-kw" style="width:100%"></label></p>
         <p><button class="button" id="ym-preview">যে ব্লক বসবে দেখুন</button> <button class="button button-primary" id="ym-sync">এখনই ১০০ ভিডিওর বিবরণ হালনাগাদ</button> <button class="button" id="ym-stop">থামান</button></p>
         <pre id="ym-block" style="white-space:pre-wrap;background:#fff;border:1px solid #e5e7eb;padding:8px;display:none"></pre>
@@ -992,7 +999,7 @@ function sb_ytm_panel() {
             }
             function go(x){$('#ym-st').textContent='…';call(x).then(function(r){if(!r.success){$('#ym-st').textContent='❌ '+r.data;return;}show(r.data);});}
             $('#ym-save').onclick=function(){go({do:'save',auto:$('#ym-auto').checked?1:'',ai:$('#ym-ai').checked?1:'',thumb:$('#ym-th').checked?1:'',campus:$('#ym-campus').value,kw:$('#ym-kw').value});};
-            $('#ym-evsave').onclick=function(){go({do:'evlogos',lines:$('#ym-ev').value});};
+            $('#ym-evsave').onclick=function(){go({do:'evlogos',lines:$('#ym-ev').value});};$('#ym-flgo').onclick=function(){go({do:'fblink',links:$('#ym-fl').value});};
             $('#ym-preview').onclick=function(){go({do:'preview'});};
             $('#ym-sync').onclick=function(){go({do:'sync'});};
             $('#ym-stop').onclick=function(){go({do:'stop'});};
