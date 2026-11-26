@@ -674,15 +674,97 @@ function sb_ytm_state() {
     return $out;
 }
 
-/** the plan is made in the background (many videos + AI take longer than a web request may last) */
+/** the plan is made in the background; with AI the videos go in batches of 50 (one short AI call each), so nothing runs into a time limit */
+function sb_ytm_plan_next($sec = 3) {
+    wp_schedule_single_event(time() + $sec, 'sb_ytm_plan_run', array(1));
+    spawn_cron();
+}
+
 add_action('sb_ytm_plan_run', function ($ai) {
-    @set_time_limit(400);
-    $p = sb_ytm_make_plan(!empty($ai));
-    if (is_wp_error($p)) {
-        update_option('sb_ytm_plan_err', $p->get_error_message(), false);
-    } else {
-        update_option('sb_ytm_plan', $p, false);
+    @set_time_limit(300);
+    if (!$ai) {
+        $p = sb_ytm_make_plan(false);
+        if (is_wp_error($p)) {
+            update_option('sb_ytm_plan_err', $p->get_error_message(), false);
+        } else {
+            update_option('sb_ytm_plan', $p, false);
+        }
+        delete_option('sb_ytm_plan_busy');
+        return;
     }
+    $st = get_option('sb_ytm_plan_st', array());
+    if (empty($st)) {
+        $ids = sb_ytm_ids(500);
+        $sn  = is_wp_error($ids) ? $ids : sb_ytm_snips($ids);
+        if (is_wp_error($sn)) {
+            update_option('sb_ytm_plan_err', $sn->get_error_message(), false);
+            delete_option('sb_ytm_plan_busy');
+            return;
+        }
+        $vids = array();
+        foreach ($ids as $id) {
+            if (!empty($sn[$id])) {
+                $s = $sn[$id]['snippet'];
+                $vids[$id] = array('t' => (string) $s['title'], 'p' => (string) ($s['publishedAt'] ?? ''), 'd' => mb_substr(trim(preg_replace('/\s+/u', ' ', (string) $s['description'])), 0, 90));
+            }
+        }
+        $st = array('vids' => $vids, 'order' => array_keys($vids), 'i' => 0, 'lists' => array(), 'desc' => array(), 'real' => 0.0, 'ok' => 0);
+    }
+    $vids  = $st['vids'];
+    $batch = array_slice($st['order'], (int) $st['i'], 50);
+    $rows  = array();
+    foreach ($batch as $id) {
+        $rows[] = $id . ' | ' . $vids[$id]['t'] . ' | ' . $vids[$id]['d'];
+    }
+    list($r, $real) = sb_ytm_ai(
+        'তুমি একটি স্কুল-কোচিং প্রতিষ্ঠানের ইউটিউব ভিডিও প্লেলিস্টে সাজাচ্ছ। নিচের ভিডিওগুলো প্রতিটি সবচেয়ে মানানসই একটি প্লেলিস্টে দাও। এই প্লেলিস্টগুলো অবশ্যই ব্যবহার করবে যেখানে মানায়: "প্রশংসা ও সম্মাননা" (অভিভাবক/অতিথির মতামত, সম্মাননা, অভিনন্দন), "ক্লাস লেকচার (বাংলা)", "ক্লাস লেকচার (ইংরেজি)"; এছাড়া বিষয় দেখে অন্য প্লেলিস্ট (সব মিলিয়ে ৪ থেকে ৯টির বেশি হবে না)। নাম সহজ চলতি বাংলায়, ৬০ অক্ষরের মধ্যে, নামে "শাহীন" একা লিখবে না; বর্ণনা এক বাক্যে।'
+        . ($st['lists'] ? ' এই প্লেলিস্টগুলো আগেই হয়েছে; মানালে হুবহু এই নামই ব্যবহার করবে, একেবারে নতুন বিষয় হলে তবেই নতুন নাম দেবে: ' . implode(' | ', array_keys($st['lists'])) . '.' : '')
+        . ' ভিডিওর আইডি বানাবে না। শুধু এই JSON: {"lists":[{"name":"...","desc":"...","ids":["..."]}]}',
+        implode("\n", $rows)
+    );
+    $st['real'] += $real;
+    $done = array();
+    if (!empty($r['lists']) && is_array($r['lists'])) {
+        $st['ok']++;
+        foreach ($r['lists'] as $l) {
+            $nm = trim(mb_substr(sanitize_text_field((string) ($l['name'] ?? '')), 0, 100));
+            if ('' === $nm) {
+                continue;
+            }
+            foreach ((array) ($l['ids'] ?? array()) as $x) {
+                if (in_array($x, $batch, true) && !isset($done[$x])) {
+                    $st['lists'][$nm][] = $x;
+                    $done[$x] = 1;
+                    if (empty($st['desc'][$nm]) && !empty($l['desc'])) {
+                        $st['desc'][$nm] = mb_substr(sanitize_text_field((string) $l['desc']), 0, 300);
+                    }
+                }
+            }
+        }
+    }
+    foreach ($batch as $x) {   // anything the AI left out goes by the keyword rules
+        if (!isset($done[$x])) {
+            $c = sb_ytm_rule_cat($vids[$x]['t'], $vids[$x]['d']);
+            if ('' !== $c) {
+                $st['lists'][$c][] = $x;
+            }
+        }
+    }
+    $st['i'] = (int) $st['i'] + 50;
+    if ($st['i'] < count($st['order'])) {
+        update_option('sb_ytm_plan_st', $st, false);
+        update_option('sb_ytm_plan_busy', time(), false);
+        sb_ytm_plan_next();
+        return;
+    }
+    $plan = array('t' => time(), 'ai' => $st['ok'] ? 1 : 0, 'real' => $st['real'], 'lists' => array(), 'total' => count($vids), 'titles' => array_map(function ($v) {
+        return $v['t'];
+    }, $vids));
+    foreach ($st['lists'] as $nm => $ids) {
+        $plan['lists'][] = array('name' => $nm, 'desc' => $st['desc'][$nm] ?? '', 'ids' => sb_ytm_order($nm, array_values(array_unique($ids)), $vids));
+    }
+    update_option('sb_ytm_plan', $plan, false);
+    delete_option('sb_ytm_plan_st');
     delete_option('sb_ytm_plan_busy');
 });
 
@@ -710,6 +792,7 @@ add_action('wp_ajax_sb_ytm', function () {
         $msg = 'কাজ শুরু হয়েছে; কয়েক মিনিটে হয়ে যাবে, শেষে টেলিগ্রামে জানাব।';
     } elseif ('plan' === $do) {
         delete_option('sb_ytm_plan');
+        delete_option('sb_ytm_plan_st');
         delete_option('sb_ytm_plan_err');
         update_option('sb_ytm_plan_busy', time(), false);
         wp_schedule_single_event(time() + 2, 'sb_ytm_plan_run', array(!empty($_POST['ai']) ? 1 : 0));
