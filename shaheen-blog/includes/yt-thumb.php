@@ -142,12 +142,13 @@ function sb_thumb_build($c, $e, $dr) {
         }
     }
     // the thumbnail has the video's own shape: wide video -> 16:9, square -> 1:1, tall -> 9:16
+    $tall = false;
     $gi = @getimagesize($frame);
     $ratio = ($gi && $gi[1] > 0) ? $gi[0] / $gi[1] : 1.7778;
     if ($ratio >= 1.3) {
         $gen = '1536x1024'; $W = 1280; $H = 720; $shape = 'wide 16:9 landscape';
     } elseif ($ratio <= 0.77) {
-        $gen = '1024x1536'; $W = 720; $H = 1280; $shape = 'tall 9:16 portrait';
+        $gen = '1536x1024'; $W = 1280; $H = 720; $shape = 'wide 16:9 landscape'; $tall = true;   // YouTube shows every thumbnail as 16:9, so a tall video gets a 16:9 one built around its tall picture
     } else {
         $gen = '1024x1024'; $W = 1080; $H = 1080; $shape = 'square 1:1';
     }
@@ -155,6 +156,7 @@ function sb_thumb_build($c, $e, $dr) {
     $prompt = 'Create a scroll-stopping YouTube thumbnail, ' . $shape . ' shape. Use reference image 1 — a real frame from the video — as the base: keep the real people, place and clothes exactly as they are, but make it brighter, sharper and richer in colour, with strong contrast, a clean uncluttered composition and a clear focal point' . ('' !== $idea ? ' (direction from the video analysis: ' . $idea . ')' : '') . '. '
         . 'Add ONE huge bold headline in Bangla, exactly this text and nothing else: "' . $hook . '". Use a thick, clean Bengali typeface, white or bright yellow on a solid dark or red band (or with a heavy dark outline), so it stays readable even when the thumbnail is tiny; correct Bengali conjunct letters, no spelling changes. '
         . ('wide 16:9 landscape' === $shape ? 'The picture will be cropped to 16:9 (the top and bottom 15% are cut off), so keep the headline and the main subject fully inside the central 70% of the height. ' : '')
+        . ($tall ? 'The reference frame is a tall (portrait) video picture: put it, sharp and large, in the centre of the 16:9 canvas, and fill the sides with the same picture enlarged, blurred and darkened as a background; place the headline over the lower part of the centre picture or on a band across the bottom. ' : '')
         . 'Keep the headline at least 6% away from every edge. Keep the top-left and top-right corners (each about 28% of the width and 24% of the height) free of faces and text: logos will be placed there later. '
         . 'Make it look professional and eye-catching: vivid saturated colours, glowing edge light around the main subject, crisp edges, a balanced layout that makes a viewer want to click. Do NOT draw any logo, watermark, frame or border, and no other text.';
     $model = array_keys(sb_img_models())[0];
