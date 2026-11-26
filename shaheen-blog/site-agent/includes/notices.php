@@ -2018,6 +2018,33 @@ function csa_sn_describe( $id ) {
 	} else {
 		array_unshift( $blocks, array( 't' => 'text', 'h' => '', 'body' => $pr['summary'] ) );
 	}
+	// Info cards from the dates and facts the PDF states (an earlier AI card block is replaced; the owner's own cards are kept).
+	if ( $pr['facts'] ) {
+		$rows = array();
+		foreach ( $pr['facts'] as $f ) {
+			$rows[] = array( 'l' => $f['l'], 'v' => $f['v'], 'm' => '' );
+		}
+		$ci = -1;
+		foreach ( $blocks as $i => $b ) {
+			if ( 'cards' === ( $b['t'] ?? '' ) ) {
+				$ci = $i;
+				break;
+			}
+		}
+		if ( $ci >= 0 ) {
+			$have = array();
+			foreach ( (array) ( $blocks[ $ci ]['rows'] ?? array() ) as $r ) {
+				$have[] = (string) ( $r['l'] ?? '' );
+			}
+			foreach ( $rows as $r ) {
+				if ( ! in_array( $r['l'], $have, true ) ) {
+					$blocks[ $ci ]['rows'][] = $r;
+				}
+			}
+		} else {
+			array_splice( $blocks, 1, 0, array( array( 't' => 'cards', 'rows' => $rows ) ) );
+		}
+	}
 	$d['blocks']  = $blocks;
 	$d['summary'] = $pr['summary'];
 	$d['seo_d']   = mb_substr( $pr['summary'], 0, 155 );
