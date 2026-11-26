@@ -133,7 +133,7 @@ function sb_uniform_pick($explicit, $text, $subject = 'auto') {
 
 /* ---------- Logo library (3 fixed logos) ---------- */
 function sb_logo_defs() {
-    return array('school' => 'শাহীন স্কুল লোগো', 'family' => 'শাহীন এডুকেশন ফ্যামিলি লোগো', 'cadet' => 'ক্যাডেট কলেজ লোগো');
+    return array('school' => 'শাহীন স্কুল লোগো', 'family' => 'শাহীন এডুকেশন ফ্যামিলি লোগো', 'cadet' => 'ক্যাডেট কলেজ লোগো', 'islamic' => 'ইসলামিক স্কুল লোগো');
 }
 
 function sb_logos() {

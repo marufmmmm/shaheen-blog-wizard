@@ -129,7 +129,7 @@ function sb_page_research() {
     ?>
 <div class="wrap sba" id="sb-rs">
     <h1>🔎 Research</h1>
-    <p class="sba-muted">ওয়েব সার্চ করে তথ্য ও সূত্রের লিংকসহ উত্তর। প্রতিটি সার্চে আসল খরচ অনুযায়ী ক্রেডিট কাটে।</p>
+    <p class="sba-muted">ওয়েব সার্চ করে তথ্য ও সূত্রের লিংকসহ উত্তর। প্রতিটি সার্চের খরচ আপনার ব্যবহারের হিসাবে যোগ হয়।</p>
     <div class="sba-card sba-form" style="max-width:860px">
         <label>কী জানতে চান?
             <textarea id="rs-q" rows="4" placeholder="যেমন: ২০২৬ সালে বাংলাদেশে ক্যাডেট কলেজ ভর্তি পরীক্ষার তারিখ ও নিয়ম কী?"></textarea>

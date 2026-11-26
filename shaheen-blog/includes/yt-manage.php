@@ -910,7 +910,7 @@ function sb_ytm_panel() {
     ?>
     <div id="sb-ytm" style="border:1px solid #d1d5db;border-radius:8px;padding:12px;margin:12px 0;background:#fff7ed">
         <b>▶️ ইউটিউব ম্যানেজার: তথ্য মিলানো ও প্লেলিস্ট</b>
-        <p class="sba-muted" style="margin:4px 0 8px">সাইটের তথ্য (ক্যাম্পাস, জেলা, অভিজ্ঞতা, ফোন) বদলালে শেষ ১০০ ভিডিওর বিবরণ ও চ্যানেলের বিবরণ নিজে হালনাগাদ হয়; না বদলালেও মাসে একবার। খরচ: AI ছাড়া ০.২০ ডলার; AI লাগলে আসল খরচ ×১.৫ (কমপক্ষে ০.২০)।</p>
+        <p class="sba-muted" style="margin:4px 0 8px">সাইটের তথ্য (ক্যাম্পাস, জেলা, অভিজ্ঞতা, ফোন) বদলালে শেষ ১০০ ভিডিওর বিবরণ ও চ্যানেলের বিবরণ নিজে হালনাগাদ হয়; না বদলালেও মাসে একবার। প্রতিবার কাজের খরচ আপনার ব্যবহারের হিসাবে যোগ হয়।</p>
         <p><label><input type="checkbox" id="ym-auto"> <b>নিজে নিজে চালু</b></label> &nbsp; <label><input type="checkbox" id="ym-ai"> AI দিয়ে বিশেষ সাফল্যের লাইনও যোগ হোক</label> <button class="button" id="ym-save">সেভ</button></p>
         <p><label><input type="checkbox" id="ym-th"> নতুন ভিডিওর থাম্বনেইল AI দিয়ে (হুক লেখা + লোগো) নিজে বানাও</label></p>
         <p><b>ইভেন্ট লোগো</b> <span class="description">(ভিডিওর লেখায় এই শব্দ থাকলে সেই ইভেন্টের লোগো থাম্বনেইলে বসে। প্রতি লাইনে: নাম ; শব্দ (| দিয়ে আলাদা) ; মিডিয়া লাইব্রেরির ছবির আইডি)</span><br><textarea id="ym-ev" rows="3" style="width:100%"></textarea> <button class="button" id="ym-evsave">লোগো তালিকা সেভ</button></p>

@@ -125,7 +125,14 @@ function sb_thumb_build($c, $e, $dr) {
         $refs[] = array('att' => (int) $ev['att'], 'cat' => 'logo', 'name' => $ev['name']);
         $evn    = count($refs);
     }
-    foreach (array('family', 'school') as $k) {
+    $txt_all = mb_strtolower(implode(' ', array((string) ($e['msg'] ?? ''), (string) ($dr['yt_title'] ?? ''), (string) ($dr['yt_desc'] ?? ''), $hook)));
+    $order   = array('family', 'school');
+    if (preg_match('/ইসলামিক|ইসলামী|ইসলাম শিক্ষা|মাদ্রাসা|মাদরাসা|কুরআন|কোরআন|হিফজ|নাযেরা|দ্বীনি|islamic|madrasa|quran|hifz/u', $txt_all) && isset($all['islamic'])) {
+        $order = array('islamic', 'family', 'school');
+    } elseif (preg_match('/ক্যাডেট|cadet/u', $txt_all) && isset($all['cadet'])) {
+        $order = array('cadet', 'family', 'school');
+    }
+    foreach ($order as $k) {
         if (isset($all[$k])) {
             $refs[] = array('att' => $all[$k]['att'], 'cat' => 'logo', 'name' => $all[$k]['label']);
             $inst   = $all[$k]['label'];
@@ -139,7 +146,7 @@ function sb_thumb_build($c, $e, $dr) {
         . 'Keep the headline and the main subject well inside the central area (the top and bottom tenth of the picture may be cropped away). '
         . ($evn ? 'Reference image ' . $evn . ' is the official logo of the event "' . $ev['name'] . '": copy it faithfully, unaltered, once, fairly prominent, in the top-left corner. ' : '')
         . ('' !== $inst ? 'Reference image ' . $instn . ' is the institution\'s logo (' . $inst . '): copy it faithfully, unaltered, small, once, in the ' . ($evn ? 'top-right' : 'top-left') . ' corner. ' : '')
-        . 'No other text, no watermark, no extra logos, no frames or borders.';
+        . 'Make it look professional and eye-catching: vivid saturated colours, glowing edge light around the main subject, crisp edges, a balanced layout that makes a viewer want to click. No other text, no watermark, no extra logos, no frames or borders.';
     $model = array_keys(sb_img_models())[0];
     $res   = sb_img_call($model, $prompt, '1536x1024', 'medium', $refs);
     @unlink($frame);
