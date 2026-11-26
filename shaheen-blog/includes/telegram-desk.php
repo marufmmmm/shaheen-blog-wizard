@@ -217,7 +217,9 @@ function sb_desk_unlock($k) {
 function sb_desk_menu($m) {
     sb_desk_clear($m);
     sb_desk_say($m, "🗂️ <b>What would you like to do?</b>", array(
-        array(sb_desk_btn('📢 Notice', 'm:notice'), sb_desk_btn('✍️ Blog', 'm:blog')),
+        array(sb_desk_btn('📢 Notice', 'm:notice')),
+        array(sb_desk_btn('✍️ Write (from your own facts)', 'm:blog')),
+        array(sb_desk_btn('🔁 Rewrite (someone else\'s text)', 'm:rewrite')),
         array(sb_desk_btn('✏️ Edit notice', 'm:edit')),
         array(sb_desk_btn('✏️ Edit blog', 'm:eblog'), sb_desk_btn('✏️ Edit news', 'm:enews')),
         array(sb_desk_btn('📰 News (send link)', 'm:news'), sb_desk_btn('🛑 Held-back news', 'm:held')),
@@ -235,6 +237,13 @@ function sb_desk_steps($flow, $d) {
     }
     if ('notice' === $flow) {
         return array('type', 'details', 'confirm');
+    }
+    $pic = array('image');
+    if ('pick' === ($d['imgmode'] ?? '')) {
+        $pic = array_merge($pic, array('dress'), sb_desk_needs_who($d['uniform'] ?? '') ? array('who') : array());
+    }
+    if (!empty($d['rewrite'])) {   // Rewrite: paste the other text, then title, language, picture
+        return array_merge(array('bodytext', 'title', 'lang'), $pic, array('confirm'));
     }
     $st = array('topic', 'title', 'keywords', 'body');
     if (in_array($d['body'] ?? '', array('paste', 'desc'), true)) {
@@ -357,7 +366,7 @@ function sb_desk_ask($m, $s) {
         case 'apply':
             return sb_desk_say($m, "🔗 <b>Is there an application link or Google Form?</b>\nSend the link. A Google Form is embedded in the notice page.", array(array($skip, $x)));
         case 'topic':
-            return sb_desk_say($m, "✍️ <b>What is the blog topic?</b> Send it in a few words (required; the AI can do everything else).", array(array($x)));
+            return sb_desk_say($m, "✍️ <b>Write: what is it about?</b>\nSend the topic and your own facts in a few words. The AI writes only from what you give and from our saved school facts.", array(array($x)));
         case 'title':
             return sb_desk_say($m, "🏷️ <b>Title?</b> Type it, or let the AI make it.", array(array(sb_desk_btn('🤖 AI makes it', 'ai'), $x)));
         case 'keywords':
@@ -370,6 +379,9 @@ function sb_desk_ask($m, $s) {
                 array($x),
             ));
         case 'bodytext':
+            if (!empty($s['d']['rewrite'])) {
+                return sb_desk_say($m, "🔁 <b>Rewrite: paste the other person's text</b> (one message, at least 200 characters).\nThe AI writes it again in simple words of our own. Facts and numbers stay the same.", array(array($x)));
+            }
             return sb_desk_say($m, ('paste' === $s['d']['body'] ? "📋 <b>Send the full text</b> (in one message)." : "📝 <b>Send your description.</b> The AI will write the full article from it."), array(array($x)));
         case 'length':
             return sb_desk_say($m, "📏 <b>How long should the article be?</b>", array(array(sb_desk_btn('Short', 'l:short'), sb_desk_btn('Medium', 'l:medium'), sb_desk_btn('Long', 'l:long')), array($x)));
@@ -403,8 +415,12 @@ function sb_desk_ask($m, $s) {
                 $tl = ($d['type'] ?? '') !== '' ? (csa_sn_opt('types')[$d['type']]['label'] ?? $d['type']) : 'General';
                 $sum = "📢 <b>Notice</b>\nType: " . esc_html($tl) . "\nPictures: " . count($d['aids'] ?? array()) . "; PDF: " . (!empty($d['pdf_aid']) ? 'yes' : 'no') . "; Text: " . (!empty($d['text']) ? mb_strlen($d['text']) . ' characters' : 'none') . "\n\nThe AI will arrange the dates, links and rules neatly. The phone numbers come from the branch page." . (empty($d['aids']) ? "\n🎨 No picture sent, so the AI will make one related picture (with alt text and SEO)." : '');
             } else {
-                $bm = array('ai' => 'AI writes it all', 'desc' => 'AI from your description', 'paste' => 'Your own text');
-                $sum = "✍️ <b>Blog</b>\nTopic: " . esc_html($d['topic']) . "\nTitle: " . esc_html(($d['title'] ?? '') ?: 'AI') . "\nKeywords: " . esc_html(($d['keywords'] ?? '') ?: 'AI') . "\nText: " . $bm[$d['body'] ?? 'ai'] . "\nLength: " . esc_html($d['length'] ?? 'medium') . "\nLanguage: " . ('en' === ($d['lang'] ?? '') ? 'English' : 'Bangla') . "\nPicture: " . (count($d['aids'] ?? array()) ? count($d['aids']) . ' (yours)' : ('none' === ($d['imgmode'] ?? 'auto') ? 'not needed' : 'AI makes it, dress: ' . esc_html(sb_desk_dress_label(($d['uniform'] ?? 'auto') ?: 'auto')))) . "\nSEO: English title, simple slug, alt text, meta and keywords are all automatic";
+                $bm = array('ai' => 'AI writes it all', 'desc' => 'AI from your description', 'paste' => 'Your own text', 'rewrite' => 'Rewrite of the text you pasted');
+                if (!empty($d['rewrite'])) {
+                    $sum = "🔁 <b>Rewrite</b>\nText: " . mb_strlen($d['bodytext'] ?? '') . " characters pasted\nTitle: " . esc_html(($d['title'] ?? '') ?: 'AI') . "\nLanguage: " . ('en' === ($d['lang'] ?? '') ? 'English' : 'Bangla') . "\nPicture: " . (count($d['aids'] ?? array()) ? count($d['aids']) . ' (yours)' : ('none' === ($d['imgmode'] ?? 'auto') ? 'not needed' : 'AI makes it')) . "\nThe wording is checked and made simple automatically.";
+                } else {
+                $sum = "✍️ <b>Write</b>\nTopic: " . esc_html($d['topic']) . "\nTitle: " . esc_html(($d['title'] ?? '') ?: 'AI') . "\nKeywords: " . esc_html(($d['keywords'] ?? '') ?: 'AI') . "\nText: " . $bm[$d['body'] ?? 'ai'] . "\nLength: " . esc_html($d['length'] ?? 'medium') . "\nLanguage: " . ('en' === ($d['lang'] ?? '') ? 'English' : 'Bangla') . "\nPicture: " . (count($d['aids'] ?? array()) ? count($d['aids']) . ' (yours)' : ('none' === ($d['imgmode'] ?? 'auto') ? 'not needed' : 'AI makes it, dress: ' . esc_html(sb_desk_dress_label(($d['uniform'] ?? 'auto') ?: 'auto')))) . "\nSEO: English title, simple slug, alt text, meta and keywords are all automatic\nThe wording is checked and made simple automatically.";
+                }
             }
             return sb_desk_say($m, $sum . "\n\nWhat do you want to do?\n✅ Publish = goes live now.\n📝 Draft only = saved, not shown to the public.", array(array(sb_desk_btn('✅ Publish', 'go:publish')), array(sb_desk_btn('📝 Draft only', 'go:draft'), $x)));
     }
@@ -544,6 +560,10 @@ function sb_desk_step($m, $in) {
                     return;
                 }
                 sb_desk_start($m, 'edit', array());
+                return;
+            }
+            if ('rewrite' === $f) {
+                sb_desk_start($m, 'blog', array('aids' => array(), 'rewrite' => 1, 'body' => 'rewrite'));
                 return;
             }
             sb_desk_start($m, $f, 'notice' === $f ? array('aids' => array(), 'text' => '', 'type' => '', 'branch' => '') : ('news' === $f ? array('urls' => array()) : array('aids' => array())));
@@ -764,8 +784,14 @@ function sb_desk_step($m, $in) {
             }
             break;
         case 'bodytext':
-            if ('' !== $t && '' === $cb) {
+            if (!empty($d['rewrite']) && ('' === $t || '' !== $cb || mb_strlen($t) < 200)) {
+                sb_desk_say($m, 'Please paste the whole text (at least 200 characters) in one message.');
+                $stay = true;
+            } elseif ('' !== $t && '' === $cb) {
                 $d['bodytext'] = sanitize_textarea_field($t);
+                if (!empty($d['rewrite'])) {
+                    $d['topic'] = mb_substr(preg_replace('/\s+/u', ' ', $d['bodytext']), 0, 500);
+                }
             } else {
                 $stay = true;
             }
@@ -2052,7 +2078,12 @@ function sb_desk_blog($text, $aids, $status = 'publish', $o = array()) {
         $ctx['mode']  = 'paste';
         $ctx['instruction'] = trim($ctx['instruction'] . "\nমালিকের বিবরণ থেকে বিস্তারিত লেখো; বিবরণের বাইরে তথ্য বানাবে না।");
     }
-    $cost = sb_feature_cost('article');
+    $rw = ('rewrite' === ($o['body'] ?? '') && !empty($o['bodytext']));
+    if ($rw) {
+        $ctx['source'] = mb_substr((string) $o['bodytext'], 0, 12000);
+        $ctx['research'] = false;
+    }
+    $cost = sb_feature_cost($rw ? 'rewrite' : 'article');
     if ($ready) {
         $cost = 0;
     }
@@ -2066,8 +2097,8 @@ function sb_desk_blog($text, $aids, $status = 'publish', $o = array()) {
         $res  = array('text' => '', 'missing' => array());
         $html = wp_kses_post(wpautop(esc_html($o['bodytext'])));
     } else {
-        $out = sb_ai_execute($uid, 'article', $ctx, $cost, true, $notes);
-        if (empty($out['ok'])) { // web research can fail: try once without it
+        $out = sb_ai_execute($uid, $rw ? 'rewrite' : 'article', $ctx, $cost, !$rw, $notes);
+        if (empty($out['ok']) && !$rw) { // web research can fail: try once without it
             $ctx['research'] = false;
             $out = sb_ai_execute($uid, 'article', $ctx, $cost, false, $notes);
         }
