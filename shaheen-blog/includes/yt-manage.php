@@ -467,7 +467,7 @@ function sb_ytm_make_plan($ai, $only = null, $known = array()) {
     foreach ($ids as $id) {
         if (!empty($sn[$id])) {
             $s = $sn[$id]['snippet'];
-            $vids[$id] = array('t' => (string) $s['title'], 'p' => (string) ($s['publishedAt'] ?? ''), 'd' => mb_substr(trim(preg_replace('/\s+/u', ' ', (string) $s['description'])), 0, 160));
+            $vids[$id] = array('t' => (string) $s['title'], 'p' => (string) ($s['publishedAt'] ?? ''), 'd' => mb_substr(trim(preg_replace('/\s+/u', ' ', (string) $s['description'])), 0, 90));
         }
     }
     $plan = array('t' => time(), 'ai' => 0, 'real' => 0.0, 'lists' => array(), 'total' => count($vids));
@@ -661,6 +661,8 @@ function sb_ytm_state() {
         'job' => $j ? array('type' => $j['type'], 'state' => $j['state'], 'i' => (int) ($j['i'] ?? $j['li'] ?? 0), 'n' => count($j['ids'] ?? $j['lists'] ?? array()), 'ok' => (int) ($j['ok'] ?? $j['added'] ?? 0), 'err' => (string) ($j['err'] ?? ''), 'bill' => $j['bill'] ?? null) : null,
         'plan' => null,
         'quota' => (int) get_transient('sb_ytm_q_' . wp_date('Ymd')),
+        'busy' => (time() - (int) get_option('sb_ytm_plan_busy', 0)) < 600 ? 1 : 0,
+        'perr' => (string) get_option('sb_ytm_plan_err', ''),
     );
     if (!empty($pl['lists'])) {
         $out['plan'] = array('ai' => (int) $pl['ai'], 'lists' => array_map(function ($l) use ($pl) {
@@ -671,6 +673,18 @@ function sb_ytm_state() {
     }
     return $out;
 }
+
+/** the plan is made in the background (many videos + AI take longer than a web request may last) */
+add_action('sb_ytm_plan_run', function ($ai) {
+    @set_time_limit(400);
+    $p = sb_ytm_make_plan(!empty($ai));
+    if (is_wp_error($p)) {
+        update_option('sb_ytm_plan_err', $p->get_error_message(), false);
+    } else {
+        update_option('sb_ytm_plan', $p, false);
+    }
+    delete_option('sb_ytm_plan_busy');
+});
 
 add_action('wp_ajax_sb_ytm', function () {
     check_ajax_referer('sb_admin', 'nonce');
@@ -695,12 +709,12 @@ add_action('wp_ajax_sb_ytm', function () {
         }
         $msg = 'কাজ শুরু হয়েছে; কয়েক মিনিটে হয়ে যাবে, শেষে টেলিগ্রামে জানাব।';
     } elseif ('plan' === $do) {
-        $p = sb_ytm_make_plan(!empty($_POST['ai']));
-        if (is_wp_error($p)) {
-            wp_send_json_error($p->get_error_message());
-        }
-        update_option('sb_ytm_plan', $p, false);
-        $msg = $p['total'] . 'টি ভিডিও দেখে পরিকল্পনা তৈরি। নিচে দেখে ঠিক করে "প্লেলিস্ট বানাও" চাপুন।';
+        delete_option('sb_ytm_plan');
+        delete_option('sb_ytm_plan_err');
+        update_option('sb_ytm_plan_busy', time(), false);
+        wp_schedule_single_event(time() + 2, 'sb_ytm_plan_run', array(!empty($_POST['ai']) ? 1 : 0));
+        spawn_cron();
+        $msg = 'সব ভিডিও দেখে পরিকল্পনা বানানো শুরু হয়েছে (১-২ মিনিট লাগতে পারে)।';
     } elseif ('apply' === $do) {
         $pl  = get_option('sb_ytm_plan', array());
         $sel = json_decode((string) wp_unslash($_POST['lists'] ?? '[]'), true);
@@ -756,7 +770,8 @@ function sb_ytm_panel() {
                 $('#ym-auto').checked=!!d.auto;$('#ym-ai').checked=!!d.ai;
                 var j=d.job,t=(d.msg?d.msg+' · ':'')+(d.last?'শেষ হালনাগাদ: '+d.last+' · ':'')+'আজ ইউটিউব সীমা ব্যবহার: '+d.quota+'/১০০০০';
                 if(j){t+=' · কাজ: '+(j.type==='sync'?'বিবরণ':'প্লেলিস্ট')+' '+j.state+' ('+j.i+'/'+j.n+')'+(j.err?' — '+j.err:'')+(j.bill?' · খরচ $'+Number(j.bill).toFixed(2):'');}
-                $('#ym-st').textContent=t;
+                if(d.perr)t+=' · ❌ '+d.perr;if(d.busy)t+=' · পরিকল্পনা বানানো চলছে…';
+                $('#ym-st').textContent=t;if(d.busy)setTimeout(function(){call({do:'state'}).then(function(r){if(r.success)show(r.data);});},6000);
                 if(d.block){$('#ym-block').style.display='block';$('#ym-block').textContent=d.block;}
                 plan=d.plan;var h='';
                 if(plan){h='<p><b>পরিকল্পনা ('+(plan.ai?'AI':'নিয়ম')+'):</b> বাদ দিতে টিক তুলুন, নাম বদলাতে পারেন।</p>';
