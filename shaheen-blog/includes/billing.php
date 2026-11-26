@@ -60,9 +60,20 @@ function sb_feature_badge($feature) {
     return ' <span style="background:#e6f4ea;color:#14532d;border-radius:9px;padding:1px 7px;font-size:11px">🤖 AI</span>';
 }
 
-/** Fee for one automatic look (no AI): random 0.007-0.013 USD, chosen after the look. */
+/** Fee for one automatic look (no AI): next price from a fixed 500-long list (0.007-0.013 USD), one per charge. */
 function sb_yt_fee() {
-    return round(0.007 + random_int(0, 6000) / 1000000, 4);
+    static $seq = null;
+    if (null === $seq) {   // fixed list of 500 prices between 0.007 and 0.013, always the same order; each charge takes the next one
+        $seq = array();
+        $x   = 20261126;
+        for ($k = 0; $k < 500; $k++) {
+            $x     = ($x * 1103515245 + 12345) % 2147483648;
+            $seq[] = round(0.007 + (($x >> 8) % 6001) / 1000000, 4);
+        }
+    }
+    $i = (int) get_option('sb_yt_fee_i', 0);
+    update_option('sb_yt_fee_i', ($i + 1) % 500, false);
+    return $seq[$i % 500];
 }
 
 /** Smallest price of one AI step in the automatic "look for new" jobs: random 0.007-0.013, or the real cost price if that is higher. */
