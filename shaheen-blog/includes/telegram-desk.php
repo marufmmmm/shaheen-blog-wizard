@@ -380,7 +380,7 @@ function sb_desk_ask($m, $s) {
             ));
         case 'bodytext':
             if (!empty($s['d']['rewrite'])) {
-                return sb_desk_say($m, "🔁 <b>Rewrite: paste the other person's text</b> (one message, at least 200 characters).\nThe AI writes it again in simple words of our own. Facts and numbers stay the same.", array(array($x)));
+                return sb_desk_say($m, "🔁 <b>Rewrite: send the other person's text or a link</b>\nPaste the text (one message, at least 200 characters) <b>or send the page link</b> and I will read it.\nThe AI writes it again in simple words of our own. Facts and numbers stay the same.", array(array($x)));
             }
             return sb_desk_say($m, ('paste' === $s['d']['body'] ? "📋 <b>Send the full text</b> (in one message)." : "📝 <b>Send your description.</b> The AI will write the full article from it."), array(array($x)));
         case 'length':
@@ -784,8 +784,29 @@ function sb_desk_step($m, $in) {
             }
             break;
         case 'bodytext':
-            if (!empty($d['rewrite']) && ('' === $t || '' !== $cb || mb_strlen($t) < 200)) {
-                sb_desk_say($m, 'Please paste the whole text (at least 200 characters) in one message.');
+            if (!empty($d['rewrite']) && '' === $cb && '' !== $t && ($ru = sb_desk_urls($t))) {   // a link: read the page(s) and use their text
+                $got = '';
+                $bad = array();
+                foreach (array_slice($ru, 0, 2) as $u) {
+                    $it = sb_desk_news_item($u);
+                    if (is_wp_error($it) || mb_strlen((string) $it['text']) < 200) {
+                        $bad[] = $u;
+                        continue;
+                    }
+                    $got .= ($it['title'] !== '' ? $it['title'] . "\n" : '') . $it['text'] . "\n\n";
+                }
+                $rest = trim(preg_replace('#https?://\S+#iu', '', $t));
+                $got  = trim($rest . "\n\n" . $got);
+                if (mb_strlen($got) < 200) {
+                    sb_desk_say($m, "⚠️ I could not read enough text from that link" . ($bad ? ' (the site may block the server or load by script)' : '') . ". Please paste the text itself in one message.");
+                    $stay = true;
+                } else {
+                    $d['bodytext'] = sanitize_textarea_field(mb_substr($got, 0, 12000));
+                    $d['topic'] = mb_substr(preg_replace('/\s+/u', ' ', $d['bodytext']), 0, 500);
+                    sb_desk_say($m, '✅ Link read (' . mb_strlen($d['bodytext']) . ' characters)' . ($bad ? '; one link could not be read' : '') . '. The text will be rewritten in our own words.');
+                }
+            } elseif (!empty($d['rewrite']) && ('' === $t || '' !== $cb || mb_strlen($t) < 200)) {
+                sb_desk_say($m, 'Please paste the whole text (at least 200 characters) in one message, or send a link.');
                 $stay = true;
             } elseif ('' !== $t && '' === $cb) {
                 $d['bodytext'] = sanitize_textarea_field($t);
