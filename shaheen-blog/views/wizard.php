@@ -40,6 +40,7 @@ $d = array(
     'category_extra' => $post ? array_values(array_slice(wp_list_pluck(sb_post_categories($pid), 'id'), 1)) : array(),
     'image_id'    => $post ? (int) get_post_thumbnail_id($pid) : 0,
     'image_url'   => $post ? (string) get_the_post_thumbnail_url($pid, 'medium') : '',
+    'image_meta'  => ($post && get_post_thumbnail_id($pid)) ? array('alt' => (string) get_post_meta((int) get_post_thumbnail_id($pid), '_wp_attachment_image_alt', true), 'title' => (string) get_the_title((int) get_post_thumbnail_id($pid)), 'caption' => (string) wp_get_attachment_caption((int) get_post_thumbnail_id($pid)), 'details' => (string) get_post_field('post_content', (int) get_post_thumbnail_id($pid))) : null,
     'date'        => $post ? get_the_date('Y-m-d', $pid) : wp_date('Y-m-d'),
     'status'      => $post ? $post->post_status : 'draft',
     'url'         => $post ? get_permalink($pid) : '',

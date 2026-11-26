@@ -27,6 +27,7 @@
     if (!a) { setFields({}); return; }
     setFields({ alt: a.alt, title: a.title, caption: a.caption, details: a.description });
   };
+  if (window.SB_POST && SB_POST.image_meta) { setFields(SB_POST.image_meta); }   // an already chosen featured image shows its saved alt / title / caption
   var saveT;
   ['#img-alt', '#img-title', '#img-caption', '#img-details'].forEach(function (s) {
     $(s).addEventListener('change', function () {
