@@ -216,6 +216,7 @@ function sb_feature_cost($feature) {
         'brief'     => 'cost_brief',
         'caption'   => 'cost_caption',
         'humanize'  => 'cost_edit',
+        'langfix'   => 'cost_edit',
     );
     return isset($map[$feature]) ? max(0, (int) sb_get($map[$feature])) : 0;
 }
@@ -363,6 +364,7 @@ function sb_feature_labels() {
         'brief'     => 'লেখার আগে বোঝাপড়া ও গবেষণা',
         'caption'   => 'Facebook ক্যাপশন',
         'humanize'  => 'লেখা মানবিক করা',
+        'langfix'   => 'ভাষা যাচাই ও সহজ করা',
         'image'     => 'AI ছবি',
         'imgprompt' => 'ছবির প্রম্পট',
         'imgmeta'   => 'ছবির alt/শিরোনাম/ক্যাপশন (AI)',

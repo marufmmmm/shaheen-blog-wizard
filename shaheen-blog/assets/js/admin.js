@@ -1085,6 +1085,40 @@
       }).catch(function (e) { box.textContent = e.message; }).then(function () { hb.disabled = false; });
     });
   })();
+  /* ---- ভাষা যাচাই: step 1 free scan of bookish words, step 2 AI makes the wording everyday Bangla (facts/headings/pictures untouched) ---- */
+  (function () {
+    var lb = $('#lang-check'), box = $('#lang-box'); if (!lb) { return; }
+    function esc(t) { return String(t == null ? '' : t).replace(/[&<>"]/g, function (c) { return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]; }); }
+    function list(found) { return '<ul style="margin:6px 0 0 20px">' + found.map(function (f) { return '<li>“' + esc(f.w) + '” (' + bn(f.n) + ' বার) → ' + esc(f.to) + '</li>'; }).join('') + '</ul>'; }
+    function run(btn, out) {
+      btn.disabled = true; out.innerHTML = '⏳ ভাষা ঠিক করা হচ্ছে… (এক মিনিট লাগতে পারে)';
+      post('sb_langfix_run', { title: val('#f-title'), post_id: postId || 0, content: editorContent() }).then(function (d) {
+        var left = d.after || [];
+        out.innerHTML = '<strong>✓ ভাষা সহজ হয়েছে।</strong> ' + (left.length ? '<div class="sba-muted">এখনও আছে (প্রয়োজন হলে হাতে দেখুন):</div>' + list(left) : '<span class="sba-muted">কঠিন শব্দের তালিকার কোনো শব্দ আর নেই।</span>');
+        var ok = document.createElement('button'); ok.type = 'button'; ok.className = 'button button-primary'; ok.style.marginTop = '8px'; ok.textContent = '✔ এডিটরে বসান';
+        var keep = document.createElement('button'); keep.type = 'button'; keep.className = 'button'; keep.style.cssText = 'margin:8px 0 0 6px'; keep.textContent = 'থাক, আগেরটাই রাখি';
+        ok.addEventListener('click', function () { setEditorContent(d.text); out.innerHTML = '✓ বসেছে। ঠিক থাকলে সেভ করুন।'; toast('✓ ভাষা ঠিক করা লেখা বসেছে। সেভ করুন।', 'ok'); });
+        keep.addEventListener('click', function () { out.innerHTML = 'আগের লেখাই আছে।'; });
+        out.appendChild(ok); out.appendChild(keep);
+        if (d.balance) { try { SB.balance = d.balance; } catch (e) {} }
+      }).catch(function (e) { out.textContent = e.message; }).then(function () { btn.disabled = false; });
+    }
+    function scan(auto) {
+      var html = editorContent(); if (html.replace(/<[^>]+>/g, '').trim().length < 120) { if (!auto) { toast('আগে আর্টিকেল লিখুন।', 'err'); } return; }
+      if (!auto) { lb.disabled = true; box.hidden = false; box.innerHTML = '⏳ দেখছি…'; }
+      post('sb_langfix_scan', { content: html }).then(function (d) {
+        var found = d.found || [];
+        if (!found.length) { if (!auto) { box.innerHTML = '<strong>✅ কঠিন বা বইয়ের মতো শব্দ পাওয়া যায়নি।</strong> <span class="sba-muted">তবু বাক্য আরও সহজ করাতে চাইলে নিচের বোতাম চাপুন।</span>'; } else { return; } }
+        else { box.hidden = false; box.innerHTML = '<strong>🗣️ ' + bn(found.length) + 'টি শব্দ বইয়ের মতো লাগছে</strong>' + list(found); }
+        var go = document.createElement('button'); go.type = 'button'; go.className = 'button button-primary'; go.style.marginTop = '8px'; go.textContent = '✍️ AI দিয়ে পুরো লেখার ভাষা ঠিক করুন';
+        var out = document.createElement('div'); out.style.marginTop = '8px';
+        go.addEventListener('click', function () { run(go, out); });
+        box.appendChild(go); box.appendChild(out);
+      }).catch(function (e) { if (!auto) { box.textContent = e.message; } }).then(function () { lb.disabled = false; });
+    }
+    lb.addEventListener('click', function () { scan(false); });
+    window.sbLangAutoScan = function () { scan(true); };
+  })();
   if ($('#caption-copy')) {
     $('#caption-copy').addEventListener('click', function () {
       var t = $('#f-caption'); t.select();
@@ -1186,6 +1220,7 @@
     else if (f === 'meta') { $('#f-meta').value = r.text; metaCount(); }
     else if (f === 'article' || f === 'custom' || f === 'rewrite') {
       setEditorContent(r.text);
+      setTimeout(function () { if (window.sbLangAutoScan) { window.sbLangAutoScan(); } }, 600);   // free language check right after writing
       var sb = $('#article-sources'), mb = $('#article-missing');
       sb.innerHTML = ''; mb.innerHTML = '';
       if (r.sources && r.sources.length) {
