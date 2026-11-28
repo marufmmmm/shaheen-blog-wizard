@@ -254,7 +254,7 @@ function sb_ytm_schedule($in = 20) {
     }
 }
 
-function sb_ytm_start_sync() {
+function sb_ytm_start_sync($max = 100) {
     $j = sb_ytm_job();
     if (!empty($j) && 'run' === ($j['state'] ?? '')) {
         return new WP_Error('sb_ytm', 'আরেকটি কাজ চলছে।');
@@ -280,7 +280,7 @@ function sb_ytm_start_sync() {
             $ai = false;   // the AI gave nothing: the plain block is used, and only the minimum is charged
         }
     }
-    $ids = sb_ytm_ids(100);
+    $ids = sb_ytm_ids($max);
     if (is_wp_error($ids)) {
         return $ids;
     }
@@ -528,8 +528,8 @@ function sb_ytm_make_plan($ai, $only = null, $known = array()) {
         }
         list($r, $real) = sb_ytm_ai(
             sb_ytm_plan_sys()
-            . ($known ? ' আগে থেকে এই প্লেলিস্টগুলো আছে, মানানসই হলে হুবহু এই নামই ব্যবহার করবে, নতুন বিষয় হলে তবেই নতুন নাম দেবে: ' . implode(' | ', $known) . '.' : '')
-            . ' শুধু এই JSON: {"lists":[{"name":"...","desc":"...","ids":["..."]}]}',
+            . ($known ? ' আগে থেকে এই প্লেলিস্টগুলো আছে: ' . implode(' | ', $known) . '. মানানসই হলে সবসময় হুবহু এই নামই ব্যবহার করবে; একটি ভিডিও একাধিক মানানসই প্লেলিস্টেও দিতে পারো (সর্বোচ্চ ৩টি)। নতুন প্লেলিস্ট শুধু তখনই, যখন ভিডিওটি এমন কোনো নতুন ইভেন্ট বা অনুষ্ঠানের যার প্লেলিস্ট এখনো নেই (এক ভিডিও হলেও চলবে); তখন সেই প্লেলিস্টে "event":true দেবে। অন্য কোনো কারণে, বা আগের নামের কাছাকাছি নামে, নতুন প্লেলিস্ট দেবে না।' : '')
+            . ' শুধু এই JSON: {"lists":[{"name":"...","desc":"...","event":false,"ids":["..."]}]}',
             implode("\n", $rows)
         );
         $plan['real'] = $real;
@@ -540,7 +540,7 @@ function sb_ytm_make_plan($ai, $only = null, $known = array()) {
                     return isset($vids[$x]);
                 })));
                 if ($ok && !empty($l['name'])) {
-                    $plan['lists'][] = array('name' => mb_substr(sanitize_text_field((string) $l['name']), 0, 100), 'desc' => mb_substr(sanitize_text_field((string) ($l['desc'] ?? '')), 0, 300), 'ids' => $ok);
+                    $plan['lists'][] = array('name' => mb_substr(sanitize_text_field((string) $l['name']), 0, 100), 'desc' => mb_substr(sanitize_text_field((string) ($l['desc'] ?? '')), 0, 300), 'event' => !empty($l['event']) ? 1 : 0, 'ids' => $ok);
                 }
             }
         }
@@ -591,6 +591,9 @@ function sb_ytm_step_apply($j, &$pause) {
                 return sb_ytm_fail($j, $r, $pause);
             }
             $cur['pid'] = $r['id'];
+            if (!empty($j['auto'])) {
+                sb_ytm_notify("▶️ <b>New YouTube playlist created</b>\n" . esc_html($cur['name']) . ' (public)');
+            }
         }
         $have = array();
         $pt   = '';
@@ -660,9 +663,27 @@ function sb_ytm_place_new() {
     if (is_wp_error($plan) || empty($plan['lists'])) {
         return;
     }
-    $L = array();
-    foreach ($plan['lists'] as $l) {
-        $L[] = array('name' => $l['name'], 'desc' => $l['desc'], 'ids' => $l['ids']);
+    $kn = array_values(array_unique($placed));
+    $L  = array();
+    foreach ($plan['lists'] as $l) {   // a new playlist only for a new event; a name close to an existing one means the existing one
+        $best = '';
+        $bp   = 0;
+        foreach ($kn as $k) {
+            similar_text(mb_strtolower($l['name']), mb_strtolower($k), $pc);
+            if ($pc > $bp) {
+                $bp   = $pc;
+                $best = $k;
+            }
+        }
+        if ($bp >= 80) {
+            $l['name'] = $best;
+        } elseif (empty($l['event'])) {
+            continue;
+        }
+        $L[] = array('name' => $l['name'], 'desc' => $l['desc'], 'ids' => $l['ids'], 'new' => $bp >= 80 ? 0 : 1);
+    }
+    if (!$L) {
+        return;
     }
     sb_ytm_job_save(array('type' => 'apply', 'state' => 'run', 'auto' => 1, 'lists' => $L, 'li' => 0, 'added' => 0, 'placed' => array(), 'err' => '', 'ai' => (int) $plan['ai'], 'real' => (float) $plan['real'], 't' => time()));
     sb_ytm_schedule(5);
@@ -1020,6 +1041,7 @@ function sb_page_youtube() {
         <h1>▶️ YouTube</h1>
         <p class="sba-muted">চ্যানেলের ভিডিও, প্লেলিস্ট, বিবরণ ও থাম্বনেইল এখান থেকে চলে। ফেসবুক ভিডিওর লিংক দিয়ে ইউটিউবে পোস্টও এখানে।</p>
         <?php sb_ytm_panel(); ?>
+        <?php if (function_exists('sb_yts_panel')) { sb_yts_panel(); } ?>
     </div>
     <?php
 }
